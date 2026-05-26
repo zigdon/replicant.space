@@ -20,14 +20,14 @@ func log(tmpl string, args ...any) {
 	fmt.Fprintf(os.Stderr, tmpl, args...)
 }
 
-func Get(path string, args ...any) (string, error) {
+func Get(path string, args ...any) ([]byte, error) {
 	cfg, err := cfg.ReadCfg()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	url, err := url.Parse(fmt.Sprintf(base+"/"+path, args...))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	resp, err := client.Do(&http.Request{
 		Method: "GET",
@@ -38,25 +38,25 @@ func Get(path string, args ...any) (string, error) {
 	})
 	log("GET %q -> %d\n", url, resp.StatusCode)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if resp.StatusCode > 299 {
-		return "", fmt.Errorf("GET failed with %d:\n%s", resp.StatusCode, body)
+		return nil, fmt.Errorf("GET failed with %d:\n%s", resp.StatusCode, body)
 	}
-	return string(body), err
+	return body, err
 }
 
-func Post(path string, data *map[string]string, args ...any) (string, error) {
+func Post(path string, data *map[string]string, args ...any) ([]byte, error) {
 	cfg, err := cfg.ReadCfg()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	url, err := url.Parse(fmt.Sprintf(base+"/"+path, args...))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	resp, err := client.Do(&http.Request{
 		Method: "POST",
@@ -67,13 +67,13 @@ func Post(path string, data *map[string]string, args ...any) (string, error) {
 	})
 	log("POST %q -> %d\n", url, resp.StatusCode)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if resp.StatusCode > 299 {
-		return "", fmt.Errorf("GET failed with %d:\n%s", resp.StatusCode, body)
+		return nil, fmt.Errorf("GET failed with %d:\n%s", resp.StatusCode, body)
 	}
-	return string(body), err
+	return body, err
 }

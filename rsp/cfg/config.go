@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"gopkg.in/yaml.v3"
+    "github.com/zigdon/rsp/models"
 )
 
 func log(tmpl string, args ...any) {
@@ -14,12 +15,6 @@ func log(tmpl string, args ...any) {
 const (
 	cfgFile = ".config.yaml"
 )
-
-type Configuration struct {
-	APIKey string `yaml:"api_key"`
-	Username string `yaml:"username"`
-	Replicants map[string]string `yaml:"replicants"`
-}
 
 func GetID(id int) string {
 	config, err := ReadCfg()
@@ -36,12 +31,12 @@ func GetID(id int) string {
 
 var dumped bool
 
-func ReadCfg() (*Configuration, error) {
+func ReadCfg() (*models.Config, error) {
 	data, err := os.ReadFile(cfgFile)
 	if err != nil {
 		return nil, fmt.Errorf("can't read cfg %q: %v", cfgFile, err)
 	}
-	var cfg *Configuration
+	var cfg *models.Config
 	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse config: %v", err)

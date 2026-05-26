@@ -17,7 +17,7 @@ var meCmd = &cobra.Command{
 			log("Error getting status: %v", err)
 			return
 		}
-		fmt.Println(res)
+		fmt.Println(string(res))
 	},
 }
 
