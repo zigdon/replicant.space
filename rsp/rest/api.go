@@ -3,6 +3,7 @@ package rest
 import (
 	"fmt"
 	"io"
+	"os"
 
     "github.com/zigdon/rsp/cfg"
 	"net/http"
@@ -14,6 +15,10 @@ const (
 )
 
 var client http.Client
+
+func log(tmpl string, args ...any) {
+	fmt.Fprintf(os.Stderr, tmpl, args...)
+}
 
 func Get(path string, args ...any) (string, error) {
 	cfg, err := cfg.ReadCfg()
@@ -31,7 +36,7 @@ func Get(path string, args ...any) (string, error) {
 			"Authorization": {"Bearer "+cfg.APIKey},
 		},
 	})
-	fmt.Printf("GET %q -> %d\n", url, resp.StatusCode)
+	log("GET %q -> %d\n", url, resp.StatusCode)
 	if err != nil {
 		return "", err
 	}
@@ -60,7 +65,7 @@ func Post(path string, data *map[string]string, args ...any) (string, error) {
 			"Authorization": {"Bearer "+cfg.APIKey},
 		},
 	})
-	fmt.Printf("POST %q -> %d\n", url, resp.StatusCode)
+	log("POST %q -> %d\n", url, resp.StatusCode)
 	if err != nil {
 		return "", err
 	}

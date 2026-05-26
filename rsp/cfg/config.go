@@ -7,6 +7,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func log(tmpl string, args ...any) {
+	fmt.Fprintf(os.Stderr, tmpl, args...)
+}
+
 const (
 	cfgFile = ".config.yaml"
 )
@@ -23,7 +27,7 @@ func GetID(id int) string {
 		panic(fmt.Sprintf("Couldn't read config: %v", err))
 	}
 	if len(config.Replicants) < id-1 {
-		fmt.Printf("Error: Only %d replicants configured, can't find %d", len(config.Replicants), id)
+		log("Error: Only %d replicants configured, can't find %d", len(config.Replicants), id)
 		return ""
 	}
 
@@ -45,7 +49,7 @@ func ReadCfg() (*Configuration, error) {
 
 	if !dumped {
 		dumped = true
-		fmt.Printf("config: %#v\n", cfg)
+		log("config: %#v\n", cfg)
 	}
 
 	return cfg, nil

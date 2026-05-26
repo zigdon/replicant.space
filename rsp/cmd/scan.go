@@ -14,7 +14,12 @@ var scanCmd = &cobra.Command{
 	Short: "Scan a system",
 	Run: func(cmd *cobra.Command, args []string) {
 		id, _ := cmd.Flags().GetInt("id")
-		fmt.Println(rest.Post("replicants/%s/scan", nil, cfg.GetID(id)))
+		res, err := rest.Post("replicants/%s/scan", nil, cfg.GetID(id))
+		if err != nil {
+			log("Error scanning: %v", err)
+			return
+		}
+		fmt.Println(res)
 	},
 }
 
