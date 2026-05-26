@@ -11,15 +11,26 @@ const (
 	cfgFile = ".config.yaml"
 )
 
-type Replicant struct {
-	id string `yaml:"id"`
-	name string `yaml:"name"`
-}
-
 type Configuration struct {
 	APIKey string `yaml:"api_key"`
-	Replicants []Replicant `yaml:"replicants"`
+	Username string `yaml:"username"`
+	Replicants map[string]string `yaml:"replicants"`
 }
+
+func GetID(id int) string {
+	config, err := ReadCfg()
+	if err != nil {
+		panic(fmt.Sprintf("Couldn't read config: %v", err))
+	}
+	if len(config.Replicants) < id-1 {
+		fmt.Printf("Error: Only %d replicants configured, can't find %d", len(config.Replicants), id)
+		return ""
+	}
+
+	return config.Replicants[fmt.Sprintf("%s-%d", config.Username, id)]
+}
+
+var dumped bool
 
 func ReadCfg() (*Configuration, error) {
 	data, err := os.ReadFile(cfgFile)
@@ -30,6 +41,11 @@ func ReadCfg() (*Configuration, error) {
 	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse config: %v", err)
+	}
+
+	if !dumped {
+		dumped = true
+		fmt.Printf("config: %#v\n", cfg)
 	}
 
 	return cfg, nil
