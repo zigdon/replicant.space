@@ -9,7 +9,9 @@ import (
 )
 
 func log(tmpl string, args ...any) {
-	fmt.Fprintf(os.Stderr, tmpl, args...)
+	if os.Getenv("DEBUG_CONFIG") != "" {
+		fmt.Fprintf(os.Stderr, tmpl, args...)
+	}
 }
 
 const (

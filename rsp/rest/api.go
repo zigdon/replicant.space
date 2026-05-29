@@ -19,7 +19,9 @@ var (
 )
 
 func log(tmpl string, args ...any) {
-	fmt.Fprintf(os.Stderr, tmpl, args...)
+	if os.Getenv("DEBUG_API") != "" {
+		fmt.Fprintf(os.Stderr, tmpl, args...)
+	}
 }
 
 func Get(path string, args ...any) ([]byte, error) {

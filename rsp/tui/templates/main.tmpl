@@ -1,0 +1,13 @@
+[[ {{.Account.Name}} ]]
+
+XP: {{.Account.ExperiencePointsTotal }} | Unread messages: {{.Account.UnreadMessageCount}}
+
+{{ range $i, $r := .Account.Replicants -}}
+{{ if eq $i $.Cursor -}}
+  [🞋]
+{{- else -}}
+  [ ]
+{{- end }} {{$r.Name}}: {{$r.CurrentLocation}}
+{{ end }}
+
+Select? (j,k,enter,q)

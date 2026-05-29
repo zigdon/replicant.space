@@ -9,6 +9,7 @@ import (
 	"github.com/zigdon/rsp/rest"
 
 	tea "charm.land/bubbletea/v2"
+	gloss "charm.land/lipgloss/v2"
 )
 
 func log(tmpl string, args ...any) {
@@ -26,31 +27,53 @@ const (
 )
 
 type Model struct {
-	screensVisible map[screenID]bool
-	screensCursor map[screenID]int
+	ScreensVisible map[screenID]bool
+	ScreensCursor map[screenID]int
 	// Current account info
-	account *models.Me
+	Account *models.Me
 	// Map of replicant ID to a recent scan
-	scans map[string]*models.Scan
+	Scans map[string]*models.Scan
+}
+
+func (m *Model) render(id screenID) *gloss.Layer {
+	return map[screenID]func()*gloss.Layer {
+		mainMenu: m.mainView,
+	}[id]()
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return nil, nil
+	switch msg := msg.(type) {
+
+		// Is it a key press?
+		case tea.KeyPressMsg:
+
+			// Cool, what was the actual key pressed?
+			switch msg.String() {
+
+			// These keys should exit the program.
+			case "ctrl+c", "q":
+				return m, tea.Quit
+
+			}
+	}
+	
+	return m, nil
 }
 
 func (m *Model) View() tea.View {
 	var visible []screenID
-	for id, v := range m.screensVisible {
+	for id, v := range m.ScreensVisible {
 		if !v { continue }
 		visible = append(visible, id)
 	}
 	slices.Sort(visible)
 
-	for range visible {
-		// call the windows view method
+	var layers []*gloss.Layer
+	for z, v := range visible {
+		layers = append(layers, m.render(v).Z(z))
 	}
 
-	return tea.NewView("")
+	return tea.NewView(gloss.NewCompositor(layers...).Render())
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -62,15 +85,15 @@ func (m *Model) updateData() error {
 	if err != nil {
 		return fmt.Errorf("can't get account info: %v", err)
 	}
-	m.account = me
+	m.Account = me
 
-	for _, r := range m.account.Replicants {
+	for _, r := range m.Account.Replicants {
 		rs, err := rest.ReplicantScan(r.ReplicantCode)
 		if err != nil {
 			log("error getting scan for %s: %v", r.ReplicantCode, err)
 			continue
 		}
-		m.scans[r.ReplicantCode] = rs
+		m.Scans[r.ReplicantCode] = rs
 	}
 
 	return nil
@@ -78,11 +101,11 @@ func (m *Model) updateData() error {
 
 func Init() *Model {
 	m := &Model{
-		screensVisible: map[screenID]bool{
+		ScreensVisible: map[screenID]bool{
 			mainMenu: true,
 		},
-		screensCursor: make(map[screenID]int),
-		scans: make(map[string]*models.Scan),
+		ScreensCursor: make(map[screenID]int),
+		Scans: make(map[string]*models.Scan),
 	}
 	if err := m.updateData(); err != nil {
 		die("Failed to initialize model: %v", err)
