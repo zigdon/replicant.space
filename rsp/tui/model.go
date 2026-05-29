@@ -9,7 +9,7 @@ import (
 	"github.com/zigdon/rsp/rest"
 
 	tea "charm.land/bubbletea/v2"
-	gloss "charm.land/lipgloss/v2"
+	lg "charm.land/lipgloss/v2"
 )
 
 func log(tmpl string, args ...any) {
@@ -26,35 +26,56 @@ const (
 	mainMenu screenID = iota
 )
 
+type Screen struct {
+	Visible bool
+	Cursor int
+	Size int
+}
+
 type Model struct {
-	ScreensVisible map[screenID]bool
-	ScreensCursor map[screenID]int
+	// UI ELEMENTS
+	// Which screen has focus
+	Focus screenID
+	// Screen state
+	Screens map[screenID]*Screen
+
+	// GAME STATE
 	// Current account info
 	Account *models.Me
 	// Map of replicant ID to a recent scan
 	Scans map[string]*models.Scan
 }
 
-func (m *Model) render(id screenID) *gloss.Layer {
-	return map[screenID]func()*gloss.Layer {
+func (m *Model) render(id screenID) *lg.Layer {
+	return map[screenID]func()*lg.Layer {
 		mainMenu: m.mainView,
 	}[id]()
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-
-		// Is it a key press?
 		case tea.KeyPressMsg:
-
-			// Cool, what was the actual key pressed?
 			switch msg.String() {
 
 			// These keys should exit the program.
 			case "ctrl+c", "q":
 				return m, tea.Quit
 
-			}
+			case "j", "down":
+				f := m.Focus
+				m.Screens[f].Cursor++
+				if m.Screens[f].Cursor >= m.Screens[f].Size {
+					m.Screens[f].Cursor = 0
+				}
+				return m, nil
+			case "k", "up":
+				f := m.Focus
+				m.Screens[f].Cursor--
+				if m.Screens[f].Cursor < 0 {
+					m.Screens[f].Cursor = m.Screens[f].Size-1
+				}
+				return m, nil
+		}
 	}
 	
 	return m, nil
@@ -62,18 +83,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) View() tea.View {
 	var visible []screenID
-	for id, v := range m.ScreensVisible {
-		if !v { continue }
+	for id, s := range m.Screens {
+		if !s.Visible { continue }
 		visible = append(visible, id)
 	}
 	slices.Sort(visible)
 
-	var layers []*gloss.Layer
+	var layers []*lg.Layer
 	for z, v := range visible {
 		layers = append(layers, m.render(v).Z(z))
 	}
 
-	return tea.NewView(gloss.NewCompositor(layers...).Render())
+	return tea.NewView(lg.NewCompositor(layers...).Render())
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -87,6 +108,7 @@ func (m *Model) updateData() error {
 	}
 	m.Account = me
 
+	m.Screens[mainMenu].Size = len(m.Account.Replicants)
 	for _, r := range m.Account.Replicants {
 		rs, err := rest.ReplicantScan(r.ReplicantCode)
 		if err != nil {
@@ -101,10 +123,11 @@ func (m *Model) updateData() error {
 
 func Init() *Model {
 	m := &Model{
-		ScreensVisible: map[screenID]bool{
-			mainMenu: true,
+		Screens: map[screenID]*Screen{
+			mainMenu: &Screen{
+				Visible: true,
+			},
 		},
-		ScreensCursor: make(map[screenID]int),
 		Scans: make(map[string]*models.Scan),
 	}
 	if err := m.updateData(); err != nil {

@@ -2,23 +2,31 @@ package tui
 
 import (
 	"embed"
+	"fmt"
 	"strings"
 
 	"text/template"
 
-	"charm.land/lipgloss/v2"
+	lg "charm.land/lipgloss/v2"
 )
+
+type menuData struct {
+	Title string
+	Header string
+	Options []string
+	Cursor int
+}
 
 //go:embed templates/*.tmpl
 var templates embed.FS
 
-func (m *Model) executeTmpl(name string, data any) *lipgloss.Layer {
+func (m *Model) executeTmpl(name string, data any) *lg.Layer {
 	tmpl := t(name)
 	var s strings.Builder
 	if err := tmpl.Execute(&s, data); err != nil {
 		log("Error executing %q: %v", name, err)
 	}
-	return lipgloss.NewLayer(s.String())
+	return lg.NewLayer(screen(s.String()))
 }
 
 func t(name string) *template.Template {
@@ -31,4 +39,29 @@ func t(name string) *template.Template {
 		die("Can't parse template %q: %v", name, err)
 	}
 	return tmpl
+}
+
+type boxStyle int
+const (
+	titleStyle boxStyle = iota
+	headerStyle
+)
+
+func box(style boxStyle, tmpl string, args ...any) string {
+	st := lg.NewStyle().
+		Border(lg.RoundedBorder()).
+		PaddingLeft(3).
+		PaddingRight(3).
+		Width(40)
+	if style == titleStyle || style == headerStyle {
+		st = st.Align(lg.Center)
+	}
+	return st.Render(fmt.Sprintf(tmpl, args...))
+}
+
+func screen(contents string) string {
+	return lg.NewStyle().
+		Border(lg.ThickBorder()).
+		Padding(0, 1, 2, 2).
+		Render(contents)
 }
