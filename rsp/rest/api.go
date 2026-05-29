@@ -14,7 +14,9 @@ const (
 	base = "https://api.replicant.space/v1"
 )
 
-var client http.Client
+var (
+	client http.Client
+)
 
 func log(tmpl string, args ...any) {
 	fmt.Fprintf(os.Stderr, tmpl, args...)
@@ -46,6 +48,7 @@ func Get(path string, args ...any) ([]byte, error) {
 	if resp.StatusCode > 299 {
 		return nil, fmt.Errorf("GET failed with %d:\n%s", resp.StatusCode, body)
 	}
+
 	return body, err
 }
 
@@ -75,5 +78,6 @@ func Post(path string, data *map[string]string, args ...any) ([]byte, error) {
 	if resp.StatusCode > 299 {
 		return nil, fmt.Errorf("GET failed with %d:\n%s", resp.StatusCode, body)
 	}
+
 	return body, err
 }

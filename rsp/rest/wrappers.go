@@ -1,7 +1,6 @@
 package rest
 
 import (
-	"github.com/zigdon/rsp/cfg"
     "github.com/zigdon/rsp/models"
 )
 
@@ -13,9 +12,8 @@ func Me() (*models.Me, error) {
 	return models.ParseMe(res)
 }
 
-func ReplicantScan(id int) (*models.Scan, error) {
-	rID := cfg.GetID(id)
-	res, err := Post("replicants/%s/scan", nil, rID)
+func ReplicantScan(id string) (*models.Scan, error) {
+	res, err := Post("replicants/%s/scan", nil, id)
 	if err != nil {
 		return nil, err
 	}

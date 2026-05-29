@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/cfg"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -13,7 +14,8 @@ var scanCmd = &cobra.Command{
 	Short: "Scan a system",
 	Run: func(cmd *cobra.Command, args []string) {
 		id, _ := cmd.Flags().GetInt("id")
-		scan, err := rest.ReplicantScan(id)
+		rID := cfg.GetID(id)
+		scan, err := rest.ReplicantScan(rID)
 		if err != nil {
 			log("Error scanning: %v", err)
 			return
