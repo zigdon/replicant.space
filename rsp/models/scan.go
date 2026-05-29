@@ -48,7 +48,7 @@ type Planet struct {
 	Type string `yaml:"type"`
 }
 
-type Replicant struct {
+type ScanReplicant struct {
 	LastActive string `yaml:"last_active"`
 	Location string `yaml:"location"`
 	ReplicantCode string `yaml:"replicant_code"`
@@ -104,7 +104,7 @@ type Scan struct {
 		Oort Destination `yaml:"oort"`
 	} `yaml:"outer_system"`
 	Planets []Planet `yaml:"planets"`
-	Replicants map[string]Replicant `yaml:"replicants"`
+	Replicants map[string]ScanReplicant `yaml:"replicants"`
 	Star Star `yaml:"star"`
 	SystemObjects []Object `yaml:"system_objects"`
 	SystemTags []string `yaml:"system_tags"`

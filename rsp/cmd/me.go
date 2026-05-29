@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
     "github.com/zigdon/rsp/rest"
+	"github.com/zigdon/rsp/models"
 )
 
 // meCmd represents the me command
@@ -17,10 +18,23 @@ var meCmd = &cobra.Command{
 			log("Error getting status: %v", err)
 			return
 		}
-		fmt.Println(string(res))
+		if raw {
+			fmt.Println(res)
+			return
+		}
+		printMe(res)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(meCmd)
+}
+
+func printMe(data []byte) {
+	me, err := models.ParseMe(data)
+	if err != nil {
+		log("Error parsing me: %v", err)
+		return
+	}
+	fmt.Printf("%#v\n", me)
 }
