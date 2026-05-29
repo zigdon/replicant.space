@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
@@ -23,13 +24,18 @@ func die(tmpl string, args ...any) {
 
 type screenID int
 const (
-	mainMenu screenID = iota
+	none screenID = iota
+	mainMenu
+	replicantMenu
 )
 
 type Screen struct {
 	Visible bool
 	Cursor int
 	Size int
+
+	GetSize func(*Model) int
+	Load func(string) error
 }
 
 type Model struct {
@@ -38,6 +44,8 @@ type Model struct {
 	Focus screenID
 	// Screen state
 	Screens map[screenID]*Screen
+	// Terminal size
+	Width, Height int
 
 	// GAME STATE
 	// Current account info
@@ -75,7 +83,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Screens[f].Cursor = m.Screens[f].Size-1
 				}
 				return m, nil
+			case "enter":
+				log("Selected: %d.%d\n\n", m.Focus, m.Screens[m.Focus].Cursor)
+				return m, tea.Quit
 		}
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		m.Height = msg.Height
 	}
 	
 	return m, nil
@@ -89,12 +103,17 @@ func (m *Model) View() tea.View {
 	}
 	slices.Sort(visible)
 
-	var layers []*lg.Layer
-	for z, v := range visible {
-		layers = append(layers, m.render(v).Z(z))
+	layers := []*lg.Layer{
+		lg.NewLayer(background(m.Width, m.Height)).Z(-1),
+	}
+	for i, v := range visible {
+		layers = append(layers, m.render(v).X(3+i*3).Y(2+i*2).Z(i))
 	}
 
-	return tea.NewView(lg.NewCompositor(layers...).Render())
+	view := tea.NewView(lg.NewCompositor(layers...).Render())
+	view.WindowTitle = "replicant.space"
+	view.AltScreen = true
+	return view
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -108,7 +127,6 @@ func (m *Model) updateData() error {
 	}
 	m.Account = me
 
-	m.Screens[mainMenu].Size = len(m.Account.Replicants)
 	for _, r := range m.Account.Replicants {
 		rs, err := rest.ReplicantScan(r.ReplicantCode)
 		if err != nil {
@@ -118,17 +136,27 @@ func (m *Model) updateData() error {
 		m.Scans[r.ReplicantCode] = rs
 	}
 
+	for id, s := range m.Screens {
+		m.Screens[id].Size = s.GetSize(m)
+	}
+
 	return nil
 }
 
 func Init() *Model {
+	w, _ := strconv.Atoi(os.Getenv("COLUMNS"))
+	h, _ := strconv.Atoi(os.Getenv("LINES"))
+	if w == 0 { w = 80 }
+	if h == 0 { h = 40 }
 	m := &Model{
+		Focus: mainMenu,
 		Screens: map[screenID]*Screen{
-			mainMenu: &Screen{
-				Visible: true,
-			},
+			mainMenu: newMainScreen(),
+			replicantMenu: newReplicantScreen(),
 		},
 		Scans: make(map[string]*models.Scan),
+		Width: w,
+		Height: h,
 	}
 	if err := m.updateData(); err != nil {
 		die("Failed to initialize model: %v", err)

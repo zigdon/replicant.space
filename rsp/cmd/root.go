@@ -10,10 +10,8 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "rsp",
-	Short: "Simpler cli for interacting with replicant.space",
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Short: "Simple cli for interacting with replicant.space",
+	Run: runCmd.Run,
 }
 
 func log(tmpl string, args ...any) {

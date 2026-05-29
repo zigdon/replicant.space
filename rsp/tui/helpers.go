@@ -10,12 +10,7 @@ import (
 	lg "charm.land/lipgloss/v2"
 )
 
-type menuData struct {
-	Title string
-	Header string
-	Options []string
-	Cursor int
-}
+//// Templates
 
 //go:embed templates/*.tmpl
 var templates embed.FS
@@ -41,6 +36,7 @@ func t(name string) *template.Template {
 	return tmpl
 }
 
+//// UI Elements
 type boxStyle int
 const (
 	titleStyle boxStyle = iota
@@ -64,4 +60,34 @@ func screen(contents string) string {
 		Border(lg.ThickBorder()).
 		Padding(0, 1, 2, 2).
 		Render(contents)
+}
+
+func background(w, h int) string {
+	return lg.NewStyle().
+		Width(w).
+		Height(h).
+		Align(lg.Center).
+		Render("replicant.space")
+}
+
+var screenNotImplemented = &Screen{
+	Cursor: 0,
+	GetSize: func(*Model) int { return 1 },
+}
+
+//// Menus
+type menuOption struct {
+	Text string
+	Action func(*Model)
+	NextScreen screenID
+	Hotkey rune
+	BreakAfter bool
+}
+
+type menuData struct {
+	Title string
+	Header string
+	Footer string
+	Options []menuOption
+	Cursor int
 }

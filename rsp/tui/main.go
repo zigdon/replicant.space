@@ -6,16 +6,37 @@ import (
 	lg "charm.land/lipgloss/v2"
 )
 
-func (m *Model) mainView() *lg.Layer {
-	var opts []string
-	for _, r := range m.Account.Replicants {
-		opts = append(opts, fmt.Sprintf("%s (%s)", r.Name, r.CurrentLocation))
+func newMainScreen() *Screen {
+	return &Screen{
+		Visible: true,
+		GetSize: func(m *Model) int {
+			return len(m.Account.Replicants) + 1
+		},
 	}
+}
+
+func (m *Model) mainView() *lg.Layer {
+	var opts []menuOption
+	for n, r := range m.Account.Replicants {
+		opts = append(opts, menuOption{
+			Text: fmt.Sprintf("%s (%s)", r.Name, r.CurrentLocation),
+			Action: func(m *Model) {
+				m.Screens[replicantMenu].Load(r.ReplicantCode)
+			},
+			NextScreen: replicantMenu,
+			BreakAfter: n == len(m.Account.Replicants)-1,
+		})
+	}
+	opts = append(opts, menuOption{
+		Text: "Messages",
+	})
+
 	header := box(headerStyle, "XP: %d | Unread Messages: %d", m.Account.ExperiencePointsTotal, m.Account.UnreadMessageCount)
 	title := box(titleStyle, "[[ %s ]]", m.Account.Name)
 	return m.executeTmpl("menu", menuData{
 		Title: title,
 		Header: header,
+		Footer: "Arrows/Enter to select, q to quit",
 		Options: opts,
 		Cursor: m.Screens[mainMenu].Cursor,
 	})
