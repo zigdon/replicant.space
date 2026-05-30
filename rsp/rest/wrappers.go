@@ -19,3 +19,11 @@ func ReplicantScan(id string) (*models.Scan, error) {
 	}
 	return models.ParseScan(res)
 }
+
+func Replicant(id string) (*models.Replicant, error) {
+	res, err := Get("replicants/%s", id)
+	if err != nil {
+		return nil, err
+	}
+	return models.ParseReplicant(res)
+}

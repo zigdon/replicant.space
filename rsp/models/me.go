@@ -12,19 +12,6 @@ type Notify struct {
 	Webhook bool `json:"webhook"`
 }
 
-type Replicant struct {
-	CreatedAt string `json:"created_at"`
-	CurrentLocation string `json:"current_location"`
-	CurrentLocationName string `json:"current_location_name"`
-	CurrentStar string `json:"current_star"`
-	CurrentStarName string `json:"current_star_name"`
-	DeviceCount int `json:"device_count"`
-	ExperiencePoints int `json:"experience_points"`
-	HostedDeviceCode string `json:"hosted_device_code"`
-	Name string `json:"name"`
-	ReplicantCode string `json:"replicant_code"`
-}
-
 type Me struct {
 	BobnetChannels []string `json:"bobnet_channels"`
 	CreatedAt string `json:"created_at"`
