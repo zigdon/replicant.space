@@ -2,26 +2,8 @@ Replicant {{ .R.ReplicantCode }}: {{ .R.Name }}
 XP: {{ .R.ExperiencePoints }}  Devices: {{ .R.DeviceCount }}
 
 Location: {{ .R.Location }} ({{ .R.Status }})
-
-{{ with .ScanData }}
---- SCAN DATA ---
-Entry point: {{ .EntryPoint }}  Life detected: {{ .LifeDetected }}
-
-{{ if .ActiveLocationEvents }}
-Events: {{ range $i, $e := .ActiveLocationEvents }}
-- {{ $e }}
+{{- with .Inventory -}}
+Devices:
+{{ range $i, $d := . }}
+- {{ $d.Qty }} x {{ $d.Type }}
 {{- end }}{{ end }}
-
-Planets:
-{{ range $i, $p := .Planets }}
-- {{ $p.Designation }} ({{ $p.Type }}) {{ if $p.Scanned }}(scanned){{ end }}
-{{- end }}
-
-{{ if .AsteroidBelt.Present }}
-Belts: {{ range $i, $b := .AsteroidBelt.Belts }}
-- {{ $b.Designation }} ({{ $b.Density }}): {{ range $k, $v := $b.Resources }}
-  - {{ $k }}: {{ $v }}
-  {{- end }}
-{{- end }}{{ end }}
-
-{{ end }}

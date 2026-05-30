@@ -10,46 +10,52 @@ import (
 
 var (
 	r *models.Replicant
-	s *models.Scan
 )
 
 func loadReplicant(id string) {
-	rep, err := rest.Replicant(id)
+	var err error
+	r, err = rest.Replicant(id)
 	if err != nil {
 		log("Error loading replicant %q: %v", id, err)
 		return
 	}
+}
 
-	if r == nil || rep.Location != r.Location {
-		s, err = rest.ReplicantScan(rep.ReplicantCode)
-		if err != nil {
-			log("Error scanning replicant system %q: %v", rep.Location, err)
-		}
-	}
-	r = rep
+type InvItem struct {
+	Qty int
+	Type string
 }
 
 type replicantData struct {
 	R *models.Replicant
 	ScanData *models.Scan
+	Inventory []InvItem
 }
 
-func replicantView(m *Model) *lg.Layer{
+func replicantView(m *Model) *lg.Layer {
 	opts := []menuOption{
 		{
 			Text: "Travel",
 			Action: func(m *Model) (*Model, tea.Cmd) {
-			m.Prompt("Enter destination:", 50, 10, s.ExtractLocations(), func(m *Model, dest string) {
-				trip, err := rest.Travel(r.ReplicantCode, dest)
-				if err != nil {
-					m.Log("Travel failed: %v", err)
-					return
-				}
-				m.Log("Travel initiated: %v", trip)
-				loadReplicant(r.ReplicantCode)
+				m.Prompt("Enter destination:", 50, 10, []string{}, func(m *Model, dest string) {
+					trip, err := rest.Travel(r.ReplicantCode, dest)
+					if err != nil {
+						m.Log("Travel failed: %v", err)
+						return
+					}
+					m.Log("Travel initiated: %v", trip)
+					loadReplicant(r.ReplicantCode)
 				})
 				return m, nil
 			},
+		},
+		{
+			Text: "Scan",
+			Action: func(m *Model) (*Model, tea.Cmd) {
+				m.Screens[scanOutput].Load(r.ReplicantCode)
+				return m, nil
+			},
+			NextScreen: scanOutput,
 		},
 		{
 			Text: "Close",
@@ -61,13 +67,20 @@ func replicantView(m *Model) *lg.Layer{
 		},
 	}
 	m.Screens[replicantMenu].Options = opts
-	scan, err := rest.ReplicantScan(r.ReplicantCode)
-	if err != nil {
-		m.Log("Error scanning system from %s: %v", r.ReplicantCode, err)
+	stowed := make(map[string]int)
+	for _, d := range r.StowedDevices {
+		stowed[d.Type]++
+	}
+	var inv []InvItem
+	for k, v := range stowed {
+		inv = append(inv, InvItem{
+			Type: k,
+			Qty: v,
+		})
 	}
 	header := m.executeTmpl("replicant", replicantData{
 		R: r,
-		ScanData: scan,
+		Inventory: inv,
 	})
 	return lg.NewLayer(m.executeTmpl("menu", menuData{
 		Header: header,
@@ -78,7 +91,7 @@ func replicantView(m *Model) *lg.Layer{
 
 func newReplicantScreen() *Screen {
 	return &Screen{
-		GetSize: func(*Model) int { return 2 },
+		GetSize: func(*Model) int { return 3 },
 		Load: loadReplicant,
 		Render: replicantView,
 	}

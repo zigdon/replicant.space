@@ -29,6 +29,7 @@ const (
 	none screenID = iota
 	mainMenu
 	replicantMenu
+	scanOutput
 )
 
 type Screen struct {
@@ -88,7 +89,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.modalEnabled = false
 				m.modalTextInput.Reset()
 				return m, nil
-			case "enter":
+			case "enter", "space":
 				m.modalEnabled = false
 				m.modalCallback(m, m.modalTextInput.Value())
 				m.modalTextInput.Reset()
@@ -224,6 +225,7 @@ func Init() *Model {
 		Screens: map[screenID]*Screen{
 			mainMenu: newMainScreen(),
 			replicantMenu: newReplicantScreen(),
+			scanOutput: newScanOutput(),
 		},
 		Scans: make(map[string]*models.Scan),
 		Width: w,
