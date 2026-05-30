@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/zigdon/rsp/models"
 )
@@ -31,6 +32,9 @@ func Replicant(id string) (*models.Replicant, error) {
 }
 
 func Travel(id, dest string) (*models.Trip, error) {
+	if dest == "" || id == "" {
+		return nil, fmt.Errorf("id and destination are required for travel")
+	}
 	data, _ := json.Marshal(map[string]string{
 		"destination": dest,
 	})

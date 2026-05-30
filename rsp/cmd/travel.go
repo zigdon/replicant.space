@@ -33,7 +33,5 @@ var travelCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(travelCmd)
-	travelCmd.Flags().StringP("code", "c", "", "Replicant ID to use (e.g. A32A933F)")
-	travelCmd.Flags().IntP("id", "n", 1, "Replicant ID to use (default 1, i.e. zigdon-1)")
+	replicantCmd.AddCommand(travelCmd)
 }

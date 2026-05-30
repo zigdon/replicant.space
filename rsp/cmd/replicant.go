@@ -29,6 +29,6 @@ var replicantCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(replicantCmd)
-	replicantCmd.Flags().StringP("code", "c", "", "Replicant ID to use (e.g. A32A933F)")
-	replicantCmd.Flags().IntP("id", "n", 1, "Replicant ID to use (default 1, i.e. zigdon-1)")
+	replicantCmd.PersistentFlags().StringP("code", "c", "", "Replicant ID to use (e.g. A32A933F)")
+	replicantCmd.PersistentFlags().IntP("id", "n", 1, "Replicant ID to use (default 1, i.e. zigdon-1)")
 }
