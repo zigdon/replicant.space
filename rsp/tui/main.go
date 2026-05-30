@@ -38,8 +38,7 @@ func mainView(m *Model) *lg.Layer {
 	return lg.NewLayer(m.executeTmpl("menu", menuData{
 		Title: title,
 		Header: header,
-		// Footer: "Arrows/Enter to select, q to quit",
-		Footer: fmt.Sprintf("%d.%d", m.Focus, m.Screens[m.Focus].Cursor),
+		Footer: "Arrows/Enter to select, q to quit",
 		Options: opts,
 		Cursor: m.Screens[mainMenu].Cursor,
 	}))

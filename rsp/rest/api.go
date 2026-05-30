@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -54,7 +55,7 @@ func Get(path string, args ...any) ([]byte, error) {
 	return body, err
 }
 
-func Post(path string, data *map[string]string, args ...any) ([]byte, error) {
+func Post(path string, data []byte, args ...any) ([]byte, error) {
 	cfg, err := cfg.ReadCfg()
 	if err != nil {
 		return nil, err
@@ -68,7 +69,9 @@ func Post(path string, data *map[string]string, args ...any) ([]byte, error) {
 		URL: url,
 		Header: map[string][]string{
 			"Authorization": {"Bearer "+cfg.APIKey},
+		    "Content-Type": {"application/json"},
 		},
+		Body: io.NopCloser(bytes.NewReader(data)),
 	})
 	log("POST %q -> %d\n", url, resp.StatusCode)
 	if err != nil {
@@ -78,7 +81,7 @@ func Post(path string, data *map[string]string, args ...any) ([]byte, error) {
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if resp.StatusCode > 299 {
-		return nil, fmt.Errorf("GET failed with %d:\n%s", resp.StatusCode, body)
+		return nil, fmt.Errorf("POST failed with %d:\n%s", resp.StatusCode, body)
 	}
 
 	return body, err

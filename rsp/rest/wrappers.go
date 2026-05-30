@@ -1,7 +1,9 @@
 package rest
 
 import (
-    "github.com/zigdon/rsp/models"
+	"encoding/json"
+
+	"github.com/zigdon/rsp/models"
 )
 
 func Me() (*models.Me, error) {
@@ -26,4 +28,15 @@ func Replicant(id string) (*models.Replicant, error) {
 		return nil, err
 	}
 	return models.ParseReplicant(res)
+}
+
+func Travel(id, dest string) (*models.Trip, error) {
+	data, _ := json.Marshal(map[string]string{
+		"destination": dest,
+	})
+	trip, err := Post("replicants/%s/travel", data, id)
+	if err != nil {
+		return nil, err
+	}
+	return models.ParseTrip(trip)
 }

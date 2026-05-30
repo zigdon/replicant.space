@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -15,6 +16,9 @@ var rootCmd = &cobra.Command{
 }
 
 func log(tmpl string, args ...any) {
+	if !strings.HasSuffix(tmpl, "\n") {
+		tmpl += "\n"
+	}
 	fmt.Fprintf(os.Stderr, tmpl, args...)
 }
 

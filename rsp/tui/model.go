@@ -90,14 +90,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			case "enter":
-				m.Log("Selected %d.%d", f, m.Screens[f].Cursor)
 				cur := m.Screens[f].Cursor
 				opt := m.Screens[f].Options[cur]
 				if act := opt.Action; act != nil {
 					act(m)
 				}
 				if next := opt.NextScreen; next != none {
-					m.Log("Switching screen to %d", next)
 					m.Focus = next
 					m.Screens[next].Visible = true
 				}
