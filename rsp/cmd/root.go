@@ -52,9 +52,10 @@ func list(s []string) string {
 	return strings.Join(s, ", ")
 }
 
-func printTable(headers []string, data [][]string) {
+func printTable(headers []string, data [][]string, width int) {
+	if width == 0 { width = 20 }
 	headerStyle  := lg.NewStyle().Bold(true).Align(lg.Center)
-	cellStyle    := lg.NewStyle().Padding(0, 1).Width(14)
+	cellStyle    := lg.NewStyle().Padding(0, 1).Width(width)
 
 	t := table.New().
 		Border(lg.NormalBorder()).

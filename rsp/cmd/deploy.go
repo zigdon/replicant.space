@@ -23,6 +23,7 @@ var deployCmd = &cobra.Command{
 			printTable(
 				[]string{"Code", "Location", "Star", "Status"},
 				[][]string{{resp.DeviceCode, resp.Location, resp.Star, resp.Status}},
+				0,
 			)
 		}
 		return nil

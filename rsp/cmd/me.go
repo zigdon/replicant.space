@@ -27,7 +27,7 @@ var meCmd = &cobra.Command{
 					d(me.ExperiencePointsTotal),
 					me.Status,
 					d(me.UnreadMessageCount),
-				}},
+				}}, 0,
 			)
 			var reps [][]string
 			for _, r := range me.Replicants {
@@ -39,7 +39,7 @@ var meCmd = &cobra.Command{
 					r.Status,
 				})
 			}
-			printTable([]string{"Name", "Code", "Location", "XP", "Status"}, reps)
+			printTable([]string{"Name", "Code", "Location", "XP", "Status"}, reps, 0)
 		}
 		return nil
 	},

@@ -50,7 +50,7 @@ var devicesCmd = &cobra.Command{
 				"Capacity",
 				"Status",
 				"Stowed in",
-			}, data)
+			}, data, 0)
 
 		}
 		return nil
