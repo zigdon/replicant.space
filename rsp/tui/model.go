@@ -36,9 +36,7 @@ type Screen struct {
 	Visible bool
 	Cursor int
 	Options []menuOption
-	Size int
 
-	GetSize func(*Model) int
 	Load func(string)
 	Render func(*Model) *lg.Layer
 }
@@ -56,7 +54,7 @@ type Model struct {
 
 	// Modal dialog
 	modalTextInput textinput.Model
-	modalEnabled bool
+	modalPromptEnabled bool
 	modalCallback func(*Model, string)
 	modalWidth, modalHeight int
 	modalPrompt string
@@ -79,18 +77,18 @@ func (m *Model) Log(tmpl string, args ...any) {
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		if m.modalEnabled {
+		if m.modalPromptEnabled {
 			// All input goes to the dialog.
 			m.modalTextInput.Focus()
 			switch msg.String() {
 			case "ctrl+c":
 				return m, tea.Quit
 			case "esc":
-				m.modalEnabled = false
+				m.modalPromptEnabled = false
 				m.modalTextInput.Reset()
 				return m, nil
-			case "enter", "space":
-				m.modalEnabled = false
+			case "enter":
+				m.modalPromptEnabled = false
 				m.modalCallback(m, m.modalTextInput.Value())
 				m.modalTextInput.Reset()
 				return m, nil
@@ -110,17 +108,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case "j", "down":
 				m.Screens[f].Cursor++
-				if m.Screens[f].Cursor >= m.Screens[f].Size {
+				if m.Screens[f].Cursor >= len(m.Screens[f].Options) {
 					m.Screens[f].Cursor = 0
 				}
 				return m, nil
 			case "k", "up":
 				m.Screens[f].Cursor--
 				if m.Screens[f].Cursor < 0 {
-					m.Screens[f].Cursor = m.Screens[f].Size-1
+					m.Screens[f].Cursor = len(m.Screens[f].Options)-1
 				}
 				return m, nil
-			case "enter":
+			case "enter", "space":
 				cur := m.Screens[f].Cursor
 				opt := m.Screens[f].Options[cur]
 				if next := opt.NextScreen; next != none {
@@ -158,7 +156,7 @@ func (m *Model) View() tea.View {
 		layers = append(layers, m.Screens[v].Render(m).X(3+i*3).Y(2+i*2).Z(i))
 	}
 
-	if m.modalEnabled {
+	if m.modalPromptEnabled {
 		layers = append(layers, lg.NewLayer(
 			box(modalStyle, m.modalWidth, m.modalHeight,
 			    "%s\n%s", m.modalPrompt, m.modalTextInput.View())).
@@ -194,15 +192,11 @@ func (m *Model) updateData() error {
 		m.Scans[r.ReplicantCode] = rs
 	}
 
-	for id, s := range m.Screens {
-		m.Screens[id].Size = s.GetSize(m)
-	}
-
 	return nil
 }
 
 func (m *Model) Prompt(text string, width, height int, suggestions []string, callback func(*Model, string)) {
-	m.modalEnabled = true
+	m.modalPromptEnabled = true
 	m.modalCallback = callback
 	m.modalHeight = height
 	m.modalWidth = width

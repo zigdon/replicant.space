@@ -80,7 +80,6 @@ func background(w, h int) string {
 
 var screenNotImplemented = &Screen{
 	Cursor: 0,
-	GetSize: func(*Model) int { return 1 },
 	Render: func(*Model) *lg.Layer { return nil},
 }
 

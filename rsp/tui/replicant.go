@@ -28,7 +28,6 @@ type InvItem struct {
 
 type replicantData struct {
 	R *models.Replicant
-	ScanData *models.Scan
 }
 
 func replicantView(m *Model) *lg.Layer {
@@ -57,6 +56,21 @@ func replicantView(m *Model) *lg.Layer {
 			NextScreen: scanOutput,
 		},
 		{
+			Text: "Deploy",
+			Action: func(m *Model) (*Model, tea.Cmd) {
+				m.Prompt("Enter device ID:", 30, 10, r.GetDeviceIDs(), func(m *Model, id string) {
+					resp, err := rest.DeviceCommand(id, "deploy")
+					if err != nil {
+						m.Log("Deploy failed: %v", err)
+						return
+					}
+					m.Log("Device %q deployed: %v", id, resp)
+					loadReplicant(r.ReplicantCode)
+				})
+				return m, nil
+			},
+		},
+		{
 			Text: "Close",
 			Action: func(m *Model) (*Model, tea.Cmd) {
 				m.Screens[replicantMenu].Visible = false
@@ -78,7 +92,6 @@ func replicantView(m *Model) *lg.Layer {
 
 func newReplicantScreen() *Screen {
 	return &Screen{
-		GetSize: func(*Model) int { return 3 },
 		Load: loadReplicant,
 		Render: replicantView,
 	}

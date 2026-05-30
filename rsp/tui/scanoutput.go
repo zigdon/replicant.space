@@ -41,7 +41,6 @@ func scanOutputView(m *Model) *lg.Layer {
 
 func newScanOutput() *Screen {
 	return &Screen{
-		GetSize: func(*Model) int { return 1 },
 		Load: loadScanOutput,
 		Render: scanOutputView,
 	}

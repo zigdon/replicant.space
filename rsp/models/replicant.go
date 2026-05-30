@@ -32,6 +32,14 @@ type Replicant struct {
 	StowedDevices []Device `json:"stowed_devices"`
 }
 
+func (r *Replicant) GetDeviceIDs() []string {
+	var res []string
+	for _, d := range r.StowedDevices {
+		res = append(res, d.Code)
+	}
+	return res
+}
+
 func ParseReplicant(data []byte) (*Replicant, error) {
 	r := &Replicant{}
 	if err := json.Unmarshal(data, r); err != nil {
