@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 
+	tea "charm.land/bubbletea/v2"
 	lg "charm.land/lipgloss/v2"
 )
 
@@ -21,8 +22,9 @@ func mainView(m *Model) *lg.Layer {
 	for n, r := range m.Account.Replicants {
 		opts = append(opts, menuOption{
 			Text: fmt.Sprintf("%s (%s)", r.Name, r.CurrentLocation),
-			Action: func(m *Model) {
+			Action: func(m *Model) (*Model, tea.Cmd) {
 				m.Screens[replicantMenu].Load(r.ReplicantCode)
+				return m, nil
 			},
 			NextScreen: replicantMenu,
 			BreakAfter: n == len(m.Account.Replicants)-1,
@@ -33,6 +35,9 @@ func mainView(m *Model) *lg.Layer {
 	})
 	opts = append(opts, menuOption{
 		Text: "Quit",
+		Action: func(m *Model) (*Model, tea.Cmd) {
+			return m, tea.Quit
+		},
 	})
 	m.Screens[mainMenu].Options = opts
 

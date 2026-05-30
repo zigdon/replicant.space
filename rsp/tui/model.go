@@ -122,12 +122,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				cur := m.Screens[f].Cursor
 				opt := m.Screens[f].Options[cur]
-				if act := opt.Action; act != nil {
-					act(m)
-				}
 				if next := opt.NextScreen; next != none {
 					m.Focus = next
 					m.Screens[next].Visible = true
+				}
+				if act := opt.Action; act != nil {
+					return act(m)
 				}
 				return m, nil
 		}

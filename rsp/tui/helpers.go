@@ -7,6 +7,7 @@ import (
 
 	"text/template"
 
+	tea "charm.land/bubbletea/v2"
 	lg "charm.land/lipgloss/v2"
 )
 
@@ -86,7 +87,7 @@ var screenNotImplemented = &Screen{
 //// Menus
 type menuOption struct {
 	Text string
-	Action func(*Model)
+	Action func(*Model) (*Model, tea.Cmd)
 	NextScreen screenID
 	Hotkey rune
 	BreakAfter bool

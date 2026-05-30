@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
     "github.com/zigdon/rsp/cfg"
 	"net/http"
@@ -21,7 +22,8 @@ var (
 )
 
 func log(tmpl string, args ...any) {
-	line := fmt.Sprintf(tmpl+"\n", args...)
+	ts := time.Now().Format(time.Stamp)
+	line := fmt.Sprintf(ts+" "+tmpl+"\n", args...)
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Can't open to %q: %v\n", logFile, err)
@@ -82,7 +84,7 @@ func Post(path string, data []byte, args ...any) ([]byte, error) {
 		},
 		Body: io.NopCloser(bytes.NewReader(data)),
 	})
-	log("POST %q -> %d\n", url, resp.StatusCode)
+	log("POST %q -> %d:\n%s", url, resp.StatusCode, string(data))
 	if err != nil {
 		return nil, err
 	}

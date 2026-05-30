@@ -4,6 +4,7 @@ import (
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 
+	tea "charm.land/bubbletea/v2"
 	lg "charm.land/lipgloss/v2"
 )
 
@@ -37,7 +38,7 @@ func replicantView(m *Model) *lg.Layer{
 	opts := []menuOption{
 		{
 			Text: "Travel",
-			Action: func(m *Model) {
+			Action: func(m *Model) (*Model, tea.Cmd) {
 			m.Prompt("Enter destination:", 50, 10, s.ExtractLocations(), func(m *Model, dest string) {
 				trip, err := rest.Travel(r.ReplicantCode, dest)
 				if err != nil {
@@ -47,13 +48,15 @@ func replicantView(m *Model) *lg.Layer{
 				m.Log("Travel initiated: %v", trip)
 				loadReplicant(r.ReplicantCode)
 				})
+				return m, nil
 			},
 		},
 		{
 			Text: "Close",
-			Action: func(m *Model) {
+			Action: func(m *Model) (*Model, tea.Cmd) {
 				m.Screens[replicantMenu].Visible = false
 				m.Focus = mainMenu
+				return m, nil
 			},
 		},
 	}

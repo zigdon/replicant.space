@@ -3,12 +3,68 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/zigdon/rsp/models"
 )
 
+type cacheEntry struct {
+	ts time.Time
+	res []byte
+}
+
+var cachedCalls map[string]cacheEntry
+
+func cachePOST(key string, ttl time.Duration, path string, data []byte, args ...any) ([]byte, error) {
+	if cachedCalls == nil {
+		cachedCalls = make(map[string]cacheEntry)
+	}
+	if ttl == 0 { ttl = time.Minute }
+	if key == "" {
+		key = fmt.Sprintf("%s:%v:%v", path, args, string(data))
+	}
+	now := time.Now()
+	ent, ok := cachedCalls[key]
+	if ok && now.Sub(ent.ts) <= ttl {
+		return ent.res, nil
+	}
+	res, err := Post(path, data, args...)
+	if err != nil {
+		return nil, err
+	}
+	cachedCalls[key] = cacheEntry{
+		ts: now,
+		res: res,
+	}
+	return res, nil
+}
+
+func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, error) {
+	if cachedCalls == nil {
+		cachedCalls = make(map[string]cacheEntry)
+	}
+	if ttl == 0 { ttl = time.Minute }
+	if key == "" {
+		key = fmt.Sprintf("%s:%v", path, args)
+	}
+	now := time.Now()
+	ent, ok := cachedCalls[key]
+	if ok && now.Sub(ent.ts) <= ttl {
+		return ent.res, nil
+	}
+	res, err := Get(path, args...)
+	if err != nil {
+		return nil, err
+	}
+	cachedCalls[key] = cacheEntry{
+		ts: now,
+		res: res,
+	}
+	return res, nil
+}
+
 func Account() (*models.Account, error) {
-	res, err := Get("accounts/me")
+	res, err := cacheGET("", 0, "accounts/me")
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +88,7 @@ func ReplicantID(id int) (string, error) {
 }
 
 func ReplicantScan(id string) (*models.Scan, error) {
-	res, err := Post("replicants/%s/scan", nil, id)
+	res, err := cachePOST("", 0, "replicants/%s/scan", nil, id)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +96,7 @@ func ReplicantScan(id string) (*models.Scan, error) {
 }
 
 func Replicant(id string) (*models.Replicant, error) {
-	res, err := Get("replicants/%s", id)
+	res, err := cacheGET("", 0, "replicants/%s", id)
 	if err != nil {
 		return nil, err
 	}
