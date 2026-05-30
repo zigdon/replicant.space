@@ -22,7 +22,13 @@ var (
 
 func log(tmpl string, args ...any) {
 	line := fmt.Sprintf(tmpl+"\n", args...)
-	os.WriteFile(logFile, []byte(line), os.ModeAppend)
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Can't open to %q: %v\n", logFile, err)
+	} else {
+		f.WriteString(line)
+		f.Close()
+	}
 	if os.Getenv("DEBUG_API") != "" {
 		fmt.Fprint(os.Stderr, line)
 	}
