@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"sort"
 
 	"encoding/json"
 )
@@ -99,6 +100,26 @@ type Scan struct {
 	Star Star `json:"star"`
 	SystemObjects []Object `json:"system_objects"`
 	SystemTags []string `json:"system_tags"`
+}
+
+func (s *Scan) ExtractLocations() []string {
+	if s == nil { return nil }
+	locs := make(map[string]bool)
+	a := func(loc string) { locs[loc] = true }
+	if s.EntryPoint != "" { a(s.EntryPoint) }
+	a(s.Star.Designation)
+	for _, b := range s.AsteroidBelt.Belts { a(b.Designation) }
+	if s.OuterSystem.Oort.Designation != "" { a(s.OuterSystem.Oort.Designation) }
+	if s.OuterSystem.Kuiper.Designation != "" { a(s.OuterSystem.Kuiper.Designation) }
+	for _, p := range s.Planets { a(p.Designation) }
+	for _, v := range s.Replicants { a(v.Location) }
+	for _, o := range s.SystemObjects { a(o.Designation) }
+
+	// Dedup and sort before returning.
+	var res []string
+	for l := range locs { res = append(res, l) }
+
+	return sort.StringSlice(res)
 }
 
 func ParseScan(data []byte) (*Scan, error) {

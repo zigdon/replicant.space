@@ -13,6 +13,7 @@ import (
 
 const (
 	base = "https://api.replicant.space/v1"
+	logFile = "/tmp/rsp.log"
 )
 
 var (
@@ -20,8 +21,10 @@ var (
 )
 
 func log(tmpl string, args ...any) {
+	line := fmt.Sprintf(tmpl+"\n", args...)
+	os.WriteFile(logFile, []byte(line), os.ModeAppend)
 	if os.Getenv("DEBUG_API") != "" {
-		fmt.Fprintf(os.Stderr, tmpl, args...)
+		fmt.Fprint(os.Stderr, line)
 	}
 }
 

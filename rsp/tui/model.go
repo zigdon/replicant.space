@@ -11,6 +11,7 @@ import (
 	"github.com/zigdon/rsp/rest"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/bubbles/v2/textinput"
 	lg "charm.land/lipgloss/v2"
 )
 
@@ -52,6 +53,13 @@ type Model struct {
 	// General output
 	Messages []string
 
+	// Modal dialog
+	modalTextInput textinput.Model
+	modalEnabled bool
+	modalCallback func(*Model, string)
+	modalWidth, modalHeight int
+	modalPrompt string
+
 	// GAME STATE
 	// Current account info
 	Account *models.Me
@@ -69,12 +77,34 @@ func (m *Model) Log(tmpl string, args ...any) {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-		case tea.KeyPressMsg:
+	case tea.KeyPressMsg:
+		if m.modalEnabled {
+			// All input goes to the dialog.
+			m.modalTextInput.Focus()
+			switch msg.String() {
+			case "ctrl+c":
+				return m, tea.Quit
+			case "esc":
+				m.modalEnabled = false
+				m.modalTextInput.Reset()
+				return m, nil
+			case "enter":
+				m.modalEnabled = false
+				m.modalCallback(m, m.modalTextInput.Value())
+				m.modalTextInput.Reset()
+				return m, nil
+			}
+			// While the dialog is empty, all other keystrokes should go to it.
+			var cmd tea.Cmd
+			m.modalTextInput, cmd = m.modalTextInput.Update(msg)
+			return m, cmd
+		} else {
+			// The normal UI is enabled.
 			f := m.Focus
 			switch msg.String() {
 
 			// These keys should exit the program.
-			case "ctrl+c", "q":
+			case "ctrl+c":
 				return m, tea.Quit
 
 			case "j", "down":
@@ -101,6 +131,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 		}
+	}
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height
@@ -124,6 +155,16 @@ func (m *Model) View() tea.View {
 	}
 	for i, v := range visible {
 		layers = append(layers, m.Screens[v].Render(m).X(3+i*3).Y(2+i*2).Z(i))
+	}
+
+	if m.modalEnabled {
+		layers = append(layers, lg.NewLayer(
+			box(modalStyle, m.modalWidth, m.modalHeight,
+			    "%s\n%s", m.modalPrompt, m.modalTextInput.View())).
+			X((m.Width-m.modalWidth)/2).
+			Y((m.Height-m.modalHeight)/2).
+			Z(100),
+		)
 	}
 
 	view := tea.NewView(lg.NewCompositor(layers...).Render())
@@ -157,6 +198,20 @@ func (m *Model) updateData() error {
 	}
 
 	return nil
+}
+
+func (m *Model) Prompt(text string, width, height int, suggestions []string, callback func(*Model, string)) {
+	m.modalEnabled = true
+	m.modalCallback = callback
+	m.modalHeight = height
+	m.modalWidth = width
+	m.modalPrompt = text
+	mti := textinput.New()
+	if len(suggestions) > 0 {
+		mti.SetSuggestions(suggestions)
+		mti.ShowSuggestions = true
+	}
+	m.modalTextInput = mti
 }
 
 func Init() *Model {

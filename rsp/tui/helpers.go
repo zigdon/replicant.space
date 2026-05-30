@@ -42,6 +42,7 @@ const (
 	titleStyle boxStyle = iota
 	headerStyle
 	logStyle
+	modalStyle
 )
 
 func box(style boxStyle, w, h int, tmpl string, args ...any) string {

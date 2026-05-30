@@ -31,6 +31,9 @@ func mainView(m *Model) *lg.Layer {
 	opts = append(opts, menuOption{
 		Text: "Messages",
 	})
+	opts = append(opts, menuOption{
+		Text: "Quit",
+	})
 	m.Screens[mainMenu].Options = opts
 
 	header := box(headerStyle, 0, 0, "XP: %d | Unread Messages: %d", m.Account.ExperiencePointsTotal, m.Account.UnreadMessageCount)
@@ -38,7 +41,7 @@ func mainView(m *Model) *lg.Layer {
 	return lg.NewLayer(m.executeTmpl("menu", menuData{
 		Title: title,
 		Header: header,
-		Footer: "Arrows/Enter to select, q to quit",
+		Footer: "Arrows/Enter to select, ctrl-c to quit",
 		Options: opts,
 		Cursor: m.Screens[mainMenu].Cursor,
 	}))
