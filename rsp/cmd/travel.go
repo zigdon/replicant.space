@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
 )
@@ -32,7 +30,7 @@ var travelCmd = &cobra.Command{
 			log("Error starting trip: %v", err)
 			return
 		}
-		fmt.Printf("%#v\n", trip)
+		prettyPrint(trip)
 	},
 }
 

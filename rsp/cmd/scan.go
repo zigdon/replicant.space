@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
 )
@@ -22,17 +20,15 @@ var scanCmd = &cobra.Command{
 			}
 			rID = code
 		}
-		rep, err := rest.Replicant(rID)
+		rep, err := rest.ReplicantScan(rID)
 		if err != nil {
 			log("Error getting replicant details: %v", err)
 			return
 		}
-		fmt.Printf("%#v\n", rep)
+		prettyPrint(rep)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(scanCmd)
-	scanCmd.Flags().StringP("code", "c", "", "Replicant ID to use (e.g. A32A933F)")
-	scanCmd.Flags().IntP("id", "n", 1, "Replicant ID to use (default 1, i.e. zigdon-1)")
+	replicantCmd.AddCommand(scanCmd)
 }

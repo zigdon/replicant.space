@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
     "github.com/zigdon/rsp/rest"
 )
@@ -17,7 +15,7 @@ var meCmd = &cobra.Command{
 			log("Error getting status: %v", err)
 			return
 		}
-		fmt.Printf("%#v\n", me)
+		prettyPrint(me)
 	},
 }
 

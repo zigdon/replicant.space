@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -25,6 +26,11 @@ func log(tmpl string, args ...any) {
 func die(tmpl string, args ...any) {
 	log("FATAL: "+tmpl, args...)
 	os.Exit(1)
+}
+
+func prettyPrint(i any) {
+    s, _ := json.MarshalIndent(i, "", "  ")
+    fmt.Println(string(s))
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

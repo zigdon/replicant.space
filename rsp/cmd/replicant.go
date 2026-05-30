@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
 )
@@ -22,12 +20,12 @@ var replicantCmd = &cobra.Command{
 			}
 			rID = code
 		}
-		scan, err := rest.ReplicantScan(rID)
+		repl, err := rest.Replicant(rID)
 		if err != nil {
 			log("Error scanning: %v", err)
 			return
 		}
-		fmt.Printf("%#v\n", scan)
+		prettyPrint(repl)
 	},
 }
 
