@@ -1,7 +1,7 @@
 Replicant {{ .R.ReplicantCode }}: {{ .R.Name }}
 XP: {{ .R.ExperiencePoints }}  Devices: {{ .R.DeviceCount }}
 
-Location: {{ .R.CurrentStar }} > {{ .R.CurrentLocation }}
+Location: {{ .R.Location }} ({{ .R.Status }})
 
 {{ with .ScanData }}
 --- SCAN DATA ---
