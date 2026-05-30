@@ -6,21 +6,12 @@ import (
 	"encoding/json"
 )
 
-type Resources struct {
-	Carbon string `json:"carbon"`
-	Conductive string `json:"conductive"`
-	Rares string `json:"rares"`
-	Silicates string `json:"silicates"`
-	Structural string `json:"structural"`
-	Volatiles string `json:"volatiles"`
-}
-
 type Belts struct {
 	Density string `json:"density"`
 	Designation string `json:"designation"`
 	InnerRadiusAu float32 `json:"inner_radius_au"`
 	OuterRadiusAu float32 `json:"outer_radius_au"`
-	Resources Resources `json:"resources"`
+	Resources map[string]string `json:"resources"`
 }
 
 type Destination struct {

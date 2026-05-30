@@ -12,10 +12,11 @@ func newMainScreen() *Screen {
 		GetSize: func(m *Model) int {
 			return len(m.Account.Replicants) + 1
 		},
+		Render: mainView,
 	}
 }
 
-func (m *Model) mainView() *lg.Layer {
+func mainView(m *Model) *lg.Layer {
 	var opts []menuOption
 	for n, r := range m.Account.Replicants {
 		opts = append(opts, menuOption{
@@ -30,14 +31,16 @@ func (m *Model) mainView() *lg.Layer {
 	opts = append(opts, menuOption{
 		Text: "Messages",
 	})
+	m.Screens[mainMenu].Options = opts
 
-	header := box(headerStyle, "XP: %d | Unread Messages: %d", m.Account.ExperiencePointsTotal, m.Account.UnreadMessageCount)
-	title := box(titleStyle, "[[ %s ]]", m.Account.Name)
-	return m.executeTmpl("menu", menuData{
+	header := box(headerStyle, 0, 0, "XP: %d | Unread Messages: %d", m.Account.ExperiencePointsTotal, m.Account.UnreadMessageCount)
+	title := box(titleStyle, 0, 0, "[[ %s ]]", m.Account.Name)
+	return lg.NewLayer(m.executeTmpl("menu", menuData{
 		Title: title,
 		Header: header,
-		Footer: "Arrows/Enter to select, q to quit",
+		// Footer: "Arrows/Enter to select, q to quit",
+		Footer: fmt.Sprintf("%d.%d", m.Focus, m.Screens[m.Focus].Cursor),
 		Options: opts,
 		Cursor: m.Screens[mainMenu].Cursor,
-	})
+	}))
 }

@@ -15,13 +15,13 @@ import (
 //go:embed templates/*.tmpl
 var templates embed.FS
 
-func (m *Model) executeTmpl(name string, data any) *lg.Layer {
+func (m *Model) executeTmpl(name string, data any) string {
 	tmpl := t(name)
 	var s strings.Builder
 	if err := tmpl.Execute(&s, data); err != nil {
 		log("Error executing %q: %v", name, err)
 	}
-	return lg.NewLayer(screen(s.String()))
+	return screen(s.String())
 }
 
 func t(name string) *template.Template {
@@ -41,16 +41,22 @@ type boxStyle int
 const (
 	titleStyle boxStyle = iota
 	headerStyle
+	logStyle
 )
 
-func box(style boxStyle, tmpl string, args ...any) string {
+func box(style boxStyle, w, h int, tmpl string, args ...any) string {
+	if w == 0 { w = 40 }
 	st := lg.NewStyle().
 		Border(lg.RoundedBorder()).
 		PaddingLeft(3).
 		PaddingRight(3).
-		Width(40)
+		Width(w)
+	if h != 0 { st = st.Height(h) }
 	if style == titleStyle || style == headerStyle {
 		st = st.Align(lg.Center)
+	}
+	if style == logStyle {
+		st = st.Padding(0, 0, 2, 2)
 	}
 	return st.Render(fmt.Sprintf(tmpl, args...))
 }
@@ -73,6 +79,7 @@ func background(w, h int) string {
 var screenNotImplemented = &Screen{
 	Cursor: 0,
 	GetSize: func(*Model) int { return 1 },
+	Render: func(*Model) *lg.Layer { return nil},
 }
 
 //// Menus

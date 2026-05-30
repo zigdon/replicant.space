@@ -5,6 +5,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
@@ -32,10 +33,12 @@ const (
 type Screen struct {
 	Visible bool
 	Cursor int
+	Options []menuOption
 	Size int
 
 	GetSize func(*Model) int
-	Load func(string) error
+	Load func(string)
+	Render func(*Model) *lg.Layer
 }
 
 type Model struct {
@@ -46,23 +49,28 @@ type Model struct {
 	Screens map[screenID]*Screen
 	// Terminal size
 	Width, Height int
+	// General output
+	Messages []string
 
 	// GAME STATE
 	// Current account info
 	Account *models.Me
 	// Map of replicant ID to a recent scan
 	Scans map[string]*models.Scan
+
 }
 
-func (m *Model) render(id screenID) *lg.Layer {
-	return map[screenID]func()*lg.Layer {
-		mainMenu: m.mainView,
-	}[id]()
+func (m *Model) Log(tmpl string, args ...any) {
+	m.Messages = append(m.Messages, fmt.Sprintf(tmpl, args...))
+	if len(m.Messages) > 5 {
+		m.Messages = m.Messages[len(m.Messages)-5:]
+	}
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 		case tea.KeyPressMsg:
+			f := m.Focus
 			switch msg.String() {
 
 			// These keys should exit the program.
@@ -70,22 +78,30 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 
 			case "j", "down":
-				f := m.Focus
 				m.Screens[f].Cursor++
 				if m.Screens[f].Cursor >= m.Screens[f].Size {
 					m.Screens[f].Cursor = 0
 				}
 				return m, nil
 			case "k", "up":
-				f := m.Focus
 				m.Screens[f].Cursor--
 				if m.Screens[f].Cursor < 0 {
 					m.Screens[f].Cursor = m.Screens[f].Size-1
 				}
 				return m, nil
 			case "enter":
-				log("Selected: %d.%d\n\n", m.Focus, m.Screens[m.Focus].Cursor)
-				return m, tea.Quit
+				m.Log("Selected %d.%d", f, m.Screens[f].Cursor)
+				cur := m.Screens[f].Cursor
+				opt := m.Screens[f].Options[cur]
+				if act := opt.Action; act != nil {
+					act(m)
+				}
+				if next := opt.NextScreen; next != none {
+					m.Log("Switching screen to %d", next)
+					m.Focus = next
+					m.Screens[next].Visible = true
+				}
+				return m, nil
 		}
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
@@ -104,10 +120,12 @@ func (m *Model) View() tea.View {
 	slices.Sort(visible)
 
 	layers := []*lg.Layer{
-		lg.NewLayer(background(m.Width, m.Height)).Z(-1),
+		lg.NewLayer(background(m.Width, m.Height)).Z(-10),
+		lg.NewLayer(box(logStyle, m.Width-10, 5, "%s", strings.Join(m.Messages, "\n"))).
+		  X(5).Y(m.Height-7).Z(-5),
 	}
 	for i, v := range visible {
-		layers = append(layers, m.render(v).X(3+i*3).Y(2+i*2).Z(i))
+		layers = append(layers, m.Screens[v].Render(m).X(3+i*3).Y(2+i*2).Z(i))
 	}
 
 	view := tea.NewView(lg.NewCompositor(layers...).Render())
