@@ -29,7 +29,6 @@ type InvItem struct {
 type replicantData struct {
 	R *models.Replicant
 	ScanData *models.Scan
-	Inventory []InvItem
 }
 
 func replicantView(m *Model) *lg.Layer {
@@ -67,20 +66,8 @@ func replicantView(m *Model) *lg.Layer {
 		},
 	}
 	m.Screens[replicantMenu].Options = opts
-	stowed := make(map[string]int)
-	for _, d := range r.StowedDevices {
-		stowed[d.Type]++
-	}
-	var inv []InvItem
-	for k, v := range stowed {
-		inv = append(inv, InvItem{
-			Type: k,
-			Qty: v,
-		})
-	}
 	header := m.executeTmpl("replicant", replicantData{
 		R: r,
-		Inventory: inv,
 	})
 	return lg.NewLayer(m.executeTmpl("menu", menuData{
 		Header: header,

@@ -8,6 +8,7 @@ import (
 	"github.com/zigdon/rsp/models"
 )
 
+/// Cache
 type cacheEntry struct {
 	ts time.Time
 	res []byte
@@ -63,6 +64,7 @@ func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, 
 	return res, nil
 }
 
+/// Account
 func Account() (*models.Account, error) {
 	res, err := cacheGET("", 0, "accounts/me")
 	if err != nil {
@@ -71,6 +73,7 @@ func Account() (*models.Account, error) {
 	return models.ParseAccount(res)
 }
 
+/// Replicants
 func ReplicantID(id int) (string, error) {
 	account, err := Account()
 	if err != nil {
@@ -115,4 +118,19 @@ func Travel(id, dest string) (*models.Trip, error) {
 		return nil, err
 	}
 	return models.ParseTrip(trip)
+}
+
+/// Devices
+func DeviceCommand(id, command string) (*models.CommandResp, error) {
+	if command == "" || id == "" {
+		return nil, fmt.Errorf("id and command are required")
+	}
+	data, _ := json.Marshal(map[string]string{
+		"command": command,
+	})
+	trip, err := Post("devices/%s", data, id)
+	if err != nil {
+		return nil, err
+	}
+	return models.ParseCommandResp(trip)
 }
