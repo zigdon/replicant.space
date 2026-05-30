@@ -6,9 +6,8 @@ import (
 	"encoding/json"
 )
 
-type Device struct {
-	Code string `json:"device_code"`
-	Type string `json:"device_type"`
+type OwnedDevices struct {
+	Devices []Device `yaml:"devices"`
 }
 
 type Replicant struct {
@@ -48,4 +47,14 @@ func ParseReplicant(data []byte) (*Replicant, error) {
 
 	return r, nil
 }
+
+func ParseOwnedDevices(data []byte) ([]Device, error) {
+	od := &OwnedDevices{}
+	if err := json.Unmarshal(data, od); err != nil {
+		return nil, fmt.Errorf("Error parsing device list: %v", err)
+	}
+
+	return od.Devices, nil
+}
+
 

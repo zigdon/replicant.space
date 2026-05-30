@@ -59,7 +59,7 @@ func replicantView(m *Model) *lg.Layer {
 			Text: "Deploy",
 			Action: func(m *Model) (*Model, tea.Cmd) {
 				m.Prompt("Enter device ID:", 30, 10, r.GetDeviceIDs(), func(m *Model, id string) {
-					resp, err := rest.DeviceCommand(id, "deploy")
+					resp, err := rest.DeviceCommand(id, "deploy", nil)
 					if err != nil {
 						m.Log("Deploy failed: %v", err)
 						return

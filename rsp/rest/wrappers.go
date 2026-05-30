@@ -106,10 +106,15 @@ func Replicant(id string) (*models.Replicant, error) {
 	return models.ParseReplicant(res)
 }
 
-func Travel(id, dest string) (*models.Trip, error) {
-	if dest == "" || id == "" {
-		return nil, fmt.Errorf("id and destination are required for travel")
+func ReplicantDevices(id string) ([]models.Device, error) {
+	res, err := cacheGET("", 0, "replicants/%s/devices", id)
+	if err != nil {
+		return nil, err
 	}
+	return models.ParseOwnedDevices(res)
+}
+
+func Travel(id, dest string) (*models.Trip, error) {
 	data, _ := json.Marshal(map[string]string{
 		"destination": dest,
 	})
@@ -121,13 +126,13 @@ func Travel(id, dest string) (*models.Trip, error) {
 }
 
 /// Devices
-func DeviceCommand(id, command string) (*models.CommandResp, error) {
+func DeviceCommand(id, command string, args map[string]string) (*models.CommandResp, error) {
 	if command == "" || id == "" {
 		return nil, fmt.Errorf("id and command are required")
 	}
-	data, _ := json.Marshal(map[string]string{
-		"command": command,
-	})
+	if args == nil { args = make(map[string]string) }
+	args["command"] = command
+	data, _ := json.Marshal(args)
 	trip, err := Post("devices/%s", data, id)
 	if err != nil {
 		return nil, err

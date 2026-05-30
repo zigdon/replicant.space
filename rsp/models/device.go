@@ -6,6 +6,14 @@ import (
 	"encoding/json"
 )
 
+type Device struct {
+	Code string `yaml:"device_code"`
+	Type string `yaml:"device_type"`
+	Location string `yaml:"location"`
+	Status string `yaml:"status"`
+	OperationalCapacity float32 `yaml:"operational_capacity"`
+}
+
 type CommandResp struct {
 	DeviceCode string `yaml:"device_code"`
 	Location string `yaml:"location"`

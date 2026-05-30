@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
 )
@@ -9,22 +11,14 @@ import (
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Deploy a device",
-	Run: func(cmd *cobra.Command, args []string) {
-		id, err := cmd.Flags().GetString("device")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		id, _ := cmd.Flags().GetString("device")
+		resp, err := rest.DeviceCommand(id, "deploy", nil)
 		if err != nil {
-			log("Error: %v", err)
-			return
-		}
-		if id == "" {
-			log("Device ID is required, pass --device or -d")
-			return
-		}
-		resp, err := rest.DeviceCommand(id, "deploy")
-		if err != nil {
-			log("%q deploy failed: %v", id, err)
-			return
+			return fmt.Errorf("%q deploy failed: %v", id, err)
 		}
 		prettyPrint(resp)
+		return nil
 	},
 }
 

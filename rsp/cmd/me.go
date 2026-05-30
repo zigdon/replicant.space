@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
     "github.com/zigdon/rsp/rest"
 )
@@ -9,13 +11,13 @@ import (
 var meCmd = &cobra.Command{
 	Use:   "me",
 	Short: "Show current status",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		me, err := rest.Account()
 		if err != nil {
-			log("Error getting status: %v", err)
-			return
+			return fmt.Errorf("Error getting status: %v", err)
 		}
 		prettyPrint(me)
+		return nil
 	},
 }
 

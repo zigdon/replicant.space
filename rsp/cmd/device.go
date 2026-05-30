@@ -13,4 +13,5 @@ var deviceCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(deviceCmd)
 	deviceCmd.PersistentFlags().StringP("device", "d", "", "Device ID to use (e.g. A1B2C3D4)")
+	deviceCmd.MarkPersistentFlagRequired("device")
 }

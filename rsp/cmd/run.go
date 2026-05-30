@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/spf13/cobra"
@@ -10,12 +12,12 @@ import (
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Start an interactive menu",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		p := tea.NewProgram(tui.Init())
 		if _, err := p.Run(); err != nil {
-			die("Error running TUI: %v", err)
+			return fmt.Errorf("Error running TUI: %v", err)
 		}
-
+		return nil
 	},
 }
 
