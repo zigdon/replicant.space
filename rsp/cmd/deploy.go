@@ -17,7 +17,14 @@ var deployCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("%q deploy failed: %v", id, err)
 		}
-		prettyPrint(resp)
+		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+			prettyPrint(resp)
+		} else {
+			printTable(
+				[]string{"Code", "Location", "Star", "Status"},
+				[][]string{{resp.DeviceCode, resp.Location, resp.Star, resp.Status}},
+			)
+		}
 		return nil
 	},
 }

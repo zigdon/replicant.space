@@ -20,6 +20,7 @@ var mineCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Failed to start mining for %q: %v", r, err)
 		}
+		// if raw, _ := cmd.Flags().GetBool("raw"); raw { prettyPrint(resp) }
 		prettyPrint(resp)
 		return nil
 	},

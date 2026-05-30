@@ -29,6 +29,7 @@ var travelCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Error starting trip: %v", err)
 		}
+		// if raw, _ := cmd.Flags().GetBool("raw"); raw { prettyPrint(trip) }
 		prettyPrint(trip)
 		return nil
 	},

@@ -25,6 +25,7 @@ var replicantCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Error scanning: %v", err)
 		}
+		// if raw, _ := cmd.Flags().GetBool("raw"); raw { prettyPrint(repl) }
 		prettyPrint(repl)
 		return nil
 	},

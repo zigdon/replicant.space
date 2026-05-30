@@ -25,7 +25,34 @@ var devicesCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Error getting replicant %q devices: %v", rID, err)
 		}
-		prettyPrint(rd)
+		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+			prettyPrint(rd)
+		} else {
+			var data [][]string
+			for _, d := range rd {
+				data = append(data, []string{
+					d.Type,
+					d.Code,
+					d.ControllerDeviceCode,
+					b(d.InControlRange),
+					d.Location,
+					f(d.OperationalCapacity),
+					d.Status,
+					d.StowedInDeviceCode,
+				})
+			}
+			printTable([]string{
+				"Type",
+				"Code",
+				"Controller",
+				"In range",
+				"Location",
+				"Capacity",
+				"Status",
+				"Stowed in",
+			}, data)
+
+		}
 		return nil
 	},
 }

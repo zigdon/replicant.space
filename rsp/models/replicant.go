@@ -7,7 +7,7 @@ import (
 )
 
 type OwnedDevices struct {
-	Devices []Device `yaml:"devices"`
+	Devices []Device `json:"devices"`
 }
 
 type Replicant struct {

@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	lg "charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -33,6 +35,40 @@ func prettyPrint(i any) {
     fmt.Println(string(s))
 }
 
+func b(n bool) string {
+	if n { return "True" }
+	return "False"
+}
+
+func f(n float32) string {
+	return fmt.Sprintf("%.2f", n)
+}
+
+func d(n int) string {
+	return fmt.Sprintf("%d", n)
+}
+
+func list(s []string) string {
+	return strings.Join(s, ", ")
+}
+
+func printTable(headers []string, data [][]string) {
+	headerStyle  := lg.NewStyle().Bold(true).Align(lg.Center)
+	cellStyle    := lg.NewStyle().Padding(0, 1).Width(14)
+
+	t := table.New().
+		Border(lg.NormalBorder()).
+		StyleFunc(func(row, col int) lg.Style {
+			if row == table.HeaderRow {
+				return headerStyle
+			}
+			return cellStyle
+		}).
+		Headers(headers...).
+		Rows(data...)
+	lg.Println(t)
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -40,4 +76,8 @@ func Execute() {
 	if err != nil {
 		die(err.Error())
 	}
+}
+
+func init() {
+	rootCmd.PersistentFlags().Bool("raw", false, "emit the json returned")
 }
