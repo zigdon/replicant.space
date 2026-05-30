@@ -10,7 +10,7 @@ func newMainScreen() *Screen {
 	return &Screen{
 		Visible: true,
 		GetSize: func(m *Model) int {
-			return len(m.Account.Replicants) + 1
+			return len(m.Account.Replicants) + 2
 		},
 		Render: mainView,
 	}

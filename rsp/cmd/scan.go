@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/zigdon/rsp/cfg"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -16,7 +15,12 @@ var scanCmd = &cobra.Command{
 		rID, _ := cmd.Flags().GetString("code")
 		if rID == "" {
 			id, _ := cmd.Flags().GetInt("id")
-			rID = cfg.GetID(id)
+			code, err := rest.ReplicantID(id)
+			if err != nil {
+				log("Replicant #%d not found: %v", id, err)
+				return
+			}
+			rID = code
 		}
 		rep, err := rest.Replicant(rID)
 		if err != nil {

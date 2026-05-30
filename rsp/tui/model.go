@@ -62,7 +62,7 @@ type Model struct {
 
 	// GAME STATE
 	// Current account info
-	Account *models.Me
+	Account *models.Account
 	// Map of replicant ID to a recent scan
 	Scans map[string]*models.Scan
 
@@ -178,7 +178,7 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) updateData() error {
-	me, err := rest.Me()
+	me, err := rest.Account()
 	if err != nil {
 		return fmt.Errorf("can't get account info: %v", err)
 	}

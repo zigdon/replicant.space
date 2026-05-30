@@ -12,7 +12,7 @@ type Notify struct {
 	Webhook bool `json:"webhook"`
 }
 
-type Me struct {
+type Account struct {
 	BobnetChannels []string `json:"bobnet_channels"`
 	CreatedAt string `json:"created_at"`
 	Email string `json:"email"`
@@ -26,8 +26,8 @@ type Me struct {
 	UnreadMessageCount int `json:"unread_message_count"`
 }
 
-func ParseMe(data []byte) (*Me, error) {
-	m := &Me{}
+func ParseAccount(data []byte) (*Account, error) {
+	m := &Account{}
 	if err := json.Unmarshal(data, m); err != nil {
 		return nil, fmt.Errorf("Error parsing me: %v", err)
 	}

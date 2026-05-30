@@ -12,7 +12,7 @@ var meCmd = &cobra.Command{
 	Use:   "me",
 	Short: "Show current status",
 	Run: func(cmd *cobra.Command, args []string) {
-		me, err := rest.Me()
+		me, err := rest.Account()
 		if err != nil {
 			log("Error getting status: %v", err)
 			return

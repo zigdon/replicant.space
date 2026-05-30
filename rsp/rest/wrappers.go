@@ -7,12 +7,28 @@ import (
 	"github.com/zigdon/rsp/models"
 )
 
-func Me() (*models.Me, error) {
+func Account() (*models.Account, error) {
 	res, err := Get("accounts/me")
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseMe(res)
+	return models.ParseAccount(res)
+}
+
+func ReplicantID(id int) (string, error) {
+	account, err := Account()
+	if err != nil {
+		return "", err
+	}
+	name := fmt.Sprintf("%s-%d", account.Name, id)
+	var names []string
+	for _, r := range account.Replicants {
+		if r.Name == name {
+			return r.ReplicantCode, nil
+		}
+		names = append(names, r.Name)
+	}
+	return "", fmt.Errorf("no replicant %q found in %q", name, names)
 }
 
 func ReplicantScan(id string) (*models.Scan, error) {
