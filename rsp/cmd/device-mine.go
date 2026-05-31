@@ -14,9 +14,12 @@ var mineCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
 		r, _ := cmd.Flags().GetString("resource")
-		resp, err := rest.DeviceCommand(id, "start_mining", map[string]string{
-			"resource_type": r,
-		})
+		data := map[string]string{"resource_type": r}
+		l, _ := cmd.Flags().GetString("location")
+		if l != "" {
+			data["location"] = l
+		}
+		resp, err := rest.DeviceCommand(id, "start_mining", data)
 		if err != nil {
 			return fmt.Errorf("Failed to start mining for %q: %v", r, err)
 		}
@@ -30,4 +33,5 @@ func init() {
 	deviceCmd.AddCommand(mineCmd)
 	mineCmd.Flags().StringP("resource", "r", "", "Resource to mine")
 	mineCmd.MarkFlagRequired("resource")
+	mineCmd.Flags().StringP("location", "l", "", "Specific location to mine")
 }

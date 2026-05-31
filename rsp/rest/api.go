@@ -7,9 +7,11 @@ import (
 	"os"
 	"time"
 
-    "github.com/zigdon/rsp/cfg"
 	"net/http"
 	"net/url"
+
+	"github.com/zigdon/rsp/cfg"
+	"github.com/zigdon/rsp/errors"
 )
 
 const (
@@ -92,7 +94,11 @@ func Post(path string, data []byte, args ...any) ([]byte, error) {
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if resp.StatusCode > 299 {
-		return nil, fmt.Errorf("POST failed with %d:\n%s", resp.StatusCode, body)
+		return nil, errors.PostError{
+			Err: fmt.Errorf("POST failed with %d:\n%s", resp.StatusCode, body),
+			Status: resp.StatusCode,
+			Body: body,
+		}
 	}
 
 	return body, err

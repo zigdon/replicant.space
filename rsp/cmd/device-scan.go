@@ -7,15 +7,14 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
-// deployCmd represents the deploy command
-var searchCmd = &cobra.Command{
-	Use:   "search",
-	Short: "Initiate a search",
+var deviceScanCmd = &cobra.Command{
+	Use:   "scan",
+	Short: "Initiate a scan of the current location",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
-		resp, err := rest.DeviceCommand(id, "search", nil)
+		resp, err := rest.DeviceCommand(id, "scan", nil)
 		if err != nil {
-			return fmt.Errorf("%q search failed: %v", id, err)
+			return fmt.Errorf("%q scan failed: %v", id, err)
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(resp)
@@ -31,5 +30,5 @@ var searchCmd = &cobra.Command{
 }
 
 func init() {
-	deviceCmd.AddCommand(searchCmd)
+	deviceCmd.AddCommand(deviceScanCmd)
 }
