@@ -52,6 +52,14 @@ func list(s []string) string {
 	return strings.Join(s, ", ")
 }
 
+func m(in map[string]string) string {
+	var res []string
+	for k, v := range in {
+		res = append(res, fmt.Sprintf("%s: %s", k, v))
+	}
+	return strings.Join(res, "\n")
+}
+
 func printTable(headers []string, data [][]string, width int) {
 	if width == 0 { width = 20 }
 	headerStyle  := lg.NewStyle().Bold(true).Align(lg.Center)

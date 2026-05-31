@@ -7,14 +7,6 @@ import (
 	"encoding/json"
 )
 
-type Belts struct {
-	Density string `json:"density"`
-	Designation string `json:"designation"`
-	InnerRadiusAu float32 `json:"inner_radius_au"`
-	OuterRadiusAu float32 `json:"outer_radius_au"`
-	Resources map[string]string `json:"resources"`
-}
-
 type Destination struct {
 	Designation string `json:"designation"`
 	DistanceAu float32 `json:"distanceAu"`
@@ -85,7 +77,7 @@ type Object struct {
 type Scan struct {
 	ActiveLocationEvents []string `json:"active_location_events"`
 	AsteroidBelt struct {
-		Belts []Belts `json:"belts"`
+		Belts []Belt `json:"belts"`
 		Present bool `json:"present"`
 	} `json:"asteroid_belt"`
 	EntryPoint string `json:"entry_point"`
