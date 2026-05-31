@@ -11,7 +11,7 @@ type TripLegs struct {
 	From string `json:"from"`
 	To string `json:"to"`
 	Type string `json:"type"`
-	TimeSeconds int `json:"time_seconds"`
+	TimeSeconds float32 `json:"time_seconds"`
 }
 
 type Trip struct {
