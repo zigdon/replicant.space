@@ -148,3 +148,11 @@ func Location(id string) (*models.Location, error) {
 	}
 	return models.ParseLocation(res)
 }
+
+func Blueprints() (*models.Blueprints, error) {
+	res, err := cacheGET("", 0, "blueprints")
+	if err != nil {
+		return nil, err
+	}
+	return models.ParseBlueprints(res)
+}
