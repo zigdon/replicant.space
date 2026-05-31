@@ -140,6 +140,14 @@ func DeviceCommand(id, command string, args map[string]string) (*models.CommandR
 	return models.ParseCommandResp(trip)
 }
 
+func DeviceInfo(id string) (*models.DeviceInfo, error) {
+	res, err := cacheGET("", 0, "devices/%s", id)
+	if err != nil {
+		return nil, err
+	}
+	return models.ParseDeviceInfo(res)
+}
+
 /// Inventory
 func Location(id string) (*models.Location, error) {
 	res, err := cacheGET("", 0, "locations/%s", id)
