@@ -20,9 +20,13 @@ type Device struct {
 }
 
 type CommandResp struct {
+	Belt string `json:"belt"`
+	CompletesAt string `json:"completes_at"`
 	DeviceCode string `json:"device_code"`
+	EtaSeconds float32 `json:"eta_seconds"`
 	Location string `json:"location"`
 	Star string `json:"star"`
+	StartedAt string `json:"started_at"`
 	Status string `json:"status"`
 }
 
