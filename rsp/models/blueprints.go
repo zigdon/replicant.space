@@ -21,6 +21,12 @@ type Blueprints struct {
 	Blueprints []Blueprint `json:"blueprints"`
 }
 
+type Queued struct {
+	Queue []string `json:"queue"`
+	QueueLength int `json:"queue_length"`
+	Status string `json:"status"`
+}
+
 func ParseBlueprints(data []byte) (*Blueprints, error) {
 	bs := &Blueprints{}
 	if err := json.Unmarshal(data, bs); err != nil {
@@ -28,4 +34,13 @@ func ParseBlueprints(data []byte) (*Blueprints, error) {
 	}
 
 	return bs, nil
+}
+
+func ParseQueued(data []byte) (*Queued, error) {
+	q := &Queued{}
+	if err := json.Unmarshal(data, q); err != nil {
+		return nil, fmt.Errorf("Error parsing queue list: %v", err)
+	}
+
+	return q, nil
 }

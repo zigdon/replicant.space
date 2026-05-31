@@ -156,3 +156,14 @@ func Blueprints() (*models.Blueprints, error) {
 	}
 	return models.ParseBlueprints(res)
 }
+
+func Print(id, device string) (*models.Queued, error) {
+	data, _ := json.Marshal(map[string]string{
+		"device_type": device,
+	})
+	queue, err := Post("replicants/%s/print", data, id)
+	if err != nil {
+		return nil, err
+	}
+	return models.ParseQueued(queue)
+}

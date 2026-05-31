@@ -47,7 +47,7 @@ var devicesCmd = &cobra.Command{
 				"Controller",
 				"In range",
 				"Location",
-				"Capacity",
+				"Operational Capacity",
 				"Status",
 				"Stowed in",
 			}, data, 0)

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
@@ -32,15 +33,19 @@ var blueprintsCmd = &cobra.Command{
 					if v == 0 { continue }
 					resources = append(resources, fmt.Sprintf("%4d x %s", v, k))
 				}
+				pt, err := time.ParseDuration(fmt.Sprintf("%fs", b.PrintTime))
+				if err != nil {
+					return fmt.Errorf("Can't parse print time %q: %v", b.PrintTime, err)
+				}
 				blues = append(blues, []string{
 					b.DeviceType,
 					list(b.Features),
-					f(b.PrintTime),
+					pt.String(),
 					strings.Join(resources, "\n"),
 				})
 			}
 			printTable(
-				[]string{},
+				[]string{"Type", "Features", "Print Time", "Resources"},
 				blues,
 				0,
 			)
