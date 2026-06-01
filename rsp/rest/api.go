@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	base = "https://api.replicant.space/v1"
+	base    = "https://api.replicant.space/v1"
 	logFile = "/tmp/rsp.log"
 )
 
@@ -49,9 +49,9 @@ func Get(path string, args ...any) ([]byte, error) {
 	}
 	resp, err := client.Do(&http.Request{
 		Method: "GET",
-		URL: url,
+		URL:    url,
 		Header: map[string][]string{
-			"Authorization": {"Bearer "+cfg.APIKey},
+			"Authorization": {"Bearer " + cfg.APIKey},
 		},
 	})
 	log("GET %q -> %d\n", url, resp.StatusCode)
@@ -61,6 +61,10 @@ func Get(path string, args ...any) ([]byte, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
+	if os.Getenv("DUMP_API") != "" {
+		fmt.Printf("GET %q -> %d:\n", url, resp.StatusCode)
+		fmt.Println(string(body))
+	}
 	if resp.StatusCode > 299 {
 		return nil, fmt.Errorf("GET failed with %d:\n%s", resp.StatusCode, body)
 	}
@@ -79,10 +83,10 @@ func Post(path string, data []byte, args ...any) ([]byte, error) {
 	}
 	resp, err := client.Do(&http.Request{
 		Method: "POST",
-		URL: url,
+		URL:    url,
 		Header: map[string][]string{
-			"Authorization": {"Bearer "+cfg.APIKey},
-		    "Content-Type": {"application/json"},
+			"Authorization": {"Bearer " + cfg.APIKey},
+			"Content-Type":  {"application/json"},
 		},
 		Body: io.NopCloser(bytes.NewReader(data)),
 	})
@@ -95,9 +99,9 @@ func Post(path string, data []byte, args ...any) ([]byte, error) {
 	resp.Body.Close()
 	if resp.StatusCode > 299 {
 		return nil, errors.PostError{
-			Err: fmt.Errorf("POST failed with %d:\n%s", resp.StatusCode, body),
+			Err:    fmt.Errorf("POST failed with %d:\n%s", resp.StatusCode, body),
 			Status: resp.StatusCode,
-			Body: body,
+			Body:   body,
 		}
 	}
 

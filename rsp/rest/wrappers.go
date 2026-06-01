@@ -8,9 +8,9 @@ import (
 	"github.com/zigdon/rsp/models"
 )
 
-/// Cache
+// / Cache
 type cacheEntry struct {
-	ts time.Time
+	ts  time.Time
 	res []byte
 }
 
@@ -20,7 +20,9 @@ func cachePOST(key string, ttl time.Duration, path string, data []byte, args ...
 	if cachedCalls == nil {
 		cachedCalls = make(map[string]cacheEntry)
 	}
-	if ttl == 0 { ttl = time.Minute }
+	if ttl == 0 {
+		ttl = time.Minute
+	}
 	if key == "" {
 		key = fmt.Sprintf("%s:%v:%v", path, args, string(data))
 	}
@@ -34,7 +36,7 @@ func cachePOST(key string, ttl time.Duration, path string, data []byte, args ...
 		return nil, err
 	}
 	cachedCalls[key] = cacheEntry{
-		ts: now,
+		ts:  now,
 		res: res,
 	}
 	return res, nil
@@ -44,7 +46,9 @@ func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, 
 	if cachedCalls == nil {
 		cachedCalls = make(map[string]cacheEntry)
 	}
-	if ttl == 0 { ttl = time.Minute }
+	if ttl == 0 {
+		ttl = time.Minute
+	}
 	if key == "" {
 		key = fmt.Sprintf("%s:%v", path, args)
 	}
@@ -58,13 +62,13 @@ func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, 
 		return nil, err
 	}
 	cachedCalls[key] = cacheEntry{
-		ts: now,
+		ts:  now,
 		res: res,
 	}
 	return res, nil
 }
 
-/// Account
+// / Account
 func Account() (*models.Account, error) {
 	res, err := cacheGET("", 0, "accounts/me")
 	if err != nil {
@@ -73,7 +77,7 @@ func Account() (*models.Account, error) {
 	return models.ParseAccount(res)
 }
 
-/// Replicants
+// / Replicants
 func ReplicantID(id int) (string, error) {
 	account, err := Account()
 	if err != nil {
@@ -125,12 +129,14 @@ func Travel(id, dest string) (*models.Trip, error) {
 	return models.ParseTrip(trip)
 }
 
-/// Devices
-func DeviceCommand(id, command string, args map[string]string) (*models.CommandResp, error) {
+// / Devices
+func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp, error) {
 	if command == "" || id == "" {
 		return nil, fmt.Errorf("id and command are required")
 	}
-	if args == nil { args = make(map[string]string) }
+	if args == nil {
+		args = make(map[string]any)
+	}
 	args["command"] = command
 	data, _ := json.Marshal(args)
 	trip, err := Post("devices/%s", data, id)
@@ -148,7 +154,7 @@ func DeviceInfo(id string) (*models.Device, error) {
 	return models.ParseDevice(res)
 }
 
-/// Inventory
+// / Inventory
 func Location(id string) (*models.Location, error) {
 	res, err := cacheGET("", 0, "locations/%s", id)
 	if err != nil {

@@ -8,12 +8,13 @@ import (
 )
 
 type flagDesc struct {
-	name string
-	short rune
-	value string
-	desc string
+	name     string
+	short    rune
+	value    string
+	desc     string
 	required bool
-	jsonKey string
+	slice    bool
+	jsonKey  string
 }
 
 var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
@@ -22,12 +23,19 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 		Short: short,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, _ := cmd.Flags().GetString("device")
-			data := make(map[string]string)
+			data := make(map[string]any)
 			var argsFlag flagDesc
 			for _, f := range flags {
-				if f.name == "" { argsFlag = f }
+				if f.name == "" {
+					argsFlag = f
+				}
 
-				val, _ := cmd.Flags().GetString(f.name)
+				var val any
+				if f.slice {
+					val, _ = cmd.Flags().GetStringSlice(f.name)
+				} else {
+					val, _ = cmd.Flags().GetString(f.name)
+				}
 				if f.required {
 					data[f.jsonKey] = val
 				} else if val != "" {
@@ -77,11 +85,21 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 	}
 	deviceCmd.AddCommand(cmd)
 	for _, f := range flags {
-		if f.name == "" { continue }
-		if f.short != 0 {
-			cmd.Flags().StringP(f.name, string(f.short), f.value, f.desc)
+		if f.name == "" {
+			continue
+		}
+		if f.slice {
+			if f.short != 0 {
+				cmd.Flags().StringSliceP(f.name, string(f.short), []string{f.value}, f.desc)
+			} else {
+				cmd.Flags().StringSlice(f.name, []string{f.value}, f.desc)
+			}
 		} else {
-			cmd.Flags().String(f.name, f.value, f.desc)
+			if f.short != 0 {
+				cmd.Flags().StringP(f.name, string(f.short), f.value, f.desc)
+			} else {
+				cmd.Flags().String(f.name, f.value, f.desc)
+			}
 		}
 		if f.required {
 			cmd.MarkFlagRequired(f.name)
@@ -90,6 +108,13 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 }
 
 func init() {
+	mkDeviceCommand(
+		"adopt", "Add devices to a controller's fleet", "adopt",
+		[]flagDesc{{
+			name: "adopt", short: 'a', desc: "List of devices to adopt",
+			required: true, slice: true, jsonKey: "devices",
+		}},
+	)
 	mkDeviceCommand(
 		"deploy", "Deploy a device", "deploy", nil,
 	)
@@ -105,13 +130,13 @@ func init() {
 			name: "resource", short: 'r', desc: "Resource to mine",
 			required: true, jsonKey: "resource_type",
 		},
-		{
-			name: "location", short: 'l',
-			desc: "Specific location to mine", jsonKey: "location",
-		}},
+			{
+				name: "location", short: 'l',
+				desc: "Specific location to mine", jsonKey: "location",
+			}},
 	)
 	mkDeviceCommand(
-		"retarget",  "Change what resource a drone mines", "retarget",
+		"retarget", "Change what resource a drone mines", "retarget",
 		[]flagDesc{{
 			name: "resource", short: 'r', desc: "Resource to mine",
 			required: true, jsonKey: "resource_type",
@@ -121,10 +146,10 @@ func init() {
 		"scan", "Initiate a scan of the current location", "scan", nil,
 	)
 	mkDeviceCommand(
-		"search",  "Initiate a search", "search", nil,
+		"search", "Initiate a search", "search", nil,
 	)
 	mkDeviceCommand(
-		"travel",  "Instruct a device to relocate", "travel",
+		"travel", "Instruct a device to relocate", "travel",
 		[]flagDesc{{
 			// args[0]
 			required: true, jsonKey: "destination",
