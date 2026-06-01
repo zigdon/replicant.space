@@ -26,6 +26,13 @@ var infoCmd = &cobra.Command{
 					lines(resp.Features), resp.Status, resp.ReplicantCode,
 					lines(resp.AvailableCommands), f(resp.OperationalCapacity)}},
 			)
+			if len(resp.AvailableDirectives) > 0 {
+				printTable([]string{
+					"Current Directive", "Available Directives",
+				}, [][]string{{
+					resp.AmiDirective.Name, lines(resp.AvailableDirectives),
+				}})
+			}
 			if resp.Printing.EtaSeconds > 0 {
 				print := resp.Printing
 				printTable([]string{
@@ -34,6 +41,17 @@ var infoCmd = &cobra.Command{
 					print.DeviceType, p(print.ProgressPercent),
 					print.EtaSeconds.String(), print.StartedAt, print.CompletesAt,
 				}})
+			}
+			if len(resp.ControlledDevices) > 0 {
+				var cds [][]string
+				for _, d := range resp.ControlledDevices {
+					cds = append(cds, []string{
+						d.Code, d.Type, d.Location, d.Status,
+					})
+				}
+				printTable([]string{
+					"Code", "Type", "Location", "Status",
+				}, cds)
 			}
 		}
 		return nil

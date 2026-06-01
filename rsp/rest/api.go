@@ -61,6 +61,7 @@ func Get(path string, args ...any) ([]byte, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
+	log("->\n%s", string(body))
 	if os.Getenv("DUMP_API") != "" {
 		fmt.Printf("GET %q -> %d:\n", url, resp.StatusCode)
 		fmt.Println(string(body))
@@ -97,6 +98,7 @@ func Post(path string, data []byte, args ...any) ([]byte, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
+	log("->\n%s", string(body))
 	if resp.StatusCode > 299 {
 		return nil, errors.PostError{
 			Err:    fmt.Errorf("POST failed with %d:\n%s", resp.StatusCode, body),
