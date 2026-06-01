@@ -25,13 +25,13 @@ var locationCmd = &cobra.Command{
 		for _, i := range res.Inventory {
 			data = append(data, []string{i.ResourceType, f(i.Quantity)})
 		}
-		printTable([]string{"Resource", "Quantity"}, data, 0)
+		printTable([]string{"Resource", "Quantity"}, data)
 
 		data = [][]string{}
 		for _, d := range res.Devices {
 			data = append(data, []string{d.Code, d.Type, d.Status})
 		}
-		printTable([]string{"Device Code", "Type", "Status"}, data, 0)
+		printTable([]string{"Device Code", "Type", "Status"}, data)
 
 		return nil
 	},

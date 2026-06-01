@@ -64,10 +64,17 @@ func p(per float32) string {
 	return fmt.Sprintf("%.2f%%", per*100)
 }
 
-func printTable(headers []string, data [][]string, width int) {
-	if width == 0 { width = 20 }
-	headerStyle  := lg.NewStyle().Bold(true).Align(lg.Center)
-	cellStyle    := lg.NewStyle().Padding(0, 1).Width(width)
+func printTable(headers []string, data [][]string) {
+	var cellStyles []lg.Style
+	headerStyle := lg.NewStyle().Bold(true).Align(lg.Center)
+	cellStyle   := lg.NewStyle().Padding(0, 1)
+	for i := range headers {
+		max := len(headers[i])
+		for _, l := range data {
+			if len(l[i]) > max { max = len(l[i]) }
+		}
+		cellStyles = append(cellStyles, cellStyle.Width(max+2))
+	}
 
 	t := table.New().
 		Border(lg.NormalBorder()).
@@ -75,7 +82,7 @@ func printTable(headers []string, data [][]string, width int) {
 			if row == table.HeaderRow {
 				return headerStyle
 			}
-			return cellStyle
+			return cellStyles[col]
 		}).
 		Headers(headers...).
 		Rows(data...)

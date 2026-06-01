@@ -25,7 +25,6 @@ var infoCmd = &cobra.Command{
 				[][]string{{resp.Code, resp.Type, resp.Location,
 					list(resp.Features), resp.Status, resp.ReplicantCode,
 					list(resp.AvailableCommands), f(resp.OperationalCapacity)}},
-				0,
 			)
 			if resp.Printing.EtaSeconds > 0 {
 				print := resp.Printing
@@ -34,7 +33,7 @@ var infoCmd = &cobra.Command{
 				}, [][]string{{
 					print.DeviceType, p(print.ProgressPercent),
 					print.EtaSeconds.String(), print.StartedAt, print.CompletesAt,
-				}}, 0)
+				}})
 			}
 		}
 		return nil

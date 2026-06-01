@@ -41,7 +41,7 @@ var scanCmd = &cobra.Command{
 				b(scan.LifeDetected),
 				d(scan.MiningBonusPct),
 				list(scan.SystemTags),
-			}}, 0)
+			}})
 			if scan.AsteroidBelt.Present {
 				var belts [][]string
 				for _, b := range scan.AsteroidBelt.Belts {
@@ -52,8 +52,7 @@ var scanCmd = &cobra.Command{
 					})
 				}
 				printTable(
-					[]string{"Designation", "Density", "Resources"},
-					belts, 0,
+					[]string{"Designation", "Density", "Resources"}, belts,
 				)
 			}
 			if len(scan.Planets) > 0 {
@@ -82,7 +81,7 @@ var scanCmd = &cobra.Command{
 					"Moons",
 					"Scanned",
 					"Salvage",
-				}, planets, 0)
+				}, planets)
 			}
 		}
 		return nil

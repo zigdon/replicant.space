@@ -33,7 +33,7 @@ var replicantCmd = &cobra.Command{
 			}, [][]string{{
 				repl.Name, repl.ReplicantCode, repl.Location,
 				d(repl.ExperiencePoints), repl.Description, repl.Status,
-			}}, 0)
+			}})
 			if len(repl.PrintQueue) > 0 {
 				var q [][]string
 				for _, pq := range repl.PrintQueue {
@@ -46,7 +46,7 @@ var replicantCmd = &cobra.Command{
 				}
 				printTable([]string{
 					"Type", "Notify device", "Notify email", "Notify webhook",
-				}, q, 25)
+				}, q)
 			}
 			if len(repl.WaitingFor) > 0 {
 				var w [][]string
@@ -55,9 +55,7 @@ var replicantCmd = &cobra.Command{
 						k, d(v.Have), d(v.Need),
 					})
 				}
-				printTable([]string{
-					"Resource", "Have", "Need",
-				}, w, 0)
+				printTable([]string{"Resource", "Have", "Need"}, w)
 			}
 		}
 		return nil

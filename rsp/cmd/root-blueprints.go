@@ -45,9 +45,7 @@ var blueprintsCmd = &cobra.Command{
 				})
 			}
 			printTable(
-				[]string{"Type", "Features", "Print Time", "Resources"},
-				blues,
-				0,
+				[]string{"Type", "Features", "Print Time", "Resources"}, blues,
 			)
 		}
 		return nil

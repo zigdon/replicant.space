@@ -62,7 +62,7 @@ var printCmd = &cobra.Command{
 			}, [][]string{{
 				res.DeviceType, res.Status, res.StartedAt, res.CompletesAt,
 				res.PrintTimeSeconds.String(), b(res.ResourcesRefunded),
-			}}, 0)
+			}})
 		}
 		return nil
 	},

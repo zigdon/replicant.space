@@ -57,7 +57,6 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 							resp.Status, resp.EtaSeconds.String(), resp.StartedAt,
 							resp.CompletesAt,
 						}},
-						0,
 					)
 				} else {
 					log("error: %v", resp.JsonErr)
@@ -69,7 +68,7 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 							})
 						}
 						printTable([]string{"Designation", "Name", "SalvageType"},
-							sites, 0)
+							sites)
 					}
 				}
 			}
