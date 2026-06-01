@@ -21,6 +21,15 @@ type Blueprints struct {
 	Blueprints []Blueprint `json:"blueprints"`
 }
 
+type PrintResp struct {
+	Status string `json:"strin"`
+	DeviceType string `json:"device_type"`
+	StartedAt string `json:"started_at"`
+	CompletesAt string `json:"completes_at"`
+	PrintTimeSeconds int `json:"print_time_seconds"`
+	ResourcesRefunded bool `json:"resources_refunded"`
+}
+
 type Queued struct {
 	Queue []string `json:"queue"`
 	QueueLength int `json:"queue_length"`
@@ -34,6 +43,15 @@ func ParseBlueprints(data []byte) (*Blueprints, error) {
 	}
 
 	return bs, nil
+}
+
+func ParsePrintResp(data []byte) (*PrintResp, error) {
+	pr := &PrintResp{}
+	if err := json.Unmarshal(data, pr); err != nil {
+		return nil, fmt.Errorf("Error parsing print response: %v", err)
+	}
+
+	return pr, nil
 }
 
 func ParseQueued(data []byte) (*Queued, error) {

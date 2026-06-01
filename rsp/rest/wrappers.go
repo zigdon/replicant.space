@@ -165,7 +165,7 @@ func Blueprints() (*models.Blueprints, error) {
 	return models.ParseBlueprints(res)
 }
 
-func Print(id, device string) (*models.Queued, error) {
+func Print(id, device string) (*models.PrintResp, error) {
 	data, _ := json.Marshal(map[string]string{
 		"device_type": device,
 	})
@@ -173,5 +173,5 @@ func Print(id, device string) (*models.Queued, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseQueued(queue)
+	return models.ParsePrintResp(queue)
 }
