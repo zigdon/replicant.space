@@ -7,7 +7,6 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
-// infoCmd represents the info command
 var infoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Show detailed information about a device",
@@ -23,11 +22,20 @@ var infoCmd = &cobra.Command{
 			printTable(
 				[]string{"Code", "Type", "Location", "Features", "Status",
 					"Replicant", "Commands", "Ops Capacity"},
-				[][]string{{resp.DeviceCode, resp.DeviceType, resp.Location,
+				[][]string{{resp.Code, resp.Type, resp.Location,
 					list(resp.Features), resp.Status, resp.ReplicantCode,
 					list(resp.AvailableCommands), f(resp.OperationalCapacity)}},
 				0,
 			)
+			if resp.Printing.EtaSeconds > 0 {
+				print := resp.Printing
+				printTable([]string{
+					"Type", "Progress", "ETA", "Started", "Ends",
+				}, [][]string{{
+					print.DeviceType, p(print.ProgressPercent),
+					print.EtaSeconds.String(), print.StartedAt, print.CompletesAt,
+				}}, 0)
+			}
 		}
 		return nil
 	},

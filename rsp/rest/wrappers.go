@@ -140,12 +140,12 @@ func DeviceCommand(id, command string, args map[string]string) (*models.CommandR
 	return models.ParseCommandResp(trip)
 }
 
-func DeviceInfo(id string) (*models.DeviceInfo, error) {
+func DeviceInfo(id string) (*models.Device, error) {
 	res, err := cacheGET("", 0, "devices/%s", id)
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseDeviceInfo(res)
+	return models.ParseDevice(res)
 }
 
 /// Inventory

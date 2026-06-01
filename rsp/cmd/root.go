@@ -60,6 +60,10 @@ func m(in map[string]string) string {
 	return strings.Join(res, "\n")
 }
 
+func p(per float32) string {
+	return fmt.Sprintf("%.2f%%", per*100)
+}
+
 func printTable(headers []string, data [][]string, width int) {
 	if width == 0 { width = 20 }
 	headerStyle  := lg.NewStyle().Bold(true).Align(lg.Center)
