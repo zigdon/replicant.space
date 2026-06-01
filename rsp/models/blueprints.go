@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"time"
 
 	"encoding/json"
 )
@@ -22,11 +23,11 @@ type Blueprints struct {
 }
 
 type PrintResp struct {
-	Status string `json:"strin"`
+	Status string `json:"status"`
 	DeviceType string `json:"device_type"`
 	StartedAt string `json:"started_at"`
 	CompletesAt string `json:"completes_at"`
-	PrintTimeSeconds int `json:"print_time_seconds"`
+	PrintTimeSeconds time.Duration `json:"print_time_seconds"`
 	ResourcesRefunded bool `json:"resources_refunded"`
 }
 

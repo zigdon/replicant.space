@@ -175,3 +175,14 @@ func Print(id, device string) (*models.PrintResp, error) {
 	}
 	return models.ParsePrintResp(queue)
 }
+
+func PrintCmd(id, command string) (*models.PrintResp, error) {
+	data, _ := json.Marshal(map[string]string{
+		"command": command,
+	})
+	queue, err := Post("replicants/%s/print", data, id)
+	if err != nil {
+		return nil, err
+	}
+	return models.ParsePrintResp(queue)
+}

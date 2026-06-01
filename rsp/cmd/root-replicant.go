@@ -25,8 +25,41 @@ var replicantCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Error scanning: %v", err)
 		}
-		// if raw, _ := cmd.Flags().GetBool("raw"); raw { prettyPrint(repl) }
-		prettyPrint(repl)
+		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+			prettyPrint(repl)
+		} else {
+			printTable([]string{
+				"Name", "Code", "Location", "XP", "Description", "Status",
+			}, [][]string{{
+				repl.Name, repl.ReplicantCode, repl.Location,
+				d(repl.ExperiencePoints), repl.Description, repl.Status,
+			}}, 0)
+			if len(repl.PrintQueue) > 0 {
+				var q [][]string
+				for _, pq := range repl.PrintQueue {
+					q = append(q, []string{
+						pq.DeviceType,
+						pq.Notify.Device,
+						b(pq.Notify.Email),
+						b(pq.Notify.Webhook),
+					})
+				}
+				printTable([]string{
+					"Type", "Notify device", "Notify email", "Notify webhook",
+				}, q, 25)
+			}
+			if len(repl.WaitingFor) > 0 {
+				var w [][]string
+				for k, v := range repl.WaitingFor {
+					w = append(w, []string{
+						k, d(v.Have), d(v.Need),
+					})
+				}
+				printTable([]string{
+					"Resource", "Have", "Need",
+				}, w, 0)
+			}
+		}
 		return nil
 	},
 }
