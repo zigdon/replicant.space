@@ -6,16 +6,16 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
 	lg "charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
+	"github.com/spf13/cobra"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "rsp",
 	Short: "Simple cli for interacting with replicant.space",
-	Run: runCmd.Run,
+	Run:   runCmd.Run,
 }
 
 func log(tmpl string, args ...any) {
@@ -31,12 +31,14 @@ func die(tmpl string, args ...any) {
 }
 
 func prettyPrint(i any) {
-    s, _ := json.MarshalIndent(i, "", "  ")
-    fmt.Println(string(s))
+	s, _ := json.MarshalIndent(i, "", "  ")
+	fmt.Println(string(s))
 }
 
 func b(n bool) string {
-	if n { return "True" }
+	if n {
+		return "True"
+	}
 	return "False"
 }
 
@@ -50,6 +52,10 @@ func d(n int) string {
 
 func list(s []string) string {
 	return strings.Join(s, ", ")
+}
+
+func lines(s []string) string {
+	return strings.Join(s, "\n")
 }
 
 func m(in map[string]string) string {
@@ -67,11 +73,21 @@ func p(per float32) string {
 func printTable(headers []string, data [][]string) {
 	var cellStyles []lg.Style
 	headerStyle := lg.NewStyle().Bold(true).Align(lg.Center)
-	cellStyle   := lg.NewStyle().Padding(0, 1)
+	cellStyle := lg.NewStyle().Padding(0, 1)
 	for i := range headers {
 		max := len(headers[i])
 		for _, l := range data {
-			if len(l[i]) > max { max = len(l[i]) }
+			if strings.Contains(l[i], "\n") {
+				for _, nl := range strings.Split(l[i], "\n") {
+					if len(nl) > max {
+						max = len(nl)
+					}
+				}
+			} else {
+				if len(l[i]) > max {
+					max = len(l[i])
+				}
+			}
 		}
 		cellStyles = append(cellStyles, cellStyle.Width(max+2))
 	}

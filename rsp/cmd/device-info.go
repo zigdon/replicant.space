@@ -23,8 +23,8 @@ var infoCmd = &cobra.Command{
 				[]string{"Code", "Type", "Location", "Features", "Status",
 					"Replicant", "Commands", "Ops Capacity"},
 				[][]string{{resp.Code, resp.Type, resp.Location,
-					list(resp.Features), resp.Status, resp.ReplicantCode,
-					list(resp.AvailableCommands), f(resp.OperationalCapacity)}},
+					lines(resp.Features), resp.Status, resp.ReplicantCode,
+					lines(resp.AvailableCommands), f(resp.OperationalCapacity)}},
 			)
 			if resp.Printing.EtaSeconds > 0 {
 				print := resp.Printing
