@@ -12,8 +12,8 @@ const (
 )
 
 type Config struct {
-	APIKey string `yaml:"api_key"`
-	Username string `yaml:"username"`
+	APIKey   string `yaml:"api_key"`
+	Username string `yaml:"username,omitempty"`
 }
 
 func ReadCfg() (*Config, error) {
@@ -30,3 +30,13 @@ func ReadCfg() (*Config, error) {
 	return cfg, nil
 }
 
+func UpdateCfg(newCfg *Config) error {
+	data, err := yaml.Marshal(newCfg)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(cfgFile, data, 0755); err != nil {
+		return err
+	}
+	return nil
+}
