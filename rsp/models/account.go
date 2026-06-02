@@ -7,9 +7,9 @@ import (
 )
 
 type Notify struct {
-	Email       bool            `json:"email"`
-	Preferences map[string]bool `json:"preferences"`
-	Webhook     bool            `json:"webhook"`
+	Email       bool                       `json:"email"`
+	Preferences map[string]map[string]bool `json:"preferences"`
+	Webhook     bool                       `json:"webhook"`
 }
 
 type Account struct {
@@ -44,7 +44,7 @@ type Messages struct {
 func ParseMessages(data []byte) (*Messages, error) {
 	m := &Messages{}
 	if err := json.Unmarshal(data, m); err != nil {
-		return nil, fmt.Errorf("Error parsing messages: %v", err)
+		return nil, fmt.Errorf("Error parsing messages: %v\n%s", err, data)
 	}
 
 	return m, nil
@@ -53,7 +53,7 @@ func ParseMessages(data []byte) (*Messages, error) {
 func ParseAccount(data []byte) (*Account, error) {
 	m := &Account{}
 	if err := json.Unmarshal(data, m); err != nil {
-		return nil, fmt.Errorf("Error parsing me: %v", err)
+		return nil, fmt.Errorf("Error parsing me: %v\n%s", err, data)
 	}
 
 	return m, nil
