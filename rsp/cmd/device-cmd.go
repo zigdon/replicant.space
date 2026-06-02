@@ -129,6 +129,9 @@ func init() {
 		}},
 	)
 	mkDeviceCommand(
+		"clear_directive", "Drop the current directive entirely", "clear_directive", nil,
+	)
+	mkDeviceCommand(
 		"deploy", "Deploy a device", "deploy", nil,
 	)
 	mkDeviceCommand(

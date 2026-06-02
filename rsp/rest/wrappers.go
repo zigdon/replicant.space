@@ -77,6 +77,17 @@ func Account() (*models.Account, error) {
 	return models.ParseAccount(res)
 }
 
+func Messages(cursor, limit int, latest, unreadOnly bool) (*models.Messages, error) {
+	res, err := Get("messages?cursor=%d&limit=%d&latest=%v&unread_only=%v",
+		cursor, limit, latest, unreadOnly,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return models.ParseMessages(res)
+}
+
 // / Replicants
 func ReplicantID(id int) (string, error) {
 	account, err := Account()

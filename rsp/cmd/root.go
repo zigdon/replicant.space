@@ -66,7 +66,7 @@ func m(in map[string]string) string {
 }
 
 func p(per float32) string {
-	return fmt.Sprintf("%.2f%%", per*100)
+	return fmt.Sprintf("%.2f%%", per)
 }
 
 func v(data any) string {
