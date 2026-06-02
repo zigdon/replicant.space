@@ -60,12 +60,21 @@ type Device struct {
 }
 
 type CommandResp struct {
+	AssignedDevices map[string][]string `json:"assigned_devices"`
 	Belt        string  `json:"belt"`
 	CompletesAt string  `json:"completes_at"`
+	Controller struct {
+		DirectivePaused bool `json:"directive_paused"`
+		DirectiveStatusAfter string `json:"directive_status_after"`
+		DirectiveStatusBefore string `json:"directive_status_before"`
+		RecallResult string `json:"recall_result"`
+	} `json:"controller"`
+	ControllerCode string `json:"controller_code"`
 	DeviceCode  string  `json:"device_code"`
 	EtaRaw      float32 `json:"eta_seconds"`
 	EtaSeconds  time.Duration
 	Location    string `json:"location"`
+	Released []StowedDevice `json:"released"`
 	Star        string `json:"star"`
 	StartedAt   string `json:"started_at"`
 	Status      string `json:"status"`

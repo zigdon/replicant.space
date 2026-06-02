@@ -109,6 +109,9 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 
 func init() {
 	mkDeviceCommand(
+		"assemble", "Bring the fleet home to the controller's current location without ending the directive", "assemble", nil,
+	)
+	mkDeviceCommand(
 		"adopt", "Add devices to a controller's fleet", "adopt",
 		[]flagDesc{{
 			name: "adopt", short: 'a', desc: "List of devices to adopt",
@@ -123,6 +126,9 @@ func init() {
 		[]flagDesc{{
 			name: "new_directive", short: 'n', required: true, jsonKey: "directive",
 		}},
+	)
+	mkDeviceCommand(
+		"launch", "Deploy the fleet and start executing the current directive", "launch", nil,
 	)
 	mkDeviceCommand(
 		"mine", "Instruct a drone to start mining", "start_mining",
@@ -143,6 +149,13 @@ func init() {
 		}},
 	)
 	mkDeviceCommand(
+		"release", "Return devices back to direct control", "release",
+		[]flagDesc{{
+			name: "release", short: 'r', desc: "List of devices to release",
+			required: true, slice: true, jsonKey: "devices",
+		}},
+	)
+	mkDeviceCommand(
 		"scan", "Initiate a scan of the current location", "scan", nil,
 	)
 	mkDeviceCommand(
@@ -154,5 +167,8 @@ func init() {
 			// args[0]
 			required: true, jsonKey: "destination",
 		}},
+	)
+	mkDeviceCommand(
+		"withdraw", "Recall the fleet and pause execution", "withdraw", nil,
 	)
 }
