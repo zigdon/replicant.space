@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
@@ -15,6 +16,7 @@ type flagDesc struct {
 	required bool
 	slice    bool
 	jsonKey  string
+	mapFlag  bool
 }
 
 var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
@@ -33,6 +35,14 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 				var val any
 				if f.slice {
 					val, _ = cmd.Flags().GetStringSlice(f.name)
+				} else if f.mapFlag {
+					dataMap := make(map[string]string)
+					ms, _ := cmd.Flags().GetStringSlice(f.name)
+					for _, mv := range ms {
+						bits := strings.Split(mv, ":")
+						dataMap[bits[0]] = bits[1]
+					}
+					val = dataMap
 				} else {
 					val, _ = cmd.Flags().GetString(f.name)
 				}
@@ -88,7 +98,7 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 		if f.name == "" {
 			continue
 		}
-		if f.slice {
+		if f.slice || f.mapFlag {
 			if f.short != 0 {
 				cmd.Flags().StringSliceP(f.name, string(f.short), []string{f.value}, f.desc)
 			} else {
@@ -123,9 +133,14 @@ func init() {
 	)
 	mkDeviceCommand(
 		"directive", "Update the automation policy for a device", "set_directive",
-		[]flagDesc{{
-			name: "new_directive", short: 'n', required: true, jsonKey: "directive",
-		}},
+		[]flagDesc{
+			{
+				name: "new_directive", short: 'n', required: true, jsonKey: "directive",
+			},
+			{
+				name: "configuration", short: 'c', required: false,
+				jsonKey: "configuration", mapFlag: true,
+			}},
 	)
 	mkDeviceCommand(
 		"launch", "Deploy the fleet and start executing the current directive", "launch", nil,

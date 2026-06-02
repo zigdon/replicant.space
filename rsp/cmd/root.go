@@ -69,6 +69,11 @@ func p(per float32) string {
 	return fmt.Sprintf("%.2f%%", per*100)
 }
 
+func v(data any) string {
+	s, _ := json.MarshalIndent(data, "", "  ")
+	return string(s)
+}
+
 func printTable(headers []string, data [][]string) {
 	var cellStyles []lg.Style
 	headerStyle := lg.NewStyle().Bold(true).Align(lg.Center)

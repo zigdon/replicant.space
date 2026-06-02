@@ -28,9 +28,11 @@ var infoCmd = &cobra.Command{
 			)
 			if len(resp.AvailableDirectives) > 0 {
 				printTable([]string{
-					"Current Directive", "Available Directives",
+					"Current Directive", "Configuration", "Available Directives",
 				}, [][]string{{
-					resp.AmiDirective.Name, lines(resp.AvailableDirectives),
+					resp.AmiDirective.Name,
+					v(resp.AmiDirective.Config),
+					lines(resp.AvailableDirectives),
 				}})
 			}
 			if resp.Printing.EtaSeconds > 0 {
