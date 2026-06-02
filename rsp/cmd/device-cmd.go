@@ -132,7 +132,21 @@ func init() {
 		"clear_directive", "Drop the current directive entirely", "clear_directive", nil,
 	)
 	mkDeviceCommand(
+		"collect", "Pick up resources at the current location", "collect_resources",
+		[]flagDesc{{
+			name: "resources", short: 'r', required: true,
+			jsonKey: "resources", mapFlag: true,
+		}},
+	)
+	mkDeviceCommand(
 		"deploy", "Deploy a device", "deploy", nil,
+	)
+	mkDeviceCommand(
+		"deposit", "Drop resources at the current location", "deposit_resources",
+		[]flagDesc{{
+			name: "resources", short: 'r', required: false,
+			jsonKey: "resources", mapFlag: true,
+		}},
 	)
 	mkDeviceCommand(
 		"directive", "Update the automation policy for a device", "set_directive",
