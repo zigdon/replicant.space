@@ -15,7 +15,6 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "rsp",
 	Short: "Simple cli for interacting with replicant.space",
-	Run:   runCmd.Run,
 }
 
 func log(tmpl string, args ...any) {

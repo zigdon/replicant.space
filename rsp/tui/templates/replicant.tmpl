@@ -1,9 +1,0 @@
-Replicant {{ .R.ReplicantCode }}: {{ .R.Name }}
-XP: {{ .R.ExperiencePoints }}  Devices: {{ .R.DeviceCount }}
-
-Location: {{ .R.Location }} ({{ .R.Status }})
-{{ with .R.StowedDevices }}
-Devices:
-{{- range $i, $d := . }}
-- {{ $d.Type }} ({{ $d.Code }})
-{{- end }}{{ end }}
