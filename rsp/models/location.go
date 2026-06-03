@@ -1,5 +1,48 @@
 package models
 
+import "fmt"
+
+type Position struct {
+	X float32 `json:"x"`
+	Y float32 `json:"y"`
+	Z float32 `json:"z"`
+}
+
+func (p Position) String() string {
+	return fmt.Sprintf("[%.2f/%.2f/%.2f]", p.X, p.Y, p.Z)
+}
+
+type Star struct {
+	AgeMy float32 `json:"age_my"`
+	Color string `json:"color"`
+	Designation string `json:"designation"`
+	DistanceFromReplicant float32 `json:"distance_from_replicant"`
+	EntryPoint string `json:"entry_point"`
+	EstimatedPlanets int `json:"estimated_planets"`
+	EstimatedTravelTime int `json:"estimated_travel_time"`
+	Explored bool `json:"explored"`
+    HabitableZone struct {
+		InnerAu float32 `json:"inner_au"`
+		OuterAu float32 `json:"outer_au"`
+	} `json:"habitable_zone"`
+	HasLife bool `json:"has_life"`
+	LuminositySolar float32 `json:"luminositysolar"`
+	MassSolar float32 `json:"mass_solar"`
+	Name string `json:"name"`
+	Position Position  `json:"position"`
+	SpectralType string `json:"spectral_type"`
+	TemperatureK int `json:"temperature_k"`
+}
+
+type Census struct {
+	Page int `json:"page"`
+	PerPage int `json:"per_page"`
+	ReplicantPosition Position `json:"replicant_position"`
+	Stars []Star `json:"stars"`
+	Total int `json:"total"`
+	TotalPages int `json:"total_pages"`
+	TotalStars int `json:"total_stars"`
+}
 
 type Belt struct {
 	Density string `json:"density"`
