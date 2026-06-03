@@ -1,11 +1,5 @@
 package models
 
-import (
-	"fmt"
-
-	"encoding/json"
-)
-
 type Notify struct {
 	Email       bool                       `json:"email"`
 	Preferences map[string]map[string]bool `json:"preferences"`
@@ -39,22 +33,4 @@ type Messages struct {
 	Messages    []Message `json:"messages"`
 	NextCursor  int       `json:"next_cursor"`
 	UnreadCount int       `json:"unread_message_count"`
-}
-
-func ParseMessages(data []byte) (*Messages, error) {
-	m := &Messages{}
-	if err := json.Unmarshal(data, m); err != nil {
-		return nil, fmt.Errorf("Error parsing messages: %v\n%s", err, data)
-	}
-
-	return m, nil
-}
-
-func ParseAccount(data []byte) (*Account, error) {
-	m := &Account{}
-	if err := json.Unmarshal(data, m); err != nil {
-		return nil, fmt.Errorf("Error parsing me: %v\n%s", err, data)
-	}
-
-	return m, nil
 }

@@ -38,18 +38,18 @@ var printCmd = &cobra.Command{
 		var res *models.PrintResp
 		var err error
 		if cancel {
-			res, err = rest.PrintCmd(rID, "cancel")
+			res, err = rest.Print(rID, "cancel", "")
 			if err != nil {
 				return fmt.Errorf("Failed to cancel a job: %v", err)
 			}
 		} else if clear {
-			res, err = rest.PrintCmd(rID, "clear_queue")
+			res, err = rest.Print(rID, "clear_queue", "")
 			if err != nil {
 				return fmt.Errorf("Failed to clear the queue: %v", err)
 			}
 		} else {
 			arg := args[0]
-			res, err = rest.Print(rID, arg)
+			res, err = rest.Print(rID, "", arg)
 			if err != nil {
 				return fmt.Errorf("Failed to enqueue %q: %v", arg, err)
 			}

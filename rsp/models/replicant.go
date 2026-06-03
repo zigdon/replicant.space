@@ -1,11 +1,5 @@
 package models
 
-import (
-	"fmt"
-
-	"encoding/json"
-)
-
 type OwnedDevices struct {
 	Devices []Device `json:"devices"`
 }
@@ -88,23 +82,3 @@ func (r *Replicant) GetDeviceIDs() []string {
 	}
 	return res
 }
-
-func ParseReplicant(data []byte) (*Replicant, error) {
-	r := &Replicant{}
-	if err := json.Unmarshal(data, r); err != nil {
-		return nil, fmt.Errorf("Error parsing replicant: %v", err)
-	}
-
-	return r, nil
-}
-
-func ParseOwnedDevices(data []byte) ([]Device, error) {
-	od := &OwnedDevices{}
-	if err := json.Unmarshal(data, od); err != nil {
-		return nil, fmt.Errorf("Error parsing device list: %v", err)
-	}
-
-	return od.Devices, nil
-}
-
-

@@ -3,70 +3,9 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/zigdon/rsp/models"
 )
-
-// / Cache
-type cacheEntry struct {
-	ts  time.Time
-	res []byte
-}
-
-var cachedCalls map[string]cacheEntry
-
-func cachePOST(key string, ttl time.Duration, path string, data []byte, args ...any) ([]byte, error) {
-	if cachedCalls == nil {
-		cachedCalls = make(map[string]cacheEntry)
-	}
-	if ttl == 0 {
-		ttl = time.Minute
-	}
-	if key == "" {
-		key = fmt.Sprintf("%s:%v:%v", path, args, string(data))
-	}
-	now := time.Now()
-	ent, ok := cachedCalls[key]
-	if ok && now.Sub(ent.ts) <= ttl {
-		return ent.res, nil
-	}
-	res, err := Post(path, data, args...)
-	if err != nil {
-		return nil, err
-	}
-	cachedCalls[key] = cacheEntry{
-		ts:  now,
-		res: res,
-	}
-	return res, nil
-}
-
-func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, error) {
-	if cachedCalls == nil {
-		cachedCalls = make(map[string]cacheEntry)
-	}
-	if ttl == 0 {
-		ttl = time.Minute
-	}
-	if key == "" {
-		key = fmt.Sprintf("%s:%v", path, args)
-	}
-	now := time.Now()
-	ent, ok := cachedCalls[key]
-	if ok && now.Sub(ent.ts) <= ttl {
-		return ent.res, nil
-	}
-	res, err := Get(path, args...)
-	if err != nil {
-		return nil, err
-	}
-	cachedCalls[key] = cacheEntry{
-		ts:  now,
-		res: res,
-	}
-	return res, nil
-}
 
 // / Account
 func Account() (*models.Account, error) {
@@ -74,7 +13,7 @@ func Account() (*models.Account, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseAccount(res)
+	return models.Parse[models.Account](res)
 }
 
 func Messages(cursor, limit int, latest, unreadOnly bool) (*models.Messages, error) {
@@ -85,7 +24,7 @@ func Messages(cursor, limit int, latest, unreadOnly bool) (*models.Messages, err
 		return nil, err
 	}
 
-	return models.ParseMessages(res)
+	return models.Parse[models.Messages](res)
 }
 
 // / Replicants
@@ -110,7 +49,15 @@ func ReplicantScan(id string) (*models.Scan, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseScan(res)
+	return models.Parse[models.Scan](res)
+}
+
+func ReplicantCensus(id string, page int) (*models.Census, error) {
+	res, err := cacheGET(fmt.Sprintf("%s-census", id), 0, "replicants/%s/stars?per_page=50&page=%d", id, page)
+	if err != nil {
+		return nil, err
+	}
+	return models.Parse[models.Census](res)
 }
 
 func Replicant(id string) (*models.Replicant, error) {
@@ -118,7 +65,7 @@ func Replicant(id string) (*models.Replicant, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseReplicant(res)
+	return models.Parse[models.Replicant](res)
 }
 
 func ReplicantDevices(id string) ([]models.Device, error) {
@@ -126,7 +73,11 @@ func ReplicantDevices(id string) ([]models.Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseOwnedDevices(res)
+	devs, err := models.Parse[models.OwnedDevices](res)
+	if err != nil {
+		return nil, err
+	}
+	return devs.Devices, nil
 }
 
 func Travel(id, dest string) (*models.Trip, error) {
@@ -137,7 +88,7 @@ func Travel(id, dest string) (*models.Trip, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseTrip(trip)
+	return models.Parse[models.Trip](trip)
 }
 
 // / Devices
@@ -154,7 +105,7 @@ func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseCommandResp(trip)
+	return models.Parse[models.CommandResp](trip)
 }
 
 func DeviceInfo(id string) (*models.Device, error) {
@@ -162,16 +113,16 @@ func DeviceInfo(id string) (*models.Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseDevice(res)
+	return models.Parse[models.Device](res)
 }
 
-// / Inventory
+/// Inventory
 func Location(id string) (*models.Location, error) {
 	res, err := cacheGET("", 0, "locations/%s", id)
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseLocation(res)
+	return models.Parse[models.Location](res)
 }
 
 func Blueprints() (*models.Blueprints, error) {
@@ -179,27 +130,17 @@ func Blueprints() (*models.Blueprints, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.ParseBlueprints(res)
+	return models.Parse[models.Blueprints](res)
 }
 
-func Print(id, device string) (*models.PrintResp, error) {
-	data, _ := json.Marshal(map[string]string{
-		"device_type": device,
-	})
-	queue, err := Post("replicants/%s/print", data, id)
+func Print(id, command, device string) (*models.PrintResp, error) {
+	data := make(map[string]string)
+	if command != "" { data["command"] = command }
+	if device != "" { data["device_type"] = device }
+	bytes, _ := json.Marshal(data)
+	queue, err := Post("replicants/%s/print", bytes, id)
 	if err != nil {
 		return nil, err
 	}
-	return models.ParsePrintResp(queue)
-}
-
-func PrintCmd(id, command string) (*models.PrintResp, error) {
-	data, _ := json.Marshal(map[string]string{
-		"command": command,
-	})
-	queue, err := Post("replicants/%s/print", data, id)
-	if err != nil {
-		return nil, err
-	}
-	return models.ParsePrintResp(queue)
+	return models.Parse[models.PrintResp](queue)
 }

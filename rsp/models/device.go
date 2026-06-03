@@ -1,12 +1,7 @@
 package models
 
 import (
-	"fmt"
 	"time"
-
-	"encoding/json"
-
-	"github.com/zigdon/rsp/errors"
 )
 
 type DevicePrint struct {
@@ -87,28 +82,4 @@ type AvailableSite struct {
 	Designation string `json:"designation"`
 	Name        string `json:"name"`
 	SalvageType string `json:"salvage_type"`
-}
-
-func ParseDevice(data []byte) (*Device, error) {
-	di := &Device{}
-	if err := json.Unmarshal(data, di); err != nil {
-		return nil, fmt.Errorf("Error parsing device info: %v", err)
-	}
-	di.Printing.EtaSeconds, _ = time.ParseDuration(fmt.Sprintf("%.2fs", di.Printing.EtaRaw))
-
-	return di, nil
-}
-
-func ParseCommandResp(data []byte) (*CommandResp, error) {
-	dc := &CommandResp{}
-	if err := json.Unmarshal(data, dc); err != nil {
-		return nil, fmt.Errorf("Error parsing command response: %v", err)
-	}
-	dc.EtaSeconds, _ = time.ParseDuration(fmt.Sprintf("%.2fs", dc.EtaRaw))
-
-	if dc.JsonErr != "" {
-		return dc, &errors.PostError{Err: fmt.Errorf("%s", dc.JsonErr)}
-	}
-
-	return dc, nil
 }

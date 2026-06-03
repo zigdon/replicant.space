@@ -1,10 +1,5 @@
 package models
 
-import (
-	"fmt"
-
-	"encoding/json"
-)
 
 type Belt struct {
 	Density string `json:"density"`
@@ -34,14 +29,3 @@ type Location struct {
 	LocationType string `json:"location_type"`
 	ResourceSites []Site `json:"resource_sites"`
 }
-
-func ParseLocation(data []byte) (*Location, error) {
-	l := &Location{}
-	if err := json.Unmarshal(data, l); err != nil {
-		return nil, fmt.Errorf("Error parsing device list: %v", err)
-	}
-
-	return l, nil
-}
-
-

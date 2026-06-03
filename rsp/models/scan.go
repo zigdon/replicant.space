@@ -1,10 +1,7 @@
 package models
 
 import (
-	"fmt"
 	"sort"
-
-	"encoding/json"
 )
 
 type Destination struct {
@@ -36,28 +33,6 @@ type ScanReplicant struct {
 	LastActive string `json:"last_active"`
 	Location string `json:"location"`
 	ReplicantCode string `json:"replicant_code"`
-}
-
-type Position struct {
-	x float32
-	y float32
-	z float32
-}
-
-type Star struct {
-	AgeMy float32 `json:"age_my"`
-	Color string `json:"color"`
-	Designation string `json:"designation"`
-    HabitableZone struct {
-		InnerAu float32 `json:"inner_au"`
-		OuterAu float32 `json:"outer_au"`
-	} `json:"habitable_zone"`
-	LuminositySolar float32 `json:"luminositysolar"`
-	MassSolar float32 `json:"mass_solar"`
-	Name string `json:"name"`
-	Position Position  `json:"position"`
-	SpectralType string `json:"spectral_type"`
-	TemperatureK int `json:"temperature_k"`
 }
 
 type Object struct {
@@ -112,13 +87,4 @@ func (s *Scan) ExtractLocations() []string {
 	for l := range locs { res = append(res, l) }
 
 	return sort.StringSlice(res)
-}
-
-func ParseScan(data []byte) (*Scan, error) {
-	s := &Scan{}
-	if err := json.Unmarshal(data, s); err != nil {
-		return nil, fmt.Errorf("Error parsing scan: %v", err)
-	}
-
-	return s, nil
 }

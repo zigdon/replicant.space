@@ -1,10 +1,7 @@
 package models
 
 import (
-	"fmt"
 	"time"
-
-	"encoding/json"
 )
 
 type Blueprint struct {
@@ -35,31 +32,4 @@ type Queued struct {
 	Queue []string `json:"queue"`
 	QueueLength int `json:"queue_length"`
 	Status string `json:"status"`
-}
-
-func ParseBlueprints(data []byte) (*Blueprints, error) {
-	bs := &Blueprints{}
-	if err := json.Unmarshal(data, bs); err != nil {
-		return nil, fmt.Errorf("Error parsing device list: %v", err)
-	}
-
-	return bs, nil
-}
-
-func ParsePrintResp(data []byte) (*PrintResp, error) {
-	pr := &PrintResp{}
-	if err := json.Unmarshal(data, pr); err != nil {
-		return nil, fmt.Errorf("Error parsing print response: %v", err)
-	}
-
-	return pr, nil
-}
-
-func ParseQueued(data []byte) (*Queued, error) {
-	q := &Queued{}
-	if err := json.Unmarshal(data, q); err != nil {
-		return nil, fmt.Errorf("Error parsing queue list: %v", err)
-	}
-
-	return q, nil
 }
