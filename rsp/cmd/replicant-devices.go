@@ -21,7 +21,8 @@ var devicesCmd = &cobra.Command{
 			}
 			rID = code
 		}
-		rd, err := rest.ReplicantDevices(rID)
+		loc, _ := cmd.Flags().GetString("location")
+		rd, err := rest.ReplicantDevices(rID, loc)
 		if err != nil {
 			return fmt.Errorf("Error getting replicant %q devices: %v", rID, err)
 		}
@@ -59,4 +60,5 @@ var devicesCmd = &cobra.Command{
 
 func init() {
 	replicantCmd.AddCommand(devicesCmd)
+	devicesCmd.PersistentFlags().StringP("location", "l", "", "Filter results to a specific location code")
 }

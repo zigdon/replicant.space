@@ -68,8 +68,12 @@ func Replicant(id string) (*models.Replicant, error) {
 	return models.Parse[models.Replicant](res)
 }
 
-func ReplicantDevices(id string) ([]models.Device, error) {
-	res, err := cacheGET("", 0, "replicants/%s/devices", id)
+func ReplicantDevices(id, loc string) ([]models.Device, error) {
+	var q string
+	if loc != "" {
+		q = fmt.Sprintf("?location=%s", loc)
+	}
+	res, err := cacheGET("", 0, "replicants/%s/devices%s", id, q)
 	if err != nil {
 		return nil, err
 	}

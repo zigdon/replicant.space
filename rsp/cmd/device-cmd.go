@@ -122,6 +122,9 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 
 func init() {
 	mkDeviceCommand(
+		"activate", "Activate device (e.g. ftl relay)", "activate", nil,
+	)
+	mkDeviceCommand(
 		"assemble", "Bring the fleet home to the controller's current location without ending the directive", "assemble", nil,
 	)
 	mkDeviceCommand(
