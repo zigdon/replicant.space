@@ -180,6 +180,20 @@ func init() {
 			}},
 	)
 	mkDeviceCommand(
+		"print", "Queue a print job", "enqueue_print",
+		[]flagDesc{{
+			name: "print", short: 'p', desc: "Device to print",
+			required: true, jsonKey: "device_type",
+		}, {
+			name: "controller", desc: "Controlled to assign after print",
+			jsonKey: "controller",
+		}, {
+			name: "on_complete", short: 'o', mapFlag: true,
+			desc:    "Commands to queue when print is done",
+			jsonKey: "oncomplete",
+		}},
+	)
+	mkDeviceCommand(
 		"retarget", "Change what resource a drone mines", "retarget",
 		[]flagDesc{{
 			name: "resource", short: 'r', desc: "Resource to mine",

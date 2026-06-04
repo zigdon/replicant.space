@@ -42,6 +42,7 @@ var starsCmd = &cobra.Command{
 					s.Designation,
 					s.EntryPoint,
 					d(s.EstimatedPlanets),
+					f(s.DistanceFromReplicant),
 					d(s.EstimatedTravelTime),
 					s.SpectralType,
 					b(s.Explored),
@@ -49,8 +50,8 @@ var starsCmd = &cobra.Command{
 				})
 			}
 			printTable([]string{
-				"Designation", "Entry Point", "Est Planets", "ETA",
-				"Spectral Type", "Explored", "Has Life",
+				"Designation", "Entry Point", "Est Planets", "Distance",
+				"ETA", "Spectral Type", "Explored", "Has Life",
 			}, stars)
 		}
 		return nil
