@@ -90,10 +90,11 @@ type Planet struct {
 }
 
 type Moon struct {
-	Designation string `json:"designation"`
-	Name        string `json:"name"`
-	Scanned     bool   `json:"scanned"`
-	Type        string `json:"location_type"`
+	Designation  string `json:"designation"`
+	Name         string `json:"name"`
+	ParentPlanet string `json:"parent_planet"`
+	Scanned      bool   `json:"scanned"`
+	Type         string `json:"location_type"`
 }
 
 type Location struct {
@@ -101,6 +102,7 @@ type Location struct {
 	Devices       []Device    `json:"devices"`
 	Inventory     []Inventory `json:"inventory"`
 	Location      string      `json:"location"`
+	Moon          Moon        `json:"moon"`
 	Moons         []Moon      `json:"moons"`
 	Planet        Planet      `json:"planet"`
 	ResourceSites []Site      `json:"resource_sites"`

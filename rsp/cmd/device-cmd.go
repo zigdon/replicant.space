@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -72,16 +73,8 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 				prettyPrint(resp)
 			} else {
 				if resp.JsonErr == "" {
-					printTable(
-						[]string{
-							"Code", "Location", "Star", "Belt", "Status",
-							"ETA", "Started", "Ends"},
-						[][]string{{
-							resp.DeviceCode, resp.Location, resp.Star, resp.Belt,
-							resp.Status, resp.EtaSeconds.String(), resp.StartedAt,
-							resp.CompletesAt,
-						}},
-					)
+					headers, data := getTable(name, resp)
+					printTable(headers, data)
 				} else {
 					log("error: %v", resp.JsonErr)
 					if len(resp.AvailableSites) > 0 {
@@ -120,6 +113,24 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 		if f.required {
 			cmd.MarkFlagRequired(f.name)
 		}
+	}
+}
+
+func getTable(name string, resp *models.CommandResp) ([]string, [][]string) {
+	eta := resp.Eta
+	if eta == 0 {
+		eta = resp.TotalTime
+	}
+	switch name {
+	default:
+		return []string{
+				"Code", "Location", "Star", "Belt", "Status",
+				"ETA", "Started", "Ends"},
+			[][]string{{
+				resp.DeviceCode, resp.Location, resp.Star, resp.Belt,
+				resp.Status, eta.String(), resp.StartedAt,
+				resp.CompletesAt,
+			}}
 	}
 }
 

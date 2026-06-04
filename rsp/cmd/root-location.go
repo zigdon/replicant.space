@@ -50,6 +50,15 @@ var locationCmd = &cobra.Command{
 			}})
 		}
 
+		if res.Moon.Designation != "" {
+			m := res.Moon
+			printTable([]string{
+				"Designation", "Name", "Type", "Parent", "Scanned",
+			}, [][]string{{
+				m.Designation, m.Name, m.Type, m.ParentPlanet, b(m.Scanned),
+			}})
+		}
+
 		data = [][]string{}
 		for _, m := range res.Moons {
 			data = append(data, []string{

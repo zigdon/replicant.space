@@ -19,12 +19,18 @@ var infoCmd = &cobra.Command{
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(resp)
 		} else {
+			var cargo []string
+			for _, c := range resp.Cargo {
+				cargo = append(cargo, fmt.Sprintf("%.2f x %s", c.Quantity, c.ResourceType))
+			}
 			printTable(
 				[]string{"Code", "Type", "Location", "Features", "Status",
-					"Replicant", "Commands", "Ops Capacity"},
+					"Replicant", "Commands", "Ops Capacity", "Cargo"},
 				[][]string{{resp.Code, resp.Type, resp.Location,
 					lines(resp.Features), resp.Status, resp.ReplicantCode,
-					lines(resp.AvailableCommands), f(resp.OperationalCapacity)}},
+					lines(resp.AvailableCommands), f(resp.OperationalCapacity),
+					lines(cargo),
+				}},
 			)
 			if len(resp.AvailableDirectives) > 0 {
 				printTable([]string{

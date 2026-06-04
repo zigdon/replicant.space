@@ -20,9 +20,15 @@ var printCmd = &cobra.Command{
 		cancel, _ := cmd.Flags().GetBool("cancel")
 		clear, _ := cmd.Flags().GetBool("clear")
 		modes := 0
-		if cancel { modes ++ }
-		if clear { modes ++ }
-		if len(args) > 0 && args[0] != "" { modes ++ }
+		if cancel {
+			modes++
+		}
+		if clear {
+			modes++
+		}
+		if len(args) > 0 && args[0] != "" {
+			modes++
+		}
 		if modes != 1 {
 			return fmt.Errorf("Exactly one of --clear, --cancel, or an argument must be passed.")
 		}
@@ -38,18 +44,18 @@ var printCmd = &cobra.Command{
 		var res *models.PrintResp
 		var err error
 		if cancel {
-			res, err = rest.Print(rID, "cancel", "")
+			res, err = rest.ReplicantPrint(rID, "cancel", "")
 			if err != nil {
 				return fmt.Errorf("Failed to cancel a job: %v", err)
 			}
 		} else if clear {
-			res, err = rest.Print(rID, "clear_queue", "")
+			res, err = rest.ReplicantPrint(rID, "clear_queue", "")
 			if err != nil {
 				return fmt.Errorf("Failed to clear the queue: %v", err)
 			}
 		} else {
 			arg := args[0]
-			res, err = rest.Print(rID, "", arg)
+			res, err = rest.ReplicantPrint(rID, "", arg)
 			if err != nil {
 				return fmt.Errorf("Failed to enqueue %q: %v", arg, err)
 			}
@@ -61,7 +67,7 @@ var printCmd = &cobra.Command{
 				"Device Type", "Status", "Started", "Ends", "Duration", "Refunded",
 			}, [][]string{{
 				res.DeviceType, res.Status, res.StartedAt, res.CompletesAt,
-				res.PrintTimeSeconds.String(), b(res.ResourcesRefunded),
+				res.PrintTime.String(), b(res.ResourcesRefunded),
 			}})
 		}
 		return nil

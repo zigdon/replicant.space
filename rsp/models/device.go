@@ -36,6 +36,7 @@ type Device struct {
 	AttachedToDeviceCode string             `json:"attached_to_device_code"`
 	AvailableCommands    []string           `json:"available_commands"`
 	AvailableDirectives  []string           `json:"available_directives"`
+	Cargo                []Inventory        `json:"cargo"`
 	Code                 string             `json:"device_code"`
 	ControlledDevices    []ControlledDevice `json:"controlled_devices"`
 	ControllerDeviceCode string             `json:"controller_device_code"`
@@ -75,17 +76,19 @@ type CommandResp struct {
 	DestinationName      string              `json:"destination_name"`
 	DestinationType      string              `json:"destination_type"`
 	DeviceCode           string              `json:"device_code"`
-	EtaRaw               float32             `json:"eta_seconds"`
-	EtaSeconds           time.Duration
+	EtaSeconds           float32             `json:"eta_seconds"`
+	Eta                  time.Duration
 	FinalDestination     string         `json:" strin"`
 	FinalDestinationName string         `json:"final_destination_name"`
 	JsonErr              string         `json:"error"`
 	Location             string         `json:"location"`
+	Moon                 Moon           `json:"moon"`
 	Origin               string         `json:"origin"`
 	OriginName           string         `json:"origin_name"`
 	ProgressPercent      float32        `json:"progress_percent"`
 	Released             []StowedDevice `json:"released"`
 	Route                []TripLegs     `json:"route"`
+	Scanned              bool           `json:"scanned"`
 	Star                 string         `json:"star"`
 	StartedAt            string         `json:"started_at"`
 	Status               string         `json:"status"`

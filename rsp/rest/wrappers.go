@@ -114,7 +114,10 @@ func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp
 	if err != nil {
 		return nil, err
 	}
-	return models.Parse[models.CommandResp](trip)
+	m, err := models.Parse[models.CommandResp](trip)
+	m.Eta = durationFromSeconds(m.EtaSeconds)
+	m.TotalTime = durationFromSeconds(m.TotalTimeSeconds)
+	return m, err
 }
 
 func DeviceInfo(id string) (*models.Device, error) {
@@ -144,7 +147,7 @@ func Blueprints() (*models.Blueprints, error) {
 	return models.Parse[models.Blueprints](res)
 }
 
-func Print(id, command, device string) (*models.PrintResp, error) {
+func ReplicantPrint(id, command, device string) (*models.PrintResp, error) {
 	data := make(map[string]string)
 	if command != "" {
 		data["command"] = command
@@ -157,5 +160,7 @@ func Print(id, command, device string) (*models.PrintResp, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.Parse[models.PrintResp](queue)
+	m, err := models.Parse[models.PrintResp](queue)
+	m.PrintTime = durationFromSeconds(m.PrintTimeSeconds)
+	return m, err
 }
