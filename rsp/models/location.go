@@ -71,7 +71,6 @@ type Planet struct {
 	Designation         string    `json:"designation"`
 	InHabitableZone     bool      `json:"in_habitable_zone"`
 	LifeStage           string    `json:"life_stage"`
-	LocationType        string    `json:"location_type"`
 	MagneticField       bool      `json:"magnetic_field"`
 	MassEarth           float32   `json:"mass_earth"`
 	MoonCount           int       `json:"moon_count"`
@@ -87,15 +86,14 @@ type Planet struct {
 	SurfaceTempC        int       `json:"surface_temp_c"`
 	SurfaceTempK        int       `json:"surface_temp_k"`
 	Tags                []string  `json:"tags"`
-	Type                string    `json:"type"`
+	Type                string    `json:"location_type"`
 }
 
 type Moon struct {
-	Designation  string `json:"designation"`
-	LocationType string `json:"location_type"`
-	Name         string `json:"name"`
-	Scanned      bool   `json:"scanned"`
-	Type         string `json:"type"`
+	Designation string `json:"designation"`
+	Name        string `json:"name"`
+	Scanned     bool   `json:"scanned"`
+	Type        string `json:"location_type"`
 }
 
 type Location struct {
@@ -103,8 +101,8 @@ type Location struct {
 	Devices       []Device    `json:"devices"`
 	Inventory     []Inventory `json:"inventory"`
 	Location      string      `json:"location"`
-	LocationType  string      `json:"location_type"`
 	Moons         []Moon      `json:"moons"`
 	Planet        Planet      `json:"planet"`
 	ResourceSites []Site      `json:"resource_sites"`
+	Type          string      `json:"location_type"`
 }

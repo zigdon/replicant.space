@@ -53,7 +53,7 @@ var locationCmd = &cobra.Command{
 		data = [][]string{}
 		for _, m := range res.Moons {
 			data = append(data, []string{
-				m.Designation, m.LocationType, m.Name, b(m.Scanned),
+				m.Designation, m.Type, m.Name, b(m.Scanned),
 			})
 		}
 		if len(data) > 0 {
