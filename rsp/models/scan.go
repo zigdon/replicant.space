@@ -63,7 +63,7 @@ type Scan struct {
 		Oort Destination `json:"oort"`
 	} `json:"outer_system"`
 	Planets []Planet `json:"planets"`
-	Replicants map[string]ScanReplicant `json:"replicants"`
+	Replicants []ScanReplicant `json:"replicants"`
 	Star Star `json:"star"`
 	SystemObjects []Object `json:"system_objects"`
 	SystemTags []string `json:"system_tags"`

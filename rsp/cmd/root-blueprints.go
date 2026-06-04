@@ -39,7 +39,7 @@ var blueprintsCmd = &cobra.Command{
 				}
 				blues = append(blues, []string{
 					b.DeviceType,
-					list(b.Features),
+					wrap(list(b.Features), 40),
 					pt.String(),
 					strings.Join(resources, "\n"),
 				})

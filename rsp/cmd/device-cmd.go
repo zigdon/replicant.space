@@ -31,6 +31,9 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 				if f.name == "" {
 					argsFlag = f
 				}
+				if f.jsonKey == "" {
+					f.jsonKey = f.name
+				}
 
 				var val any
 				if f.slice {
@@ -192,6 +195,12 @@ func init() {
 	)
 	mkDeviceCommand(
 		"search", "Initiate a search", "search", nil,
+	)
+	mkDeviceCommand(
+		"stow", "Place a device in the hold of another device", "stow",
+		[]flagDesc{{
+			name: "target", short: 't', desc: "Device to stow in",
+		}},
 	)
 	mkDeviceCommand(
 		"travel", "Instruct a device to relocate", "travel",

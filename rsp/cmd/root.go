@@ -34,6 +34,10 @@ func prettyPrint(i any) {
 	fmt.Println(string(s))
 }
 
+func wrap(t string, w int) string {
+	return lg.NewStyle().Width(w).Render(t)
+}
+
 func b(n bool) string {
 	if n {
 		return "True"
