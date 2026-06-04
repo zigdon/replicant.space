@@ -39,8 +39,11 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
 				if f.slice {
 					val, _ = cmd.Flags().GetStringSlice(f.name)
 				} else if f.mapFlag {
-					dataMap := make(map[string]string)
 					ms, _ := cmd.Flags().GetStringSlice(f.name)
+					if len(ms) == 0 {
+						continue
+					}
+					dataMap := make(map[string]string)
 					for _, mv := range ms {
 						bits := strings.Split(mv, ":")
 						dataMap[bits[0]] = bits[1]
@@ -182,8 +185,8 @@ func init() {
 	mkDeviceCommand(
 		"print", "Queue a print job", "enqueue_print",
 		[]flagDesc{{
-			name: "print", short: 'p', desc: "Device to print",
-			required: true, jsonKey: "device_type",
+			// args[0]
+			desc: "Device to print", required: true, jsonKey: "device_type",
 		}, {
 			name: "controller", desc: "Controlled to assign after print",
 			jsonKey: "controller",

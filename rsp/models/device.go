@@ -36,22 +36,22 @@ type Device struct {
 	AttachedToDeviceCode string             `json:"attached_to_device_code"`
 	AvailableCommands    []string           `json:"available_commands"`
 	AvailableDirectives  []string           `json:"available_directives"`
+	Code                 string             `json:"device_code"`
 	ControlledDevices    []ControlledDevice `json:"controlled_devices"`
 	ControllerDeviceCode string             `json:"controller_device_code"`
-	Code                 string             `json:"device_code"`
-	Type                 string             `json:"device_type"`
 	Features             []string           `json:"features"`
 	InControlRange       bool               `json:"in_control_range"`
 	Location             string             `json:"location"`
 	LocationName         string             `json:"location_name"`
 	OperationalCapacity  float32            `json:"operational_capacity"`
+	Printing             DevicePrint        `json:"printing"`
 	QueueSize            int                `json:"queue_size"`
 	ReplicantCode        string             `json:"replicant_code"`
 	Status               string             `json:"status"`
 	StowCapacity         int                `json:"stow_capacity"`
 	StowedDevices        []StowedDevice     `json:"stowed_devices"`
 	StowedInDeviceCode   string             `json:"stowed_in_device_code"`
-	Printing             DevicePrint        `json:"printing"`
+	Type                 string             `json:"device_type"`
 }
 
 type ControllerStatus struct {

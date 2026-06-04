@@ -122,7 +122,9 @@ func DeviceInfo(id string) (*models.Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.Parse[models.Device](res)
+	m, err := models.Parse[models.Device](res)
+	m.Printing.EtaSeconds = durationFromSeconds(m.Printing.EtaRaw)
+	return m, err
 }
 
 // / Inventory
