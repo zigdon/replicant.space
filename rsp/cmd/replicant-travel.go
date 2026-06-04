@@ -25,12 +25,28 @@ var travelCmd = &cobra.Command{
 			}
 			rID = code
 		}
-		trip, err := rest.Travel(rID, dest)
+		res, err := rest.ReplicantTravel(rID, dest)
 		if err != nil {
 			return fmt.Errorf("Error starting trip: %v", err)
 		}
-		// if raw, _ := cmd.Flags().GetBool("raw"); raw { prettyPrint(trip) }
-		prettyPrint(trip)
+		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+			prettyPrint(res)
+		} else {
+			printTable([]string{
+				"Origin", "Destination", "Status",
+				"Duration", "Departed", "Arrives",
+			}, [][]string{{
+				res.Origin, res.Destination, res.Status,
+				res.TotalTime.String(), res.DepartedAt, res.ArrivesAt,
+			}})
+			var ls [][]string
+			for _, l := range res.Route {
+				ls = append(ls, []string{
+					d(l.Leg), l.From, l.To, l.Type, l.Time.String(),
+				})
+			}
+			printTable([]string{"Leg", "From", "To", "Type", "Duration"}, ls)
+		}
 		return nil
 	},
 }

@@ -80,7 +80,7 @@ func ReplicantDevices(id string) ([]models.Device, error) {
 	return devs.Devices, nil
 }
 
-func Travel(id, dest string) (*models.Trip, error) {
+func ReplicantTravel(id, dest string) (*models.Trip, error) {
 	data, _ := json.Marshal(map[string]string{
 		"destination": dest,
 	})
@@ -88,7 +88,12 @@ func Travel(id, dest string) (*models.Trip, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.Parse[models.Trip](trip)
+	m, err := models.Parse[models.Trip](trip)
+	m.TotalTime = durationFromSeconds(m.TotalTimeSeconds)
+	for _, l := range m.Route {
+		l.Time = durationFromSeconds(l.TimeSeconds)
+	}
+	return m, err
 }
 
 // / Devices
