@@ -54,28 +54,45 @@ type Device struct {
 	Printing             DevicePrint        `json:"printing"`
 }
 
-type CommandResp struct {
-	AssignedDevices map[string][]string `json:"assigned_devices"`
-	Belt        string  `json:"belt"`
-	CompletesAt string  `json:"completes_at"`
-	Controller struct {
-		DirectivePaused bool `json:"directive_paused"`
-		DirectiveStatusAfter string `json:"directive_status_after"`
-		DirectiveStatusBefore string `json:"directive_status_before"`
-		RecallResult string `json:"recall_result"`
-	} `json:"controller"`
-	ControllerCode string `json:"controller_code"`
-	DeviceCode  string  `json:"device_code"`
-	EtaRaw      float32 `json:"eta_seconds"`
-	EtaSeconds  time.Duration
-	Location    string `json:"location"`
-	Released []StowedDevice `json:"released"`
-	Star        string `json:"star"`
-	StartedAt   string `json:"started_at"`
-	Status      string `json:"status"`
+type ControllerStatus struct {
+	DirectivePaused       bool   `json:"directive_paused"`
+	DirectiveStatusAfter  string `json:"directive_status_after"`
+	DirectiveStatusBefore string `json:"directive_status_before"`
+	RecallResult          string `json:"recall_result"`
+}
 
-	JsonErr        string          `json:"error"`
-	AvailableSites []AvailableSite `json:"available_sites"`
+type CommandResp struct {
+	ArrivesAt            string              `json:"arrives_at"`
+	AssignedDevices      map[string][]string `json:"assigned_devices"`
+	AttachedDevices      []Device            `json:"attached_devices"`
+	AvailableSites       []AvailableSite     `json:"available_sites"`
+	Belt                 string              `json:"belt"`
+	CompletesAt          string              `json:"completes_at"`
+	Controller           ControllerStatus    `json:"controller"`
+	ControllerCode       string              `json:"controller_code"`
+	DepartedAt           string              `json:"departed_at"`
+	Destination          string              `json:"destination"`
+	DestinationName      string              `json:"destination_name"`
+	DestinationType      string              `json:"destination_type"`
+	DeviceCode           string              `json:"device_code"`
+	EtaRaw               float32             `json:"eta_seconds"`
+	EtaSeconds           time.Duration
+	FinalDestination     string         `json:" strin"`
+	FinalDestinationName string         `json:"final_destination_name"`
+	JsonErr              string         `json:"error"`
+	Location             string         `json:"location"`
+	Origin               string         `json:"origin"`
+	OriginName           string         `json:"origin_name"`
+	ProgressPercent      float32        `json:"progress_percent"`
+	Released             []StowedDevice `json:"released"`
+	Route                []TripLegs     `json:"route"`
+	Star                 string         `json:"star"`
+	StartedAt            string         `json:"started_at"`
+	Status               string         `json:"status"`
+	TotalDistanceLy      float32        `json:" float3"`
+	TotalTime            time.Duration
+	TotalTimeSeconds     float32 `json:"total_time_seconds"`
+	TravelType           string  `json:"travel_type"`
 }
 
 type AvailableSite struct {

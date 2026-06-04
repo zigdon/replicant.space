@@ -19,19 +19,46 @@ var locationCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Failed to get location %q: %v", args[0], err)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw { prettyPrint(res) }
+		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+			prettyPrint(res)
+		}
 
 		var data [][]string
 		for _, i := range res.Inventory {
 			data = append(data, []string{i.ResourceType, f(i.Quantity)})
 		}
-		printTable([]string{"Resource", "Quantity"}, data)
+		if len(data) > 0 {
+			printTable([]string{"Resource", "Quantity"}, data)
+		}
 
 		data = [][]string{}
 		for _, d := range res.Devices {
 			data = append(data, []string{d.Code, d.Type, d.Status})
 		}
-		printTable([]string{"Device Code", "Type", "Status"}, data)
+		if len(data) > 0 {
+			printTable([]string{"Device Code", "Type", "Status"}, data)
+		}
+
+		if res.Planet.Designation != "" {
+			p := res.Planet
+			printTable([]string{
+				"Designation", "Name", "Habitable", "LifeStage", "Type", "Moons",
+				"Rings", "Scanned", "Tags",
+			}, [][]string{{
+				p.Designation, p.Name, b(p.InHabitableZone), p.LifeStage,
+				p.Type, d(p.MoonCount), b(p.Rings), b(p.Scanned), list(p.Tags),
+			}})
+		}
+
+		data = [][]string{}
+		for _, m := range res.Moons {
+			data = append(data, []string{
+				m.Designation, m.LocationType, m.Name, b(m.Scanned),
+			})
+		}
+		if len(data) > 0 {
+			printTable([]string{"Designation", "Type", "Name", "Scanned"}, data)
+		}
 
 		return nil
 	},

@@ -5,12 +5,16 @@ import (
 )
 
 type TripLegs struct {
-	Leg         int           `json:"leg"`
+	Active      bool          `json:"active"`
+	Distance_au float32       `json:"distance_au"`
 	From        string        `json:"from"`
-	To          string        `json:"to"`
-	Type        string        `json:"type"`
-	TimeSeconds float32       `json:"time_seconds"`
+	FromName    string        `json:"from_name"`
+	Leg         int           `json:"leg"`
 	Time        time.Duration `json:"time_seconds"`
+	TimeSeconds float32       `json:"time_seconds"`
+	To          string        `json:"to"`
+	ToName      string        `json:"to_name"`
+	Type        string        `json:"type"`
 }
 
 type Trip struct {
