@@ -47,11 +47,12 @@ var starsCmd = &cobra.Command{
 					s.SpectralType,
 					b(s.Explored),
 					b(s.HasLife),
+					s.Position.String(),
 				})
 			}
 			printTable([]string{
 				"Designation", "Entry Point", "Est Planets", "Distance",
-				"ETA", "Spectral Type", "Explored", "Has Life",
+				"ETA", "Spectral Type", "Explored", "Has Life", "Location",
 			}, stars)
 		}
 		return nil

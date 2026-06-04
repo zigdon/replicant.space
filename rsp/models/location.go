@@ -58,10 +58,11 @@ type Inventory struct {
 }
 
 type Site struct {
-	Designation            string         `json:"designation"`
-	Name                   string         `json:"name"`
-	ResourcesRemaining_pct map[string]int `json:"resources_remaining_pct"`
-	SiteIndex              int            `json:"site_index"`
+	Designation           string         `json:"designation"`
+	Index                 int            `json:"site_index"`
+	Name                  string         `json:"name"`
+	ResourcesRemainingPct map[string]int `json:"resources_remaining_pct"`
+	Type                  string         `json:"site_type"`
 }
 
 type Planet struct {

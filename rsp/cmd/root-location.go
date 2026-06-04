@@ -59,6 +59,19 @@ var locationCmd = &cobra.Command{
 			}})
 		}
 
+		if len(res.ResourceSites) > 0 {
+			data = [][]string{}
+			for _, s := range res.ResourceSites {
+				data = append(data, []string{
+					d(s.Index), s.Type, s.Designation, s.Name,
+					m[int](s.ResourcesRemainingPct),
+				})
+			}
+			printTable([]string{
+				"Index", "Type", "Designation", "Name", "Resources Pct",
+			}, data)
+		}
+
 		data = [][]string{}
 		for _, m := range res.Moons {
 			data = append(data, []string{

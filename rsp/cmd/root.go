@@ -61,10 +61,10 @@ func lines(s []string) string {
 	return strings.Join(s, "\n")
 }
 
-func m(in map[string]string) string {
+func m[T int | string](in map[string]T) string {
 	var res []string
 	for k, v := range in {
-		res = append(res, fmt.Sprintf("%s: %s", k, v))
+		res = append(res, fmt.Sprintf("%s: %v", k, v))
 	}
 	return strings.Join(res, "\n")
 }
