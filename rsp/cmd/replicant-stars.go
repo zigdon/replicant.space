@@ -22,7 +22,8 @@ var starsCmd = &cobra.Command{
 			rID = code
 		}
 		page, _ := cmd.Flags().GetInt("page")
-		resp, err := rest.ReplicantCensus(rID, page)
+		cnt, _ := cmd.Flags().GetInt("count")
+		resp, err := rest.ReplicantCensus(rID, cnt, page)
 		if err != nil {
 			return fmt.Errorf("Error running stellar census: %v", err)
 		}
@@ -31,7 +32,7 @@ var starsCmd = &cobra.Command{
 		} else {
 			printTable([]string{
 				"Location", "Total Stars", "Page",
-			},[][]string{{
+			}, [][]string{{
 				resp.ReplicantPosition.String(), d(resp.TotalStars),
 				fmt.Sprintf("%d/%d", page, resp.TotalPages),
 			}})
@@ -59,4 +60,5 @@ var starsCmd = &cobra.Command{
 func init() {
 	replicantCmd.AddCommand(starsCmd)
 	starsCmd.Flags().IntP("page", "p", 0, "Census page to fetch")
+	starsCmd.Flags().IntP("count", "n", 10, "Entries per page")
 }

@@ -52,8 +52,8 @@ func ReplicantScan(id string) (*models.Scan, error) {
 	return models.Parse[models.Scan](res)
 }
 
-func ReplicantCensus(id string, page int) (*models.Census, error) {
-	res, err := cacheGET(fmt.Sprintf("%s-census", id), 0, "replicants/%s/stars?per_page=50&page=%d", id, page)
+func ReplicantCensus(id string, cnt, page int) (*models.Census, error) {
+	res, err := cacheGET(fmt.Sprintf("%s-census", id), 0, "replicants/%s/stars?per_page=%d&page=%d", id, cnt, page)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func DeviceInfo(id string) (*models.Device, error) {
 	return models.Parse[models.Device](res)
 }
 
-/// Inventory
+// / Inventory
 func Location(id string) (*models.Location, error) {
 	res, err := cacheGET("", 0, "locations/%s", id)
 	if err != nil {
@@ -135,8 +135,12 @@ func Blueprints() (*models.Blueprints, error) {
 
 func Print(id, command, device string) (*models.PrintResp, error) {
 	data := make(map[string]string)
-	if command != "" { data["command"] = command }
-	if device != "" { data["device_type"] = device }
+	if command != "" {
+		data["command"] = command
+	}
+	if device != "" {
+		data["device_type"] = device
+	}
 	bytes, _ := json.Marshal(data)
 	queue, err := Post("replicants/%s/print", bytes, id)
 	if err != nil {
