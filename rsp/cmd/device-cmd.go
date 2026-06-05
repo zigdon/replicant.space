@@ -208,17 +208,23 @@ func init() {
 		}},
 	)
 	mkDeviceCommand(
-		"retarget", "Change what resource a drone mines", "retarget",
-		[]flagDesc{{
-			name: "resource", short: 'r', desc: "Resource to mine",
-			required: true, jsonKey: "resource_type",
-		}},
-	)
-	mkDeviceCommand(
 		"release", "Return devices back to direct control", "release",
 		[]flagDesc{{
 			name: "release", short: 'r', desc: "List of devices to release",
 			required: true, slice: true, jsonKey: "devices",
+		}},
+	)
+	mkDeviceCommand(
+		"replicate", "Now there are two wubs", "replicate",
+		[]flagDesc{{
+			name: "target", short: 't', desc: "Replicant to replicate", required: true,
+		}},
+	)
+	mkDeviceCommand(
+		"retarget", "Change what resource a drone mines", "retarget",
+		[]flagDesc{{
+			name: "resource", short: 'r', desc: "Resource to mine",
+			required: true, jsonKey: "resource_type",
 		}},
 	)
 	mkDeviceCommand(
