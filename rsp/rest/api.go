@@ -16,7 +16,7 @@ import (
 
 const (
 	base    = "https://api.replicant.space/v1"
-	logFile = "/tmp/rsp.log"
+	logFile = "/tmp/rsp-api.log"
 )
 
 var (
