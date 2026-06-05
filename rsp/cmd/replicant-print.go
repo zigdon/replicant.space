@@ -17,6 +17,10 @@ var printCmd = &cobra.Command{
 	To cancel the current job, pass --cancel
 	To clear the entire queue, pass --clear`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		rID, err := getRID(cmd)
+		if err != nil {
+			return fmt.Errorf("Replicant not found: %v", err)
+		}
 		cancel, _ := cmd.Flags().GetBool("cancel")
 		clear, _ := cmd.Flags().GetBool("clear")
 		modes := 0
@@ -32,17 +36,7 @@ var printCmd = &cobra.Command{
 		if modes != 1 {
 			return fmt.Errorf("Exactly one of --clear, --cancel, or an argument must be passed.")
 		}
-		rID, _ := cmd.Flags().GetString("code")
-		if rID == "" {
-			id, _ := cmd.Flags().GetInt("id")
-			code, err := rest.ReplicantID(id)
-			if err != nil {
-				return fmt.Errorf("Replicant #%d not found: %v", id, err)
-			}
-			rID = code
-		}
 		var res *models.PrintResp
-		var err error
 		if cancel {
 			res, err = rest.ReplicantPrint(rID, "cancel", "")
 			if err != nil {

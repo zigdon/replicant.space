@@ -52,6 +52,17 @@ func ReplicantID(id int) (string, error) {
 	return "", fmt.Errorf("no replicant %q found in %q", name, names)
 }
 
+func Events(id string, cursor, limit int, latest bool, eventType, deviceType, deviceCode string) (*models.Events, error) {
+	res, err := Get("replicants/%s/events?cursor=%d&limit=%d&latest=%v&event_type=%s&device_type=%s&device_code=%s",
+		id, cursor, limit, latest, eventType, deviceType, deviceCode,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return models.Parse[models.Events](res)
+}
+
 func ReplicantScan(id string) (*models.Scan, error) {
 	res, err := cachePOST("", 0, "replicants/%s/scan", nil, id)
 	if err != nil {

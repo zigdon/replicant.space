@@ -12,14 +12,9 @@ var replicantCmd = &cobra.Command{
 	Use:   "replicant",
 	Short: "Get replicant details",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		rID, _ := cmd.Flags().GetString("code")
-		if rID == "" {
-			id, _ := cmd.Flags().GetInt("id")
-			code, err := rest.ReplicantID(id)
-			if err != nil {
-				return fmt.Errorf("Replicant #%d not found: %v", id, err)
-			}
-			rID = code
+		rID, err := getRID(cmd)
+		if err != nil {
+			return fmt.Errorf("Replicant not found: %v", err)
 		}
 		repl, err := rest.Replicant(rID)
 		if err != nil {
@@ -66,4 +61,17 @@ func init() {
 	rootCmd.AddCommand(replicantCmd)
 	replicantCmd.PersistentFlags().StringP("code", "c", "", "Replicant ID to use (e.g. A32A933F)")
 	replicantCmd.PersistentFlags().Int("id", 1, "Replicant ID to use (default 1, i.e. zigdon-1)")
+}
+
+func getRID(cmd *cobra.Command) (string, error) {
+	rID, _ := cmd.Flags().GetString("code")
+	if rID == "" {
+		id, _ := cmd.Flags().GetInt("id")
+		code, err := rest.ReplicantID(id)
+		if err != nil {
+			return "", fmt.Errorf("Replicant #%d not found: %v", id, err)
+		}
+		rID = code
+	}
+	return rID, nil
 }

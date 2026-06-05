@@ -12,14 +12,9 @@ var starsCmd = &cobra.Command{
 	Use:   "stars",
 	Short: "List the nearest stars",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		rID, _ := cmd.Flags().GetString("code")
-		if rID == "" {
-			id, _ := cmd.Flags().GetInt("id")
-			code, err := rest.ReplicantID(id)
-			if err != nil {
-				return fmt.Errorf("Replicant #%d not found: %v", id, err)
-			}
-			rID = code
+		rID, err := getRID(cmd)
+		if err != nil {
+			return fmt.Errorf("Replicant not found: %v", err)
 		}
 		page, _ := cmd.Flags().GetInt("page")
 		cnt, _ := cmd.Flags().GetInt("count")

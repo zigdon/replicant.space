@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"time"
 
 	"net/http"
@@ -19,7 +20,8 @@ const (
 )
 
 var (
-	client http.Client
+	client         http.Client
+	UnreadMessages int
 )
 
 func log(tmpl string, args ...any) {
@@ -63,6 +65,17 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	log("->\n%s", string(body))
+
+	if unread, ok := resp.Header["X-Replicant-Space-Unread-Count"]; ok {
+		UnreadMessages, err = strconv.Atoi(unread[0])
+		if err != nil {
+			log("Can't parse unread message count %v: %v", unread, err)
+		} else {
+			log("Unread messages: %v", UnreadMessages)
+		}
+	} else {
+		UnreadMessages = 0
+	}
 
 	return body, err
 }
