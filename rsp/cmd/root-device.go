@@ -8,6 +8,7 @@ import (
 var deviceCmd = &cobra.Command{
 	Use:   "device",
 	Short: "Manage devices",
+	RunE:  infoCmd.RunE,
 }
 
 func init() {
