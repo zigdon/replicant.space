@@ -194,6 +194,12 @@ func init() {
 			}},
 	)
 	mkDeviceCommand(
+		"owner", "Change owner of a device", "change_owner",
+		[]flagDesc{{
+			name: "target", short: 't', desc: "New owner code",
+		}},
+	)
+	mkDeviceCommand(
 		"print", "Queue a print job", "enqueue_print",
 		[]flagDesc{{
 			// args[0]
