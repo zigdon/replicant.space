@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/rest"
 )
 
 var cacheCmd = &cobra.Command{
@@ -23,8 +24,28 @@ var cacheInitCmd = &cobra.Command{
 	},
 }
 
+var cacheStarsCmd = &cobra.Command{
+	Use: "reload-stars",
+	Short: "Fetch the full star census to the cache",
+	RunE: reloadStars,
+}
+
 func init() {
 	rootCmd.AddCommand(cacheCmd)
 	cacheCmd.AddCommand(cacheInitCmd)
-	cacheInitCmd.Flags().Bool("create", false, "emit the json returned")
+	cacheInitCmd.Flags().Bool("create", false,
+	  "Be willing to create a new db if none is found")
+}
+
+func reloadStars (cmd *cobra.Command, args []string) error {
+	db, err := cache.Connect(false)
+	if err != nil {
+		return err
+	}
+
+	// Get the current list of stars.
+	_, err = db.List("stars")
+	if err != nil {
+		return err
+	}
 }

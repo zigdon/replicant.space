@@ -5,16 +5,11 @@ CREATE TABLE IF NOT EXISTS stars (
   entry_point TEXT,
   est_planets INTEGER,
   explored INTEGER,
-  habitable_zone_inner REAL,
-  habitable_zone_outer REAL,
   has_life INTEGER,
-  luminosity REAL,
-  mass REAL,
   position_x REAL,
   position_y REAL,
-  position_z REAL,
-  spectral_type TEXT,
-  temperature_k INTEGER);
+  position_z REAL
+);
 
 CREATE TABLE IF NOT EXISTS planets (
   designation TEXT PRIMARY KEY,

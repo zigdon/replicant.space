@@ -114,3 +114,33 @@ func (db *db) Update(table string, data map[string]any) error {
 
 	return nil
 }
+
+type Tables string
+const (
+	StarsTable Tables = "stars"
+	PlanetsTable Tables = "planets"
+	MoonsTable Tables = "moons"
+	BeltsTable Tables = "belts"
+	ResourcesTable Tables = "resources"
+)
+
+func (db *db) List(table Tables) ([]any, error) {
+	rows, err := db.DB.Query(fmt.Sprintf("SELECT * FROM %s", table))
+	if err != nil {
+		return nil, err
+	}
+	var res []any
+	for rows.Next() {
+		switch table {
+		case "stars":
+			s := &Star{}
+			res = append(res, s.Load(rows.Scan))
+		}
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	return res, nil
+}
+
