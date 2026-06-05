@@ -39,9 +39,9 @@ func init() {
 		}},
 	)
 	mkDeviceCommand(
-		"attach", "Attach a device (say, to a surge_plate)", "attach",
+		"attach", "Attach a device (passenger)", "attach",
 		[]flagDesc{{
-			name: "carrier", short: 'c', desc: "Device to attach to",
+			name: "passenger", short: 'p', desc: "Device to attach",
 			required: true, jsonKey: "device",
 		}},
 	)
@@ -63,6 +63,13 @@ func init() {
 		[]flagDesc{{
 			name: "resources", short: 'r', required: false,
 			jsonKey: "resources", mapFlag: true,
+		}},
+	)
+	mkDeviceCommand(
+		"detach", "Detach a device (passenger)", "detach",
+		[]flagDesc{{
+			name: "passenger", short: 'p', desc: "Device to detach",
+			required: true, jsonKey: "device",
 		}},
 	)
 	mkDeviceCommand(

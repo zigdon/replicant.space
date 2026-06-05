@@ -61,6 +61,15 @@ var infoCmd = &cobra.Command{
 					"Code", "Type", "Location", "Status",
 				}, cds)
 			}
+			if len(resp.AttachedDevices) > 0 {
+				fmt.Printf("Attached devices (%d/%d):\n",
+					len(resp.AttachedDevices), resp.AttachCapacity)
+				var ds [][]string
+				for _, d := range resp.AttachedDevices {
+					ds = append(ds, []string{d.Type, d.Code})
+				}
+				printTable([]string{"Type", "Code"}, ds)
+			}
 		}
 		return nil
 	},

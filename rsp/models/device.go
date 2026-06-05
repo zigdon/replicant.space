@@ -33,6 +33,8 @@ type DeviceDirective struct {
 type Device struct {
 	AmiDirective         DeviceDirective    `json:"ami_directive"`
 	AmiDirectiveStatus   string             `json:"ami_directive_status"`
+	AttachCapacity       int                `json:"attach_capacity"`
+	AttachedDevices      []StowedDevice     `json:"attached_devices"`
 	AttachedToDeviceCode string             `json:"attached_to_device_code"`
 	AvailableCommands    []string           `json:"available_commands"`
 	AvailableDirectives  []string           `json:"available_directives"`
