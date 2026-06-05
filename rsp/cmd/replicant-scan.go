@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -82,6 +84,20 @@ var scanCmd = &cobra.Command{
 					"Scanned",
 					"Salvage",
 				}, planets)
+
+				if getInv, _ := cmd.Flags().GetBool("inventory"); getInv {
+					inv := getInventory(scan)
+					var names []string
+					for k := range inv {
+						names = append(names, k)
+					}
+					slices.Sort(names)
+					var invLines [][]string
+					for _, n := range names {
+						invLines = append(invLines, []string{n, lines(inv[n])})
+					}
+					printTable([]string{"Name", "Inventory"}, invLines)
+				}
 			}
 		}
 		return nil
@@ -90,4 +106,68 @@ var scanCmd = &cobra.Command{
 
 func init() {
 	replicantCmd.AddCommand(scanCmd)
+	scanCmd.Flags().BoolP("inventory", "i", false, "Recursively scan planets and moons for loose change")
+}
+
+func getInventory(scan *models.Scan) map[string][]string {
+	var targets []string
+	if scan.AsteroidBelt.Present {
+		for _, b := range scan.AsteroidBelt.Belts {
+			targets = append(targets, b.Designation)
+		}
+	}
+	for _, p := range scan.Planets {
+		targets = append(targets, p.Designation)
+	}
+
+	var moons []string
+	res := make(map[string][]string)
+	for _, t := range targets {
+		l, err := rest.Location(t)
+		if err != nil {
+			log("Error getting location %q: %v", t, err)
+			continue
+		}
+		if len(l.Inventory) > 0 {
+			for _, i := range l.Inventory {
+				res[t] = append(res[t], fmt.Sprintf("%.0f x %s", i.Quantity, i.ResourceType))
+			}
+		}
+		if len(l.ResourceSites) > 0 {
+			for _, rs := range l.ResourceSites {
+				for k, v := range rs.ResourcesRemainingPct {
+					res[rs.Designation] = append(res[rs.Designation],
+						fmt.Sprintf("%.2f%% x %s", v, k))
+				}
+			}
+		}
+		if len(l.Moons) > 0 {
+			for _, m := range l.Moons {
+				moons = append(moons, m.Designation)
+			}
+		}
+	}
+
+	for _, t := range moons {
+		l, err := rest.Location(t)
+		if err != nil {
+			log("Error getting location %q: %v", t, err)
+			continue
+		}
+		if len(l.Inventory) > 0 {
+			for _, i := range l.Inventory {
+				res[t] = append(res[t], fmt.Sprintf("%.0f x %s", i.Quantity, i.ResourceType))
+			}
+		}
+		if len(l.ResourceSites) > 0 {
+			for _, rs := range l.ResourceSites {
+				for k, v := range rs.ResourcesRemainingPct {
+					res[rs.Designation] = append(res[rs.Designation],
+						fmt.Sprintf("%d%% %s", v, k))
+				}
+			}
+		}
+	}
+
+	return res
 }
