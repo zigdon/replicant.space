@@ -11,7 +11,6 @@ import (
 	"net/url"
 
 	"github.com/zigdon/rsp/cfg"
-	"github.com/zigdon/rsp/errors"
 )
 
 const (
@@ -38,7 +37,7 @@ func log(tmpl string, args ...any) {
 	}
 }
 
-func Get(path string, args ...any) ([]byte, error) {
+func do(method, path string, data []byte, args ...any) ([]byte, error) {
 	cfg, err := cfg.ReadCfg()
 	if err != nil {
 		return nil, err
@@ -48,42 +47,7 @@ func Get(path string, args ...any) ([]byte, error) {
 		return nil, err
 	}
 	resp, err := client.Do(&http.Request{
-		Method: "GET",
-		URL:    url,
-		Header: map[string][]string{
-			"Authorization": {"Bearer " + cfg.APIKey},
-		},
-	})
-	log("GET %q -> %d\n", url, resp.StatusCode)
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	log("->\n%s", string(body))
-	if os.Getenv("DUMP_API") != "" {
-		fmt.Printf("GET %q -> %d:\n", url, resp.StatusCode)
-		fmt.Println(string(body))
-	}
-	if resp.StatusCode > 299 {
-		return nil, fmt.Errorf("GET failed with %d:\n%s", resp.StatusCode, body)
-	}
-
-	return body, err
-}
-
-func Post(path string, data []byte, args ...any) ([]byte, error) {
-	cfg, err := cfg.ReadCfg()
-	if err != nil {
-		return nil, err
-	}
-	url, err := url.Parse(fmt.Sprintf(base+"/"+path, args...))
-	if err != nil {
-		return nil, err
-	}
-	resp, err := client.Do(&http.Request{
-		Method: "POST",
+		Method: method,
 		URL:    url,
 		Header: map[string][]string{
 			"Authorization": {"Bearer " + cfg.APIKey},
@@ -91,7 +55,7 @@ func Post(path string, data []byte, args ...any) ([]byte, error) {
 		},
 		Body: io.NopCloser(bytes.NewReader(data)),
 	})
-	log("POST %q -> %d:\n%s", url, resp.StatusCode, string(data))
+	log("%s %q -> %d:\n%s", method, url, resp.StatusCode, string(data))
 	if err != nil {
 		return nil, err
 	}
@@ -99,15 +63,20 @@ func Post(path string, data []byte, args ...any) ([]byte, error) {
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	log("->\n%s", string(body))
-	if resp.StatusCode > 299 {
-		return nil, errors.PostError{
-			Err:    fmt.Errorf("POST failed with %d:\n%s", resp.StatusCode, body),
-			Status: resp.StatusCode,
-			Body:   body,
-		}
-	}
 
 	return body, err
+}
+
+func Patch(path string, data []byte, args ...any) ([]byte, error) {
+	return do("PATCH", path, data, args...)
+}
+
+func Post(path string, data []byte, args ...any) ([]byte, error) {
+	return do("POST", path, data, args...)
+}
+
+func Get(path string, args ...any) ([]byte, error) {
+	return do("GET", path, nil, args...)
 }
 
 // / Cache
@@ -169,4 +138,3 @@ func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, 
 	}
 	return res, nil
 }
-
