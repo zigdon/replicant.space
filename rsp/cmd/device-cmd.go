@@ -46,14 +46,17 @@ func init() {
 		}},
 	)
 	mkDeviceCommand(
-		"clear_directive", "Drop the current directive entirely", "clear_directive", nil,
-	)
-	mkDeviceCommand(
 		"collect", "Pick up resources at the current location", "collect_resources",
 		[]flagDesc{{
 			name: "resources", short: 'r', required: true,
 			jsonKey: "resources", mapFlag: true,
 		}},
+	)
+	mkDeviceCommand(
+		"configure", "Change device configuration", "configure",
+		[]flagDesc{{
+				name: "taxi_mode", short: 't', required: false, jsonKey: "mode",
+			}},
 	)
 	mkDeviceCommand(
 		"deploy", "Deploy a device", "deploy", nil,

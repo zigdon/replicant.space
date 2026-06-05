@@ -54,6 +54,7 @@ type Device struct {
 	StowCapacity         int                `json:"stow_capacity"`
 	StowedDevices        []StowedDevice     `json:"stowed_devices"`
 	StowedInDeviceCode   string             `json:"stowed_in_device_code"`
+	TaxiMode 			 string             `json:"taxi_mode"`
 	Type                 string             `json:"device_type"`
 }
 

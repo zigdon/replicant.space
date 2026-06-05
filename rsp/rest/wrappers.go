@@ -134,8 +134,10 @@ func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp
 		return nil, err
 	}
 	m, err := models.Parse[models.CommandResp](trip)
-	m.Eta = durationFromSeconds(m.EtaSeconds)
-	m.TotalTime = durationFromSeconds(m.TotalTimeSeconds)
+	if m != nil {
+		m.Eta = durationFromSeconds(m.EtaSeconds)
+		m.TotalTime = durationFromSeconds(m.TotalTimeSeconds)
+	}
 	return m, err
 }
 
