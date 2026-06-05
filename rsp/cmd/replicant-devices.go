@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
@@ -38,6 +40,12 @@ var devicesCmd = &cobra.Command{
 					d.StowedInDeviceCode,
 				})
 			}
+			slices.SortFunc(data, func(a, b []string) int {
+				return cmp.Or(
+					cmp.Compare(a[0], b[0]),
+					cmp.Compare(a[1], b[1]),
+				)
+			})
 			printTable([]string{
 				"Type",
 				"Code",

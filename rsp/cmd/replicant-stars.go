@@ -1,9 +1,13 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -25,15 +29,32 @@ var starsCmd = &cobra.Command{
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(resp)
 		} else {
-			printTable([]string{
-				"Location", "Total Stars", "Page",
-			}, [][]string{{
+			var target models.Position
+			var err error
+			headers := []string{"Location", "Total Stars", "Page"}
+			data := [][]string{{
 				resp.ReplicantPosition.String(), d(resp.TotalStars),
 				fmt.Sprintf("%d/%d", page, resp.TotalPages),
-			}})
+			}}
+			dest, _ := cmd.Flags().GetString("destination")
+			if dest != "" {
+				target, err = models.ParsePosition(dest)
+				if err != nil {
+					return err
+				}
+				headers = append(headers, "Destination")
+				data[0] = append(data[0], target.String())
+			}
+			printTable(headers, data)
 			var stars [][]string
+			dist := make(map[string]float32)
 			for _, s := range resp.Stars {
-				stars = append(stars, []string{
+				if f, _ := cmd.Flags().GetString("filter"); f != "" {
+					if !strings.Contains(strings.ToLower(s.Designation), strings.ToLower(f)) {
+						continue
+					}
+				}
+				data := []string{
 					s.Designation,
 					s.EntryPoint,
 					d(s.EstimatedPlanets),
@@ -43,12 +64,24 @@ var starsCmd = &cobra.Command{
 					b(s.Explored),
 					b(s.HasLife),
 					s.Position.String(),
-				})
+				}
+				if dest != "" {
+					dist[s.Designation] = s.Position.Distance(target)
+					data = append(data, f(dist[s.Designation]))
+				}
+				stars = append(stars, data)
 			}
-			printTable([]string{
+			headers = []string{
 				"Designation", "Entry Point", "Est Planets", "Distance",
 				"ETA", "Spectral Type", "Explored", "Has Life", "Location",
-			}, stars)
+			}
+			if dest != "" {
+				headers = append(headers, "To destination")
+				slices.SortFunc(stars, func(a, b []string) int {
+					return cmp.Compare(dist[a[0]], dist[b[0]])
+				})
+			}
+			printTable(headers, stars)
 		}
 		return nil
 	},
@@ -58,4 +91,6 @@ func init() {
 	replicantCmd.AddCommand(starsCmd)
 	starsCmd.Flags().IntP("page", "p", 0, "Census page to fetch")
 	starsCmd.Flags().IntP("count", "n", 10, "Entries per page")
+	starsCmd.Flags().StringP("filter", "f", "", "Filter star names")
+	starsCmd.Flags().StringP("destination", "d", "", "Show distance from specified x,y,z coordinate")
 }

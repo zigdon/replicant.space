@@ -1,11 +1,41 @@
 package models
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+	"strconv"
+	"strings"
+)
 
 type Position struct {
 	X float32 `json:"x"`
 	Y float32 `json:"y"`
 	Z float32 `json:"z"`
+}
+
+func ParsePosition(coords string) (Position, error) {
+	cs := strings.Split(coords, ",")
+	p := Position{}
+	if len(cs) != 3 {
+		return p, fmt.Errorf("Destination must be specified as x,y,z")
+	}
+	x, err := strconv.Atoi(cs[0])
+	if err != nil { return p, err }
+	y, err := strconv.Atoi(cs[1])
+	if err != nil { return p, err }
+	z, err := strconv.Atoi(cs[2])
+	if err != nil { return p, err }
+	p.X = float32(x)
+	p.Y = float32(y)
+	p.Z = float32(z)
+	return p, nil
+}
+
+func (p Position) Distance(to Position) float32 {
+	return float32(math.Sqrt(
+		math.Pow(float64(p.X - to.X), 2) +
+		math.Pow(float64(p.Y - to.Y), 2) +
+		math.Pow(float64(p.Z - to.Z), 2)))
 }
 
 func (p Position) String() string {

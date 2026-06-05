@@ -70,8 +70,6 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 		UnreadMessages, err = strconv.Atoi(unread[0])
 		if err != nil {
 			log("Can't parse unread message count %v: %v", unread, err)
-		} else {
-			log("Unread messages: %v", UnreadMessages)
 		}
 	} else {
 		UnreadMessages = 0

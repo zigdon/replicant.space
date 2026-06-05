@@ -132,7 +132,7 @@ func getInventory(scan *models.Scan) map[string][]string {
 			for _, rs := range l.ResourceSites {
 				for k, v := range rs.ResourcesRemainingPct {
 					res[rs.Designation] = append(res[rs.Designation],
-						fmt.Sprintf("%.2f%% x %s", v, k))
+						fmt.Sprintf("%d%% x %s", v, k))
 				}
 			}
 		}

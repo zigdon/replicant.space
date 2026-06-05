@@ -129,6 +129,9 @@ func Execute() {
 	if err != nil {
 		die(err.Error())
 	}
+	if rest.UnreadMessages > 0 {
+		log("Unread messages: %d", rest.UnreadMessages)
+	}
 }
 
 func init() {
