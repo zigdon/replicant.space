@@ -17,16 +17,18 @@ var msgCmd = &cobra.Command{
 		cursor, _ := cmd.Flags().GetInt("cursor")
 		number, _ := cmd.Flags().GetInt("number")
 		latest, _ := cmd.Flags().GetBool("latest")
-		unread, _ := cmd.Flags().GetBool("unread")
-		data, err := rest.Messages(cursor, number, latest, unread)
+		readToo, _ := cmd.Flags().GetBool("read")
+		data, err := rest.Messages(cursor, number, latest, !readToo)
 		if err != nil {
 			return fmt.Errorf("Error getting status: %v", err)
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(data)
 		} else {
+		  var ids []int
 		  var msgs [][]string
 		  for _, m := range data.Messages {
+			ids = append(ids, m.ID)
 			msgs = append(msgs, []string{
 			  d(m.ID),
 			  m.Type,
@@ -36,7 +38,14 @@ var msgCmd = &cobra.Command{
 			  m.CreatedAt,
 			})
 		  }
-			printTable([]string{"ID", "Type", "Title", "Body", "Read", "Created"}, msgs)
+		  printTable([]string{"ID", "Type", "Title", "Body", "Read", "Created"}, msgs)
+
+		  if mark, _ := cmd.Flags().GetBool("mark"); mark {
+			log("Marking messages read: %v", ids)
+			if err := rest.MarkRead(ids); err != nil {
+			  log("Error marking messages read: %v", err)
+			}
+		  }
 		}
 		return nil
 	},
@@ -44,8 +53,9 @@ var msgCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(msgCmd)
+	msgCmd.Flags().BoolP("mark", "m", false, "Mark messages as read")
 	msgCmd.Flags().BoolP("latest", "l", false, "Show latest messages")
-	msgCmd.Flags().BoolP("unread", "u", true, "Show unread messages only")
+	msgCmd.Flags().BoolP("read", "r", false, "Show also read messages")
 	msgCmd.Flags().IntP("number", "n", 20, "Number of messages to show")
 	msgCmd.Flags().IntP("cursor", "c", 0, "Position to start from")
 	msgCmd.Flags().IntP("width", "w", 50, "Wrap message body to this width")

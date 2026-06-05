@@ -29,6 +29,7 @@ var devicesCmd = &cobra.Command{
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(rd)
 		} else {
+			fmt.Printf("Replicant: %s\n", rID)
 			var data [][]string
 			for _, d := range rd {
 				data = append(data, []string{

@@ -27,6 +27,14 @@ func Messages(cursor, limit int, latest, unreadOnly bool) (*models.Messages, err
 	return models.Parse[models.Messages](res)
 }
 
+func MarkRead(ids []int) error {
+	data, _ := json.Marshal(map[string][]int{
+		"ids": ids,
+	})
+	_, err := Post("messages/read", data)
+	return err
+}
+
 // / Replicants
 func ReplicantID(id int) (string, error) {
 	account, err := Account()
