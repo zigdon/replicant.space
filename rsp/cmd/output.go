@@ -71,13 +71,24 @@ func v(data any) string {
 	return string(s)
 }
 
+func filterEmpty[T any](s []T, keep []bool) []T {
+	var res []T
+	for i, c := range s {
+		if !keep[i] { continue }
+		res = append(res, c)
+	}
+	return res
+}
+
 func printTable(headers []string, data [][]string) {
 	var cellStyles []lg.Style
 	headerStyle := lg.NewStyle().Bold(true).Align(lg.Center)
 	cellStyle := lg.NewStyle().Padding(0, 1)
+	hasData := make([]bool, len(headers))
 	for i := range headers {
 		max := len(headers[i])
 		for _, l := range data {
+			if len(l[i]) > 0 { hasData[i] = true }
 			if strings.Contains(l[i], "\n") {
 				for _, nl := range strings.Split(l[i], "\n") {
 					if len(nl) > max {
@@ -91,6 +102,12 @@ func printTable(headers []string, data [][]string) {
 			}
 		}
 		cellStyles = append(cellStyles, cellStyle.Width(max+2))
+	}
+
+	headers = filterEmpty[string](headers, hasData)
+	cellStyles = filterEmpty[lg.Style](cellStyles, hasData)
+	for i, l := range data {
+		data[i] = filterEmpty[string](l, hasData)
 	}
 
 	t := table.New().

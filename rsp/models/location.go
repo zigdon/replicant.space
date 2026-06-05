@@ -47,6 +47,7 @@ type Star struct {
 	Color                 string  `json:"color"`
 	Designation           string  `json:"designation"`
 	DistanceFromReplicant float32 `json:"distance_from_replicant"`
+	DistanceFromSol       float32 `json:"distance_from_sol"`
 	EntryPoint            string  `json:"entry_point"`
 	EstimatedPlanets      int     `json:"estimated_planets"`
 	EstimatedTravelTime   int     `json:"estimated_travel_time"`
@@ -58,9 +59,11 @@ type Star struct {
 	HasLife         bool     `json:"has_life"`
 	LuminositySolar float32  `json:"luminositysolar"`
 	MassSolar       float32  `json:"mass_solar"`
+	MiningBonusPct  int      `json:"mining_bonus_pct"`
 	Name            string   `json:"name"`
 	Position        Position `json:"position"`
 	SpectralType    string   `json:"spectral_type"`
+	StellarClass    string   `json:"stellar_class"`
 	TemperatureK    int      `json:"temperature_k"`
 }
 
@@ -102,6 +105,7 @@ type Planet struct {
 	Designation         string    `json:"designation"`
 	InHabitableZone     bool      `json:"in_habitable_zone"`
 	LifeStage           string    `json:"life_stage"`
+	LocationType        string    `json:"location_type"`
 	MagneticField       bool      `json:"magnetic_field"`
 	MassEarth           float32   `json:"mass_earth"`
 	MoonCount           int       `json:"moon_count"`
@@ -117,7 +121,7 @@ type Planet struct {
 	SurfaceTempC        int       `json:"surface_temp_c"`
 	SurfaceTempK        int       `json:"surface_temp_k"`
 	Tags                []string  `json:"tags"`
-	Type                string    `json:"location_type"`
+	Type                string    `json:"type"`
 }
 
 type Moon struct {
@@ -129,13 +133,25 @@ type Moon struct {
 }
 
 type Location struct {
-	Belt          Belt        `json:"belt"`
-	Devices       []Device    `json:"devices"`
-	Inventory     []Inventory `json:"inventory"`
-	Location      string      `json:"location"`
-	Moon          Moon        `json:"moon"`
-	Moons         []Moon      `json:"moons"`
-	Planet        Planet      `json:"planet"`
-	ResourceSites []Site      `json:"resource_sites"`
-	Type          string      `json:"location_type"`
+	AsteroidBelt  struct{
+		Present         bool        `json:"present"`
+	}                               `json:"asteroid_belt"`
+	Belt                Belt        `json:"belt"`
+	Devices             []Device    `json:"devices"`
+	EntryPoint          string      `json:"entry_point"`
+	Inventory           []Inventory `json:"inventory"`
+	Location            string      `json:"location"`
+	Moon                Moon        `json:"moon"`
+	Moons               []Moon      `json:"moons"`
+	MoonsScanned        int         `json:"moons_scanned"`
+	MoonsTotal          int         `json:"moons_total"`
+	MoonsTotalEstimated bool        `json:"moons_total_estimated"`
+	Planet              Planet      `json:"planet"`
+	Planets             []Planet    `json:"planets"`
+	PlanetsScanned      int         `json:"planets_scanned"`
+	PlanetsTotal        int         `json:"planets_total"`
+	ResourceSites       []Site      `json:"resource_sites"`
+	Star                Star        `json:"star"`
+	SystemScanned       bool        `json:"system_scanned"`
+	Type                string      `json:"location_type"`
 }
