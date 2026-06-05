@@ -39,6 +39,13 @@ func init() {
 		}},
 	)
 	mkDeviceCommand(
+		"attach", "Attach a device (say, to a surge_plate)", "attach",
+		[]flagDesc{{
+			name: "carrier", short: 'c', desc: "Device to attach to",
+			required: true, jsonKey: "device",
+		}},
+	)
+	mkDeviceCommand(
 		"clear_directive", "Drop the current directive entirely", "clear_directive", nil,
 	)
 	mkDeviceCommand(
