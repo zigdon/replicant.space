@@ -1,119 +1,12 @@
 package cmd
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
-	"github.com/zigdon/rsp/rest"
 )
 
-type flagDesc struct {
-	name     string
-	short    rune
-	value    string
-	desc     string
-	required bool
-	slice    bool
-	jsonKey  string
-	mapFlag  bool
-}
-
-var mkDeviceCommand = func(name, short, command string, flags []flagDesc) {
-	cmd := &cobra.Command{
-		Use:   name,
-		Short: short,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			id, _ := cmd.Flags().GetString("device")
-			data := make(map[string]any)
-			var argsFlag flagDesc
-			for _, f := range flags {
-				if f.name == "" {
-					argsFlag = f
-				}
-				if f.jsonKey == "" {
-					f.jsonKey = f.name
-				}
-
-				var val any
-				if f.slice {
-					val, _ = cmd.Flags().GetStringSlice(f.name)
-				} else if f.mapFlag {
-					ms, _ := cmd.Flags().GetStringSlice(f.name)
-					if len(ms) == 0 {
-						continue
-					}
-					dataMap := make(map[string]string)
-					for _, mv := range ms {
-						bits := strings.Split(mv, ":")
-						dataMap[bits[0]] = bits[1]
-					}
-					val = dataMap
-				} else {
-					val, _ = cmd.Flags().GetString(f.name)
-				}
-				if f.required {
-					data[f.jsonKey] = val
-				} else if val != "" {
-					data[f.jsonKey] = val
-				}
-			}
-			if argsFlag.jsonKey != "" {
-				if len(args) == 0 || args[0] == "" {
-					return fmt.Errorf("Argument is required for %q", name)
-				}
-				data[argsFlag.jsonKey] = args[0]
-			}
-			resp, err := rest.DeviceCommand(id, command, data)
-			if err != nil {
-				return fmt.Errorf("Error sending %q to %q: %v", command, id, err)
-			}
-			if raw, _ := cmd.Flags().GetBool("raw"); raw {
-				prettyPrint(resp)
-			} else {
-				if resp.JsonErr == "" {
-					headers, data := getTable(name, resp)
-					printTable(headers, data)
-				} else {
-					log("error: %v", resp.JsonErr)
-					if len(resp.AvailableSites) > 0 {
-						var sites [][]string
-						for _, s := range resp.AvailableSites {
-							sites = append(sites, []string{
-								s.Designation, s.Name, s.SalvageType,
-							})
-						}
-						printTable([]string{"Designation", "Name", "SalvageType"},
-							sites)
-					}
-				}
-			}
-			return nil
-		},
-	}
-	deviceCmd.AddCommand(cmd)
-	for _, f := range flags {
-		if f.name == "" {
-			continue
-		}
-		if f.slice || f.mapFlag {
-			if f.short != 0 {
-				cmd.Flags().StringSliceP(f.name, string(f.short), []string{f.value}, f.desc)
-			} else {
-				cmd.Flags().StringSlice(f.name, []string{f.value}, f.desc)
-			}
-		} else {
-			if f.short != 0 {
-				cmd.Flags().StringP(f.name, string(f.short), f.value, f.desc)
-			} else {
-				cmd.Flags().String(f.name, f.value, f.desc)
-			}
-		}
-		if f.required {
-			cmd.MarkFlagRequired(f.name)
-		}
-	}
+var mkDeviceCommand = func(name, short, command string, flags []flagDesc) *cobra.Command {
+	return mkCommand(deviceCmd, name, short, command, flags)
 }
 
 func getTable(name string, resp *models.CommandResp) ([]string, [][]string) {
@@ -137,9 +30,6 @@ func getTable(name string, resp *models.CommandResp) ([]string, [][]string) {
 func init() {
 	mkDeviceCommand(
 		"activate", "Activate device (e.g. ftl relay)", "activate", nil,
-	)
-	mkDeviceCommand(
-		"assemble", "Bring the fleet home to the controller's current location without ending the directive", "assemble", nil,
 	)
 	mkDeviceCommand(
 		"adopt", "Add devices to a controller's fleet", "adopt",
@@ -167,20 +57,6 @@ func init() {
 			name: "resources", short: 'r', required: false,
 			jsonKey: "resources", mapFlag: true,
 		}},
-	)
-	mkDeviceCommand(
-		"directive", "Update the automation policy for a device", "set_directive",
-		[]flagDesc{
-			{
-				name: "new_directive", short: 'n', required: true, jsonKey: "directive",
-			},
-			{
-				name: "configuration", short: 'c', required: false,
-				jsonKey: "configuration", mapFlag: true,
-			}},
-	)
-	mkDeviceCommand(
-		"launch", "Deploy the fleet and start executing the current directive", "launch", nil,
 	)
 	mkDeviceCommand(
 		"mine", "Instruct a drone to start mining", "start_mining",
@@ -251,8 +127,5 @@ func init() {
 			// args[0]
 			required: true, jsonKey: "destination",
 		}},
-	)
-	mkDeviceCommand(
-		"withdraw", "Recall the fleet and pause execution", "withdraw", nil,
 	)
 }

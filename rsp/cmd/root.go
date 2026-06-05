@@ -1,116 +1,125 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
-	lg "charm.land/lipgloss/v2"
-	"charm.land/lipgloss/v2/table"
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/rest"
 )
+
+type flagDesc struct {
+	name     string
+	short    rune
+	value    string
+	desc     string
+	required bool
+	slice    bool
+	jsonKey  string
+	mapFlag  bool
+}
+
+var mkCommand = func(parent *cobra.Command, name, short, command string, flags []flagDesc) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   name,
+		Short: short,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, _ := cmd.Flags().GetString("device")
+			data := make(map[string]any)
+			var argsFlag flagDesc
+			for _, f := range flags {
+				if f.name == "" {
+					argsFlag = f
+				}
+				if f.jsonKey == "" {
+					f.jsonKey = f.name
+				}
+
+				var val any
+				if f.slice {
+					val, _ = cmd.Flags().GetStringSlice(f.name)
+				} else if f.mapFlag {
+					ms, _ := cmd.Flags().GetStringSlice(f.name)
+					if len(ms) == 0 {
+						continue
+					}
+					dataMap := make(map[string]string)
+					for _, mv := range ms {
+						bits := strings.Split(mv, ":")
+						dataMap[bits[0]] = bits[1]
+					}
+					val = dataMap
+				} else {
+					val, _ = cmd.Flags().GetString(f.name)
+				}
+				if f.required {
+					data[f.jsonKey] = val
+				} else if val != "" {
+					data[f.jsonKey] = val
+				}
+			}
+			if argsFlag.jsonKey != "" {
+				if len(args) == 0 || args[0] == "" {
+					return fmt.Errorf("Argument is required for %q", name)
+				}
+				data[argsFlag.jsonKey] = args[0]
+			}
+			resp, err := rest.DeviceCommand(id, command, data)
+			if err != nil {
+				return fmt.Errorf("Error sending %q to %q: %v", command, id, err)
+			}
+			if raw, _ := cmd.Flags().GetBool("raw"); raw {
+				prettyPrint(resp)
+			} else {
+				if resp.JsonErr == "" {
+					headers, data := getTable(name, resp)
+					printTable(headers, data)
+				} else {
+					log("error: %v", resp.JsonErr)
+					if len(resp.AvailableSites) > 0 {
+						var sites [][]string
+						for _, s := range resp.AvailableSites {
+							sites = append(sites, []string{
+								s.Designation, s.Name, s.SalvageType,
+							})
+						}
+						printTable([]string{"Designation", "Name", "SalvageType"},
+							sites)
+					}
+				}
+			}
+			return nil
+		},
+	}
+	parent.AddCommand(cmd)
+	for _, f := range flags {
+		if f.name == "" {
+			continue
+		}
+		if f.slice || f.mapFlag {
+			if f.short != 0 {
+				cmd.Flags().StringSliceP(f.name, string(f.short), []string{f.value}, f.desc)
+			} else {
+				cmd.Flags().StringSlice(f.name, []string{f.value}, f.desc)
+			}
+		} else {
+			if f.short != 0 {
+				cmd.Flags().StringP(f.name, string(f.short), f.value, f.desc)
+			} else {
+				cmd.Flags().String(f.name, f.value, f.desc)
+			}
+		}
+		if f.required {
+			cmd.MarkFlagRequired(f.name)
+		}
+	}
+	return cmd
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "rsp",
 	Short: "Simple cli for interacting with replicant.space",
-}
-
-func log(tmpl string, args ...any) {
-	if !strings.HasSuffix(tmpl, "\n") {
-		tmpl += "\n"
-	}
-	fmt.Fprintf(os.Stderr, tmpl, args...)
-}
-
-func die(tmpl string, args ...any) {
-	log("FATAL: "+tmpl, args...)
-	os.Exit(1)
-}
-
-func prettyPrint(i any) {
-	s, _ := json.MarshalIndent(i, "", "  ")
-	fmt.Println(string(s))
-}
-
-func wrap(t string, w int) string {
-	return lg.NewStyle().Width(w).Render(t)
-}
-
-func b(n bool) string {
-	if n {
-		return "True"
-	}
-	return "False"
-}
-
-func f(n float32) string {
-	return fmt.Sprintf("%.2f", n)
-}
-
-func d(n int) string {
-	return fmt.Sprintf("%d", n)
-}
-
-func list(s []string) string {
-	return strings.Join(s, ", ")
-}
-
-func lines(s []string) string {
-	return strings.Join(s, "\n")
-}
-
-func m[T int | string](in map[string]T) string {
-	var res []string
-	for k, v := range in {
-		res = append(res, fmt.Sprintf("%s: %v", k, v))
-	}
-	return strings.Join(res, "\n")
-}
-
-func p(per float32) string {
-	return fmt.Sprintf("%.2f%%", per)
-}
-
-func v(data any) string {
-	s, _ := json.MarshalIndent(data, "", "  ")
-	return string(s)
-}
-
-func printTable(headers []string, data [][]string) {
-	var cellStyles []lg.Style
-	headerStyle := lg.NewStyle().Bold(true).Align(lg.Center)
-	cellStyle := lg.NewStyle().Padding(0, 1)
-	for i := range headers {
-		max := len(headers[i])
-		for _, l := range data {
-			if strings.Contains(l[i], "\n") {
-				for _, nl := range strings.Split(l[i], "\n") {
-					if len(nl) > max {
-						max = len(nl)
-					}
-				}
-			} else {
-				if len(l[i]) > max {
-					max = len(l[i])
-				}
-			}
-		}
-		cellStyles = append(cellStyles, cellStyle.Width(max+2))
-	}
-
-	t := table.New().
-		Border(lg.NormalBorder()).
-		StyleFunc(func(row, col int) lg.Style {
-			if row == table.HeaderRow {
-				return headerStyle
-			}
-			return cellStyles[col]
-		}).
-		Headers(headers...).
-		Rows(data...)
-	lg.Println(t)
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
