@@ -12,17 +12,43 @@ type Star struct {
 	PositionZ   float32
 }
 
+func (s *Star) Map() map[string]any {
+	return map[string]any{
+		"designation": s.Designation,
+		"entry_point": s.EntryPoint,
+		"est_planets": s.EstPlanets,
+		"explored":    s.Explored,
+		"has_life":    s.HasLife,
+		"name":        s.Name,
+		"position_x":  s.PositionX,
+		"position_y":  s.PositionY,
+		"position_z":  s.PositionZ,
+	}
+}
+
 func (s *Star) Load(scan func(...any) error) error {
 	return scan(
 		&s.Designation,
 		&s.Name,
 		&s.EntryPoint,
 		&s.EstPlanets,
+		&s.Explored,
 		&s.HasLife,
 		&s.PositionX,
 		&s.PositionY,
 		&s.PositionZ,
 	)
+}
+
+func (s *Star) Equal(old *Star) bool {
+	return s.Designation == old.Designation &&
+		s.Name == old.Name &&
+		s.EntryPoint == old.EntryPoint &&
+		s.EstPlanets == old.EstPlanets &&
+		s.HasLife == old.HasLife &&
+		s.PositionX == old.PositionX &&
+		s.PositionY == old.PositionY &&
+		s.PositionZ == old.PositionZ
 }
 
 type Planet struct {
@@ -50,12 +76,12 @@ func (p *Planet) Load(scan func(...any) error) error {
 }
 
 type Moon struct {
-  Designation string
-  Name        string
-  Planet      string
-  Scanned     bool
-  Star        string
-  Type        string
+	Designation string
+	Name        string
+	Planet      string
+	Scanned     bool
+	Star        string
+	Type        string
 }
 
 func (m *Moon) Load(scan func(...any) error) error {
@@ -70,10 +96,10 @@ func (m *Moon) Load(scan func(...any) error) error {
 }
 
 type Belt struct {
-  Density     string
-  Designation string
-  Resources   []Resource
-  Star        string
+	Density     string
+	Designation string
+	Resources   []Resource
+	Star        string
 }
 
 func (b *Belt) Load(scan func(...any) error) error {
@@ -85,6 +111,6 @@ func (b *Belt) Load(scan func(...any) error) error {
 }
 
 type Resource struct {
-  Density  string
-  Resource string
+	Density  string
+	Resource string
 }

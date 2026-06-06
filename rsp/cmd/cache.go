@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"time"
+
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/rest"
@@ -24,7 +26,7 @@ var cacheInitCmd = &cobra.Command{
 	},
 }
 
-var cacheStarsCmd = &cobra.Command{
+var reloadStarsCmd = &cobra.Command{
 	Use: "reload-stars",
 	Short: "Fetch the full star census to the cache",
 	RunE: reloadStars,
@@ -35,6 +37,7 @@ func init() {
 	cacheCmd.AddCommand(cacheInitCmd)
 	cacheInitCmd.Flags().Bool("create", false,
 	  "Be willing to create a new db if none is found")
+	cacheCmd.AddCommand(reloadStarsCmd)
 }
 
 func reloadStars (cmd *cobra.Command, args []string) error {
@@ -44,8 +47,73 @@ func reloadStars (cmd *cobra.Command, args []string) error {
 	}
 
 	// Get the current list of stars.
-	_, err = db.List("stars")
+	seen := make(map[string]*cache.Star)
+	oldStars, err := db.List("stars")
 	if err != nil {
 		return err
 	}
+	log("%d stars loaded from the cache", len(oldStars))
+	for _, s := range oldStars {
+		seen[s.(*cache.Star).Designation] = s.(*cache.Star)
+	}
+
+	// Get a replicant ID
+	id, err := rest.ReplicantID(1)
+	if err != nil {
+		return err
+	}
+
+	// Get page 1, and also how many pages there are
+	page := 0
+	var added, updated []string
+	unchanged := 0
+	for {
+		census, err := rest.ReplicantCensus(id, 50, page)
+		if err != nil {
+			return err
+		}
+		for _, star := range census.Stars {
+			ns := &cache.Star{
+				Designation: star.Designation,
+				EntryPoint: star.EntryPoint,
+				EstPlanets: star.EstimatedPlanets,
+				Explored: star.Explored,
+				HasLife: star.HasLife,
+				Name: star.Name,
+				PositionX: star.Position.X,
+				PositionY: star.Position.Y,
+				PositionZ: star.Position.Z,
+			}
+			if old, ok := seen[ns.Designation]; ok {
+				if old.Equal(ns) {
+					unchanged++
+					continue
+				}
+				updated = append(updated, ns.Designation)
+			} else {
+				added = append(added, ns.Designation)
+			}
+			seen[ns.Designation] = ns
+
+		}
+		log(
+			"Page %d/%d: %d total stars, %d added, %d updated, %d unchanged",
+			page, census.TotalPages, census.TotalStars, len(added),
+			len(updated), unchanged)
+		page++
+		if page > census.TotalPages {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	log(
+		"Fetch done: %d total stars, %d added, %d updated, %d unchanged",
+		len(added) + len(updated) + unchanged, len(added), len(updated), unchanged)
+	for _, s := range append(added, updated...) {
+		if err := db.Update("stars", seen[s].Map()); err != nil {
+			return err
+		}
+	}
+	log("Updated done.")
+	return nil
 }

@@ -72,7 +72,7 @@ func ReplicantScan(id string) (*models.Scan, error) {
 }
 
 func ReplicantCensus(id string, cnt, page int) (*models.Census, error) {
-	res, err := cacheGET(fmt.Sprintf("%s-census", id), 0, "replicants/%s/stars?per_page=%d&page=%d", id, cnt, page)
+	res, err := cacheGET(fmt.Sprintf("%s-census-%d-%d", id, cnt, page), 0, "replicants/%s/stars?per_page=%d&page=%d", id, cnt, page)
 	if err != nil {
 		return nil, err
 	}

@@ -35,6 +35,15 @@ func log(tmpl string, args ...any) {
 	}
 }
 
+type Tables string
+const (
+	StarsTable Tables = "stars"
+	PlanetsTable Tables = "planets"
+	MoonsTable Tables = "moons"
+	BeltsTable Tables = "belts"
+	ResourcesTable Tables = "resources"
+)
+
 type db struct {
 	DB *sql.DB
 }
@@ -97,14 +106,14 @@ func (db *db) Update(table string, data map[string]any) error {
 		placeholders = append(placeholders, "?")
 	}
 	q := fmt.Sprintf(
-			"REPLACE INTO %s (%s) VALUES %s",
+			"REPLACE INTO %s (%s) VALUES (%s)",
 			table, strings.Join(columns, ", "),
 			strings.Join(placeholders, ", "))
-	log("update: %q", q)
-	res, err := db.DB.Exec(q, values)
+	log("update: %q: %v", q, values)
+	res, err := db.DB.Exec(q, values...)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to call REPLACE: %v", err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -114,15 +123,6 @@ func (db *db) Update(table string, data map[string]any) error {
 
 	return nil
 }
-
-type Tables string
-const (
-	StarsTable Tables = "stars"
-	PlanetsTable Tables = "planets"
-	MoonsTable Tables = "moons"
-	BeltsTable Tables = "belts"
-	ResourcesTable Tables = "resources"
-)
 
 func (db *db) List(table Tables) ([]any, error) {
 	rows, err := db.DB.Query(fmt.Sprintf("SELECT * FROM %s", table))
@@ -134,7 +134,8 @@ func (db *db) List(table Tables) ([]any, error) {
 		switch table {
 		case "stars":
 			s := &Star{}
-			res = append(res, s.Load(rows.Scan))
+			s.Load(rows.Scan)
+			res = append(res, s)
 		}
 	}
 	if rows.Err() != nil {
