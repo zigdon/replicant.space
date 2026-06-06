@@ -20,11 +20,17 @@ func ParsePosition(coords string) (Position, error) {
 		return p, fmt.Errorf("Destination must be specified as x,y,z")
 	}
 	x, err := strconv.Atoi(cs[0])
-	if err != nil { return p, err }
+	if err != nil {
+		return p, err
+	}
 	y, err := strconv.Atoi(cs[1])
-	if err != nil { return p, err }
+	if err != nil {
+		return p, err
+	}
 	z, err := strconv.Atoi(cs[2])
-	if err != nil { return p, err }
+	if err != nil {
+		return p, err
+	}
 	p.X = float32(x)
 	p.Y = float32(y)
 	p.Z = float32(z)
@@ -33,9 +39,9 @@ func ParsePosition(coords string) (Position, error) {
 
 func (p Position) Distance(to Position) float32 {
 	return float32(math.Sqrt(
-		math.Pow(float64(p.X - to.X), 2) +
-		math.Pow(float64(p.Y - to.Y), 2) +
-		math.Pow(float64(p.Z - to.Z), 2)))
+		math.Pow(float64(p.X-to.X), 2) +
+			math.Pow(float64(p.Y-to.Y), 2) +
+			math.Pow(float64(p.Z-to.Z), 2)))
 }
 
 func (p Position) String() string {
@@ -132,26 +138,35 @@ type Moon struct {
 	Type         string `json:"location_type"`
 }
 
+type LocationSummary struct {
+	Devices        int `json:"devices"`
+	LocationEvents int `json:"location_events"`
+	Replicants     int `json:"replicants"`
+	ResourceSites  int `json:"resource_sites"`
+	Resources      int `json:"resources"`
+}
+
 type Location struct {
-	AsteroidBelt  struct{
-		Present         bool        `json:"present"`
-	}                               `json:"asteroid_belt"`
-	Belt                Belt        `json:"belt"`
-	Devices             []Device    `json:"devices"`
-	EntryPoint          string      `json:"entry_point"`
-	Inventory           []Inventory `json:"inventory"`
-	Location            string      `json:"location"`
-	Moon                Moon        `json:"moon"`
-	Moons               []Moon      `json:"moons"`
-	MoonsScanned        int         `json:"moons_scanned"`
-	MoonsTotal          int         `json:"moons_total"`
-	MoonsTotalEstimated bool        `json:"moons_total_estimated"`
-	Planet              Planet      `json:"planet"`
-	Planets             []Planet    `json:"planets"`
-	PlanetsScanned      int         `json:"planets_scanned"`
-	PlanetsTotal        int         `json:"planets_total"`
-	ResourceSites       []Site      `json:"resource_sites"`
-	Star                Star        `json:"star"`
-	SystemScanned       bool        `json:"system_scanned"`
-	Type                string      `json:"location_type"`
+	AsteroidBelt struct {
+		Present bool `json:"present"`
+	} `json:"asteroid_belt"`
+	Belt                Belt                       `json:"belt"`
+	Devices             []Device                   `json:"devices"`
+	EntryPoint          string                     `json:"entry_point"`
+	Inventory           []Inventory                `json:"inventory"`
+	Location            string                     `json:"location"`
+	Locations           map[string]LocationSummary `json:"locations"`
+	Moon                Moon                       `json:"moon"`
+	Moons               []Moon                     `json:"moons"`
+	MoonsScanned        int                        `json:"moons_scanned"`
+	MoonsTotal          int                        `json:"moons_total"`
+	MoonsTotalEstimated bool                       `json:"moons_total_estimated"`
+	Planet              Planet                     `json:"planet"`
+	Planets             []Planet                   `json:"planets"`
+	PlanetsScanned      int                        `json:"planets_scanned"`
+	PlanetsTotal        int                        `json:"planets_total"`
+	ResourceSites       []Site                     `json:"resource_sites"`
+	Star                Star                       `json:"star"`
+	SystemScanned       bool                       `json:"system_scanned"`
+	Type                string                     `json:"location_type"`
 }

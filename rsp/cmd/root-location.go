@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
@@ -12,19 +13,63 @@ var locationCmd = &cobra.Command{
 	Use:   "location",
 	Short: "List the contents of a location",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 || args[0] == "" {
-			return fmt.Errorf("Location is required, pass as an argument")
+		var loc string
+		if len(args) > 0 {
+			loc = args[0]
 		}
-		res, err := rest.Location(args[0])
+		res, err := rest.Location(loc)
 		if err != nil {
-			return fmt.Errorf("Failed to get location %q: %v", args[0], err)
+			return fmt.Errorf("Failed to get location %q: %v", loc, err)
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(res)
 			return nil
 		}
 
+		getInv, _ := cmd.Flags().GetBool("inventory")
+
 		var data [][]string
+		var locs []string
+		for loc := range res.Locations {
+			locs = append(locs, loc)
+		}
+		slices.Sort(locs)
+		for _, loc := range locs {
+			sum := res.Locations[loc]
+			line := []string{
+				loc, d(sum.Replicants), d(sum.Devices),
+				d(sum.LocationEvents), d(sum.ResourceSites),
+			}
+			if getInv {
+				if sum.Resources == 0 {
+					line = append(line, "N/A")
+				} else {
+					inv, err := rest.Location(loc)
+					if err != nil {
+						line = append(line, fmt.Sprintf("Err: %v", err))
+					} else {
+						var r []string
+						for _, i := range inv.Inventory {
+							r = append(r, fmt.Sprintf("%.0f x %s", i.Quantity, i.ResourceType))
+						}
+						line = append(line, lines(r))
+					}
+				}
+			} else {
+				line = append(line, d(sum.Resources))
+			}
+			data = append(data, line)
+		}
+		if len(data) > 0 {
+			headers := []string{"Designation", "Replicants", "Devices", "Events", "Sites"}
+			if getInv {
+				headers = append(headers, "Inventory")
+			} else {
+				headers = append(headers, "Resources")
+			}
+			printTable(headers, data)
+		}
+
 		if res.Type == "star" {
 			s := res.Star
 			printTable([]string{
@@ -45,7 +90,7 @@ var locationCmd = &cobra.Command{
 				fmt.Sprintf("%d/%d (%d%%)", res.PlanetsScanned, res.PlanetsTotal, pp),
 				fmt.Sprintf("%d/%d (%d%%)", res.MoonsScanned, res.MoonsTotal, mp),
 			}})
-			var data [][]string
+			data = [][]string{}
 			for _, p := range res.Planets {
 				data = append(data, []string{
 					p.Designation, p.Name, p.Type, p.LifeStage,
@@ -122,4 +167,5 @@ var locationCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(locationCmd)
+	locationCmd.Flags().BoolP("inventory", "i", false, "Fetch inventory in each location")
 }

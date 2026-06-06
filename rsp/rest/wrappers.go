@@ -153,7 +153,11 @@ func DeviceInfo(id string) (*models.Device, error) {
 
 // / Inventory
 func Location(id string) (*models.Location, error) {
-	res, err := cacheGET("", 0, "locations/%s", id)
+	url := "locations"
+	if id != "" {
+		url += "/"+id
+	}
+	res, err := cacheGET("", 0, url)
 	if err != nil {
 		return nil, err
 	}
