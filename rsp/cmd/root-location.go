@@ -90,6 +90,15 @@ var locationCmd = &cobra.Command{
 				fmt.Sprintf("%d/%d (%d%%)", res.PlanetsScanned, res.PlanetsTotal, pp),
 				fmt.Sprintf("%d/%d (%d%%)", res.MoonsScanned, res.MoonsTotal, mp),
 			}})
+			if res.AsteroidBelt.Present {
+				data = [][]string{}
+				for _, b := range res.AsteroidBelt.Belts {
+					data = append(data, []string{
+						b.Designation, b.Density, m(b.Resources),
+					})
+				}
+				printTable([]string{"Belt", "Density", "Resources"}, data)
+			}
 			data = [][]string{}
 			for _, p := range res.Planets {
 				var inv []string

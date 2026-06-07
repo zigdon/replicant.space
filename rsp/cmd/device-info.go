@@ -82,9 +82,9 @@ var infoCmd = &cobra.Command{
 			if resp.Travel != nil {
 				t := resp.Travel
 				printTable([]string{
-					"Origin", "Destination", "ETA", "Percent", "Type",
+					"Origin", "Destination", "ETA", "Time Left", "Percent", "Type",
 				}, [][]string{{
-					t.Origin, t.Destination, t.ArrivesAt, f(t.ProgressPercent), t.Type,
+					t.Origin, t.Destination, t.ArrivesAt, f(t.ProgressPercent), t.Eta.String(), t.Type,
 				}})
 			}
 		}

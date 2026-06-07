@@ -153,6 +153,7 @@ type LocationSummary struct {
 
 type Location struct {
 	AsteroidBelt struct {
+		Belts []Belt `json:"belts"`
 		Present bool `json:"present"`
 	} `json:"asteroid_belt"`
 	Belt                Belt                       `json:"belt"`

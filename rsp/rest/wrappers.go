@@ -211,6 +211,9 @@ func DeviceInfo(id string) (*models.Device, error) {
 	if m.Printing != nil {
 		m.Printing.EtaSeconds = durationFromSeconds(m.Printing.EtaRaw)
 	}
+	if m.Travel != nil {
+		m.Travel.Eta = durationFromSeconds(m.Travel.EtaSeconds)
+	}
 	return m, nil
 }
 

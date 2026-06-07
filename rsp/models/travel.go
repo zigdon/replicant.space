@@ -18,11 +18,13 @@ type TripLegs struct {
 }
 
 type Trip struct {
-	ArrivesAt        string     `json:"arrives_at"`
-	DepartedAt       string     `json:"departed_at"`
-	Destination      string     `json:"destination"`
-	DestinationName  string     `json:"destination_name"`
-	DistanceLy       float32    `json:"distance_ly"`
+	ArrivesAt        string  `json:"arrives_at"`
+	DepartedAt       string  `json:"departed_at"`
+	Destination      string  `json:"destination"`
+	DestinationName  string  `json:"destination_name"`
+	DistanceLy       float32 `json:"distance_ly"`
+	EtaSeconds       float32 `json:"eta_seconds"`
+	Eta              time.Duration
 	Origin           string     `json:"origin"`
 	OriginName       string     `json:"origin_name"`
 	ProgressPercent  float32    `json:"progress_percent"`

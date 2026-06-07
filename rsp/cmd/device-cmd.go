@@ -10,9 +10,11 @@ var mkDeviceCommand = func(name, short, command string, flags []flagDesc) *cobra
 }
 
 func getTable(name string, resp *models.CommandResp) ([]string, [][]string) {
-	eta := resp.Eta
-	if eta == 0 {
-		eta = resp.TotalTime
+	var eta string
+	if resp.Eta > 0 {
+		eta = resp.Eta.String()
+	} else if resp.TotalTime > 0 {
+		eta = resp.TotalTime.String()
 	}
 	switch name {
 	default:
@@ -21,7 +23,7 @@ func getTable(name string, resp *models.CommandResp) ([]string, [][]string) {
 				"ETA", "Started", "Ends"},
 			[][]string{{
 				resp.DeviceCode, resp.Location, resp.Star, resp.Belt,
-				resp.Status, eta.String(), resp.StartedAt,
+				resp.Status, eta, resp.StartedAt,
 				resp.CompletesAt,
 			}}
 	}
