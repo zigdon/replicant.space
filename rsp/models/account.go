@@ -12,9 +12,9 @@ type Account struct {
 	Email                 string      `json:"email"`
 	EmailVerified         bool        `json:"email_verified"`
 	ExperiencePointsTotal int         `json:"experience_points_total"`
-	MessageNotify         Notify      `json:"message_notify"`
+	MessageNotify         *Notify      `json:"message_notify"`
 	Name                  string      `json:"name"`
-	Replicants            []Replicant `json:"replicants"`
+	Replicants            []*Replicant `json:"replicants"`
 	Status                string      `json:"status"`
 	Timezone              string      `json:"timezone"`
 	UnreadMessageCount    int         `json:"unread_message_count"`
@@ -30,7 +30,7 @@ type Message struct {
 }
 
 type Messages struct {
-	Messages    []Message `json:"messages"`
+	Messages    []*Message `json:"messages"`
 	NextCursor  int       `json:"next_cursor"`
 	UnreadCount int       `json:"unread_message_count"`
 }
@@ -46,7 +46,7 @@ type Bob struct {
 }
 
 type Bobs struct {
-	Messages      []Bob `json:"messages"`
+	Messages      []*Bob `json:"messages"`
 	NextCursor    int   `json:"next_cursor"`
 	Total         int   `json:"total"`
 	TotalMessages int   `json:"total_messages"`
@@ -69,13 +69,13 @@ type EventProgressOption struct {
 	Devices []any `json:"devices"`
 	Met bool `json:"met"`
 	Name string `json:"name"`
-	Resources []EventProgressResourceOption `json:"resources"`
+	Resources []*EventProgressResourceOption `json:"resources"`
 }
 
 type EventProgress struct {
 	Met bool `json:"met"`
 	MetOption string `json:"met_option"`
-	Options []EventProgressOption `json:"options"`
+	Options []*EventProgressOption `json:"options"`
 	ReplicantPresent bool `json:"replicant_present"`
 }
 
@@ -89,7 +89,7 @@ type EventReward struct {
 type Event struct {
 	BroadcastMessage string `json:"broadcast_message"`
 	Category string `json:"category"`
-	Criteria []EventCriteria `json:"criteria"`
+	Criteria []*EventCriteria `json:"criteria"`
 	Description string `json:"description"`
 	Designation string `json:"designation"`
 	DiscoveredAt string `json:"discovered_at"`
@@ -104,6 +104,6 @@ type Event struct {
 }
 
 type Events struct {
-	Events []Event `json:"events"`
+	Events []*Event `json:"events"`
 	NextCursor int `json:"next_cursor"`
 }

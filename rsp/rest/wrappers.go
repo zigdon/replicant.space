@@ -104,7 +104,17 @@ func Replicant(id string) (*models.Replicant, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.Parse[models.Replicant](res)
+	r, err := models.Parse[models.Replicant](res)
+	if err != nil {
+		return nil, err
+	}
+	if r.CurrentLocation == "" {
+		r.CurrentLocation = r.Location
+	}
+	if r.CurrentLocationName == "" {
+		r.CurrentLocationName = r.LocationName
+	}
+	return r, nil
 }
 
 func ReplicantDevices(id, loc string) ([]models.Device, error) {

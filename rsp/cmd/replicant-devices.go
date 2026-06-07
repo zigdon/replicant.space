@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -26,37 +27,11 @@ var devicesCmd = &cobra.Command{
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(rd)
 		} else {
-			fmt.Printf("Replicant: %s\n", rID)
-			var data [][]string
-			for _, d := range rd {
-				data = append(data, []string{
-					d.Type,
-					d.Code,
-					d.ControllerDeviceCode,
-					b(d.InControlRange),
-					d.Location,
-					f(d.OperationalCapacity),
-					d.Status,
-					d.StowedInDeviceCode,
-				})
+			r, err := rest.Replicant(rID)
+			if err != nil {
+				return err
 			}
-			slices.SortFunc(data, func(a, b []string) int {
-				return cmp.Or(
-					cmp.Compare(a[0], b[0]),
-					cmp.Compare(a[1], b[1]),
-				)
-			})
-			printTable([]string{
-				"Type",
-				"Code",
-				"Controller",
-				"In range",
-				"Location",
-				"Operational Capacity",
-				"Status",
-				"Stowed in",
-			}, data)
-
+			printReplicantDeviceList(r)
 		}
 		return nil
 	},
@@ -65,4 +40,42 @@ var devicesCmd = &cobra.Command{
 func init() {
 	replicantCmd.AddCommand(devicesCmd)
 	devicesCmd.PersistentFlags().StringP("location", "l", "", "Filter results to a specific location code")
+}
+
+func printReplicantDeviceList(r *models.Replicant) {
+	devs, err := rest.ReplicantDevices(r.ReplicantCode, "")
+	if err != nil {
+		log(err.Error())
+		return
+	}
+	fmt.Printf("Replicant: %s (%s @ %s)\n", r.Name, r.ReplicantCode, r.CurrentLocation)
+	var data [][]string
+	for _, d := range devs {
+		data = append(data, []string{
+			d.Type,
+			d.Code,
+			d.ControllerDeviceCode,
+			b(d.InControlRange),
+			d.Location,
+			f(d.OperationalCapacity),
+			d.Status,
+			d.StowedInDeviceCode,
+		})
+	}
+	slices.SortFunc(data, func(a, b []string) int {
+		return cmp.Or(
+			cmp.Compare(a[0], b[0]),
+			cmp.Compare(a[1], b[1]),
+		)
+	})
+	printTable([]string{
+		"Type",
+		"Code",
+		"Controller",
+		"In range",
+		"Location",
+		"Operational Capacity",
+		"Status",
+		"Stowed in",
+	}, data)
 }
