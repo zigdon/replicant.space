@@ -46,6 +46,15 @@ func Bobnet(relayID string, cursor, limit int, latest, npcs bool) (*models.Bobs,
 	return models.Parse[models.Bobs](res)
 }
 
+func Events() (*models.Events, error) {
+	res, err := Get("accounts/events")
+	if err != nil {
+		return nil, err
+	}
+
+	return models.Parse[models.Events](res)
+}
+
 // Replicants
 func ReplicantID(id int) (string, error) {
 	account, err := Account()
@@ -63,7 +72,7 @@ func ReplicantID(id int) (string, error) {
 	return "", fmt.Errorf("no replicant %q found in %q", name, names)
 }
 
-func Events(id string, cursor, limit int, latest bool, eventType, deviceType, deviceCode string) (*models.Events, error) {
+func ReplicantEvents(id string, cursor, limit int, latest bool, eventType, deviceType, deviceCode string) (*models.ReplicantEvents, error) {
 	res, err := Get("replicants/%s/events?cursor=%d&limit=%d&latest=%v&event_type=%s&device_type=%s&device_code=%s",
 		id, cursor, limit, latest, eventType, deviceType, deviceCode,
 	)
@@ -71,7 +80,7 @@ func Events(id string, cursor, limit int, latest bool, eventType, deviceType, de
 		return nil, err
 	}
 
-	return models.Parse[models.Events](res)
+	return models.Parse[models.ReplicantEvents](res)
 }
 
 func ReplicantScan(id string) (*models.Scan, error) {

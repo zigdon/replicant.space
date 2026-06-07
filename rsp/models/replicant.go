@@ -1,6 +1,6 @@
 package models
 
-type Event struct {
+type ReplicantEvent struct {
 	CreatedAt  string         `json:"created_at"`
 	DeviceCode string         `json:"device_code"`
 	DeviceType string         `json:"device_type"`
@@ -9,8 +9,8 @@ type Event struct {
 	Payload    map[string]any `json:"payload"`
 }
 
-type Events struct {
-	Events []Event `json:"events"`
+type ReplicantEvents struct {
+	ReplicantEvents []ReplicantEvent `json:"events"`
 }
 
 type OwnedDevices struct {

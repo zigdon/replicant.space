@@ -84,9 +84,16 @@ func printTable(headers []string, data [][]string) {
 	var cellStyles []lg.Style
 	headerStyle := lg.NewStyle().Bold(true).Align(lg.Center)
 	cellStyle := lg.NewStyle().Padding(0, 1)
-	hasData := make([]bool, len(headers))
-	for i := range headers {
-		max := len(headers[i])
+	cols := len(headers)
+	if cols == 0 {
+		cols = len(data[0])
+	}
+	hasData := make([]bool, cols)
+	for i := range cols {
+		var max int
+		if len(headers) > 0 {
+			max = len(headers[i])
+		}
 		for _, l := range data {
 			if len(l[i]) > 0 { hasData[i] = true }
 			if strings.Contains(l[i], "\n") {

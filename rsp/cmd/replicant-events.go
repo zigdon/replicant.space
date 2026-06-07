@@ -24,7 +24,7 @@ var eventCmd = &cobra.Command{
 		eventType, _ := cmd.Flags().GetString("event_type")
 		deviceType, _ := cmd.Flags().GetString("device_type")
 		deviceCode, _ := cmd.Flags().GetString("device_code")
-		data, err := rest.Events(rID, cursor, number, latest, eventType, deviceType, deviceCode)
+		data, err := rest.ReplicantEvents(rID, cursor, number, latest, eventType, deviceType, deviceCode)
 		if err != nil {
 			return fmt.Errorf("Error getting event log: %v", err)
 		}
@@ -32,7 +32,7 @@ var eventCmd = &cobra.Command{
 			prettyPrint(data)
 		} else {
 			var events [][]string
-			for _, e := range data.Events {
+			for _, e := range data.ReplicantEvents {
 				var payload []string
 				for k, v := range e.Payload {
 					payload = append(payload, fmt.Sprintf("%s: %v", k, v))
