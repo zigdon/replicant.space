@@ -41,7 +41,7 @@ var infoCmd = &cobra.Command{
 					lines(resp.AvailableDirectives),
 				}})
 			}
-			if resp.Printing.EtaSeconds > 0 {
+			if resp.Printing != nil {
 				print := resp.Printing
 				printTable([]string{
 					"Type", "Progress", "ETA", "Started", "Ends",

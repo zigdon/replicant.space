@@ -57,6 +57,9 @@ func init() {
 	mkDeviceCommand(
 		"assemble", "Bring the fleet home to the controller's current location without ending the directive", "assemble", nil,
 	)
+	mkDeviceCommand(
+		"clear_directive", "Drop the current directive entirely", "clear_directive", nil,
+	)
 	dirCmd := mkDeviceCommand(
 		"directive", "Update the automation policy for a device", "set_directive",
 		[]flagDesc{

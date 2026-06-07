@@ -31,31 +31,31 @@ type DeviceDirective struct {
 }
 
 type Device struct {
-	AmiDirective         DeviceDirective    `json:"ami_directive"`
-	AmiDirectiveStatus   string             `json:"ami_directive_status"`
-	AttachCapacity       int                `json:"attach_capacity"`
-	AttachedDevices      []StowedDevice     `json:"attached_devices"`
-	AttachedToDeviceCode string             `json:"attached_to_device_code"`
-	AvailableCommands    []string           `json:"available_commands"`
-	AvailableDirectives  []string           `json:"available_directives"`
-	Cargo                []Inventory        `json:"cargo"`
-	Code                 string             `json:"device_code"`
-	ControlledDevices    []ControlledDevice `json:"controlled_devices"`
-	ControllerDeviceCode string             `json:"controller_device_code"`
-	Features             []string           `json:"features"`
-	InControlRange       bool               `json:"in_control_range"`
-	Location             string             `json:"location"`
-	LocationName         string             `json:"location_name"`
-	OperationalCapacity  float32            `json:"operational_capacity"`
-	Printing             DevicePrint        `json:"printing"`
-	QueueSize            int                `json:"queue_size"`
-	ReplicantCode        string             `json:"replicant_code"`
-	Status               string             `json:"status"`
-	StowCapacity         int                `json:"stow_capacity"`
-	StowedDevices        []StowedDevice     `json:"stowed_devices"`
-	StowedInDeviceCode   string             `json:"stowed_in_device_code"`
-	TaxiMode 			 string             `json:"taxi_mode"`
-	Type                 string             `json:"device_type"`
+	AmiDirective         *DeviceDirective    `json:"ami_directive"`
+	AmiDirectiveStatus   string              `json:"ami_directive_status"`
+	AttachCapacity       int                 `json:"attach_capacity"`
+	AttachedDevices      []*Device           `json:"attached_devices"`
+	AttachedToDeviceCode string              `json:"attached_to_device_code"`
+	AvailableCommands    []string            `json:"available_commands"`
+	AvailableDirectives  []string            `json:"available_directives"`
+	Cargo                []*Inventory        `json:"cargo"`
+	Code                 string              `json:"device_code"`
+	ControlledDevices    []*ControlledDevice `json:"controlled_devices"`
+	ControllerDeviceCode string              `json:"controller_device_code"`
+	Features             []string            `json:"features"`
+	InControlRange       bool                `json:"in_control_range"`
+	Location             string              `json:"location"`
+	LocationName         string              `json:"location_name"`
+	OperationalCapacity  float32             `json:"operational_capacity"`
+	Printing             *DevicePrint        `json:"printing"`
+	QueueSize            int                 `json:"queue_size"`
+	ReplicantCode        string              `json:"replicant_code"`
+	Status               string              `json:"status"`
+	StowCapacity         int                 `json:"stow_capacity"`
+	StowedDevices        []*StowedDevice     `json:"stowed_devices"`
+	StowedInDeviceCode   string              `json:"stowed_in_device_code"`
+	TaxiMode             string              `json:"taxi_mode"`
+	Type                 string              `json:"device_type"`
 }
 
 type ControllerStatus struct {
@@ -68,11 +68,11 @@ type ControllerStatus struct {
 type CommandResp struct {
 	ArrivesAt            string              `json:"arrives_at"`
 	AssignedDevices      map[string][]string `json:"assigned_devices"`
-	AttachedDevices      []Device            `json:"attached_devices"`
-	AvailableSites       []AvailableSite     `json:"available_sites"`
+	AttachedDevices      []*Device           `json:"attached_devices"`
+	AvailableSites       []*AvailableSite    `json:"available_sites"`
 	Belt                 string              `json:"belt"`
 	CompletesAt          string              `json:"completes_at"`
-	Controller           ControllerStatus    `json:"controller"`
+	Controller           *ControllerStatus   `json:"controller"`
 	ControllerCode       string              `json:"controller_code"`
 	DepartedAt           string              `json:"departed_at"`
 	Destination          string              `json:"destination"`
@@ -81,21 +81,21 @@ type CommandResp struct {
 	DeviceCode           string              `json:"device_code"`
 	EtaSeconds           float32             `json:"eta_seconds"`
 	Eta                  time.Duration
-	FinalDestination     string         `json:" strin"`
-	FinalDestinationName string         `json:"final_destination_name"`
-	JsonErr              string         `json:"error"`
-	Location             string         `json:"location"`
-	Moon                 Moon           `json:"moon"`
-	Origin               string         `json:"origin"`
-	OriginName           string         `json:"origin_name"`
-	ProgressPercent      float32        `json:"progress_percent"`
-	Released             []StowedDevice `json:"released"`
-	Route                []TripLegs     `json:"route"`
-	Scanned              bool           `json:"scanned"`
-	Star                 string         `json:"star"`
-	StartedAt            string         `json:"started_at"`
-	Status               string         `json:"status"`
-	TotalDistanceLy      float32        `json:" float3"`
+	FinalDestination     string          `json:" strin"`
+	FinalDestinationName string          `json:"final_destination_name"`
+	JsonErr              string          `json:"error"`
+	Location             string          `json:"location"`
+	Moon                 *Moon           `json:"moon"`
+	Origin               string          `json:"origin"`
+	OriginName           string          `json:"origin_name"`
+	ProgressPercent      float32         `json:"progress_percent"`
+	Released             []*StowedDevice `json:"released"`
+	Route                []*TripLegs     `json:"route"`
+	Scanned              bool            `json:"scanned"`
+	Star                 string          `json:"star"`
+	StartedAt            string          `json:"started_at"`
+	Status               string          `json:"status"`
+	TotalDistanceLy      float32         `json:" float3"`
 	TotalTime            time.Duration
 	TotalTimeSeconds     float32 `json:"total_time_seconds"`
 	TravelType           string  `json:"travel_type"`

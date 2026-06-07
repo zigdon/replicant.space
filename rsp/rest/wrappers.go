@@ -113,8 +113,9 @@ func ReplicantTravel(id, dest string) (*models.Trip, error) {
 	}
 	m, err := models.Parse[models.Trip](trip)
 	m.TotalTime = durationFromSeconds(m.TotalTimeSeconds)
-	for _, l := range m.Route {
+	for i, l := range m.Route {
 		l.Time = durationFromSeconds(l.TimeSeconds)
+		m.Route[i] = l
 	}
 	return m, err
 }
@@ -147,7 +148,9 @@ func DeviceInfo(id string) (*models.Device, error) {
 		return nil, err
 	}
 	m, err := models.Parse[models.Device](res)
-	m.Printing.EtaSeconds = durationFromSeconds(m.Printing.EtaRaw)
+	if m.Printing != nil {
+		m.Printing.EtaSeconds = durationFromSeconds(m.Printing.EtaRaw)
+	}
 	return m, err
 }
 
