@@ -13,6 +13,10 @@ type Position struct {
 	Z float32 `json:"z"`
 }
 
+func NewPosition(x, y, z float32) Position {
+	return Position{X:x, Y:y, Z:z}
+}
+
 func ParsePosition(coords string) (Position, error) {
 	cs := strings.Split(coords, ",")
 	p := Position{}

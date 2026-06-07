@@ -27,3 +27,21 @@ type Trip struct {
 	Route            []TripLegs `json:"route"`
 	Status           string     `json:"status"`
 }
+
+type JourneyLeg struct {
+	From         string
+	FromPosition Position
+	To           string
+	ToPosition   Position
+	DistFromSrc  float32
+	DistToDest   float32
+	Processed    bool
+}
+
+type Journey struct {
+	Source         string
+	SourcePosition Position
+	Dest           string
+	DestPosition   Position
+	Legs           []JourneyLeg
+}
