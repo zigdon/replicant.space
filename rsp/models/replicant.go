@@ -2,7 +2,7 @@ package models
 
 type ReplicantEvent struct {
 	CreatedAt  string         `json:"created_at"`
-	DeviceCode string         `json:"device_code"`
+	DeviceCode *CodeAlias     `json:"device_code"`
 	DeviceType string         `json:"device_type"`
 	Type       string         `json:"event_type"`
 	Message    string         `json:"message"`
@@ -71,7 +71,7 @@ type Replicant struct {
 	Description         string                      `json:"description"`
 	DeviceCount         int                         `json:"device_count"`
 	ExperiencePoints    int                         `json:"experience_points"`
-	HostedDeviceCode    string                      `json:"hosted_device_code"`
+	HostedDeviceCode    *CodeAlias                  `json:"hosted_device_code"`
 	IsNPC               bool                        `json:"is_npc"`
 	Location            string                      `json:"location"`
 	LocationName        string                      `json:"location_name"`
@@ -81,7 +81,7 @@ type Replicant struct {
 	PrintQueue          []PrintQueue                `json:"print_queue"`
 	Project             string                      `json:"project"`
 	Pronouns            string                      `json:"pronouns"`
-	ReplicantCode       string                      `json:"replicant_code"`
+	ReplicantCode       *CodeAlias                  `json:"replicant_code"`
 	Status              string                      `json:"status"`
 	StowedDevices       []Device                    `json:"stowed_devices"`
 	Travel              Travel                      `json:"travel"`
@@ -91,7 +91,7 @@ type Replicant struct {
 func (r *Replicant) GetDeviceIDs() []string {
 	var res []string
 	for _, d := range r.StowedDevices {
-		res = append(res, d.Code)
+		res = append(res, d.Code.String())
 	}
 	return res
 }

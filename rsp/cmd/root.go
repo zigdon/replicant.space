@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -18,6 +20,8 @@ type flagDesc struct {
 	jsonKey  string
 	mapFlag  bool
 }
+
+var db *cache.Cache
 
 var mkCommand = func(parent *cobra.Command, name, short, command string, flags []flagDesc) *cobra.Command {
 	cmd := &cobra.Command{
@@ -125,7 +129,16 @@ var rootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	err := rootCmd.Execute()
+	// Connect to the database
+	var err error
+	db, err = cache.Connect(false)
+	if err != nil {
+		die("Failed to connect to db: %v", err)
+	}
+	models.ConnectDB(db)
+	rest.ConnectDB(db)
+
+	err = rootCmd.Execute()
 	if err != nil {
 		die(err.Error())
 	}
@@ -136,4 +149,33 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().Bool("raw", false, "emit the json returned")
+}
+
+func alias(in string) string {
+	if db == nil {
+		return in
+	}
+	// Check if there's already an alias
+	out := db.HasAlias(in)
+	if out != "" {
+		return out
+	}
+
+	// No alias, get the device type before making one
+	deviceType, err := rest.GetType(in)
+	if err != nil || deviceType == "" {
+		return in
+	}
+	out, err = db.Alias(in, deviceType)
+	if err != nil {
+		log("Error creating alias for %q(%s): %v", in, deviceType, err)
+	}
+	return out
+}
+
+func unalias(in string) string {
+	if db == nil {
+		return in
+	}
+	return db.Dealias(in)
 }

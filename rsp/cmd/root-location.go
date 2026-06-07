@@ -155,7 +155,7 @@ var locationCmd = &cobra.Command{
 
 		data = [][]string{}
 		for _, d := range res.Devices {
-			data = append(data, []string{d.Code, d.Type, d.Status})
+			data = append(data, []string{d.Code.String(), d.Type, d.Status})
 		}
 		if len(data) > 0 {
 			printTable([]string{"Device Code", "Type", "Status"}, data)

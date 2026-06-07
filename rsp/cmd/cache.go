@@ -26,6 +26,31 @@ var cacheInitCmd = &cobra.Command{
 	},
 }
 
+var statsCmd = &cobra.Command{
+	Use: "stats",
+	Short: "Show cache stats",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		db, err := cache.Connect(false)
+		if err != nil {
+			return err
+		}
+		log("cache stats: %s", db.Stats())
+		return nil
+	},
+}
+
+var updateSchemaCmd = &cobra.Command{
+	Use: "update-schema",
+	Short: "Update the database schema",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		db, err := cache.Connect(false)
+		if err != nil {
+			return err
+		}
+		return db.UpdateSchema()
+	},
+}
+
 var reloadStarsCmd = &cobra.Command{
 	Use: "reload-stars",
 	Short: "Fetch the full star census to the cache",
@@ -38,6 +63,8 @@ func init() {
 	cacheInitCmd.Flags().Bool("create", false,
 	  "Be willing to create a new db if none is found")
 	cacheCmd.AddCommand(reloadStarsCmd)
+	cacheCmd.AddCommand(statsCmd)
+	cacheCmd.AddCommand(updateSchemaCmd)
 }
 
 func reloadStars (cmd *cobra.Command, args []string) error {

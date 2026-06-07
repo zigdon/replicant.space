@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zigdon/rsp/models"
 	_ "modernc.org/sqlite"
 )
 
@@ -31,7 +30,7 @@ func log(tmpl string, args ...any) {
 		f.WriteString(line)
 		f.Close()
 	}
-	if os.Getenv("DEBUG_API") != "" {
+	if os.Getenv("DEBUG_DB") != "" {
 		fmt.Fprint(os.Stderr, line)
 	}
 }
@@ -43,13 +42,14 @@ const (
 	MoonsTable Tables = "moons"
 	BeltsTable Tables = "belts"
 	ResourcesTable Tables = "resources"
+	AliasTable Tables = "aliases"
 )
 
-type db struct {
+type Cache struct {
 	DB *sql.DB
 }
 
-func createDB() (*db, error) {
+func createDB() (*Cache, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		return nil, err
 	}
@@ -66,10 +66,10 @@ func createDB() (*db, error) {
 		return nil, err
 	}
 
-	return &db{sdb}, nil
+	return &Cache{sdb}, nil
 }
 
-func Connect(create bool) (*db, error) {
+func Connect(create bool) (*Cache, error) {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		if !create {
 			return nil, err
@@ -80,12 +80,17 @@ func Connect(create bool) (*db, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &db{sdb}, nil
+	return &Cache{sdb}, nil
 }
 
-func (db *db) Stats() string {
+func (db *Cache) UpdateSchema() error {
+	_, err := db.DB.Exec(schema)
+	return err
+}
+
+func (db *Cache) Stats() string {
 	var out []string
-	for _, t := range []string{"stars", "planets", "moons", "resources"} {
+	for _, t := range []string{"stars", "planets", "moons", "resources", "aliases"} {
 		res := db.DB.QueryRow(fmt.Sprintf("SELECT COUNT(*) AS c FROM %s", t))
 		var cnt int
 		err := res.Scan(&cnt)
@@ -98,7 +103,7 @@ func (db *db) Stats() string {
 	return strings.Join(out, "\n")
 }
 
-func (db *db) Get(table Tables, key string) (any, error) {
+func (db *Cache) Get(table Tables, key string) (any, error) {
 	row := db.DB.QueryRow(
 		fmt.Sprintf("SELECT * FROM %s WHERE designation = ?", table), key)
 	if row.Err() != nil {
@@ -113,7 +118,7 @@ func (db *db) Get(table Tables, key string) (any, error) {
 	return nil, fmt.Errorf("Table %q not found", table)
 }
 
-func (db *db) Update(table string, data map[string]any) error {
+func (db *Cache) Update(table string, data map[string]any) error {
 	var columns, placeholders []string
 	var values []any
 	for k, v := range data {
@@ -140,7 +145,7 @@ func (db *db) Update(table string, data map[string]any) error {
 	return nil
 }
 
-func (db *db) List(table Tables) ([]any, error) {
+func (db *Cache) List(table Tables) ([]any, error) {
 	rows, err := db.DB.Query(fmt.Sprintf("SELECT * FROM %s", table))
 	if err != nil {
 		return nil, err
@@ -161,64 +166,85 @@ func (db *db) List(table Tables) ([]any, error) {
 	return res, nil
 }
 
-func (db *db) TripStepCandidate(srcStar, dstStar string, radius float32) ([]*models.JourneyLeg, error) {
-	// Get source coords
-	entry, err := db.Get(StarsTable, srcStar)
-	if err != nil {
-		return nil, err
-	}
-	src := entry.(*Star)
-	// Get dest coords
-	entry, err = db.Get(StarsTable, dstStar)
-	if err != nil {
-		return nil, err
-	}
-	dst := entry.(*Star)
-	rows, err := db.DB.Query(
-		`SELECT designation,
-			position_x,
-			position_y,
-			position_z,
-		    sqrt(
-				power(position_x-?,2) +
-				power(position_y-?,2) +
-				power(position_z-?,2)) AS from_src,
-		    sqrt(
-				power(position_x-?,2) +
-				power(position_y-?,2) +
-				power(position_z-?,2)) AS from_dst
-		FROM stars WHERE from_src <= ? AND from_src > 0.001`,
-		src.PositionX,
-		src.PositionY,
-		src.PositionZ,
-		dst.PositionX,
-		dst.PositionY,
-		dst.PositionZ,
-		radius,
-	)
-	if err != nil {
-		return nil, err
-	}
+// Aliases
 
-	var res []*models.JourneyLeg
-	for rows.Next() {
-		var desg string
-		var x, y, z, fSrc, fDst float32
-		rows.Scan(&desg, &x, &y, &z, &fSrc, &fDst)
-		res = append(res, &models.JourneyLeg{
-				From: src.Designation,
-				FromPosition: models.NewPosition(
-					src.PositionX,
-					src.PositionY,
-					src.PositionZ),
-				To: desg,
-				ToPosition: models.NewPosition(x, y, z),
-				DistFromSrc: fSrc,
-				DistToDest: fDst,
-			},
-		)
-	}
-
-	return res, nil
+var prefixes = map[string]string{
+	"maintenance_drone": "mtd",
 }
 
+func (db *Cache) Dealias(alias string) string {
+	// If it's not an alias, nothing to do here
+	if !strings.Contains(alias, "-") {
+		return alias
+	}
+
+	// Look it up
+	row := db.DB.QueryRow("SELECT designation FROM aliases WHERE name = ?", alias)
+	var code string
+	if err := row.Scan(&code); err != nil {
+		return alias
+	}
+	return code
+}
+
+func (db *Cache) HasAlias(designation string) string {
+	row := db.DB.QueryRow("SELECT name FROM aliases WHERE designation = ?", designation)
+	if row.Err() != nil {
+		return ""
+	}
+	var alias string
+	if err := row.Scan(&alias); err == nil {
+		return alias
+	}
+	return ""
+}
+
+func (db *Cache) Alias(designation, deviceType string) (string, error) {
+	// This is already an alias, return unchanged
+	if strings.Contains(designation, "-") || designation == "" {
+		return designation, nil
+	}
+
+	// See if there's already an alias
+	row := db.DB.QueryRow("SELECT name FROM aliases WHERE designation = ?", designation)
+	if row.Err() != nil {
+		log("Error getting alias for %q: %v", designation, row.Err())
+		return "", row.Err()
+	}
+	var alias string
+	err := row.Scan(&alias)
+	if err == nil {
+		return alias, nil
+	}
+
+	// If we don't know the device type, can't make a new alias, so just return the original
+	if deviceType == "" {
+		return designation, nil
+	}
+
+	// No alias found, figure out the prefix
+	// If we have one preset, use that
+	prefix, ok := prefixes[deviceType]
+	if !ok {
+		// No preset, make one up
+		for w := range strings.SplitSeq(deviceType, "_") {
+			prefix = fmt.Sprintf("%s%c", prefix, w[0])
+		}
+	}
+
+	// Find how many of these prefixes we already have
+	row = db.DB.QueryRow("SELECT COUNT(*) FROM aliases WHERE type = ?", deviceType)
+	var cnt int
+	if err := row.Scan(&cnt); err != nil {
+		return "", err
+	}
+
+	// Save the new prefix
+	alias = fmt.Sprintf("%s-%d", prefix, cnt+1)
+	log("Adding new alias %q -> %q", designation, alias)
+	if _, err := db.DB.Exec("INSERT INTO aliases (designation, type, name) VALUES (?, ?, ?)",
+		designation, deviceType, alias); err != nil {
+			return "", err
+	}
+	return alias, nil
+}

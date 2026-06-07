@@ -64,11 +64,11 @@ var bobCmd = &cobra.Command{
 
 		var relayID string
 		for _, r := range acc.Replicants {
-			devices, err := rest.ReplicantDevices(r.ReplicantCode, "")
+			devices, err := rest.ReplicantDevices(r.ReplicantCode.String(), "")
 			if err != nil { continue }
 			for _, d := range devices {
 				if d.Type != "ftl_relay" || d.Status != "relaying" || !d.InControlRange { continue }
-				relayID = d.Code
+				relayID = d.Code.String()
 				break
 			}
 			if relayID != "" { break }

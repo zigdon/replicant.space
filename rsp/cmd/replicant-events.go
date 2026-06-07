@@ -38,7 +38,7 @@ var eventCmd = &cobra.Command{
 					payload = append(payload, fmt.Sprintf("%s: %v", k, v))
 				}
 				events = append(events, []string{
-					e.DeviceCode,
+					e.DeviceCode.String(),
 					e.DeviceType,
 					e.Type,
 					lg.NewStyle().Width(width).Render(e.Message),

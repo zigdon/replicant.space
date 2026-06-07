@@ -43,23 +43,24 @@ func init() {
 }
 
 func printReplicantDeviceList(r *models.Replicant) {
-	devs, err := rest.ReplicantDevices(r.ReplicantCode, "")
+	devs, err := rest.ReplicantDevices(r.ReplicantCode.String(), "")
 	if err != nil {
 		log(err.Error())
 		return
 	}
-	fmt.Printf("Replicant: %s (%s @ %s)\n", r.Name, r.ReplicantCode, r.CurrentLocation)
+	fmt.Printf("Replicant: %s (%s/%s @ %s)\n",
+	    r.Name, alias(r.ReplicantCode.String()), r.ReplicantCode, r.CurrentLocation)
 	var data [][]string
 	for _, d := range devs {
 		data = append(data, []string{
 			d.Type,
-			d.Code,
-			d.ControllerDeviceCode,
+			alias(d.Code.String()),
+			alias(d.ControllerDeviceCode.String()),
 			b(d.InControlRange),
 			d.Location,
 			f(d.OperationalCapacity),
 			d.Status,
-			d.StowedInDeviceCode,
+			alias(d.StowedInDeviceCode.String()),
 		})
 	}
 	slices.SortFunc(data, func(a, b []string) int {

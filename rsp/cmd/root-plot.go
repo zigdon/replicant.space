@@ -81,7 +81,7 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 		for _, s := range queue {
 			//fmt.Printf("=== %s\n", s)
 			// Get possible next steps
-			stars, err := db.TripStepCandidate(s, dst, hop)
+			stars, err := TripStepCandidate(db, s, dst, hop)
 			if err != nil {
 				return err
 			}
@@ -144,3 +144,65 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 
 	return nil
 }
+
+func TripStepCandidate(db *cache.Cache, srcStar, dstStar string, radius float32) ([]*models.JourneyLeg, error) {
+	// Get source coords
+	entry, err := db.Get(cache.StarsTable, srcStar)
+	if err != nil {
+		return nil, err
+	}
+	src := entry.(*cache.Star)
+	// Get dest coords
+	entry, err = db.Get(cache.StarsTable, dstStar)
+	if err != nil {
+		return nil, err
+	}
+	dst := entry.(*cache.Star)
+	rows, err := db.DB.Query(
+		`SELECT designation,
+			position_x,
+			position_y,
+			position_z,
+		    sqrt(
+				power(position_x-?,2) +
+				power(position_y-?,2) +
+				power(position_z-?,2)) AS from_src,
+		    sqrt(
+				power(position_x-?,2) +
+				power(position_y-?,2) +
+				power(position_z-?,2)) AS from_dst
+		FROM stars WHERE from_src <= ? AND from_src > 0.001`,
+		src.PositionX,
+		src.PositionY,
+		src.PositionZ,
+		dst.PositionX,
+		dst.PositionY,
+		dst.PositionZ,
+		radius,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*models.JourneyLeg
+	for rows.Next() {
+		var desg string
+		var x, y, z, fSrc, fDst float32
+		rows.Scan(&desg, &x, &y, &z, &fSrc, &fDst)
+		res = append(res, &models.JourneyLeg{
+				From: src.Designation,
+				FromPosition: models.NewPosition(
+					src.PositionX,
+					src.PositionY,
+					src.PositionZ),
+				To: desg,
+				ToPosition: models.NewPosition(x, y, z),
+				DistFromSrc: fSrc,
+				DistToDest: fDst,
+			},
+		)
+	}
+
+	return res, nil
+}
+

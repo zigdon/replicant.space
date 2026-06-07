@@ -22,7 +22,7 @@ func getTable(name string, resp *models.CommandResp) ([]string, [][]string) {
 				"Code", "Location", "Star", "Belt", "Status",
 				"ETA", "Started", "Ends"},
 			[][]string{{
-				resp.DeviceCode, resp.Location, resp.Star, resp.Belt,
+				resp.DeviceCode.String(), resp.Location, resp.Star, resp.Belt,
 				resp.Status, eta, resp.StartedAt,
 				resp.CompletesAt,
 			}}
@@ -57,8 +57,8 @@ func init() {
 	mkDeviceCommand(
 		"configure", "Change device configuration", "configure",
 		[]flagDesc{{
-				name: "taxi_mode", short: 't', required: false, jsonKey: "mode",
-			}},
+			name: "taxi_mode", short: 't', required: false, jsonKey: "mode",
+		}},
 	)
 	mkDeviceCommand(
 		"deactivate", "Deactivate device (e.g. ftl relay)", "deactivate", nil,

@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
-    "github.com/zigdon/rsp/rest"
+	"github.com/zigdon/rsp/rest"
 )
 
 // meCmd represents the me command
@@ -29,10 +30,22 @@ var meCmd = &cobra.Command{
 					d(me.UnreadMessageCount),
 				}})
 			var reps [][]string
-			for _, r := range me.Replicants {
+			var names []string
+			for name := range me.Replicants {
+				names = append(names, name)
+			}
+			slices.Sort(names)
+			for _, name := range names {
+				r := me.Replicants[name]
+				code, err := db.Alias(r.ReplicantCode.String(), "replicant")
+				if err != nil {
+					log("Error creating alias for %q: %v", err)
+					code = r.ReplicantCode.String()
+				}
+
 				reps = append(reps, []string{
 					r.Name,
-					r.ReplicantCode,
+					code,
 					r.CurrentLocation,
 					d(r.ExperiencePoints),
 					r.Status,

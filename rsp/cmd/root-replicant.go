@@ -26,7 +26,7 @@ var replicantCmd = &cobra.Command{
 			printTable([]string{
 				"Name", "Code", "Location", "XP", "Description", "Status",
 			}, [][]string{{
-				repl.Name, repl.ReplicantCode, repl.Location,
+				repl.Name, repl.ReplicantCode.String(), repl.Location,
 				d(repl.ExperiencePoints), repl.Description, repl.Status,
 			}})
 			if len(repl.PrintQueue) > 0 {

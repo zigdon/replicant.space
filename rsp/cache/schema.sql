@@ -47,3 +47,9 @@ CREATE TABLE IF NOT EXISTS resources (
   density TEXT,
   FOREIGN KEY(belt) REFERENCES belts(designation)
 );
+
+CREATE TABLE IF NOT EXISTS aliases (
+  designation TEXT PRIMARY KEY,
+  type TEXT,
+  name TEXT UNIQUE
+);

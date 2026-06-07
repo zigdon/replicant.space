@@ -14,15 +14,15 @@ type DevicePrint struct {
 }
 
 type ControlledDevice struct {
-	Code     string `json:"device_code"`
-	Type     string `json:"device_type"`
-	Location string `json:"location"`
-	Status   string `json:"status"`
+	Code     *CodeAlias `json:"device_code"`
+	Type     string     `json:"device_type"`
+	Location string     `json:"location"`
+	Status   string     `json:"status"`
 }
 
 type StowedDevice struct {
-	Code string `json:"device_code"`
-	Type string `json:"device_type"`
+	Code *CodeAlias `json:"device_code"`
+	Type string     `json:"device_type"`
 }
 
 type DeviceDirective struct {
@@ -30,18 +30,26 @@ type DeviceDirective struct {
 	Name   string         `json:"name"`
 }
 
+type DeviceScan struct {
+	EtaSeconds      float32 `json:"eta_seconds"`
+	Eta             time.Duration
+	ProgressPercent float32 `json:"progress_percent"`
+	StartedAt       string  `json:"started_at"`
+	Target          string  `json:"target"`
+}
+
 type Device struct {
 	AmiDirective         *DeviceDirective    `json:"ami_directive"`
 	AmiDirectiveStatus   string              `json:"ami_directive_status"`
 	AttachCapacity       int                 `json:"attach_capacity"`
 	AttachedDevices      []*Device           `json:"attached_devices"`
-	AttachedToDeviceCode string              `json:"attached_to_device_code"`
+	AttachedToDeviceCode *CodeAlias          `json:"attached_to_device_code"`
 	AvailableCommands    []string            `json:"available_commands"`
 	AvailableDirectives  []string            `json:"available_directives"`
 	Cargo                []*Inventory        `json:"cargo"`
-	Code                 string              `json:"device_code"`
+	Code                 *CodeAlias          `json:"device_code"`
 	ControlledDevices    []*ControlledDevice `json:"controlled_devices"`
-	ControllerDeviceCode string              `json:"controller_device_code"`
+	ControllerDeviceCode *CodeAlias          `json:"controller_device_code"`
 	Features             []string            `json:"features"`
 	InControlRange       bool                `json:"in_control_range"`
 	Location             string              `json:"location"`
@@ -49,13 +57,14 @@ type Device struct {
 	OperationalCapacity  float32             `json:"operational_capacity"`
 	Printing             *DevicePrint        `json:"printing"`
 	QueueSize            int                 `json:"queue_size"`
-	ReplicantCode        string              `json:"replicant_code"`
+	ReplicantCode        *CodeAlias          `json:"replicant_code"`
+	Scan                 *DeviceScan         `json:"scan"`
 	Status               string              `json:"status"`
 	StowCapacity         int                 `json:"stow_capacity"`
 	StowedDevices        []*StowedDevice     `json:"stowed_devices"`
-	StowedInDeviceCode   string              `json:"stowed_in_device_code"`
+	StowedInDeviceCode   *CodeAlias          `json:"stowed_in_device_code"`
 	TaxiMode             string              `json:"taxi_mode"`
-	Travel				 *Trip 				 `json:"travel"`
+	Travel               *Trip               `json:"travel"`
 	Type                 string              `json:"device_type"`
 }
 
@@ -77,14 +86,14 @@ type CommandResp struct {
 	Belt                 string              `json:"belt"`
 	CompletesAt          string              `json:"completes_at"`
 	Controller           *ControllerStatus   `json:"controller"`
-	ControllerCode       string              `json:"controller_code"`
+	ControllerCode       *CodeAlias          `json:"controller_code"`
 	DepartedAt           string              `json:"departed_at"`
 	Destination          string              `json:"destination"`
 	DestinationName      string              `json:"destination_name"`
 	DestinationType      string              `json:"destination_type"`
-	DeviceCode           string              `json:"device_code"`
+	DeviceCode           *CodeAlias          `json:"device_code"`
 	Eta                  time.Duration
-	EtaSeconds           float32             `json:"eta_seconds"`
+	EtaSeconds           float32         `json:"eta_seconds"`
 	FinalDestination     string          `json:"final_destination"`
 	FinalDestinationName string          `json:"final_destination_name"`
 	JsonErr              string          `json:"error"`

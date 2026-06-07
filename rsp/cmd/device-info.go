@@ -20,14 +20,16 @@ var infoCmd = &cobra.Command{
 			prettyPrint(resp)
 		} else {
 			var cargo []string
+			code := alias(resp.Code.String())
+			code = lines([]string{code, unalias(code)})
 			for _, c := range resp.Cargo {
 				cargo = append(cargo, fmt.Sprintf("%.2f x %s", c.Quantity, c.ResourceType))
 			}
 			printTable(
 				[]string{"Code", "Type", "Location", "Features", "Status", "Taxi Mode",
 					"Replicant", "Commands", "Ops Capacity", "Cargo"},
-				[][]string{{resp.Code, resp.Type, resp.Location,
-					lines(resp.Features), resp.Status, resp.TaxiMode, resp.ReplicantCode,
+				[][]string{{code, resp.Type, resp.Location,
+					lines(resp.Features), resp.Status, resp.TaxiMode, resp.ReplicantCode.String(),
 					lines(resp.AvailableCommands), f(resp.OperationalCapacity),
 					lines(cargo),
 				}},
@@ -63,7 +65,7 @@ var infoCmd = &cobra.Command{
 				var cds [][]string
 				for _, d := range resp.ControlledDevices {
 					cds = append(cds, []string{
-						d.Code, d.Type, d.Location, d.Status,
+						alias(d.Code.String()), d.Type, d.Location, d.Status,
 					})
 				}
 				printTable([]string{
@@ -75,9 +77,17 @@ var infoCmd = &cobra.Command{
 					len(resp.AttachedDevices), resp.AttachCapacity)
 				var ds [][]string
 				for _, d := range resp.AttachedDevices {
-					ds = append(ds, []string{d.Type, d.Code})
+					ds = append(ds, []string{d.Type, d.Code.String()})
 				}
 				printTable([]string{"Type", "Code"}, ds)
+			}
+			if resp.Scan != nil {
+				s := resp.Scan
+				printTable([]string{
+					"Target", "Started", "Progress", "ETA",
+				}, [][]string{{
+					s.Target, s.StartedAt, f(s.ProgressPercent)+"%", s.Eta.String(),
+				}})
 			}
 			if resp.Travel != nil {
 				t := resp.Travel
