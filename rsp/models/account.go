@@ -34,3 +34,20 @@ type Messages struct {
 	NextCursor  int       `json:"next_cursor"`
 	UnreadCount int       `json:"unread_message_count"`
 }
+
+type Bob struct {
+	Id            int    `json:"id"`
+	Channel       string `json:"channel"`
+	CurrentStar   string `json:"current_star"`
+	Message       string `json:"message"`
+	ReplicantCode string `json:"replicant_code"`
+	ReplicantName string `json:"replicant_name"`
+	Time          string `json:"time"`
+}
+
+type Bobs struct {
+	Messages      []Bob `json:"messages"`
+	NextCursor    int   `json:"next_cursor"`
+	Total         int   `json:"total"`
+	TotalMessages int   `json:"total_messages"`
+}

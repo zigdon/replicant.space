@@ -7,7 +7,7 @@ import (
 	"github.com/zigdon/rsp/models"
 )
 
-// / Account
+// Account
 func Account() (*models.Account, error) {
 	res, err := cacheGET("", 0, "accounts/me")
 	if err != nil {
@@ -35,7 +35,18 @@ func MarkRead(ids []int) error {
 	return err
 }
 
-// / Replicants
+func Bobnet(relayID string, cursor, limit int, latest, npcs bool) (*models.Bobs, error) {
+	res, err := Get("devices/%s/messages?cursor=%d&limit=%d&latest=%v&include_npcs=%v",
+		relayID, cursor, limit, latest, npcs,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return models.Parse[models.Bobs](res)
+}
+
+// Replicants
 func ReplicantID(id int) (string, error) {
 	account, err := Account()
 	if err != nil {
@@ -120,7 +131,7 @@ func ReplicantTravel(id, dest string) (*models.Trip, error) {
 	return m, err
 }
 
-// / Devices
+// Devices
 func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp, error) {
 	if command == "" || id == "" {
 		return nil, fmt.Errorf("id and command are required")
@@ -157,7 +168,7 @@ func DeviceInfo(id string) (*models.Device, error) {
 	return m, nil
 }
 
-// / Inventory
+// Inventory
 func Location(id string) (*models.Location, error) {
 	url := "locations"
 	if id != "" {

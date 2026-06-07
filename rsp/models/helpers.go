@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 )
 
-func Parse[T interface{}](data []byte) (*T, error) {
+func Parse[T any](data []byte) (*T, error) {
 	s := new(T)
 
 	if err := json.Unmarshal(data, s); err != nil {
