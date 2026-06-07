@@ -26,8 +26,8 @@ type StowedDevice struct {
 }
 
 type DeviceDirective struct {
-	Config map[string]string `json:"config"`
-	Name   string            `json:"name"`
+	Config map[string]any `json:"config"`
+	Name   string         `json:"name"`
 }
 
 type Device struct {
@@ -66,9 +66,12 @@ type ControllerStatus struct {
 }
 
 type CommandResp struct {
+	AdoptedDevices       []*StowedDevice     `json:"adopted"`
+	AmiDirective         *DeviceDirective    `json:"ami_directive"`
+	AmiDirectiveStatus   string              `json:"ami_directive_status"`
 	ArrivesAt            string              `json:"arrives_at"`
 	AssignedDevices      map[string][]string `json:"assigned_devices"`
-	AttachedDevices      []*Device           `json:"attached_devices"`
+	AttachedDevices      []string            `json:"attached_devices"`
 	AvailableSites       []*AvailableSite    `json:"available_sites"`
 	Belt                 string              `json:"belt"`
 	CompletesAt          string              `json:"completes_at"`
@@ -79,9 +82,9 @@ type CommandResp struct {
 	DestinationName      string              `json:"destination_name"`
 	DestinationType      string              `json:"destination_type"`
 	DeviceCode           string              `json:"device_code"`
-	EtaSeconds           float32             `json:"eta_seconds"`
 	Eta                  time.Duration
-	FinalDestination     string          `json:" strin"`
+	EtaSeconds           float32             `json:"eta_seconds"`
+	FinalDestination     string          `json:"final_destination"`
 	FinalDestinationName string          `json:"final_destination_name"`
 	JsonErr              string          `json:"error"`
 	Location             string          `json:"location"`
@@ -95,7 +98,7 @@ type CommandResp struct {
 	Star                 string          `json:"star"`
 	StartedAt            string          `json:"started_at"`
 	Status               string          `json:"status"`
-	TotalDistanceLy      float32         `json:" float3"`
+	TotalDistanceLy      float32         `json:"total_distance_ly"`
 	TotalTime            time.Duration
 	TotalTimeSeconds     float32 `json:"total_time_seconds"`
 	TravelType           string  `json:"travel_type"`

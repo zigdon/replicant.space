@@ -33,11 +33,20 @@ var infoCmd = &cobra.Command{
 				}},
 			)
 			if len(resp.AvailableDirectives) > 0 {
+				var cfg map[string]any
+				var name string
+				if resp.AmiDirective != nil {
+					cfg = resp.AmiDirective.Config
+					name = resp.AmiDirective.Name
+				} else {
+					name = "N/A"
+				}
 				printTable([]string{
-					"Current Directive", "Configuration", "Available Directives",
+					"Current Directive", "Status", "Configuration", "Available Directives",
 				}, [][]string{{
-					resp.AmiDirective.Name,
-					v(resp.AmiDirective.Config),
+					name,
+					resp.AmiDirectiveStatus,
+					v(cfg),
 					lines(resp.AvailableDirectives),
 				}})
 			}
