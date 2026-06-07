@@ -38,8 +38,16 @@ type Object struct {
 	Status            string  `json:"status"`
 }
 
+type LocationEvent struct {
+	Designation string `json:"designation"`
+	EventType   string `json:"event_type"`
+	Location    string `json:"location"`
+	Tier        int    `json:"tier"`
+	Title       string `json:"title"`
+}
+
 type Scan struct {
-	ActiveLocationEvents []string `json:"active_location_events"`
+	ActiveLocationEvents []LocationEvent `json:"active_location_events"`
 	AsteroidBelt         struct {
 		Belts   []Belt `json:"belts"`
 		Present bool   `json:"present"`

@@ -78,6 +78,16 @@ var scanCmd = &cobra.Command{
 					"Salvage",
 				}, planets)
 			}
+
+			if len(scan.ActiveLocationEvents) > 0 {
+				var events [][]string
+				for _, e := range scan.ActiveLocationEvents {
+					events = append(events, []string{
+						e.Designation, e.Title, e.EventType, e.Location, d(e.Tier),
+					})
+				}
+				printTable([]string{"Designation", "Title", "Type", "Location", "Tier"}, events)
+			}
 		}
 		return nil
 	},

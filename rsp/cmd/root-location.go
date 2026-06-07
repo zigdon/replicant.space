@@ -92,13 +92,17 @@ var locationCmd = &cobra.Command{
 			}})
 			data = [][]string{}
 			for _, p := range res.Planets {
+				var inv []string
+				for _, i := range p.Inventory {
+					inv = append(inv, fmt.Sprintf("%.2f x %s", i.Quantity, i.ResourceType))
+				}
 				data = append(data, []string{
 					p.Designation, p.Name, p.Type, p.LifeStage,
-					d(p.MoonCount), b(p.Scanned),
+					d(p.MoonCount), b(p.Scanned), lines(inv),
 				})
 			}
 			printTable([]string{
-				"Designation", "Name", "Type", "Life stage", "Moons", "Scanned",
+				"Designation", "Name", "Type", "Life stage", "Moons", "Scanned", "Inventory",
 			}, data)
 		}
 

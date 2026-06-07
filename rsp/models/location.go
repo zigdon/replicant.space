@@ -14,7 +14,7 @@ type Position struct {
 }
 
 func NewPosition(x, y, z float32) Position {
-	return Position{X:x, Y:y, Z:z}
+	return Position{X: x, Y: y, Z: z}
 }
 
 func ParsePosition(coords string) (Position, error) {
@@ -109,29 +109,30 @@ type Site struct {
 }
 
 type Planet struct {
-	Atmosphere          string    `json:"atmosphere"`
-	AxialTiltDeg        float32   `json:"axial_tilt_deg"`
-	DensityGcc          float32   `json:"density_gcc"`
-	Designation         string    `json:"designation"`
-	InHabitableZone     bool      `json:"in_habitable_zone"`
-	LifeStage           string    `json:"life_stage"`
-	LocationType        string    `json:"location_type"`
-	MagneticField       bool      `json:"magnetic_field"`
-	MassEarth           float32   `json:"mass_earth"`
-	MoonCount           int       `json:"moon_count"`
-	Name                string    `json:"name"`
-	OrbitalDistanceAu   float32   `json:"orbital_distance_au"`
-	OrbitalPeriodDays   float32   `json:"orbital_period_days"`
-	RadiusEarth         float32   `json:"radius_earth"`
-	Rings               bool      `json:"rings"`
-	RotationPeriodHours float32   `json:"rotation_period_hours"`
-	Salvage             []Salvage `json:"salvage"`
-	Scanned             bool      `json:"scanned"`
-	SurfaceGravity      float32   `json:"surface_gravity"`
-	SurfaceTempC        int       `json:"surface_temp_c"`
-	SurfaceTempK        int       `json:"surface_temp_k"`
-	Tags                []string  `json:"tags"`
-	Type                string    `json:"type"`
+	Atmosphere          string      `json:"atmosphere"`
+	AxialTiltDeg        float32     `json:"axial_tilt_deg"`
+	DensityGcc          float32     `json:"density_gcc"`
+	Designation         string      `json:"designation"`
+	InHabitableZone     bool        `json:"in_habitable_zone"`
+	Inventory           []Inventory `json:"inventory"`
+	LifeStage           string      `json:"life_stage"`
+	LocationType        string      `json:"location_type"`
+	MagneticField       bool        `json:"magnetic_field"`
+	MassEarth           float32     `json:"mass_earth"`
+	MoonCount           int         `json:"moon_count"`
+	Name                string      `json:"name"`
+	OrbitalDistanceAu   float32     `json:"orbital_distance_au"`
+	OrbitalPeriodDays   float32     `json:"orbital_period_days"`
+	RadiusEarth         float32     `json:"radius_earth"`
+	Rings               bool        `json:"rings"`
+	RotationPeriodHours float32     `json:"rotation_period_hours"`
+	Salvage             []Salvage   `json:"salvage"`
+	Scanned             bool        `json:"scanned"`
+	SurfaceGravity      float32     `json:"surface_gravity"`
+	SurfaceTempC        int         `json:"surface_temp_c"`
+	SurfaceTempK        int         `json:"surface_temp_k"`
+	Tags                []string    `json:"tags"`
+	Type                string      `json:"type"`
 }
 
 type Moon struct {
