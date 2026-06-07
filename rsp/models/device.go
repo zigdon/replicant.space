@@ -55,6 +55,7 @@ type Device struct {
 	StowedDevices        []*StowedDevice     `json:"stowed_devices"`
 	StowedInDeviceCode   string              `json:"stowed_in_device_code"`
 	TaxiMode             string              `json:"taxi_mode"`
+	Travel				 *Trip 				 `json:"travel"`
 	Type                 string              `json:"device_type"`
 }
 

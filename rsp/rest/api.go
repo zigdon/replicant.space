@@ -59,6 +59,7 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 	})
 	log("%s %q -> %d:\n%s", method, url, resp.StatusCode, string(data))
 	if err != nil {
+		log("err: %v", err)
 		return nil, err
 	}
 

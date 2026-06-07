@@ -59,6 +59,9 @@ func init() {
 			}},
 	)
 	mkDeviceCommand(
+		"deactivate", "Deactivate device (e.g. ftl relay)", "deactivate", nil,
+	)
+	mkDeviceCommand(
 		"deploy", "Deploy a device", "deploy", nil,
 	)
 	mkDeviceCommand(

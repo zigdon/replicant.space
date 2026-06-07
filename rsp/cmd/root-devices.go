@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"slices"
+
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
 )
@@ -13,8 +15,14 @@ var deviceListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		for _, r := range acc.Replicants {
-			printReplicantDeviceList(r)
+		var names []string
+		for name := range acc.Replicants {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+
+		for _, n := range names {
+			printReplicantDeviceList(acc.Replicants[n])
 		}
 		return nil
 	},

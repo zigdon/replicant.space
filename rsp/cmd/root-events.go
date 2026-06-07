@@ -9,6 +9,33 @@ import (
 	lg "charm.land/lipgloss/v2"
 )
 
+var eventCompleteCmd = &cobra.Command{
+	Use:   "complete",
+	Short: "Trigger event completion",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		eventID, _ := cmd.Flags().GetString("id")
+		e, err := rest.CompleteEvent(eventID)
+		if err != nil {
+			return err
+		}
+		var xp, civ int
+		var rs []string
+		if e.Rewards != nil {
+			xp = e.Rewards.XP
+			civ = e.Rewards.CivilisationPoints
+			for k, v := range e.Rewards.Resources {
+				rs = append(rs, fmt.Sprintf("%d x %s", v, k))
+			}
+		}
+		printTable([]string{
+			"Designation", "Title", "Status", "XP", "Civ Points", "Resources",
+		}, [][]string{{
+			e.Designation, e.Title, e.Status, d(xp), d(civ), lines(rs),
+		}})
+		return nil
+	},
+}
+
 var eventsCmd = &cobra.Command{
 	Use:   "events",
 	Short: "See all your current ongoing events",
@@ -90,4 +117,8 @@ func init() {
 	eventsCmd.Flags().IntP("width", "w", 50, "Wrap message body to this width")
 	eventsCmd.Flags().String("id", "", "Show only this event")
 	eventsCmd.Flags().BoolP("list", "l", false, "Show only event list, no details")
+
+	eventsCmd.AddCommand(eventCompleteCmd)
+	eventCompleteCmd.Flags().String("id", "", "Show only this event")
+	eventCompleteCmd.MarkFlagRequired("id")
 }

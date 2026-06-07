@@ -14,7 +14,8 @@ type Account struct {
 	ExperiencePointsTotal int         `json:"experience_points_total"`
 	MessageNotify         *Notify      `json:"message_notify"`
 	Name                  string      `json:"name"`
-	Replicants            []*Replicant `json:"replicants"`
+	ReplicantList         []*Replicant `json:"replicants"`
+	Replicants            map[string]*Replicant
 	Status                string      `json:"status"`
 	Timezone              string      `json:"timezone"`
 	UnreadMessageCount    int         `json:"unread_message_count"`
@@ -59,7 +60,7 @@ type EventCriteria struct {
 }
 
 type EventProgressResourceOption struct {
-	Current int `json:"current"`
+	Current float32 `json:"current"`
 	Met bool `json:"met"`
 	Required int `json:"required"`
 	ResourceType string `json:"resource_type"`
@@ -95,8 +96,8 @@ type Event struct {
 	DiscoveredAt string `json:"discovered_at"`
 	Location string `json:"location"`
 	LocationName string `json:"location_name"`
-	Progress EventProgress `json:"progress"`
-	Rewards EventReward `json:"rewards"`
+	Progress *EventProgress `json:"progress"`
+	Rewards *EventReward `json:"rewards"`
 	Status string `json:"status"`
 	Tier int `json:"tier"`
 	Title string `json:"title"`

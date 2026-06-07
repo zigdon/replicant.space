@@ -13,7 +13,15 @@ func Account() (*models.Account, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.Parse[models.Account](res)
+	acc, err := models.Parse[models.Account](res)
+	if err != nil {
+		return nil, err
+	}
+	acc.Replicants = make(map[string]*models.Replicant)
+	for _, r := range acc.ReplicantList {
+		acc.Replicants[r.Name] = r
+	}
+	return acc, nil
 }
 
 func Messages(cursor, limit int, latest, unreadOnly bool) (*models.Messages, error) {
@@ -53,6 +61,25 @@ func Events() (*models.Events, error) {
 	}
 
 	return models.Parse[models.Events](res)
+}
+
+func CompleteEvent(eid string) (*models.Event, error) {
+	events, err := Events()
+	if err != nil {
+		return nil, err
+	}
+	var location string
+	for _, e := range events.Events {
+		if e.Designation != eid { continue }
+		location = e.Location
+		break
+	}
+	if location == "" {
+		return nil, fmt.Errorf("can't find location for %q", eid)
+	}
+	res, err := Post("locations/%s/events/%s", nil, location, eid)
+
+	return models.Parse[models.Event](res)
 }
 
 // Replicants

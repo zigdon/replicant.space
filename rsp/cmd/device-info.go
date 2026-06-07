@@ -24,10 +24,10 @@ var infoCmd = &cobra.Command{
 				cargo = append(cargo, fmt.Sprintf("%.2f x %s", c.Quantity, c.ResourceType))
 			}
 			printTable(
-				[]string{"Code", "Type", "Location", "Features", "Status",
+				[]string{"Code", "Type", "Location", "Features", "Status", "Taxi Mode",
 					"Replicant", "Commands", "Ops Capacity", "Cargo"},
 				[][]string{{resp.Code, resp.Type, resp.Location,
-					lines(resp.Features), resp.Status, resp.ReplicantCode,
+					lines(resp.Features), resp.Status, resp.TaxiMode, resp.ReplicantCode,
 					lines(resp.AvailableCommands), f(resp.OperationalCapacity),
 					lines(cargo),
 				}},
@@ -78,6 +78,14 @@ var infoCmd = &cobra.Command{
 					ds = append(ds, []string{d.Type, d.Code})
 				}
 				printTable([]string{"Type", "Code"}, ds)
+			}
+			if resp.Travel != nil {
+				t := resp.Travel
+				printTable([]string{
+					"Origin", "Destination", "ETA", "Percent", "Type",
+				}, [][]string{{
+					t.Origin, t.Destination, t.ArrivesAt, f(t.ProgressPercent), t.Type,
+				}})
 			}
 		}
 		return nil
