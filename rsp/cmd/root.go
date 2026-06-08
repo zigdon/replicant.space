@@ -133,10 +133,11 @@ func Execute() {
 	var err error
 	db, err = cache.Connect(false)
 	if err != nil {
-		die("Failed to connect to db: %v", err)
+		log("Failed to connect to db: %v", err)
+	} else {
+		models.ConnectDB(db)
+		rest.ConnectDB(db)
 	}
-	models.ConnectDB(db)
-	rest.ConnectDB(db)
 
 	err = rootCmd.Execute()
 	if err != nil {

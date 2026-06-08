@@ -25,7 +25,7 @@ func ConnectDB(cdb *cache.Cache) {
 }
 
 type CodeAlias struct {
-	orig string
+	orig  string
 	alias string
 }
 
@@ -36,7 +36,6 @@ func (a *CodeAlias) UnmarshalJSON(data []byte) error {
 	}
 	if db == nil {
 		// No database, just return this unmodified.
-		fmt.Printf("No db when dealiasing %q\n", code)
 		*a = CodeAlias{orig: code}
 		return nil
 	}
@@ -46,9 +45,6 @@ func (a *CodeAlias) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*a = CodeAlias{orig: code, alias: alias}
-	if code == alias {
-		fmt.Printf("No alias for %q\n", code)
-	}
 
 	return nil
 }
