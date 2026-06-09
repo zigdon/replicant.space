@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	lg "charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
 )
@@ -166,12 +167,16 @@ var locationCmd = &cobra.Command{
 			for _, s := range res.ResourceSites {
 				data = append(data, []string{
 					d(s.Index), s.Type, s.Designation, s.Name,
-					m[int](s.ResourcesRemainingPct),
+					m(s.ResourcesRemainingPct),
 				})
 			}
 			printTable([]string{
 				"Index", "Type", "Designation", "Name", "Resources Pct",
 			}, data)
+		}
+
+		if res.LocationEvent != nil {
+			printEvent(res.LocationEvent, lg.NewStyle().Width(40))
 		}
 
 		return nil

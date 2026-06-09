@@ -66,25 +66,25 @@ type Star struct {
 		InnerAu float32 `json:"inner_au"`
 		OuterAu float32 `json:"outer_au"`
 	} `json:"habitable_zone"`
-	HasLife         bool     `json:"has_life"`
-	LuminositySolar float32  `json:"luminositysolar"`
-	MassSolar       float32  `json:"mass_solar"`
-	MiningBonusPct  int      `json:"mining_bonus_pct"`
-	Name            string   `json:"name"`
-	Position        Position `json:"position"`
-	SpectralType    string   `json:"spectral_type"`
-	StellarClass    string   `json:"stellar_class"`
-	TemperatureK    int      `json:"temperature_k"`
+	HasLife         bool      `json:"has_life"`
+	LuminositySolar float32   `json:"luminositysolar"`
+	MassSolar       float32   `json:"mass_solar"`
+	MiningBonusPct  int       `json:"mining_bonus_pct"`
+	Name            string    `json:"name"`
+	Position        *Position `json:"position"`
+	SpectralType    string    `json:"spectral_type"`
+	StellarClass    string    `json:"stellar_class"`
+	TemperatureK    int       `json:"temperature_k"`
 }
 
 type Census struct {
-	Page              int      `json:"page"`
-	PerPage           int      `json:"per_page"`
-	ReplicantPosition Position `json:"replicant_position"`
-	Stars             []Star   `json:"stars"`
-	Total             int      `json:"total"`
-	TotalPages        int      `json:"total_pages"`
-	TotalStars        int      `json:"total_stars"`
+	Page              int       `json:"page"`
+	PerPage           int       `json:"per_page"`
+	ReplicantPosition *Position `json:"replicant_position"`
+	Stars             []*Star   `json:"stars"`
+	Total             int       `json:"total"`
+	TotalPages        int       `json:"total_pages"`
+	TotalStars        int       `json:"total_stars"`
 }
 
 type Belt struct {
@@ -109,30 +109,30 @@ type Site struct {
 }
 
 type Planet struct {
-	Atmosphere          string      `json:"atmosphere"`
-	AxialTiltDeg        float32     `json:"axial_tilt_deg"`
-	DensityGcc          float32     `json:"density_gcc"`
-	Designation         string      `json:"designation"`
-	InHabitableZone     bool        `json:"in_habitable_zone"`
-	Inventory           []Inventory `json:"inventory"`
-	LifeStage           string      `json:"life_stage"`
-	LocationType        string      `json:"location_type"`
-	MagneticField       bool        `json:"magnetic_field"`
-	MassEarth           float32     `json:"mass_earth"`
-	MoonCount           int         `json:"moon_count"`
-	Name                string      `json:"name"`
-	OrbitalDistanceAu   float32     `json:"orbital_distance_au"`
-	OrbitalPeriodDays   float32     `json:"orbital_period_days"`
-	RadiusEarth         float32     `json:"radius_earth"`
-	Rings               bool        `json:"rings"`
-	RotationPeriodHours float32     `json:"rotation_period_hours"`
-	Salvage             []Salvage   `json:"salvage"`
-	Scanned             bool        `json:"scanned"`
-	SurfaceGravity      float32     `json:"surface_gravity"`
-	SurfaceTempC        int         `json:"surface_temp_c"`
-	SurfaceTempK        int         `json:"surface_temp_k"`
-	Tags                []string    `json:"tags"`
-	Type                string      `json:"type"`
+	Atmosphere          string       `json:"atmosphere"`
+	AxialTiltDeg        float32      `json:"axial_tilt_deg"`
+	DensityGcc          float32      `json:"density_gcc"`
+	Designation         string       `json:"designation"`
+	InHabitableZone     bool         `json:"in_habitable_zone"`
+	Inventory           []*Inventory `json:"inventory"`
+	LifeStage           string       `json:"life_stage"`
+	LocationType        string       `json:"location_type"`
+	MagneticField       bool         `json:"magnetic_field"`
+	MassEarth           float32      `json:"mass_earth"`
+	MoonCount           int          `json:"moon_count"`
+	Name                string       `json:"name"`
+	OrbitalDistanceAu   float32      `json:"orbital_distance_au"`
+	OrbitalPeriodDays   float32      `json:"orbital_period_days"`
+	RadiusEarth         float32      `json:"radius_earth"`
+	Rings               bool         `json:"rings"`
+	RotationPeriodHours float32      `json:"rotation_period_hours"`
+	Salvage             []*Salvage   `json:"salvage"`
+	Scanned             bool         `json:"scanned"`
+	SurfaceGravity      float32      `json:"surface_gravity"`
+	SurfaceTempC        int          `json:"surface_temp_c"`
+	SurfaceTempK        int          `json:"surface_temp_k"`
+	Tags                []string     `json:"tags"`
+	Type                string       `json:"type"`
 }
 
 type Moon struct {
@@ -156,23 +156,24 @@ type Location struct {
 		Belts []Belt `json:"belts"`
 		Present bool `json:"present"`
 	} `json:"asteroid_belt"`
-	Belt                Belt                       `json:"belt"`
-	Devices             []Device                   `json:"devices"`
-	EntryPoint          string                     `json:"entry_point"`
-	Inventory           []Inventory                `json:"inventory"`
-	Location            string                     `json:"location"`
-	Locations           map[string]LocationSummary `json:"locations"`
-	Moon                Moon                       `json:"moon"`
-	Moons               []Moon                     `json:"moons"`
-	MoonsScanned        int                        `json:"moons_scanned"`
-	MoonsTotal          int                        `json:"moons_total"`
-	MoonsTotalEstimated bool                       `json:"moons_total_estimated"`
-	Planet              Planet                     `json:"planet"`
-	Planets             []Planet                   `json:"planets"`
-	PlanetsScanned      int                        `json:"planets_scanned"`
-	PlanetsTotal        int                        `json:"planets_total"`
-	ResourceSites       []Site                     `json:"resource_sites"`
-	Star                Star                       `json:"star"`
-	SystemScanned       bool                       `json:"system_scanned"`
-	Type                string                     `json:"location_type"`
+	Belt                *Belt                       `json:"belt"`
+	Devices             []*Device                   `json:"devices"`
+	EntryPoint          string                      `json:"entry_point"`
+	Inventory           []*Inventory                `json:"inventory"`
+	Location            string                      `json:"location"`
+	LocationEvent       *Event                      `json:"location_event"`
+	Locations           map[string]*LocationSummary `json:"locations"`
+	Moon                *Moon                       `json:"moon"`
+	Moons               []*Moon                     `json:"moons"`
+	MoonsScanned        int                         `json:"moons_scanned"`
+	MoonsTotal          int                         `json:"moons_total"`
+	MoonsTotalEstimated bool                        `json:"moons_total_estimated"`
+	Planet              *Planet                     `json:"planet"`
+	Planets             []*Planet                   `json:"planets"`
+	PlanetsScanned      int                         `json:"planets_scanned"`
+	PlanetsTotal        int                         `json:"planets_total"`
+	ResourceSites       []*Site                     `json:"resource_sites"`
+	Star                *Star                       `json:"star"`
+	SystemScanned       bool                        `json:"system_scanned"`
+	Type                string                      `json:"location_type"`
 }
