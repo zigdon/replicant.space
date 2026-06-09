@@ -54,7 +54,7 @@ func lines(s []string) string {
 	return strings.Join(s, "\n")
 }
 
-func m[T int | string](in map[string]T) string {
+func m[T any](in map[string]T) string {
 	var res []string
 	for k, v := range in {
 		res = append(res, fmt.Sprintf("%s: %v", k, v))
@@ -97,7 +97,7 @@ func printTable(headers []string, data [][]string) {
 		for _, l := range data {
 			if len(l[i]) > 0 { hasData[i] = true }
 			if strings.Contains(l[i], "\n") {
-				for _, nl := range strings.Split(l[i], "\n") {
+				for nl := range strings.SplitSeq(l[i], "\n") {
 					if len(nl) > max {
 						max = len(nl)
 					}
@@ -111,10 +111,10 @@ func printTable(headers []string, data [][]string) {
 		cellStyles = append(cellStyles, cellStyle.Width(max+2))
 	}
 
-	headers = filterEmpty[string](headers, hasData)
-	cellStyles = filterEmpty[lg.Style](cellStyles, hasData)
+	headers = filterEmpty(headers, hasData)
+	cellStyles = filterEmpty(cellStyles, hasData)
 	for i, l := range data {
-		data[i] = filterEmpty[string](l, hasData)
+		data[i] = filterEmpty(l, hasData)
 	}
 
 	t := table.New().

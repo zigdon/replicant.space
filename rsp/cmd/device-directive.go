@@ -48,7 +48,16 @@ var deliveryCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Can't set directive: %v", err)
 		}
-		prettyPrint(res)
+
+		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+			prettyPrint(res)
+			return nil
+		}
+		printTable([]string{
+			"Directive", "Status", "Configure",
+		}, [][]string{{
+			res.AmiDirective.Name, res.AmiDirectiveStatus, m(res.AmiDirective.Config),
+		}})
 		return nil
 	},
 }
