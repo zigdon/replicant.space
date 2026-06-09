@@ -77,7 +77,7 @@ func CompleteEvent(eid string) (*models.Event, error) {
 	}
 	var location string
 	for _, e := range events.Events {
-		if e.Designation != eid { continue }
+		if eid != "" && e.Designation != eid { continue }
 		location = e.Location
 		break
 	}

@@ -127,5 +127,4 @@ func printEvent(e *models.Event, style lg.Style) {
 		progress = append(progress, line)
 	}
 	printTable([]string{"Name", "Done", "Devices", "Resources"}, progress)
-
 }

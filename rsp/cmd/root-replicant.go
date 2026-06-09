@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
@@ -22,36 +24,50 @@ var replicantCmd = &cobra.Command{
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(repl)
-		} else {
+			return nil
+		}
+		printTable([]string{
+			"Name", "Code", "Location", "XP", "Description", "Status",
+		}, [][]string{{
+			repl.Name, alias(repl.ReplicantCode.String()), repl.Location,
+			d(repl.ExperiencePoints), repl.Description, repl.Status,
+		}})
+		if len(repl.StowedDevices) > 0 {
+			cnt := make(map[string]int)
+			for _, d := range repl.StowedDevices {
+				cnt[d.Type]++
+			}
+			var types [][]string
+			for t, n := range cnt {
+				types = append(types, []string{fmt.Sprintf("%d", n), t})
+			}
+			slices.SortFunc(types, func(a, b []string) int {
+				return cmp.Compare(a[1], b[1])
+			})
+			printTable([]string{"Count", "Stowed"}, types)
+		}
+		if len(repl.PrintQueue) > 0 {
+			var q [][]string
+			for _, pq := range repl.PrintQueue {
+				q = append(q, []string{
+					pq.DeviceType,
+					pq.Notify.Device,
+					b(pq.Notify.Email),
+					b(pq.Notify.Webhook),
+				})
+			}
 			printTable([]string{
-				"Name", "Code", "Location", "XP", "Description", "Status",
-			}, [][]string{{
-				repl.Name, repl.ReplicantCode.String(), repl.Location,
-				d(repl.ExperiencePoints), repl.Description, repl.Status,
-			}})
-			if len(repl.PrintQueue) > 0 {
-				var q [][]string
-				for _, pq := range repl.PrintQueue {
-					q = append(q, []string{
-						pq.DeviceType,
-						pq.Notify.Device,
-						b(pq.Notify.Email),
-						b(pq.Notify.Webhook),
-					})
-				}
-				printTable([]string{
-					"Type", "Notify device", "Notify email", "Notify webhook",
-				}, q)
+				"Type", "Notify device", "Notify email", "Notify webhook",
+			}, q)
+		}
+		if len(repl.WaitingFor) > 0 {
+			var w [][]string
+			for k, v := range repl.WaitingFor {
+				w = append(w, []string{
+					k, d(v.Have), d(v.Need),
+				})
 			}
-			if len(repl.WaitingFor) > 0 {
-				var w [][]string
-				for k, v := range repl.WaitingFor {
-					w = append(w, []string{
-						k, d(v.Have), d(v.Need),
-					})
-				}
-				printTable([]string{"Resource", "Have", "Need"}, w)
-			}
+			printTable([]string{"Resource", "Have", "Need"}, w)
 		}
 		return nil
 	},

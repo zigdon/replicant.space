@@ -29,7 +29,7 @@ var infoCmd = &cobra.Command{
 				[]string{"Code", "Type", "Location", "Features", "Status", "Taxi Mode",
 					"Replicant", "Commands", "Ops Capacity", "Cargo"},
 				[][]string{{code, resp.Type, resp.Location,
-					lines(resp.Features), resp.Status, resp.TaxiMode, resp.ReplicantCode.String(),
+					lines(resp.Features), resp.Status, resp.TaxiMode, alias(resp.ReplicantCode.String()),
 					lines(resp.AvailableCommands), f(resp.OperationalCapacity),
 					lines(cargo),
 				}},

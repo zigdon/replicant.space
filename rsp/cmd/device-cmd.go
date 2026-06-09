@@ -22,9 +22,8 @@ func getTable(name string, resp *models.CommandResp) ([]string, [][]string) {
 				"Code", "Location", "Star", "Belt", "Status",
 				"ETA", "Started", "Ends"},
 			[][]string{{
-				resp.DeviceCode.String(), resp.Location, resp.Star, resp.Belt,
-				resp.Status, eta, resp.StartedAt,
-				resp.CompletesAt,
+				alias(resp.DeviceCode.String()), resp.Location, resp.Star,
+				resp.Belt, resp.Status, eta, resp.StartedAt, resp.CompletesAt,
 			}}
 	}
 }
@@ -110,6 +109,9 @@ func init() {
 			desc:    "Commands to queue when print is done",
 			jsonKey: "oncomplete",
 		}},
+	)
+	mkDeviceCommand(
+		"recall", "Instruct a device to come home and stow itself", "recall", nil,
 	)
 	mkDeviceCommand(
 		"release", "Return devices back to direct control", "release",
