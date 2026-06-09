@@ -61,6 +61,15 @@ var infoCmd = &cobra.Command{
 					print.EtaSeconds.String(), print.StartedAt, print.CompletesAt,
 				}})
 			}
+			if len(resp.WaitingFor) > 0 {
+				var w [][]string
+				for k, v := range resp.WaitingFor {
+					w = append(w, []string{
+						k, d(v.Have), d(v.Need),
+					})
+				}
+				printTable([]string{"Resource", "Have", "Need"}, w)
+			}
 			if len(resp.ControlledDevices) > 0 {
 				var cds [][]string
 				for _, d := range resp.ControlledDevices {
@@ -92,10 +101,17 @@ var infoCmd = &cobra.Command{
 			if resp.Travel != nil {
 				t := resp.Travel
 				printTable([]string{
-					"Origin", "Destination", "ETA", "Time Left", "Percent", "Type",
+					"Origin", "Destination", "ETA", "Percent", "Time Left", "Type",
 				}, [][]string{{
 					t.Origin, t.Destination, t.ArrivesAt, f(t.ProgressPercent), t.Eta.String(), t.Type,
 				}})
+				var legs [][]string
+				for _, l := range t.Route {
+					legs = append(legs, []string{
+						d(l.Leg), b(l.Active), l.From, l.To, f(l.DistanceAu), l.Type,
+					})
+				}
+				printTable([]string{"Leg", "Active", "From", "To", "Distance", "Type"}, legs)
 			}
 		}
 		return nil

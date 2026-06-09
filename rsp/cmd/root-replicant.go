@@ -32,6 +32,23 @@ var replicantCmd = &cobra.Command{
 			repl.Name, alias(repl.ReplicantCode.String()), repl.Location,
 			d(repl.ExperiencePoints), repl.Description, repl.Status,
 		}})
+		if repl.Travel != nil {
+			t := repl.Travel
+			printTable([]string{
+				"Departed", "Arrives", "ETA", "Stage",
+			}, [][]string{{
+				t.Origin, t.Destination, t.Eta.String(), t.Stage,
+			}, {
+				t.DepartedAt, t.ArrivesAt, p(t.ProgressPercent), "",
+			}})
+			var legs [][]string
+			for _, l := range t.Route {
+				legs = append(legs, []string{
+					d(l.Leg), b(l.Active), l.From, l.To, f(l.DistanceAU), l.Type,
+				})
+			}
+			printTable([]string{"Leg", "Active", "From", "To", "Distance", "Type"}, legs)
+		}
 		if len(repl.StowedDevices) > 0 {
 			cnt := make(map[string]int)
 			for _, d := range repl.StowedDevices {

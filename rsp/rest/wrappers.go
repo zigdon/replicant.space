@@ -152,10 +152,18 @@ func Replicant(id string) (*models.Replicant, error) {
 	if r.CurrentLocationName == "" {
 		r.CurrentLocationName = r.LocationName
 	}
+	if r.Travel != nil {
+		r.Travel.Eta = durationFromSeconds(r.Travel.EtaSeconds)
+		r.Travel.TotalTime = durationFromSeconds(r.Travel.TotalTimeSeconds)
+		for i, l := range r.Travel.Route {
+			l.Time = durationFromSeconds(l.TimeSeconds)
+			r.Travel.Route[i] = l
+		}
+	}
 	return r, nil
 }
 
-func ReplicantDevices(id, loc string) ([]models.Device, error) {
+func ReplicantDevices(id, loc string) ([]*models.Device, error) {
 	id = db.Dealias(id)
 	var q string
 	if loc != "" {
