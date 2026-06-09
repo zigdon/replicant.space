@@ -95,7 +95,7 @@ var infoCmd = &cobra.Command{
 				printTable([]string{
 					"Target", "Started", "Progress", "ETA",
 				}, [][]string{{
-					s.Target, s.StartedAt, f(s.ProgressPercent)+"%", s.Eta.String(),
+					s.Target, s.StartedAt, f(s.ProgressPercent) + "%", s.Eta.String(),
 				}})
 			}
 			if resp.Travel != nil {

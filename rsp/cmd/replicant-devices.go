@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -49,9 +50,14 @@ func printReplicantDeviceList(r *models.Replicant) {
 		return
 	}
 	fmt.Printf("Replicant: %s (%s/%s @ %s)\n",
-	    r.Name, alias(r.ReplicantCode.String()), r.ReplicantCode, r.CurrentLocation)
+		r.Name, alias(r.ReplicantCode.String()), r.ReplicantCode, r.CurrentLocation)
 	var data [][]string
 	for _, d := range devs {
+		status := d.Status
+		if strings.Contains(status, "repairing (") {
+			target := status[strings.Index(status, "(")+1 : strings.Index(status, ")")]
+			status = fmt.Sprintf("repairing (%s)", alias(target))
+		}
 		data = append(data, []string{
 			d.Type,
 			alias(d.Code.String()),
@@ -59,7 +65,7 @@ func printReplicantDeviceList(r *models.Replicant) {
 			b(d.InControlRange),
 			d.Location,
 			f(d.OperationalCapacity),
-			d.Status,
+			status,
 			alias(d.StowedInDeviceCode.String()),
 		})
 	}
