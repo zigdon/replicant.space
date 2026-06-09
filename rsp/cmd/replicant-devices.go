@@ -49,8 +49,14 @@ func printReplicantDeviceList(r *models.Replicant) {
 		log(err.Error())
 		return
 	}
-	fmt.Printf("Replicant: %s (%s/%s @ %s)\n",
-		r.Name, alias(r.ReplicantCode.String()), r.ReplicantCode, r.CurrentLocation)
+	ra, err := db.Alias(r.ReplicantCode.String(), "replicant")
+	if err == nil {
+		fmt.Printf("Replicant: %s (%s/%s @ %s)\n",
+			r.Name, ra, r.ReplicantCode, r.CurrentLocation)
+	} else {
+		fmt.Printf("Replicant: %s (%s @ %s)\n",
+			r.Name, r.ReplicantCode, r.CurrentLocation)
+	}
 	var data [][]string
 	for _, d := range devs {
 		status := d.Status
