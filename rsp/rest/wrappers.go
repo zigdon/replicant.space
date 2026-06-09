@@ -31,6 +31,23 @@ func Account() (*models.Account, error) {
 	return acc, nil
 }
 
+func PatchSettings(up *models.AccountUpdate) (*models.Account, error) {
+	data, err := json.Marshal(up)
+	if err != nil {
+		return nil, err
+	}
+	res, err := Patch("accounts/me", data)
+	acc, err := models.Parse[models.Account](res)
+	if err != nil {
+		return nil, err
+	}
+	acc.Replicants = make(map[string]*models.Replicant)
+	for _, r := range acc.ReplicantList {
+		acc.Replicants[r.Name] = r
+	}
+	return acc, nil
+}
+
 func Messages(cursor, limit int, latest, unreadOnly bool) (*models.Messages, error) {
 	res, err := Get("messages?cursor=%d&limit=%d&latest=%v&unread_only=%v",
 		cursor, limit, latest, unreadOnly,
@@ -77,7 +94,9 @@ func CompleteEvent(eid string) (*models.Event, error) {
 	}
 	var location string
 	for _, e := range events.Events {
-		if eid != "" && e.Designation != eid { continue }
+		if eid != "" && e.Designation != eid {
+			continue
+		}
 		location = e.Location
 		break
 	}
@@ -268,7 +287,7 @@ func GetType(id string) (string, error) {
 func Location(id string) (*models.Location, error) {
 	url := "locations"
 	if id != "" {
-		url += "/"+id
+		url += "/" + id
 	}
 	res, err := cacheGET("", 0, url)
 	if err != nil {

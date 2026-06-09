@@ -3,60 +3,122 @@ package cmd
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
-// meCmd represents the me command
-var meCmd = &cobra.Command{
-	Use:   "me",
+var accountCmd = &cobra.Command{
+	Use:   "account",
 	Short: "Show current status",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		me, err := rest.Account()
+		emailUpt := make(map[string]bool)
+		webUpt := make(map[string]bool)
+		emails, _ := cmd.Flags().GetStringSlice("email")
+		for _, e := range emails {
+			if !strings.Contains(e, ":") {
+				return fmt.Errorf("Invalid setting %q. Pass type:(on|off)", e)
+			}
+			bits := strings.Split(e, ":")
+			emailUpt[bits[0]] = bits[1] == "on"
+		}
+		webs, _ := cmd.Flags().GetStringSlice("webhook")
+		for _, e := range webs {
+			if !strings.Contains(e, ":") {
+				return fmt.Errorf("Invalid setting %q. Pass type:(on|off)", e)
+			}
+			bits := strings.Split(e, ":")
+			webUpt[bits[0]] = bits[1] == "on"
+		}
+		if len(emailUpt) > 0 || len(webUpt) > 0 {
+			data := &models.AccountUpdate{
+				MessageNotify: &models.Notify{
+					Email:   true,
+					Webhook: true,
+					Preferences: &models.NotifyDetails{
+						Email:   emailUpt,
+						Webhook: webUpt,
+					},
+				},
+			}
+
+			res, err := rest.PatchSettings(data)
+			if err != nil {
+				return err
+			}
+			log(res.Status)
+		}
+
+		acc, err := rest.Account()
 		if err != nil {
 			return fmt.Errorf("Error getting status: %v", err)
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
-			prettyPrint(me)
-		} else {
-			printTable(
-				[]string{"Name", "Bobnet", "XP", "Status", "Unread messages"},
-				[][]string{{
-					me.Name,
-					list(me.BobnetChannels),
-					d(me.ExperiencePointsTotal),
-					me.Status,
-					d(me.UnreadMessageCount),
-				}})
-			var reps [][]string
-			var names []string
-			for name := range me.Replicants {
-				names = append(names, name)
-			}
-			slices.Sort(names)
-			for _, name := range names {
-				r := me.Replicants[name]
-				code, err := db.Alias(r.ReplicantCode.String(), "replicant")
-				if err != nil {
-					log("Error creating alias for %q: %v", err)
-					code = r.ReplicantCode.String()
-				}
-
-				reps = append(reps, []string{
-					r.Name,
-					code,
-					r.CurrentLocation,
-					d(r.ExperiencePoints),
-					r.Status,
-				})
-			}
-			printTable([]string{"Name", "Code", "Location", "XP", "Status"}, reps)
+			prettyPrint(acc)
+			return nil
 		}
+
+		printTable(
+			[]string{"Name", "Bobnet", "XP", "Status", "Unread messages"},
+			[][]string{{
+				acc.Name,
+				list(acc.BobnetChannels),
+				d(acc.ExperiencePointsTotal),
+				acc.Status,
+				d(acc.UnreadMessageCount),
+			}})
+
+		var mn [][]string
+		mn = append(mn, []string{
+			"Enabled",
+			b(acc.MessageNotify.Email),
+			b(acc.MessageNotify.Webhook),
+		})
+		var types []string
+		for k := range acc.MessageNotify.Preferences.Email {
+			types = append(types, k)
+		}
+		slices.Sort(types)
+		for _, t := range types {
+			mn = append(mn, []string{
+				strings.ToUpper(t[0:1]) + t[1:len(t)],
+				b(acc.MessageNotify.Preferences.Email[t]),
+				b(acc.MessageNotify.Preferences.Webhook[t]),
+			})
+		}
+		printTable([]string{"Type", "Email", "Webhook"}, mn)
+
+		var reps [][]string
+		var names []string
+		for name := range acc.Replicants {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		for _, name := range names {
+			r := acc.Replicants[name]
+			code, err := db.Alias(r.ReplicantCode.String(), "replicant")
+			if err != nil {
+				log("Error creating alias for %q: %v", err)
+				code = r.ReplicantCode.String()
+			}
+
+			reps = append(reps, []string{
+				r.Name,
+				code,
+				r.CurrentLocation,
+				d(r.ExperiencePoints),
+				r.Status,
+			})
+		}
+		printTable([]string{"Name", "Code", "Location", "XP", "Status"}, reps)
 		return nil
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(meCmd)
+	rootCmd.AddCommand(accountCmd)
+	accountCmd.Flags().StringSliceP("email", "e", nil, "Adjust email notification: type:(on|off)")
+	accountCmd.Flags().StringSliceP("webhook", "w", nil, "Adjust webhook notification: type:(on|off)")
 }
