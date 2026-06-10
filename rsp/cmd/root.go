@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -22,6 +24,38 @@ type flagDesc struct {
 }
 
 var db *cache.Cache
+
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = &cobra.Command{
+	Use:   "rsp",
+	Short: "Simple cli for interacting with replicant.space",
+}
+
+// Execute adds all child commands to the root command and sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
+func Execute() {
+	// Connect to the database
+	var err error
+	db, err = cache.Connect(false)
+	if err != nil {
+		log("Failed to connect to db: %v", err)
+	} else {
+		models.ConnectDB(db)
+		rest.ConnectDB(db)
+	}
+
+	err = rootCmd.Execute()
+	if err != nil {
+		die(err.Error())
+	}
+	if rest.UnreadMessages > 0 {
+		log("Unread messages: %d", rest.UnreadMessages)
+	}
+}
+
+func init() {
+	rootCmd.PersistentFlags().Bool("raw", false, "emit the json returned")
+}
 
 var mkCommand = func(parent *cobra.Command, name, short, command string, flags []flagDesc) *cobra.Command {
 	cmd := &cobra.Command{
@@ -119,38 +153,6 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 	return cmd
 }
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "rsp",
-	Short: "Simple cli for interacting with replicant.space",
-}
-
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	// Connect to the database
-	var err error
-	db, err = cache.Connect(false)
-	if err != nil {
-		log("Failed to connect to db: %v", err)
-	} else {
-		models.ConnectDB(db)
-		rest.ConnectDB(db)
-	}
-
-	err = rootCmd.Execute()
-	if err != nil {
-		die(err.Error())
-	}
-	if rest.UnreadMessages > 0 {
-		log("Unread messages: %d", rest.UnreadMessages)
-	}
-}
-
-func init() {
-	rootCmd.PersistentFlags().Bool("raw", false, "emit the json returned")
-}
-
 func aliasType(in string) (string, string) {
 	if db == nil {
 		return "", ""
@@ -185,4 +187,24 @@ func unalias(in string) string {
 		return in
 	}
 	return db.Dealias(in)
+}
+
+func allDevices() ([]*models.Device, error) {
+	acc, err := rest.Account()
+	if err != nil {
+		return nil, err
+	}
+	var devs []*models.Device
+	for _, r := range acc.Replicants {
+		res, err := rest.ReplicantDevices(r.ReplicantCode.String(), "")
+		if err != nil {
+			return nil, err
+		}
+		devs = append(devs, res...)
+	}
+	slices.SortFunc(devs, func(a, b *models.Device) int {
+		return cmp.Compare(alias(a.Code.String()), alias(b.Code.String()))
+	})
+
+	return devs, nil
 }

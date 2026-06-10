@@ -1,6 +1,9 @@
 package models
 
 import (
+	"fmt"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -127,4 +130,49 @@ type AvailableSite struct {
 type TaggedDevices struct {
 	Devices    []*Device `json:"devices"`
 	NextCursor int       `json:"next_cursos"`
+}
+
+type NetworkNode struct {
+	DeviceCode *CodeAlias `json:"device_code"`
+	DistanceLy float32    `json:"distance_ly"`
+	Star       string     `json:"star"`
+}
+
+type Network struct {
+	Connections []*NetworkNode `json:"connections"`
+	Error       string         `json:"error"`
+	RangeLy     float32        `json:"range_ly"`
+	Status      string         `json:"status"`
+}
+
+func (n *Network) Devices() []string {
+	var res []string
+	for _, nn := range n.Connections {
+		res = append(res, nn.DeviceCode.String())
+	}
+	return res
+}
+
+func (n *Network) Stars() []string {
+	var res []string
+	for _, nn := range n.Connections {
+		res = append(res, nn.Star)
+	}
+	return res
+}
+
+func (n *Network) String() string {
+	var res []string
+	for _, nn := range n.Connections {
+		res = append(res, fmt.Sprintf("%s (%s)", nn.Star, nn.DeviceCode.alias))
+	}
+	slices.Sort(res)
+	return strings.Join(res, ", ")
+}
+
+func (n *Network) Equal(n2 *Network) bool {
+	if len(n2.Connections) == 0 {
+		return false
+	}
+	return slices.Contains(n.Stars(), n2.Connections[0].Star)
 }

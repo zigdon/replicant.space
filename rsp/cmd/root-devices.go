@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"cmp"
+	"fmt"
 	"slices"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -28,6 +31,66 @@ var deviceListCmd = &cobra.Command{
 	},
 }
 
+var networkCmd = &cobra.Command{
+	Use:   "networks",
+	Short: "List all networks the FTL relays create",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		devs, err := allDevices()
+		if err != nil {
+			return err
+		}
+		networks := []*models.Network{}
+		var inactive [][]string
+		for _, d := range devs {
+			if d.Type != "ftl_relay" { continue }
+			var found bool
+			for _, n := range networks {
+				if slices.Contains(n.Devices(), d.Code.String()) {
+					found = true
+					break
+				}
+			}
+			if found { continue }
+
+			net, err := rest.DeviceNetwork(d.Code.String())
+			if err != nil {
+				return err
+			}
+			if net == nil || net.Status != "relaying" {
+				loc := alias(d.StowedInDeviceCode.String())
+				if loc == "" {
+					loc = d.Location
+				}
+				inactive = append(inactive, []string{alias(d.Code.String()), loc})
+				continue
+			}
+			for _, n := range networks {
+				if n.Equal(net) {
+					found = true
+					break
+				}
+			}
+			if found { continue }
+			networks = append(networks, net)
+		}
+		slices.SortFunc(networks, func(a, b *models.Network) int {
+			return cmp.Compare(a.Connections[0].Star, b.Connections[0].Star)
+		})
+		var data [][]string
+		for i, n := range networks {
+			var aliases []string
+			for _, d := range n.Devices() {
+				aliases = append(aliases, fmt.Sprintf("%s (%s)", alias(d), d))
+			}
+			data = append(data, []string{d(i), lines(n.Stars()), lines(aliases)})
+		}
+		printTable([]string{"ID", "Stars", "Devices"}, data)
+		printTable([]string{"Inactive Relays", "Location"}, inactive)
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(deviceListCmd)
+	rootCmd.AddCommand(networkCmd)
 }

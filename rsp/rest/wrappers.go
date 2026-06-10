@@ -216,6 +216,10 @@ func ReplicantTravel(id, dest string) (*models.Trip, error) {
 		return nil, err
 	}
 	m, err := models.Parse[models.Trip](trip)
+	if err == nil && m.Error != "" {
+		err = fmt.Errorf("Travel error: %v", m.Error)
+		return m, err
+	}
 	m.TotalTime = durationFromSeconds(m.TotalTimeSeconds)
 	for i, l := range m.Route {
 		l.Time = durationFromSeconds(l.TimeSeconds)
@@ -280,6 +284,20 @@ func DeviceInfo(id string) (*models.Device, error) {
 		m.Scan.Eta = durationFromSeconds(m.Scan.EtaSeconds)
 	}
 	return m, nil
+}
+
+func DeviceNetwork(id string) (*models.Network, error) {
+	id = db.Dealias(id)
+	res, err := cacheGET("", 0, "devices/%s/network", id)
+	if err != nil {
+		return nil, err
+	}
+
+	n, err := models.Parse[models.Network](res)
+	if err == nil && n.Error != "" {
+		err = fmt.Errorf("Network error: %v", n.Error)
+	}
+	return n, err
 }
 
 func GetType(id string) (string, error) {

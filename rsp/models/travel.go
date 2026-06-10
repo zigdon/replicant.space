@@ -23,6 +23,7 @@ type Trip struct {
 	Destination      string  `json:"destination"`
 	DestinationName  string  `json:"destination_name"`
 	DistanceLy       float32 `json:"distance_ly"`
+	Error            string  `json:"error"`
 	EtaSeconds       float32 `json:"eta_seconds"`
 	Eta              time.Duration
 	Origin           string     `json:"origin"`
