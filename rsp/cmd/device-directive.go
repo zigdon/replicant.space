@@ -80,8 +80,8 @@ var surveyCmd = &cobra.Command{
 			"directive": "survey_system",
 			"configuration": map[string]any{
 				"planets": cfgPlanets,
-				"moons": cfgMoons,
-				"recall": !noRecall,
+				"moons":   cfgMoons,
+				"recall":  !noRecall,
 			},
 		}
 
@@ -123,7 +123,7 @@ func init() {
 	)
 
 	dirCmd.AddCommand(deliveryCmd)
-	deliveryCmd.Flags().StringP("srcdst", "s", "", "source:dest location codes")
+	deliveryCmd.Flags().StringP("route", "s", "", "source:dest location codes")
 	deliveryCmd.Flags().StringSliceP("resources", "r", []string{}, "resources to collect, type:qty, repeatable")
 	deliveryCmd.MarkFlagRequired("srcdst")
 	deliveryCmd.MarkFlagRequired("resources")

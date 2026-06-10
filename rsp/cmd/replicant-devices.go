@@ -32,7 +32,11 @@ var devicesCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			printReplicantDeviceList(r)
+			var filter []string
+			if ignore, _ := cmd.Flags().GetBool("ignore_tags"); !ignore {
+				filter, _ = cmd.Flags().GetStringSlice("filter_tags")
+			}
+			printReplicantDeviceList(r, filter)
 		}
 		return nil
 	},
@@ -40,10 +44,12 @@ var devicesCmd = &cobra.Command{
 
 func init() {
 	replicantCmd.AddCommand(devicesCmd)
-	devicesCmd.PersistentFlags().StringP("location", "l", "", "Filter results to a specific location code")
+	devicesCmd.Flags().StringP("location", "l", "", "Filter results to a specific location code")
+	devicesCmd.Flags().Bool("ignore_tags", false, "If set, ignore tag filters")
+	devicesCmd.Flags().StringSliceP("filter_tags", "t", []string{"infrastructure"}, "Filter results with these tags")
 }
 
-func printReplicantDeviceList(r *models.Replicant) {
+func printReplicantDeviceList(r *models.Replicant, filterTags []string) {
 	devs, err := rest.ReplicantDevices(r.ReplicantCode.String(), "")
 	if err != nil {
 		log(err.Error())
@@ -57,8 +63,28 @@ func printReplicantDeviceList(r *models.Replicant) {
 		fmt.Printf("Replicant: %s (%s @ %s)\n",
 			r.Name, r.ReplicantCode, r.CurrentLocation)
 	}
+
+	ignored := make(map[string]bool)
+	if len(filterTags) > 0 {
+		for _, f := range filterTags {
+			res, err := rest.GetTagged(f)
+			if err != nil {
+				log(err.Error())
+				return
+			}
+			for _, d := range res.Devices {
+				ignored[d.Code.String()] = true
+			}
+		}
+	}
+
 	var data [][]string
+	skipped := make(map[string]int)
 	for _, d := range devs {
+		if ignored[d.Code.String()] {
+			skipped[d.Type]++
+			continue
+		}
 		status := d.Status
 		if strings.Contains(status, "repairing (") {
 			target := status[strings.Index(status, "(")+1 : strings.Index(status, ")")]
@@ -93,4 +119,10 @@ func printReplicantDeviceList(r *models.Replicant) {
 		"Stowed in",
 		"Tags",
 	}, data)
+	if len(skipped) > 0 {
+		fmt.Printf("Skipped %d devices:\n", len(skipped))
+		for k, v := range skipped {
+			fmt.Printf("  %d x %s\n", v, k)
+		}
+	}
 }

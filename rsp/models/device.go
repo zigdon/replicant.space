@@ -50,7 +50,7 @@ type Device struct {
 	AvailableCommands    []string                     `json:"available_commands"`
 	AvailableDirectives  []string                     `json:"available_directives"`
 	Cargo                []*Inventory                 `json:"cargo"`
-	CargoCapacity        int  						  `json:"cargo_capacity"`
+	CargoCapacity        int                          `json:"cargo_capacity"`
 	Code                 *CodeAlias                   `json:"device_code"`
 	ControlledDevices    []*ControlledDevice          `json:"controlled_devices"`
 	ControllerDeviceCode *CodeAlias                   `json:"controller_device_code"`
@@ -67,7 +67,7 @@ type Device struct {
 	StowCapacity         int                          `json:"stow_capacity"`
 	StowedDevices        []*StowedDevice              `json:"stowed_devices"`
 	StowedInDeviceCode   *CodeAlias                   `json:"stowed_in_device_code"`
-	Tags 				 []string 					  `json:"tags"`
+	Tags                 []string                     `json:"tags"`
 	TaxiMode             string                       `json:"taxi_mode"`
 	Travel               *Trip                        `json:"travel"`
 	Type                 string                       `json:"device_type"`
@@ -129,7 +129,7 @@ type AvailableSite struct {
 
 type TaggedDevices struct {
 	Devices    []*Device `json:"devices"`
-	NextCursor int       `json:"next_cursos"`
+	NextCursor int       `json:"next_cursor"`
 }
 
 type NetworkNode struct {

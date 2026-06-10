@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -28,9 +29,16 @@ var blueprintsCmd = &cobra.Command{
 						continue
 					}
 				}
+				if feature, _ := cmd.Flags().GetString("feature"); feature != "" {
+					if !slices.Contains(b.Features, feature) {
+						continue
+					}
+				}
 				var resources []string
 				for k, v := range b.Resources {
-					if v == 0 { continue }
+					if v == 0 {
+						continue
+					}
 					resources = append(resources, fmt.Sprintf("%4d x %s", v, k))
 				}
 				pt, err := time.ParseDuration(fmt.Sprintf("%fs", b.PrintTime))
@@ -55,4 +63,5 @@ var blueprintsCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(blueprintsCmd)
 	blueprintsCmd.Flags().StringP("filter", "f", "", "Only display blueprints that match the substring")
+	blueprintsCmd.Flags().StringP("feature", "t", "", "Only display blueprints include the specified feature")
 }

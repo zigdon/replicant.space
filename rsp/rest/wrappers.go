@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/models"
@@ -309,6 +310,7 @@ func GetType(id string) (string, error) {
 }
 
 type TagOp string
+
 const (
 	SetTags TagOp = "tags"
 	AddTag  TagOp = "add_tags"
@@ -330,11 +332,27 @@ func UpdateTags(id string, operation TagOp, tags []string) (*models.Device, erro
 }
 
 func GetTagged(tag string) (*models.TaggedDevices, error) {
-	res, err := cacheGET("", 0, "devices/tags/%s", tag)
-	if err != nil {
-		return nil, err
+	var cursor int
+	all := new(models.TaggedDevices)
+	for {
+		res, err := cacheGET("", 0, "devices/tags/%s?limit=5&cursor=%d", tag, cursor)
+		if err != nil {
+			return nil, err
+		}
+		t, err := models.Parse[models.TaggedDevices](res)
+		if err != nil {
+			return all, err
+		}
+		all.Devices = append(all.Devices, t.Devices...)
+
+		if t.NextCursor == 0 {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+		cursor = t.NextCursor
 	}
-	return models.Parse[models.TaggedDevices](res)
+
+	return all, nil
 }
 
 // Inventory

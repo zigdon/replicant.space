@@ -24,8 +24,12 @@ var deviceListCmd = &cobra.Command{
 		}
 		slices.Sort(names)
 
+		var filter []string
+		if ignore, _ := cmd.Flags().GetBool("ignore_tags"); !ignore {
+			filter, _ = cmd.Flags().GetStringSlice("filter_tags")
+		}
 		for _, n := range names {
-			printReplicantDeviceList(acc.Replicants[n])
+			printReplicantDeviceList(acc.Replicants[n], filter)
 		}
 		return nil
 	},
@@ -42,7 +46,9 @@ var networkCmd = &cobra.Command{
 		networks := []*models.Network{}
 		var inactive [][]string
 		for _, d := range devs {
-			if d.Type != "ftl_relay" { continue }
+			if d.Type != "ftl_relay" {
+				continue
+			}
 			var found bool
 			for _, n := range networks {
 				if slices.Contains(n.Devices(), d.Code.String()) {
@@ -50,7 +56,9 @@ var networkCmd = &cobra.Command{
 					break
 				}
 			}
-			if found { continue }
+			if found {
+				continue
+			}
 
 			net, err := rest.DeviceNetwork(d.Code.String())
 			if err != nil {
@@ -70,7 +78,9 @@ var networkCmd = &cobra.Command{
 					break
 				}
 			}
-			if found { continue }
+			if found {
+				continue
+			}
 			networks = append(networks, net)
 		}
 		slices.SortFunc(networks, func(a, b *models.Network) int {
@@ -92,5 +102,8 @@ var networkCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(deviceListCmd)
+	deviceListCmd.Flags().Bool("ignore_tags", false, "If set, ignore tag filters")
+	deviceListCmd.Flags().StringSliceP("filter_tags", "t", []string{"infrastructure"}, "Filter results with these tags")
+
 	rootCmd.AddCommand(networkCmd)
 }
