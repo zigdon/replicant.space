@@ -1,6 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+	"slices"
+	"strings"
+
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
 )
@@ -17,6 +21,25 @@ func getTable(name string, resp *models.CommandResp) ([]string, [][]string) {
 		eta = resp.TotalTime.String()
 	}
 	switch name {
+	case "launch":
+		lists := make(map[string][]string)
+		for _, cat := range []string{"already_deployed", "deployed", "failed", "skipped"} {
+			l := cat[0:1]
+			for _, d := range resp.AssignedDevices[cat] {
+				a, t := aliasType(d)
+				if a != "" { d = a }
+				lists[l] = append(lists[l], strings.Join([]string{d, t}, " "))
+			}
+			slices.Sort(lists[l])
+		}
+		return []string{
+			"Controller", "Status", "Already deployed", "Deployed", "Failed", "Skipped",
+		}, [][]string{{
+			alias(resp.DeviceCode.String()),
+			fmt.Sprintf("%s -> %s", resp.Controller.DirectiveStatusBefore,
+			    resp.Controller.DirectiveStatusAfter),
+				lines(lists["a"]), lines(lists["d"]), lines(lists["f"]), lines(lists["s"]),
+		}}
 	default:
 		return []string{
 				"Code", "Location", "Star", "Belt", "Status",

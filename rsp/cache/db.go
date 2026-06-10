@@ -170,6 +170,19 @@ func (db *Cache) List(table Tables) ([]any, error) {
 
 var prefixes = map[string]string{
 	"maintenance_drone": "mtd",
+	"surge_platform": "spf",
+}
+
+func (db *Cache) GetAliasAndType(code string) (string, string) {
+	row := db.DB.QueryRow("SELECT name, type FROM aliases WHERE designation = ?", code)
+	if row.Err() != nil {
+		return "", ""
+	}
+	var alias, deviceType string
+	if err := row.Scan(&alias, &deviceType); err == nil {
+		return alias, deviceType
+	}
+	return "", ""
 }
 
 func (db *Cache) Dealias(alias string) string {

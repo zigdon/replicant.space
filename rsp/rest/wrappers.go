@@ -290,6 +290,14 @@ func GetType(id string) (string, error) {
 	return dev.Type, nil
 }
 
+func GetTagged(tag string) (*models.TaggedDevices, error) {
+	res, err := cacheGET("", 0, "devices/tags/%s", tag)
+	if err != nil {
+		return nil, err
+	}
+	return models.Parse[models.TaggedDevices](res)
+}
+
 // Inventory
 func Location(id string) (*models.Location, error) {
 	url := "locations"

@@ -47,6 +47,7 @@ type Device struct {
 	AvailableCommands    []string                     `json:"available_commands"`
 	AvailableDirectives  []string                     `json:"available_directives"`
 	Cargo                []*Inventory                 `json:"cargo"`
+	CargoCapacity        int  						  `json:"cargo_capacity"`
 	Code                 *CodeAlias                   `json:"device_code"`
 	ControlledDevices    []*ControlledDevice          `json:"controlled_devices"`
 	ControllerDeviceCode *CodeAlias                   `json:"controller_device_code"`
@@ -63,6 +64,7 @@ type Device struct {
 	StowCapacity         int                          `json:"stow_capacity"`
 	StowedDevices        []*StowedDevice              `json:"stowed_devices"`
 	StowedInDeviceCode   *CodeAlias                   `json:"stowed_in_device_code"`
+	Tags 				 []string 					  `json:"tags"`
 	TaxiMode             string                       `json:"taxi_mode"`
 	Travel               *Trip                        `json:"travel"`
 	Type                 string                       `json:"device_type"`
@@ -71,6 +73,7 @@ type Device struct {
 
 type ControllerStatus struct {
 	DirectivePaused       bool   `json:"directive_paused"`
+	DirectiveResumed      bool   `json:"directive_resumed"`
 	DirectiveStatusAfter  string `json:"directive_status_after"`
 	DirectiveStatusBefore string `json:"directive_status_before"`
 	RecallResult          string `json:"recall_result"`
@@ -119,4 +122,9 @@ type AvailableSite struct {
 	Designation string `json:"designation"`
 	Name        string `json:"name"`
 	SalvageType string `json:"salvage_type"`
+}
+
+type TaggedDevices struct {
+	Devices    []*Device `json:"devices"`
+	NextCursor int       `json:"next_cursos"`
 }

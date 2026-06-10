@@ -74,23 +74,22 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 			}
 			if raw, _ := cmd.Flags().GetBool("raw"); raw {
 				prettyPrint(resp)
-			} else {
-				if resp.JsonErr == "" {
-					headers, data := getTable(name, resp)
-					printTable(headers, data)
-				} else {
-					log("error: %v", resp.JsonErr)
-					if len(resp.AvailableSites) > 0 {
-						var sites [][]string
-						for _, s := range resp.AvailableSites {
-							sites = append(sites, []string{
-								s.Designation, s.Name, s.SalvageType,
-							})
-						}
-						printTable([]string{"Designation", "Name", "SalvageType"},
-							sites)
-					}
+				return nil
+			}
+			if resp.JsonErr == "" {
+				headers, data := getTable(name, resp)
+				printTable(headers, data)
+				return nil
+			}
+			log("error: %v", resp.JsonErr)
+			if len(resp.AvailableSites) > 0 {
+				var sites [][]string
+				for _, s := range resp.AvailableSites {
+					sites = append(sites, []string{
+						s.Designation, s.Name, s.SalvageType,
+					})
 				}
+				printTable([]string{"Designation", "Name", "SalvageType"}, sites)
 			}
 			return nil
 		},
@@ -150,6 +149,13 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().Bool("raw", false, "emit the json returned")
+}
+
+func aliasType(in string) (string, string) {
+	if db == nil {
+		return "", ""
+	}
+	return db.GetAliasAndType(in)
 }
 
 func alias(in string) string {
