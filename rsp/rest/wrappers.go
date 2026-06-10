@@ -308,6 +308,27 @@ func GetType(id string) (string, error) {
 	return dev.Type, nil
 }
 
+type TagOp string
+const (
+	SetTags TagOp = "tags"
+	AddTag  TagOp = "add_tags"
+	DelTag  TagOp = "remove_tags"
+)
+
+func UpdateTags(id string, operation TagOp, tags []string) (*models.Device, error) {
+	id = db.Dealias(id)
+	data, err := json.Marshal(map[string]any{
+		"configuration": map[string][]string{
+			string(operation): tags,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	res, err := Patch("devices/%s", data, id)
+	return models.Parse[models.Device](res)
+}
+
 func GetTagged(tag string) (*models.TaggedDevices, error) {
 	res, err := cacheGET("", 0, "devices/tags/%s", tag)
 	if err != nil {

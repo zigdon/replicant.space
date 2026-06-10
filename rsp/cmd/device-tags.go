@@ -12,12 +12,34 @@ var tagCmd = &cobra.Command{
 	Short: "Manage device tags",
 }
 
-var taggedCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List the tags on a device",
+var addTagCmd = &cobra.Command{
+	Use:   "add",
+	Short: "Add a tag to a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		tag, _ := cmd.Flags().GetString("tag")
-		res, err := rest.GetTagged(tag)
+		id, _ := cmd.Flags().GetString("device")
+		res, err := rest.UpdateTags(id, rest.AddTag, args)
+		if err != nil {
+			return err
+		}
+		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+			prettyPrint(res)
+			return nil
+		}
+		printTable([]string{"Device", "Tags"}, [][]string{{
+			alias(res.Code.String()), lines(res.Tags),
+		}})
+		return nil
+	},
+}
+
+var findTagsCmd = &cobra.Command{
+	Use:   "find",
+	Short: "Find devices with a given tag",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("A tag must be specified")
+		}
+		res, err := rest.GetTagged(args[0])
 		if err != nil { return err }
 		var details [][]string
 		for _, d := range res.Devices {
@@ -47,8 +69,8 @@ var taggedCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(tagCmd)
-	tagCmd.AddCommand(taggedCmd)
-	taggedCmd.Flags().StringP("tag", "t", "", "Tag to list")
-	taggedCmd.MarkFlagRequired("tag")
+	rootCmd.AddCommand(findTagsCmd)
+
+	deviceCmd.AddCommand(tagCmd)
+	tagCmd.AddCommand(addTagCmd)
 }

@@ -73,6 +73,7 @@ func printReplicantDeviceList(r *models.Replicant) {
 			f(d.OperationalCapacity),
 			status,
 			alias(d.StowedInDeviceCode.String()),
+			list(d.Tags),
 		})
 	}
 	slices.SortFunc(data, func(a, b []string) int {
@@ -90,5 +91,6 @@ func printReplicantDeviceList(r *models.Replicant) {
 		"Operational Capacity",
 		"Status",
 		"Stowed in",
+		"Tags",
 	}, data)
 }
