@@ -33,11 +33,11 @@ var infoCmd = &cobra.Command{
 			}
 			printTable(
 				[]string{"Code", "Type", "Location", "Features", "Status", "Taxi Mode",
-					"Replicant", "Commands", "Ops Capacity", "Cargo"},
+					"Replicant", "Commands", "Ops Capacity", "Cargo", "Tags"},
 				[][]string{{code, resp.Type, resp.Location,
 					lines(resp.Features), resp.Status, resp.TaxiMode, alias(resp.ReplicantCode.String()),
 					lines(resp.AvailableCommands), f(resp.OperationalCapacity),
-					lines(cargo),
+					lines(cargo), lines(resp.Tags),
 				}},
 			)
 			if len(resp.AvailableDirectives) > 0 {

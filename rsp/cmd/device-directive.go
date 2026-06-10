@@ -13,9 +13,9 @@ var deliveryCmd = &cobra.Command{
 	Use: "deliver",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
-		route, _ := cmd.Flags().GetString("srcdst")
+		route, _ := cmd.Flags().GetString("route")
 		if !strings.Contains(route, ":") {
-			return fmt.Errorf("--route must be of the form 'from:to'")
+			return fmt.Errorf("--route must be of the form 'from:to', got %q", route)
 		}
 		bits := strings.Split(route, ":")
 
@@ -125,7 +125,7 @@ func init() {
 	dirCmd.AddCommand(deliveryCmd)
 	deliveryCmd.Flags().StringP("route", "s", "", "source:dest location codes")
 	deliveryCmd.Flags().StringSliceP("resources", "r", []string{}, "resources to collect, type:qty, repeatable")
-	deliveryCmd.MarkFlagRequired("srcdst")
+	deliveryCmd.MarkFlagRequired("route")
 	deliveryCmd.MarkFlagRequired("resources")
 
 	dirCmd.AddCommand(surveyCmd)

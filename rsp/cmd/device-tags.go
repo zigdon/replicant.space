@@ -32,6 +32,26 @@ var addTagCmd = &cobra.Command{
 	},
 }
 
+var delTagCmd = &cobra.Command{
+	Use:   "del",
+	Short: "Remove a tag from a device",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		id, _ := cmd.Flags().GetString("device")
+		res, err := rest.UpdateTags(id, rest.DelTag, args)
+		if err != nil {
+			return err
+		}
+		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+			prettyPrint(res)
+			return nil
+		}
+		printTable([]string{"Device", "Tags"}, [][]string{{
+			alias(res.Code.String()), lines(res.Tags),
+		}})
+		return nil
+	},
+}
+
 var findTagsCmd = &cobra.Command{
 	Use:   "find",
 	Short: "Find devices with a given tag",
@@ -40,7 +60,9 @@ var findTagsCmd = &cobra.Command{
 			return fmt.Errorf("A tag must be specified")
 		}
 		res, err := rest.GetTagged(args[0])
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		var details [][]string
 		for _, d := range res.Devices {
 			code := alias(d.Code.String())
@@ -52,7 +74,7 @@ var findTagsCmd = &cobra.Command{
 				cargo = append(cargo, fmt.Sprintf("%.2f x %s", c.Quantity, c.ResourceType))
 			}
 			cargo = append([]string{fmt.Sprintf("%.2f/%d (%.0f%%)",
-			    totalCargo, d.CargoCapacity, totalCargo/float32(d.CargoCapacity)*100)}, cargo...)
+				totalCargo, d.CargoCapacity, totalCargo/float32(d.CargoCapacity)*100)}, cargo...)
 			details = append(details, []string{code, d.Type, d.Location,
 				d.Status, alias(d.ReplicantCode.String()),
 				lines(cargo),
@@ -73,4 +95,5 @@ func init() {
 
 	deviceCmd.AddCommand(tagCmd)
 	tagCmd.AddCommand(addTagCmd)
+	tagCmd.AddCommand(delTagCmd)
 }
