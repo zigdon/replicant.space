@@ -104,8 +104,15 @@ func CompleteEvent(eid string) (*models.Event, error) {
 		return nil, fmt.Errorf("can't find location for %q", eid)
 	}
 	res, err := Post("locations/%s/events/%s", nil, location, eid)
+	if err != nil {
+		return nil, err
+	}
 
-	return models.Parse[models.Event](res)
+	ev, err := models.Parse[models.Event](res)
+	if err == nil && ev.Error != "" {
+		err = fmt.Errorf("Event error: %v", ev.Error)
+	}
+	return ev, err
 }
 
 // Replicants

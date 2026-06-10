@@ -106,6 +106,7 @@ type Event struct {
 	Description      string           `json:"description"`
 	Designation      string           `json:"designation"`
 	DiscoveredAt     string           `json:"discovered_at"`
+	Error            string           `json:"error"`
 	Location         string           `json:"location"`
 	LocationName     string           `json:"location_name"`
 	Progress         *EventProgress   `json:"progress"`
