@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"slices"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -11,6 +12,7 @@ import (
 
 var deviceLogsCmd = &cobra.Command{
 	Use:   "log",
+	Aliases: []string{"logs"},
 	Short: "Read the device logs",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
@@ -21,6 +23,10 @@ var deviceLogsCmd = &cobra.Command{
 		logs, err := rest.DeviceLogs(id, latest, page, limit)
 		if err != nil {
 		  return err
+		}
+
+		if latest {
+		  slices.Reverse(logs.Events)
 		}
 
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
