@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"cmp"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -187,24 +185,4 @@ func unalias(in string) string {
 		return in
 	}
 	return db.Dealias(in)
-}
-
-func allDevices() ([]*models.Device, error) {
-	acc, err := rest.Account()
-	if err != nil {
-		return nil, err
-	}
-	var devs []*models.Device
-	for _, r := range acc.Replicants {
-		res, err := rest.ReplicantDevices(r.ReplicantCode.String(), "")
-		if err != nil {
-			return nil, err
-		}
-		devs = append(devs, res...)
-	}
-	slices.SortFunc(devs, func(a, b *models.Device) int {
-		return cmp.Compare(alias(a.Code.String()), alias(b.Code.String()))
-	})
-
-	return devs, nil
 }

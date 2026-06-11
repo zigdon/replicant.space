@@ -39,7 +39,7 @@ var networkCmd = &cobra.Command{
 	Use:   "networks",
 	Short: "List all networks the FTL relays create",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		devs, err := allDevices()
+		devs, err := rest.AllDevices()
 		if err != nil {
 			return err
 		}

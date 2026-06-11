@@ -1,8 +1,10 @@
 package rest
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/zigdon/rsp/cache"
@@ -230,6 +232,34 @@ func ReplicantTravel(id, dest string) (*models.Trip, error) {
 }
 
 // Devices
+func AllDevices() ([]*models.Device, error) {
+	acc, err := Account()
+	if err != nil {
+		return nil, err
+	}
+	var devs []*models.Device
+	for _, r := range acc.Replicants {
+		res, err := ReplicantDevices(r.ReplicantCode.String(), "")
+		if err != nil {
+			return nil, err
+		}
+		devs = append(devs, res...)
+	}
+	aliases := make(map[string]string)
+	for _, d := range devs {
+		alias, err := db.Alias(d.Code.String(), d.Type)
+		if err != nil {
+			return nil, err
+		}
+		aliases[d.Code.String()] = alias
+	}
+	slices.SortFunc(devs, func(a, b *models.Device) int {
+		return cmp.Compare(aliases[a.Code.String()], aliases[b.Code.String()])
+	})
+
+	return devs, nil
+}
+
 func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp, error) {
 	id = db.Dealias(id)
 	if command == "" || id == "" {
