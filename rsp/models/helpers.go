@@ -10,11 +10,20 @@ import (
 
 var db *cache.Cache
 
+type Fillable interface {
+	Fill() error
+}
+
 func Parse[T any](data []byte) (*T, error) {
 	s := new(T)
 
 	if err := json.Unmarshal(data, s); err != nil {
 		return nil, fmt.Errorf("Error parsing %T: %v", s, err)
+	}
+	if f, ok := any(s).(Fillable); ok {
+		if err := f.Fill(); err != nil {
+			return s, err
+		}
 	}
 
 	return s, nil

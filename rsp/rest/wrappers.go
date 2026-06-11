@@ -265,6 +265,45 @@ func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp
 	return m, err
 }
 
+func DeviceLogs(id string, latest bool, page, limit int) (*models.DeviceLogs, error) {
+	id = db.Dealias(id)
+	var res []byte
+	var err error
+	skip := page * limit
+	if latest {
+		res, err = cacheGET("", 0, "devices/%s/logs?latest=%v", id, latest)
+		if err != nil {
+			return nil, err
+		}
+		return models.Parse[models.DeviceLogs](res)
+	}
+	ret := new(models.DeviceLogs)
+	var cursor = 0
+	for {
+		res, err = cacheGET("", 0, "devices/%s/logs?limit=%d&cursor=%d", id, limit, cursor)
+		if err != nil {
+			return nil, err
+		}
+		logs, err := models.Parse[models.DeviceLogs](res)
+		if err != nil {
+			return nil, err
+		}
+		ret.Events = append(ret.Events, logs.Events...)
+		if len(ret.Events) > skip+limit {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+		cursor = logs.NextCursor
+	}
+	if skip > 0 {
+		ret.Events = ret.Events[skip:len(ret.Events)]
+	}
+	if len(ret.Events) > limit {
+		ret.Events = ret.Events[0:limit]
+	}
+	return ret, nil
+}
+
 func DeviceInfo(id string) (*models.Device, error) {
 	id = db.Dealias(id)
 	res, err := cacheGET("", 0, "devices/%s", id)

@@ -176,3 +176,35 @@ func (n *Network) Equal(n2 *Network) bool {
 	}
 	return slices.Contains(n.Stars(), n2.Connections[0].Star)
 }
+
+type DeviceEvent struct {
+	Created    time.Time
+	CreatedAt  string         `json:"created_at"`
+	DeviceCode string         `json:"device_code"`
+	DeviceType string         `json:"device_type"`
+	EventType  string         `json:"event_type"`
+	Id         int            `json:"id"`
+	Message    string         `json:"message"`
+	Payload    map[string]any `json:"payload"`
+}
+
+func (e *DeviceEvent) Fill() error {
+	// 2026-06-06T22:00:05+01:00
+	var err error
+	e.Created, err = time.Parse(time.RFC3339, e.CreatedAt)
+	return err
+}
+
+type DeviceLogs struct {
+	Events     []*DeviceEvent `json:"events"`
+	NextCursor int            `json:"next_cursor"`
+}
+
+func (e *DeviceLogs) Fill() error {
+	for _, ev := range e.Events {
+		if err := ev.Fill(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
