@@ -12,8 +12,14 @@ import (
 
 var msgCmd = &cobra.Command{
 	Use:   "msg",
+	Aliases: []string{"msgs"},
 	Short: "Read the current messages",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var partial bool
+		ids, _ := cmd.Flags().GetIntSlice("ids")
+		if len(ids) > 0 {
+			partial = true
+		}
 		width, _ := cmd.Flags().GetInt("width")
 		cursor, _ := cmd.Flags().GetInt("cursor")
 		number, _ := cmd.Flags().GetInt("number")
@@ -26,12 +32,13 @@ var msgCmd = &cobra.Command{
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(data)
 		} else {
-		  var ids []int
 		  var msgs [][]string
 		  tStyle := lg.NewStyle().Width(20)
 		  bStyle := lg.NewStyle().Width(width)
 		  for _, m := range data.Messages {
-			ids = append(ids, m.ID)
+			if !partial {
+				ids = append(ids, m.ID)
+			}
 			msgs = append(msgs, []string{
 			  d(m.ID),
 			  m.Type,
@@ -43,7 +50,7 @@ var msgCmd = &cobra.Command{
 		  }
 		  printTable([]string{"ID", "Type", "Title", "Body", "Read", "Created"}, msgs)
 
-		  if mark, _ := cmd.Flags().GetBool("mark"); mark {
+		  if mark, _ := cmd.Flags().GetBool("mark"); partial || mark {
 			log("Marking messages read: %v", ids)
 			if err := rest.MarkRead(ids); err != nil {
 			  log("Error marking messages read: %v", err)
@@ -121,6 +128,7 @@ func init() {
 	msgCmd.Flags().IntP("number", "n", 20, "Number of messages to show")
 	msgCmd.Flags().IntP("cursor", "C", 0, "Position to start from")
 	msgCmd.Flags().IntP("width", "w", 50, "Wrap message body to this width")
+	msgCmd.Flags().IntSlice("ids", []int{}, "Mark these messages as read")
 
 	msgCmd.AddCommand(bobCmd)
 	bobCmd.Flags().BoolP("latest", "l", true, "Show latest messages")
@@ -131,5 +139,4 @@ func init() {
 	bobCmd.Flags().Bool("replicant_ids", false, "Show replicant IDs")
 	bobCmd.Flags().Bool("replicant_location", false, "Show replicant locations")
 	bobCmd.Flags().StringSliceP("channels", "c", []string{}, "Only show messages to these channels")
-
 }
