@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	lg "charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
@@ -69,6 +70,14 @@ func p(per float32) string {
 func v(data any) string {
 	s, _ := json.MarshalIndent(data, "", "  ")
 	return string(s)
+}
+
+func t(ts time.Time) string {
+	now := time.Now()
+	return lines([]string{
+		ts.Format(time.DateTime),
+		now.Sub(ts).Round(time.Second).String(),
+	})
 }
 
 func filterEmpty[T any](s []T, keep []bool) []T {

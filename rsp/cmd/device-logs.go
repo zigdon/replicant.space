@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"slices"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
@@ -36,15 +35,8 @@ var deviceLogsCmd = &cobra.Command{
 
 		style := lg.NewStyle().Width(width)
 		var ev [][]string
-		now := time.Now()
 		for _, e := range logs.Events {
-		  ev = append(ev, []string{
-			lines([]string{
-			  e.Created.Format(time.DateTime),
-			  now.Sub(e.Created).Round(time.Second).String()},
-			  ),
-			e.EventType, style.Render(e.Message), v(e.Payload),
-		  })
+		  ev = append(ev, []string{t(e.Created), e.EventType, style.Render(e.Message), v(e.Payload)})
 		}
 		printTable([]string{"Time", "Type", "Message", "Payload"}, ev)
 

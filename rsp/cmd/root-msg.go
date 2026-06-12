@@ -45,7 +45,7 @@ var msgCmd = &cobra.Command{
 			  tStyle.Render(m.Title),
 			  bStyle.Render(m.Body),
 			  b(m.Read),
-			  m.CreatedAt,
+			  t(m.Created),
 			})
 		  }
 		  printTable([]string{"ID", "Type", "Title", "Body", "Read", "Created"}, msgs)

@@ -1,5 +1,9 @@
 package models
 
+import (
+	"time"
+)
+
 type NotifyDetails struct {
 	Email   map[string]bool `json:"email"`
 	Webhook map[string]bool `json:"webhook"`
@@ -39,13 +43,30 @@ type Message struct {
 	Title     string `json:"title"`
 	Body      string `json:"body"`
 	Read      bool   `json:"is_read"`
+	Created   time.Time
 	CreatedAt string `json:"created_at"`
+}
+
+func (m *Message) Fill() error {
+	// 2026-06-06T22:00:05+01:00
+	var err error
+	m.Created, err = time.Parse(time.RFC3339, m.CreatedAt)
+	return err
 }
 
 type Messages struct {
 	Messages    []*Message `json:"messages"`
 	NextCursor  int        `json:"next_cursor"`
 	UnreadCount int        `json:"unread_message_count"`
+}
+
+func (m *Messages) Fill() error {
+	for _, msg := range m.Messages {
+		if err := msg.Fill(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type Bob struct {
