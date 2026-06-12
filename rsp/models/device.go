@@ -10,10 +10,14 @@ import (
 type DevicePrint struct {
 	CompletesAt     string  `json:"completes_at"`
 	DeviceType      string  `json:"device_type"`
-	EtaRaw          float32 `json:"eta_seconds"`
-	EtaSeconds      time.Duration
+	EtaSeconds      float32 `json:"eta_seconds"`
+	Eta             time.Duration
 	ProgressPercent float32 `json:"progress_percent"`
 	StartedAt       string  `json:"started_at"`
+}
+
+func (dp *DevicePrint) Fill() error {
+	return fillDuration(dp.EtaSeconds, &dp.Eta)
 }
 
 type ControlledDevice struct {
@@ -41,6 +45,15 @@ type DeviceScan struct {
 	Target          string  `json:"target"`
 }
 
+func (ds *DeviceScan) Fill() error {
+	return fillDuration(ds.EtaSeconds, &ds.Eta)
+}
+
+type DevicePrintQueue struct {
+	Type   string            `json:"device_type"`
+	Notify map[string]string `json:"notify"`
+}
+
 type Device struct {
 	AmiDirective         *DeviceDirective             `json:"ami_directive"`
 	AmiDirectiveStatus   string                       `json:"ami_directive_status"`
@@ -60,6 +73,7 @@ type Device struct {
 	LocationName         string                       `json:"location_name"`
 	OperationalCapacity  float32                      `json:"operational_capacity"`
 	Printing             *DevicePrint                 `json:"printing"`
+	PrintQueue           []*DevicePrintQueue          `json:"print_queue"`
 	QueueSize            int                          `json:"queue_size"`
 	ReplicantCode        *CodeAlias                   `json:"replicant_code"`
 	Scan                 *DeviceScan                  `json:"scan"`
@@ -72,6 +86,15 @@ type Device struct {
 	Travel               *Trip                        `json:"travel"`
 	Type                 string                       `json:"device_type"`
 	WaitingFor           map[string]*MissingResources `json:"waiting_for"`
+}
+
+func (d *Device) Fill() error {
+	if d.Travel != nil {
+		if err := d.Travel.Fill(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type ControllerStatus struct {
@@ -110,7 +133,7 @@ type CommandResp struct {
 	OriginName           string          `json:"origin_name"`
 	ProgressPercent      float32         `json:"progress_percent"`
 	Released             []*StowedDevice `json:"released"`
-	Route                []*TripLegs     `json:"route"`
+	Route                []*TripLeg      `json:"route"`
 	Scanned              bool            `json:"scanned"`
 	Star                 string          `json:"star"`
 	StartedAt            string          `json:"started_at"`
@@ -119,6 +142,21 @@ type CommandResp struct {
 	TotalTime            time.Duration
 	TotalTimeSeconds     float32 `json:"total_time_seconds"`
 	TravelType           string  `json:"travel_type"`
+}
+
+func (cs *CommandResp) Fill() error {
+	if err := fillDuration(cs.EtaSeconds, &cs.Eta); err != nil {
+		return err
+	}
+	if err := fillDuration(cs.TotalTimeSeconds, &cs.TotalTime); err != nil {
+		return err
+	}
+	for _, l := range cs.Route {
+		if err := l.Fill(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type AvailableSite struct {
@@ -189,7 +227,6 @@ type DeviceEvent struct {
 }
 
 func (e *DeviceEvent) Fill() error {
-	// 2026-06-06T22:00:05+01:00
 	var err error
 	e.Created, err = time.Parse(time.RFC3339, e.CreatedAt)
 	return err

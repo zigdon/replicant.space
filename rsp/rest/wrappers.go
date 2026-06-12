@@ -340,20 +340,7 @@ func DeviceInfo(id string) (*models.Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	m, err := models.Parse[models.Device](res)
-	if err != nil {
-		return nil, err
-	}
-	if m.Printing != nil {
-		m.Printing.EtaSeconds = durationFromSeconds(m.Printing.EtaRaw)
-	}
-	if m.Travel != nil {
-		m.Travel.Eta = durationFromSeconds(m.Travel.EtaSeconds)
-	}
-	if m.Scan != nil {
-		m.Scan.Eta = durationFromSeconds(m.Scan.EtaSeconds)
-	}
-	return m, nil
+	return models.Parse[models.Device](res)
 }
 
 func DeviceNetwork(id string) (*models.Network, error) {

@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"time"
 
 	"encoding/json"
 
@@ -12,6 +13,24 @@ var db *cache.Cache
 
 type Fillable interface {
 	Fill() error
+}
+
+func fillTime(ts string, dest *time.Time) error {
+	parsed, err := time.Parse(time.RFC3339, ts)
+	if err != nil {
+		return err
+	}
+	*dest = parsed
+	return nil
+}
+
+func fillDuration(secs float32, dest *time.Duration) error {
+	parsed, err := time.ParseDuration(fmt.Sprintf("%.2fs", secs))
+	if err != nil {
+		return err
+	}
+	*dest = parsed
+	return nil
 }
 
 func Parse[T any](data []byte) (*T, error) {

@@ -74,16 +74,23 @@ func v(data any) string {
 
 func t(ts time.Time) string {
 	now := time.Now()
+	var eta string
+	if ts.Before(now) {
+		eta = fmt.Sprintf("%s ago", now.Sub(ts).Round(time.Second).String())
+	} else {
+		eta = fmt.Sprintf("in %s", ts.Sub(now).Round(time.Second).String())
+	}
 	return lines([]string{
-		ts.Format(time.DateTime),
-		now.Sub(ts).Round(time.Second).String(),
+		ts.Format(time.DateTime), eta,
 	})
 }
 
 func filterEmpty[T any](s []T, keep []bool) []T {
 	var res []T
 	for i, c := range s {
-		if !keep[i] { continue }
+		if !keep[i] {
+			continue
+		}
 		res = append(res, c)
 	}
 	return res
@@ -104,7 +111,9 @@ func printTable(headers []string, data [][]string) {
 			max = len(headers[i])
 		}
 		for _, l := range data {
-			if len(l[i]) > 0 { hasData[i] = true }
+			if len(l[i]) > 0 {
+				hasData[i] = true
+			}
 			if strings.Contains(l[i], "\n") {
 				for nl := range strings.SplitSeq(l[i], "\n") {
 					if len(nl) > max {

@@ -48,7 +48,6 @@ type Message struct {
 }
 
 func (m *Message) Fill() error {
-	// 2026-06-06T22:00:05+01:00
 	var err error
 	m.Created, err = time.Parse(time.RFC3339, m.CreatedAt)
 	return err

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
@@ -21,41 +20,37 @@ var blueprintsCmd = &cobra.Command{
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(res)
-		} else {
-			var blues [][]string
-			for _, b := range res.Blueprints {
-				if filter, _ := cmd.Flags().GetString("filter"); filter != "" {
-					if !strings.Contains(b.DeviceType, filter) {
-						continue
-					}
-				}
-				if feature, _ := cmd.Flags().GetString("feature"); feature != "" {
-					if !slices.Contains(b.Features, feature) {
-						continue
-					}
-				}
-				var resources []string
-				for k, v := range b.Resources {
-					if v == 0 {
-						continue
-					}
-					resources = append(resources, fmt.Sprintf("%4d x %s", v, k))
-				}
-				pt, err := time.ParseDuration(fmt.Sprintf("%fs", b.PrintTime))
-				if err != nil {
-					return fmt.Errorf("Can't parse print time %q: %v", b.PrintTime, err)
-				}
-				blues = append(blues, []string{
-					b.DeviceType,
-					wrap(list(b.Features), 40),
-					pt.String(),
-					strings.Join(resources, "\n"),
-				})
-			}
-			printTable(
-				[]string{"Type", "Features", "Print Time", "Resources"}, blues,
-			)
+			return nil
 		}
+		var blues [][]string
+		for _, b := range res.Blueprints {
+			if filter, _ := cmd.Flags().GetString("filter"); filter != "" {
+				if !strings.Contains(b.DeviceType, filter) {
+					continue
+				}
+			}
+			if feature, _ := cmd.Flags().GetString("feature"); feature != "" {
+				if !slices.Contains(b.Features, feature) {
+					continue
+				}
+			}
+			var resources []string
+			for k, v := range b.Resources {
+				if v == 0 {
+					continue
+				}
+				resources = append(resources, fmt.Sprintf("%4d x %s", v, k))
+			}
+			blues = append(blues, []string{
+				b.DeviceType,
+				wrap(list(b.Features), 40),
+				b.PrintTime.String(),
+				strings.Join(resources, "\n"),
+			})
+		}
+		printTable(
+			[]string{"Type", "Features", "Print Time", "Resources"}, blues,
+		)
 		return nil
 	},
 }

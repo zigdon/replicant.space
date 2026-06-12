@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type TripLegs struct {
+type TripLeg struct {
 	Active      bool    `json:"active"`
 	DistanceAu  float32 `json:"distance_au"`
 	From        string  `json:"from"`
@@ -17,8 +17,14 @@ type TripLegs struct {
 	Type        string  `json:"type"`
 }
 
+func (tl *TripLeg) Fill() error {
+	return fillDuration(tl.TimeSeconds, &tl.Time)
+}
+
 type Trip struct {
-	ArrivesAt        string  `json:"arrives_at"`
+	Arrives          time.Time
+	ArrivesAt        string `json:"arrives_at"`
+	Departed         time.Time
 	DepartedAt       string  `json:"departed_at"`
 	Destination      string  `json:"destination"`
 	DestinationName  string  `json:"destination_name"`
@@ -26,14 +32,35 @@ type Trip struct {
 	Error            string  `json:"error"`
 	EtaSeconds       float32 `json:"eta_seconds"`
 	Eta              time.Duration
-	Origin           string     `json:"origin"`
-	OriginName       string     `json:"origin_name"`
-	ProgressPercent  float32    `json:"progress_percent"`
-	Route            []TripLegs `json:"route"`
-	Status           string     `json:"status"`
+	Origin           string    `json:"origin"`
+	OriginName       string    `json:"origin_name"`
+	ProgressPercent  float32   `json:"progress_percent"`
+	Route            []TripLeg `json:"route"`
+	Status           string    `json:"status"`
 	TotalTime        time.Duration
 	TotalTimeSeconds float32 `json:"total_time_seconds"`
 	Type             string  `json:"type"`
+}
+
+func (t *Trip) Fill() error {
+	if err := fillDuration(t.EtaSeconds, &t.Eta); err != nil {
+		return err
+	}
+	if err := fillDuration(t.TotalTimeSeconds, &t.TotalTime); err != nil {
+		return err
+	}
+	if err := fillTime(t.ArrivesAt, &t.Arrives); err != nil {
+		return err
+	}
+	if err := fillTime(t.DepartedAt, &t.Departed); err != nil {
+		return err
+	}
+	for _, l := range t.Route {
+		if err := l.Fill(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type JourneyLeg struct {
