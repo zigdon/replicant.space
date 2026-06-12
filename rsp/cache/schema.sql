@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS belts (
   FOREIGN KEY(star) REFERENCES stars(designation)
 );
 
-CREATE TABLE IF NOT EXISTS resources (
+CREATE TABLE IF NOT EXISTS belt_resources (
   belt TEXT NOT NULL,
   resource TEXT,
   density TEXT,
@@ -52,4 +52,31 @@ CREATE TABLE IF NOT EXISTS aliases (
   designation TEXT PRIMARY KEY,
   type TEXT,
   name TEXT UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS blueprints (
+  type TEXT PRIMARY KEY,
+  print_time REAL,
+  attach_capacity INTEGER,
+  cargo_capacity INTEGER,
+  stow_capacity INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS blueprint_resources(
+  blueprint_type TEXT NOT NULL,
+  type TEXT,
+  qty INTEGER,
+  FOREIGN KEY(blueprint_type) REFERENCES blueprints(type)
+);
+
+CREATE TABLE IF NOT EXISTS blueprint_directives(
+  blueprint_type TEXT NOT NULL,
+  directive TEXT,
+  FOREIGN KEY(blueprint_type) REFERENCES blueprints(type)
+);
+
+CREATE TABLE IF NOT EXISTS blueprint_features(
+  blueprint_type TEXT NOT NULL,
+  feature TEXT,
+  FOREIGN KEY(blueprint_type) REFERENCES blueprints(type)
 );

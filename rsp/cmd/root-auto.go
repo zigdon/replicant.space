@@ -92,11 +92,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Enqueue a build
 	var printing bool
+	printers, _ := cmd.Flags().GetStringSlice("factory")
 	for devType, qty := range missing {
 		if qty <= 0 {
 			continue
 		}
-		factory, rally, err := findPrinter()
+		factory, rally, err := findPrinter(printers)
 		if err != nil {
 			return fmt.Errorf("No available factory found to queue %s", devType)
 		}
@@ -131,6 +132,32 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func findPrinter() (string, string, error) {
-	return "", "", fmt.Errorf("Not implemented")
+func findPrinter(printers []string) (string, string, error) {
+	// Check the queue for each potential printer. If there is an idle printer,
+	// use that. Otherwise, pick the one with the shortest queue, by remaining
+	// print time.
+	info := make(map[string]*models.Device)
+	for _, p := range printers {
+		i, err := rest.DeviceInfo(p)
+		if err != nil {
+			return "", "", fmt.Errorf("can't get device info for %q: %v", p, err)
+		}
+		info[p] = i
+	}
+
+	// Find the first printer that is either idle, or has space in the queue.
+	var found *models.Device
+	for _, p := range printers {
+		dev := info[p]
+		if dev.Printing == nil && len(dev.PrintQueue) == 0 {
+			found = dev
+			break
+		}
+	}
+
+	if found == nil {
+		return "", "", fmt.Errorf("can't find an available printer")
+	}
+
+	return "", "", fmt.Errorf("Still not implemented")
 }
