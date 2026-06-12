@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -43,14 +45,92 @@ func init() {
 	autoCmd.AddCommand(autoMineCmd)
 	autoMineCmd.Flags().StringP("location", "l", "", "Belt location to mine")
 	autoMineCmd.MarkFlagRequired("location")
+	autoMineCmd.Flags().StringSliceP("factory", "f", []string{}, "Devices for building new ships")
+	autoMineCmd.MarkFlagRequired("factory")
 }
 
 func autoMine(cmd *cobra.Command, args []string) error {
+	// Validate the location
 	locName, _ := cmd.Flags().GetString("location")
 	loc, err := rest.Location(locName)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Location: %s\n", loc.Location)
+
+	// Get the existing fleet
+	tag := fmt.Sprintf("mine:%s", loc.Location)
+	devs, err := rest.GetTagged(tag)
+
+	// Build whatever is missing
+	missing := map[string]int{
+		"ami_mining_controller": 1,
+		"ami_survey_controller": 1,
+		"maintenance_drone":     1,
+		"mining_drone":          3,
+		"survey_drone":          2,
+		"ftl_relay":             1,
+	}
+	var data [][]string
+	fleet := make(map[string][]*models.Device)
+	for k, v := range missing {
+		data = append(data, []string{k, d(v), ""})
+	}
+
+	amis := make(map[string]string)
+	for _, d := range devs.Devices {
+		t := d.Type
+		if strings.Contains(t, "ami") {
+			amis[t] = d.Code.String()
+		}
+		missing[t] -= 1
+		fleet[t] = append(fleet[t], d)
+	}
+	for _, l := range data {
+		l[2] = d(missing[l[0]])
+	}
+	printTable([]string{"Device", "Target", "Found"}, data)
+
+	// Enqueue a build
+	var printing bool
+	for devType, qty := range missing {
+		if qty <= 0 {
+			continue
+		}
+		factory, rally, err := findPrinter()
+		if err != nil {
+			return fmt.Errorf("No available factory found to queue %s", devType)
+		}
+		cfg := map[string]any{
+			"device_type": devType,
+			"oncomplete": map[string]string{
+				"command":     "travel",
+				"destination": rally,
+			},
+		}
+		if t := strings.TrimSuffix(devType, "_drone"); t != devType {
+			if c, ok := amis[t]; ok {
+				cfg["controller"] = c
+			}
+		}
+		fmt.Printf("Printing %q at %q...\n", devType, factory)
+		res, err := rest.DeviceCommand(factory, "enqueue_print", cfg)
+		if err != nil {
+			return err
+		}
+		prettyPrint(res)
+		printing = true
+	}
+
+	if printing {
+		fmt.Println("Waiting for missing devices.")
+		return nil
+	}
+
+	fmt.Println("Fleet ready to ship")
+
 	return nil
+}
+
+func findPrinter() (string, string, error) {
+	return "", "", fmt.Errorf("Not implemented")
 }
