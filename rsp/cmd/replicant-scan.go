@@ -88,6 +88,31 @@ var scanCmd = &cobra.Command{
 				}
 				printTable([]string{"Designation", "Title", "Type", "Location", "Tier"}, events)
 			}
+
+			if len(scan.Replicants) > 0 {
+				var reps [][]string
+				for _, r := range scan.Replicants {
+					reps = append(reps, []string{r.Name, r.Code, r.Location, r.LastActive})
+				}
+				printTable([]string{"Name", "Code", "Location", "Last Active"}, reps)
+			}
+
+			if len(scan.Shops) > 0 {
+				for _, shop := range scan.Shops {
+					var trades [][]string
+					printTable(
+						[]string{"Name", "Owner", "Location", "Description"},
+						[][]string{{shop.ShopName, shop.OwnerName, shop.Location, shop.Description}})
+					for _, tr := range shop.Trades {
+						trades = append(trades, []string{
+							tr.Name, d(tr.CurrentStock), tr.TradeCode,
+							m(tr.Criteria.Resources),
+							m(tr.Rewards.Devices),
+						})
+					}
+					printTable([]string{"Name", "Stock", "Code", "Criteria", "Rewards"}, trades)
+				}
+			}
 		}
 		return nil
 	},

@@ -19,9 +19,11 @@ type Salvage struct {
 }
 
 type ScanReplicant struct {
-	LastActive    string     `json:"last_active"`
-	Location      string     `json:"location"`
-	ReplicantCode *CodeAlias `json:"replicant_code"`
+	LastActive string `json:"last_active"`
+	Location   string `json:"location"`
+	Name 	   string `json:"name"`
+	// Don't alias other replicants
+	Code       string `json:"replicant_code"`
 }
 
 type Object struct {
@@ -46,24 +48,48 @@ type LocationEvent struct {
 	Title       string `json:"title"`
 }
 
+type Trade struct {
+	Criteria struct {
+		Resources map[string]int `json:"resources"`
+	}                            `json:"criteria"`
+	CurrentStock int             `json:"current_stock"`
+	Name string                  `json:"name"`
+	Rewards struct {
+		Devices map[string]int   `json:"devices"`
+	}                            `json:"rewards"`
+	TradeCode string             `json:"trade_code"`
+}
+
+type Shop struct {
+	ControllerCode     string   `json:"controller_code"`
+	Description        string   `json:"description"`
+	Location           string   `json:"location"`
+	LocationName       string   `json:"location_name"`
+	OwnerName          string   `json:"owner_name"`
+	OwnerReplicantCode string   `json:"owner_replicant_code"`
+	ShopName           string   `json:"shop_name"`
+	Trades             []*Trade `json:"trades"`
+}
+
 type Scan struct {
 	ActiveLocationEvents []LocationEvent `json:"active_location_events"`
 	AsteroidBelt         struct {
-		Belts   []Belt `json:"belts"`
-		Present bool   `json:"present"`
+		Belts   []*Belt `json:"belts"`
+		Present bool    `json:"present"`
 	} `json:"asteroid_belt"`
 	EntryPoint     string `json:"entry_point"`
 	LifeDetected   bool   `json:"life_detected"`
 	MiningBonusPct int    `json:"mining_bonus_pct"`
 	OuterSystem    struct {
-		Kuiper Destination `json:"kuiper"`
-		Oort   Destination `json:"oort"`
+		Kuiper *Destination `json:"kuiper"`
+		Oort   *Destination `json:"oort"`
 	} `json:"outer_system"`
-	Planets       []Planet        `json:"planets"`
-	Replicants    []ScanReplicant `json:"replicants"`
-	Star          Star            `json:"star"`
-	SystemObjects []Object        `json:"system_objects"`
-	SystemTags    []string        `json:"system_tags"`
+	Planets       []*Planet        `json:"planets"`
+	Replicants    []*ScanReplicant `json:"replicants"`
+	Shops 		  []*Shop          `json:"shops"`
+	Star          *Star            `json:"star"`
+	SystemObjects []*Object        `json:"system_objects"`
+	SystemTags    []string         `json:"system_tags"`
 }
 
 func (s *Scan) ExtractLocations() []string {
