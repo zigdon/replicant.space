@@ -7,6 +7,7 @@ import (
 type TripLeg struct {
 	Active      bool    `json:"active"`
 	DistanceAu  float32 `json:"distance_au"`
+	DistanceLy  float32 `json:"distance_ly"`
 	From        string  `json:"from"`
 	FromName    string  `json:"from_name"`
 	Leg         int     `json:"leg"`

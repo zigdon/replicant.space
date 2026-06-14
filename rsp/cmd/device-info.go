@@ -118,8 +118,9 @@ var infoCmd = &cobra.Command{
 			}})
 			var legs [][]string
 			for _, l := range trip.Route {
+				dist := l.DistanceAu + l.DistanceLy
 				legs = append(legs, []string{
-					d(l.Leg), b(l.Active), l.From, l.To, f(l.DistanceAu), l.Type,
+					d(l.Leg), b(l.Active), l.From, l.To, f(dist), l.Type,
 				})
 			}
 			printTable([]string{"Leg", "Active", "From", "To", "Distance", "Type"}, legs)
