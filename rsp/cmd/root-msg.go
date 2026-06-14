@@ -111,8 +111,7 @@ var bobCmd = &cobra.Command{
 				who = d.ReplicantName
 			}
 			lines = append(lines, []string{
-				d.Channel, who, d.Time,
-				style.Render(d.Message),
+				d.Channel, who, t(d.Time), style.Render(d.Message),
 			})
 		}
 		printTable(headers, lines)

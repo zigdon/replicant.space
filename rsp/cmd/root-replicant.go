@@ -9,7 +9,6 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
-// replicantCmd represents the replicant command
 var replicantCmd = &cobra.Command{
 	Use:   "replicant",
 	Short: "Get replicant details",
@@ -20,7 +19,7 @@ var replicantCmd = &cobra.Command{
 		}
 		repl, err := rest.Replicant(rID)
 		if err != nil {
-			return fmt.Errorf("Error scanning: %v", err)
+			return fmt.Errorf("Error getting replicant: %v", err)
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(repl)
@@ -43,11 +42,12 @@ var replicantCmd = &cobra.Command{
 			}})
 			var legs [][]string
 			for _, l := range trip.Route {
+				dist := l.DistanceAu + l.DistanceLy
 				legs = append(legs, []string{
-					d(l.Leg), b(l.Active), l.From, l.To, f(l.DistanceAU), l.Type,
+					d(l.Leg), b(l.Active), l.From, l.To, l.Time.String(), f(dist), l.Type,
 				})
 			}
-			printTable([]string{"Leg", "Active", "From", "To", "Distance", "Type"}, legs)
+			printTable([]string{"Leg", "Active", "From", "To", "Time", "Distance", "Type"}, legs)
 		}
 		if len(repl.StowedDevices) > 0 {
 			cnt := make(map[string]int)

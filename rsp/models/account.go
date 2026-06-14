@@ -25,6 +25,7 @@ type AccountUpdate struct {
 type Account struct {
 	BobnetChannels        []string              `json:"bobnet_channels"`
 	CreatedAt             string                `json:"created_at"`
+	Created               time.Time
 	Email                 string                `json:"email"`
 	EmailVerified         bool                  `json:"email_verified"`
 	ExperiencePointsTotal int                   `json:"experience_points_total"`
@@ -35,6 +36,10 @@ type Account struct {
 	Status                string                `json:"status"`
 	Timezone              string                `json:"timezone"`
 	UnreadMessageCount    int                   `json:"unread_message_count"`
+}
+
+func (a *Account) Fill() error {
+	return fillTime(a.CreatedAt, &a.Created)
 }
 
 type Message struct {
@@ -48,9 +53,7 @@ type Message struct {
 }
 
 func (m *Message) Fill() error {
-	var err error
-	m.Created, err = time.Parse(time.RFC3339, m.CreatedAt)
-	return err
+	return fillTime(m.CreatedAt, &m.Created)
 }
 
 type Messages struct {
@@ -69,13 +72,18 @@ func (m *Messages) Fill() error {
 }
 
 type Bob struct {
-	Id            int    `json:"id"`
-	Channel       string `json:"channel"`
-	CurrentStar   string `json:"current_star"`
-	Message       string `json:"message"`
-	ReplicantCode string `json:"replicant_code"`
-	ReplicantName string `json:"replicant_name"`
-	Time          string `json:"time"`
+	Id            int       `json:"id"`
+	Channel       string    `json:"channel"`
+	CurrentStar   string    `json:"current_star"`
+	Message       string    `json:"message"`
+	ReplicantCode string    `json:"replicant_code"`
+	ReplicantName string    `json:"replicant_name"`
+	TimeRaw       string    `json:"time"`
+	Time 		  time.Time
+}
+
+func (b *Bob) Fill() error {
+	return fillTime(b.TimeRaw, &b.Time)
 }
 
 type Bobs struct {
@@ -83,6 +91,15 @@ type Bobs struct {
 	NextCursor    int    `json:"next_cursor"`
 	Total         int    `json:"total"`
 	TotalMessages int    `json:"total_messages"`
+}
+
+func (bs *Bobs) Fill() error {
+	for _, b := range bs.Messages {
+		if err := b.Fill(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type EventCriteria struct {
@@ -125,6 +142,7 @@ type Event struct {
 	Criteria         []*EventCriteria `json:"criteria"`
 	Description      string           `json:"description"`
 	Designation      string           `json:"designation"`
+	Discovered       time.Time
 	DiscoveredAt     string           `json:"discovered_at"`
 	Error            string           `json:"error"`
 	Location         string           `json:"location"`
@@ -137,7 +155,23 @@ type Event struct {
 	Type             string           `json:"event_type"`
 }
 
+func (e *Event) Fill() error {
+	if e.DiscoveredAt == "" {
+		return nil
+	}
+	return fillTime(e.DiscoveredAt, &e.Discovered)
+}
+
 type Events struct {
 	Events     []*Event `json:"events"`
 	NextCursor int      `json:"next_cursor"`
+}
+
+func (es *Events) Fill() error {
+	for _, e := range es.Events {
+		if err := e.Fill(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

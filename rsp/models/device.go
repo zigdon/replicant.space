@@ -8,16 +8,20 @@ import (
 )
 
 type DevicePrint struct {
-	CompletesAt     string  `json:"completes_at"`
-	DeviceType      string  `json:"device_type"`
-	EtaSeconds      float32 `json:"eta_seconds"`
+	CompletesAt     string    `json:"completes_at"`
+	Completes       time.Time
+	DeviceType      string    `json:"device_type"`
+	EtaSeconds      float32   `json:"eta_seconds"`
 	Eta             time.Duration
-	ProgressPercent float32 `json:"progress_percent"`
-	StartedAt       string  `json:"started_at"`
+	ProgressPercent float32   `json:"progress_percent"`
+	StartedAt       string    `json:"started_at"`
 }
 
 func (dp *DevicePrint) Fill() error {
-	return fillDuration(dp.EtaSeconds, &dp.Eta)
+	if err := fillDuration(dp.EtaSeconds, &dp.Eta); err != nil {
+		return err
+	}
+	return fillTime(dp.CompletesAt, &dp.Completes)
 }
 
 type ControlledDevice struct {
@@ -38,15 +42,19 @@ type DeviceDirective struct {
 }
 
 type DeviceScan struct {
-	EtaSeconds      float32 `json:"eta_seconds"`
+	EtaSeconds      float32   `json:"eta_seconds"`
 	Eta             time.Duration
-	ProgressPercent float32 `json:"progress_percent"`
-	StartedAt       string  `json:"started_at"`
-	Target          string  `json:"target"`
+	ProgressPercent float32   `json:"progress_percent"`
+	StartedAt       string    `json:"started_at"`
+	Started         time.Time
+	Target          string    `json:"target"`
 }
 
 func (ds *DeviceScan) Fill() error {
-	return fillDuration(ds.EtaSeconds, &ds.Eta)
+	if err := fillDuration(ds.EtaSeconds, &ds.Eta); err != nil {
+		return err
+	}
+	return fillTime(ds.StartedAt, &ds.Started)
 }
 
 type DevicePrintQueue struct {
@@ -89,6 +97,9 @@ type Device struct {
 }
 
 func (d *Device) Fill() error {
+	if d.Printing != nil {
+		d.Printing.Fill()
+	}
 	if d.Travel != nil {
 		if err := d.Travel.Fill(); err != nil {
 			return err
@@ -110,14 +121,17 @@ type CommandResp struct {
 	AmiDirective         *DeviceDirective    `json:"ami_directive"`
 	AmiDirectiveStatus   string              `json:"ami_directive_status"`
 	ArrivesAt            string              `json:"arrives_at"`
+	Arrives              time.Time
 	AssignedDevices      map[string][]string `json:"assigned_devices"`
 	AttachedDevices      []string            `json:"attached_devices"`
 	AvailableSites       []*AvailableSite    `json:"available_sites"`
 	Belt                 string              `json:"belt"`
 	CompletesAt          string              `json:"completes_at"`
+	Completes            time.Time
 	Controller           *ControllerStatus   `json:"controller"`
 	ControllerCode       *CodeAlias          `json:"controller_code"`
 	DepartedAt           string              `json:"departed_at"`
+	Departed             time.Time
 	Destination          string              `json:"destination"`
 	DestinationName      string              `json:"destination_name"`
 	DestinationType      string              `json:"destination_type"`
@@ -137,6 +151,7 @@ type CommandResp struct {
 	Scanned              bool            `json:"scanned"`
 	Star                 string          `json:"star"`
 	StartedAt            string          `json:"started_at"`
+	Started              time.Time
 	Status               string          `json:"status"`
 	TotalDistanceLy      float32         `json:"total_distance_ly"`
 	TotalTime            time.Duration
@@ -145,6 +160,18 @@ type CommandResp struct {
 }
 
 func (cs *CommandResp) Fill() error {
+	if err := fillTime(cs.ArrivesAt, &cs.Arrives); err != nil {
+		return err
+	}
+	if err := fillTime(cs.DepartedAt, &cs.Departed); err != nil {
+		return err
+	}
+	if err := fillTime(cs.StartedAt, &cs.Started); err != nil {
+		return err
+	}
+	if err := fillTime(cs.CompletesAt, &cs.Completes); err != nil {
+		return err
+	}
 	if err := fillDuration(cs.EtaSeconds, &cs.Eta); err != nil {
 		return err
 	}

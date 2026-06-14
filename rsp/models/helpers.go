@@ -16,6 +16,9 @@ type Fillable interface {
 }
 
 func fillTime(ts string, dest *time.Time) error {
+	if ts == "" {
+		return nil
+	}
 	parsed, err := time.Parse(time.RFC3339, ts)
 	if err != nil {
 		return err

@@ -35,42 +35,45 @@ type MissingResources struct {
 	Need int `json:"need"`
 }
 
-type TravelLeg struct {
-	Active      bool    `json:"active"`
-	DistanceAU  float32 `json:"distance_au"`
-	From        string  `json:"from"`
-	FromName    string  `json:"from_name"`
-	Leg         int     `json:"leg"`
-	TimeSeconds float32 `json:"time_seconds"`
-	Time        time.Duration
-	To          string `json:"to"`
-	ToName      string `json:"to_name"`
-	Type        string `json:"type"`
-}
-
 type Travel struct {
 	ArrivesAt        string  `json:"arrives_at"`
+	Arrives          time.Time
 	DepartedAt       string  `json:"departed_at"`
+	Departed         time.Time
 	Destination      string  `json:"destination"`
 	DestinationName  string  `json:"destination_name"`
 	DestinationType  string  `json:"destination_type"`
 	EtaSeconds       float32 `json:"eta_seconds"`
 	Eta              time.Duration
-	Origin           string       `json:"origin"`
-	OriginName       string       `json:"origin_name"`
-	ProgressPercent  float32      `json:"progress_percent"`
-	Route            []*TravelLeg `json:"route"`
-	Stage            string       `json:"stage"`
-	TotalDistanceLy  float32      `json:"total_distance_ly"`
-	TotalTimeSeconds float32      `json:"total_time_seconds"`
+	Origin           string     `json:"origin"`
+	OriginName       string     `json:"origin_name"`
+	ProgressPercent  float32    `json:"progress_percent"`
+	Route            []*TripLeg `json:"route"`
+	Stage            string     `json:"stage"`
+	TotalDistanceLy  float32    `json:"total_distance_ly"`
+	TotalTimeSeconds float32    `json:"total_time_seconds"`
 	TotalTime        time.Duration
 	Type             string `json:"type"`
+}
+
+func (t *Travel) Fill() error {
+	if err := fillTime(t.ArrivesAt, &t.Arrives); err != nil {
+		return err
+	}
+	if err := fillTime(t.DepartedAt, &t.Departed); err != nil {
+		return err
+	}
+	if err := fillDuration(t.EtaSeconds, &t.Eta); err != nil {
+		return err
+	}
+	return fillDuration(t.TotalTimeSeconds, &t.TotalTime)
 }
 
 type Replicant struct {
 	AttachedDevices     []string                     `json:"attached_devices"`
 	Cargo               []string                     `json:"cargo"`
 	CreatedAt           string                       `json:"created_at"`
+	Created             time.Time
 	CurrentLocation     string                       `json:"current_location"`
 	CurrentLocationName string                       `json:"current_location_name"`
 	CurrentStar         string                       `json:"current_star"`
@@ -93,6 +96,10 @@ type Replicant struct {
 	StowedDevices       []*Device                    `json:"stowed_devices"`
 	Travel              *Travel                      `json:"travel"`
 	WaitingFor          map[string]*MissingResources `json:"waiting_for"`
+}
+
+func (r *Replicant) Fill() error {
+	return fillTime(r.CreatedAt, &r.Created)
 }
 
 func (r *Replicant) GetDeviceIDs() []string {
