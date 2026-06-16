@@ -450,3 +450,12 @@ func ReplicantPrint(id, command, device string) (*models.PrintResp, error) {
 	m.PrintTime = durationFromSeconds(m.PrintTimeSeconds)
 	return m, err
 }
+
+// Trades
+func Traders(rid string) (*models.Shops, error) {
+	res, err := cacheGET(fmt.Sprintf("traders-%s", rid), 0, "replicants/%s/traders", rid)
+	if err != nil {
+		return nil, err
+	}
+	return models.Parse[models.Shops](res)
+}
