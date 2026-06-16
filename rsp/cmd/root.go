@@ -13,12 +13,13 @@ import (
 type flagDesc struct {
 	name     string
 	short    rune
-	value    string
+	value    any
 	desc     string
 	required bool
 	slice    bool
 	jsonKey  string
 	mapFlag  bool
+	intFlag  bool
 }
 
 var db *cache.Cache
@@ -74,6 +75,8 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 				var val any
 				if f.slice {
 					val, _ = cmd.Flags().GetStringSlice(f.name)
+				} else if f.intFlag {
+					val, _ = cmd.Flags().GetInt(f.name)
 				} else if f.mapFlag {
 					ms, _ := cmd.Flags().GetStringSlice(f.name)
 					if len(ms) == 0 {
@@ -132,16 +135,25 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 			continue
 		}
 		if f.slice || f.mapFlag {
+			val, _ := f.value.(string)
 			if f.short != 0 {
-				cmd.Flags().StringSliceP(f.name, string(f.short), []string{f.value}, f.desc)
+				cmd.Flags().StringSliceP(f.name, string(f.short), []string{val}, f.desc)
 			} else {
-				cmd.Flags().StringSlice(f.name, []string{f.value}, f.desc)
+				cmd.Flags().StringSlice(f.name, []string{val}, f.desc)
+			}
+		} else if f.intFlag {
+			val := f.value.(int)
+			if f.short != 0 {
+				cmd.Flags().IntSliceP(f.name, string(f.short), []int{val}, f.desc)
+			} else {
+				cmd.Flags().IntSlice(f.name, []int{val}, f.desc)
 			}
 		} else {
+			val, _ := f.value.(string)
 			if f.short != 0 {
-				cmd.Flags().StringP(f.name, string(f.short), f.value, f.desc)
+				cmd.Flags().StringP(f.name, string(f.short), val, f.desc)
 			} else {
-				cmd.Flags().String(f.name, f.value, f.desc)
+				cmd.Flags().String(f.name, val, f.desc)
 			}
 		}
 		if f.required {
