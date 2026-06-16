@@ -97,9 +97,9 @@ var infoCmd = &cobra.Command{
 				len(dev.AttachedDevices), dev.AttachCapacity)
 			var ds [][]string
 			for _, d := range dev.AttachedDevices {
-				ds = append(ds, []string{d.Type, d.Code.String()})
+				ds = append(ds, []string{d.Type, alias(d.Code.String()), d.Code.String()})
 			}
-			printTable([]string{"Type", "Code"}, ds)
+			printTable([]string{"Type", "Alias", "Code"}, ds)
 		}
 		if dev.Scan != nil {
 			s := dev.Scan

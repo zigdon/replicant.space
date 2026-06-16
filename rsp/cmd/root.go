@@ -64,7 +64,12 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 			id, _ := cmd.Flags().GetString("device")
 			data := make(map[string]any)
 			var argsFlag flagDesc
+			var reps = 1
 			for _, f := range flags {
+				if f.name == "repeat" {
+					reps = f.value.(int)
+					continue
+				}
 				if f.name == "" {
 					argsFlag = f
 				}
@@ -103,29 +108,36 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 				}
 				data[argsFlag.jsonKey] = args[0]
 			}
-			resp, err := rest.DeviceCommand(id, command, data)
-			if err != nil {
-				return fmt.Errorf("Error sending %q to %q: %v", command, id, err)
-			}
-			if raw, _ := cmd.Flags().GetBool("raw"); raw {
-				prettyPrint(resp)
-				return nil
-			}
-			if resp.JsonErr == "" {
-				headers, data := getTable(name, resp)
-				printTable(headers, data)
-				return nil
-			}
-			log("error: %v", resp.JsonErr)
-			if len(resp.AvailableSites) > 0 {
-				var sites [][]string
-				for _, s := range resp.AvailableSites {
-					sites = append(sites, []string{
-						s.Designation, s.Name, s.SalvageType,
-					})
+			var repData [][]string
+			var repHeaders []string
+			for range reps {
+				resp, err := rest.DeviceCommand(id, command, data)
+				if err != nil {
+					return fmt.Errorf("Error sending %q to %q: %v", command, id, err)
 				}
-				printTable([]string{"Designation", "Name", "SalvageType"}, sites)
+				if raw, _ := cmd.Flags().GetBool("raw"); raw {
+					prettyPrint(resp)
+					continue
+				}
+				if resp.JsonErr == "" {
+					headers, data := getTable(name, resp)
+					repHeaders = headers
+					repData = append(repData, data...)
+					continue
+				}
+				log("error: %v", resp.JsonErr)
+				if len(resp.AvailableSites) > 0 {
+					var sites [][]string
+					for _, s := range resp.AvailableSites {
+						sites = append(sites, []string{
+							s.Designation, s.Name, s.SalvageType,
+						})
+					}
+					printTable([]string{"Designation", "Name", "SalvageType"}, sites)
+				}
+				return nil
 			}
+			printTable(repHeaders, repData)
 			return nil
 		},
 	}
