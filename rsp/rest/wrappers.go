@@ -467,3 +467,11 @@ func Trades(sid string) (*models.Shop, error) {
 	}
 	return models.Parse[models.Shop](res)
 }
+
+func Trade(rid, tid string) (*models.Shop, error) {
+	res, err := Post("devices/%s/trades/%s", nil, rid, tid)
+	if err != nil {
+		return nil, err
+	}
+	return models.Parse[models.Shop](res)
+}

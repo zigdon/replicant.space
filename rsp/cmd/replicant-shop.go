@@ -74,10 +74,55 @@ var shopTradesCmd = &cobra.Command{
 		  })
 		}
 
+		fmt.Printf("Trades listed for %s:\n", sid)
 		printTable([]string{
 		  "Name", "Code", "Stock", "Resource cost", "Device cost",
 		  "Resource rewards", "Device rewards",
 		}, data)
+		return nil
+	},
+}
+
+var executeTradeCmd = &cobra.Command{
+	Use:   "trade",
+	Short: "Do a trade",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		rID, err := getRID(cmd)
+		if err != nil {
+			return fmt.Errorf("Replicant not found: %v", err)
+		}
+		tid, _ := cmd.Flags().GetString("trade")
+		// Find the shop controller for this trade
+		shops, err := rest.Traders(rID)
+		if err != nil {
+		  return err
+		}
+		var cid string
+		for _, s := range shops.Traders {
+		  trades, err := rest.Trades(s.ControllerCode)
+		  if err != nil {
+			return err
+		  }
+		  for _, t := range trades.Trades {
+			if t.Code == tid {
+			  cid = s.ControllerCode
+			  break
+			}
+		  }
+		  if cid != "" {
+			break
+		  }
+		}
+
+		if cid == "" {
+		  return fmt.Errorf("Can't find a shop for %q", tid)
+		}
+
+		res, err := rest.Trade(cid, tid)
+		if err != nil {
+		  return err
+		}
+		prettyPrint(res)
 		return nil
 	},
 }
@@ -88,4 +133,8 @@ func init() {
 	shopCmd.AddCommand(shopTradesCmd)
 	shopTradesCmd.Flags().StringP("shop", "s", "", "Shop code to list")
 	shopTradesCmd.MarkFlagRequired("shop")
+
+	shopCmd.AddCommand(executeTradeCmd)
+	executeTradeCmd.Flags().StringP("trade", "t", "", "Trade ID")
+	executeTradeCmd.MarkFlagRequired("trade")
 }
