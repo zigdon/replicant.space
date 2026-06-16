@@ -459,3 +459,11 @@ func Traders(rid string) (*models.Shops, error) {
 	}
 	return models.Parse[models.Shops](res)
 }
+
+func Trades(sid string) (*models.Shop, error) {
+	res, err := cacheGET(fmt.Sprintf("trades-%s", sid), 0, "devices/%s/trades", sid)
+	if err != nil {
+		return nil, err
+	}
+	return models.Parse[models.Shop](res)
+}

@@ -2,11 +2,13 @@ package models
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 	"time"
 )
 
 type Trade struct {
+	Code      string `json:"trade_code"`
 	CreatedAt string `json:"created_at"`
 	Created   time.Time
 	Criteria  struct {
@@ -20,7 +22,6 @@ type Trade struct {
 		Devices   map[string]int `json:"devices"`
 		Resources map[string]int `json:"resources"`
 	} `json:"rewards"`
-	TradeCode string `json:"trade_code"`
 }
 
 func (t *Trade) Fill() error {
@@ -30,6 +31,7 @@ func (t *Trade) Fill() error {
 type Shop struct {
 	ControllerCode     string   `json:"controller_code"`
 	Description        string   `json:"description"`
+	Error              string   `json:"error"`
 	IsLocal            bool     `json:"is_local"`
 	Location           string   `json:"location"`
 	LocationName       string   `json:"location_name"`
@@ -43,8 +45,11 @@ type Shop struct {
 }
 
 func (s *Shop) Fill() error {
+	if s.Error != "" {
+		return fmt.Errorf("shop error: %s", s.Error)
+	}
 	slices.SortFunc(s.Trades, func(a, b *Trade) int {
-		return cmp.Compare(a.TradeCode, b.TradeCode)
+		return cmp.Compare(a.Code, b.Code)
 	})
 	for _, t := range s.Trades {
 		if err := t.Fill(); err != nil {

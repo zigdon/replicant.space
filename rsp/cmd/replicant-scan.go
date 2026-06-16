@@ -105,7 +105,7 @@ var scanCmd = &cobra.Command{
 						[][]string{{shop.ShopName, shop.OwnerName, shop.Location, shop.Description}})
 					for _, tr := range shop.Trades {
 						trades = append(trades, []string{
-							tr.Name, d(tr.CurrentStock), tr.TradeCode,
+							tr.Name, d(tr.CurrentStock), tr.Code,
 							m(tr.Criteria.Resources),
 							m(tr.Rewards.Devices),
 						})
