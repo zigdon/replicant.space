@@ -56,7 +56,32 @@ func init() {
 	rootCmd.PersistentFlags().Bool("raw", false, "emit the json returned")
 }
 
-var mkCommand = func(parent *cobra.Command, name, short, command string, flags []flagDesc) *cobra.Command {
+var outputTable = map[string]func(data any) ([]string, [][]string){
+	"default": func(data any) ([]string, [][]string) {
+		resp, ok := data.(*models.CommandResp)
+		if !ok {
+			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+		}
+		var eta string
+		if resp.Eta > 0 {
+			eta = resp.Eta.String()
+		} else if resp.TotalTime > 0 {
+			eta = resp.TotalTime.String()
+		}
+		return []string{
+				"Code", "Location", "Star", "Belt", "Status",
+				"ETA", "Started", "Ends"},
+			[][]string{{
+				alias(resp.DeviceCode.String()), resp.Location, resp.Star,
+				resp.Belt, resp.Status, eta, resp.StartedAt, resp.CompletesAt,
+			}}
+	},
+}
+
+var mkCommand = func(parent *cobra.Command, name, short, command string, flags []flagDesc, output string) *cobra.Command {
+	if output == "" {
+		output = "default"
+	}
 	cmd := &cobra.Command{
 		Use:   name,
 		Short: short,
@@ -120,7 +145,11 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 					continue
 				}
 				if resp.JsonErr == "" {
-					headers, data := getTable(name, resp)
+					outFn, ok := outputTable[output]
+					if !ok {
+						return fmt.Errorf("Output format not found: %q", output)
+					}
+					headers, data := outFn(resp)
 					repHeaders = headers
 					repData = append(repData, data...)
 					continue

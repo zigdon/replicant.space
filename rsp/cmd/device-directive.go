@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -96,10 +98,10 @@ var surveyCmd = &cobra.Command{
 
 func init() {
 	mkDeviceCommand(
-		"assemble", "Bring the fleet home to the controller's current location without ending the directive", "assemble", nil,
+		"assemble", "Bring the fleet home to the controller's current location without ending the directive", "assemble", nil, "",
 	)
 	mkDeviceCommand(
-		"clear_directive", "Drop the current directive entirely", "clear_directive", nil,
+		"clear_directive", "Drop the current directive entirely", "clear_directive", nil, "",
 	)
 	dirCmd := mkDeviceCommand(
 		"directive", "Update the automation policy for a device", "set_directive",
@@ -110,16 +112,16 @@ func init() {
 			{
 				name: "configuration", short: 'c', required: false,
 				jsonKey: "configuration", mapFlag: true,
-			}},
+			}}, "",
 	)
 	mkDeviceCommand(
-		"launch", "Deploy the fleet and start executing the current directive", "launch", nil,
+		"launch", "Deploy the fleet and start executing the current directive", "launch", nil, "launch",
 	)
 	mkDeviceCommand(
-		"resume", "pick up a stopped directive from where it left off", "resume_directive", nil,
+		"resume", "pick up a stopped directive from where it left off", "resume_directive", nil, "",
 	)
 	mkDeviceCommand(
-		"withdraw", "Recall the fleet and pause execution", "withdraw", nil,
+		"withdraw", "Recall the fleet and pause execution", "withdraw", nil, "",
 	)
 
 	dirCmd.AddCommand(deliveryCmd)
@@ -132,4 +134,28 @@ func init() {
 	surveyCmd.Flags().BoolP("no_planets", "p", false, "set to skip scanning planets")
 	surveyCmd.Flags().BoolP("no_moons", "c", false, "set to skip scanning moons")
 	surveyCmd.Flags().BoolP("no_recall", "r", false, "set to not recall the drones once done")
+
+	outputTable["device-launch"] = func(data any) ([]string, [][]string) {
+		resp := data.(*models.CommandResp)
+		lists := make(map[string][]string)
+		for _, cat := range []string{"already_deployed", "deployed", "failed", "skipped"} {
+			l := cat[0:1]
+			for _, d := range resp.AssignedDevices[cat] {
+				a, t := aliasType(d)
+				if a != "" {
+					d = a
+				}
+				lists[l] = append(lists[l], strings.Join([]string{d, t}, " "))
+			}
+			slices.Sort(lists[l])
+		}
+		return []string{
+				"Controller", "Status", "Already deployed", "Deployed", "Failed", "Skipped",
+			}, [][]string{{
+				alias(resp.DeviceCode.String()),
+				fmt.Sprintf("%s -> %s", resp.Controller.DirectiveStatusBefore,
+					resp.Controller.DirectiveStatusAfter),
+				lines(lists["a"]), lines(lists["d"]), lines(lists["f"]), lines(lists["s"]),
+			}}
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -33,4 +34,15 @@ var allShopCmd = &cobra.Command{
 func init() {
 	replicantCmd.AddCommand(shopCmd)
 	shopCmd.AddCommand(allShopCmd)
+
+	outputTable["replicant-shop-all"] = func(data any) ([]string, [][]string) {
+	  var shops [][]string
+	  res := data.(*models.Shops)
+	  for _, t := range res.Traders {
+		shops = append(shops, []string{
+		  t.ShopName, t.OwnerName, wrap(t.Description, 40), d(t.TradeCount), d(t.TotalStock),
+		})
+	  }
+	  return []string{"Name", "Owner", "Description", "Location", "Trades", "Stock"}, shops
+	}
 }
