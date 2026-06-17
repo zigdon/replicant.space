@@ -36,7 +36,7 @@ var devicesCmd = &cobra.Command{
 			if ignore, _ := cmd.Flags().GetBool("ignore_tags"); !ignore {
 				filter, _ = cmd.Flags().GetStringSlice("filter_tags")
 			}
-			printReplicantDeviceList(r, filter)
+			printReplicantDeviceList(r, filter, rID)
 		}
 		return nil
 	},
@@ -49,7 +49,7 @@ func init() {
 	devicesCmd.Flags().StringSliceP("filter_tags", "t", []string{"infrastructure"}, "Filter results with these tags")
 }
 
-func printReplicantDeviceList(r *models.Replicant, filterTags []string) {
+func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner string) {
 	devs, err := rest.ReplicantDevices(r.ReplicantCode.String(), "")
 	if err != nil {
 		log(err.Error())
@@ -81,6 +81,9 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string) {
 	var data [][]string
 	skipped := make(map[string]int)
 	for _, d := range devs {
+		if owner != "" && d.OwnerReplicantCode != owner {
+			continue
+		}
 		if ignored[d.Code.String()] {
 			skipped[d.Type]++
 			continue
@@ -100,6 +103,7 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string) {
 			status,
 			alias(d.StowedInDeviceCode.String()),
 			list(d.Tags),
+			alias(d.OwnerReplicantCode),
 		})
 	}
 	slices.SortFunc(data, func(a, b []string) int {
@@ -118,6 +122,7 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string) {
 		"Status",
 		"Stowed in",
 		"Tags",
+		"Replicant",
 	}, data)
 	if len(skipped) > 0 {
 		fmt.Printf("Skipped %d devices:\n", len(skipped))

@@ -16,10 +16,11 @@ type Notify struct {
 }
 
 type AccountUpdate struct {
-	BobnetChannels []string `json:"omitempty,bobnet_channels"`
-	MessageNotify  *Notify  `json:"message_notify"`
-	Name           string   `json:"omitempty,name"`
-	Timezone       string   `json:"omitempty,timezone"`
+	BobnetChannels       []string `json:"bobnet_channels,omitempty"`
+	MessageNotify        *Notify  `json:"message_notify,omitempty"`
+	Name                 string   `json:"name,omitempty"`
+	Timezone             string   `json:"timezone,omitempty"`
+	ReplicantCooperation string   `json:"replicant_cooperation,omitempty"`
 }
 
 type Account struct {
@@ -31,6 +32,7 @@ type Account struct {
 	ExperiencePointsTotal int                   `json:"experience_points_total"`
 	MessageNotify         *Notify               `json:"message_notify"`
 	Name                  string                `json:"name"`
+	ReplicantCooperation  string                `json:"replicant_cooperation"`
 	ReplicantList         []*Replicant          `json:"replicants"`
 	Replicants            map[string]*Replicant `json:"-"`
 	Status                string                `json:"status"`

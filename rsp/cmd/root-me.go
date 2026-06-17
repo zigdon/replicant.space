@@ -13,6 +13,7 @@ import (
 var accountCmd = &cobra.Command{
 	Use:   "account",
 	Short: "Show current status",
+	Aliases: []string{"me"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		emailUpt := make(map[string]bool)
 		webUpt := make(map[string]bool)
@@ -31,6 +32,16 @@ var accountCmd = &cobra.Command{
 			}
 			bits := strings.Split(e, ":")
 			webUpt[bits[0]] = bits[1] == "on"
+		}
+		if coop, _ := cmd.Flags().GetString("cooperation"); coop != "" {
+			data := &models.AccountUpdate{
+				ReplicantCooperation: coop,
+			}
+			res, err := rest.PatchSettings(data)
+			if err != nil {
+				return err
+			}
+			log(res.Status)
 		}
 		if len(emailUpt) > 0 || len(webUpt) > 0 {
 			data := &models.AccountUpdate{
@@ -61,13 +72,14 @@ var accountCmd = &cobra.Command{
 		}
 
 		printTable(
-			[]string{"Name", "Bobnet", "XP", "Status", "Unread messages"},
+			[]string{"Name", "Bobnet", "XP", "Status", "Unread messages", "Cooperation"},
 			[][]string{{
 				acc.Name,
 				list(acc.BobnetChannels),
 				d(acc.ExperiencePointsTotal),
 				acc.Status,
 				d(acc.UnreadMessageCount),
+				acc.ReplicantCooperation,
 			}})
 
 		var mn [][]string
@@ -83,7 +95,7 @@ var accountCmd = &cobra.Command{
 		slices.Sort(types)
 		for _, t := range types {
 			mn = append(mn, []string{
-				strings.ToUpper(t[0:1]) + t[1:len(t)],
+				strings.ToUpper(t[0:1]) + t[1:],
 				b(acc.MessageNotify.Preferences.Email[t]),
 				b(acc.MessageNotify.Preferences.Webhook[t]),
 			})
@@ -121,4 +133,5 @@ func init() {
 	rootCmd.AddCommand(accountCmd)
 	accountCmd.Flags().StringSliceP("email", "e", nil, "Adjust email notification: type:(on|off)")
 	accountCmd.Flags().StringSliceP("webhook", "w", nil, "Adjust webhook notification: type:(on|off)")
+	accountCmd.Flags().String("cooperation", "", "Adjust account cooperation mode: (individual|shared)")
 }
