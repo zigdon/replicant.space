@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 )
 
 var mkDeviceCommand = func(name, short, command string, flags []flagDesc, output string) *cobra.Command {
@@ -51,6 +54,10 @@ func init() {
 			name: "resources", short: 'r', required: false,
 			jsonKey: "resources", mapFlag: true,
 		}}, "",
+	)
+	mkDeviceCommand(
+		"decommission", "Send to the nearest autofactory for deconsturction", "decommission",
+		nil, "device-decommission",
 	)
 	mkDeviceCommand(
 		"detach", "Detach a device (passenger)", "detach",
@@ -134,4 +141,13 @@ func init() {
 			required: true, jsonKey: "destination",
 		}}, "",
 	)
+
+	outputTable["device-decommission"] = func(data any) ([]string, [][]string) {
+		resp, ok := data.(*models.CommandResp)
+		if !ok {
+			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+		}
+		return []string{"Status", "Recovered Resources"},
+	    	[][]string{{resp.Status, m(resp.ResourcesRecovered)}}
+	}
 }

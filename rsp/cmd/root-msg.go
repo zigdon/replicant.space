@@ -100,6 +100,7 @@ var bobCmd = &cobra.Command{
 		headers := []string{"Channel", "Name", "Time", "Message"}
 		var lines [][]string
 		style := lg.NewStyle().Width(width)
+		slices.Reverse(data.Messages)
 		for _, d := range data.Messages {
 			if len(channels) > 0 && !slices.Contains(channels, d.Channel) { continue }
 			var who string

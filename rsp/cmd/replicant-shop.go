@@ -4,13 +4,14 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
 var shopCmd = &cobra.Command{
 	Use:   "shop",
 	Short: "List and interact with shops",
-	RunE: allShopCmd.RunE,
+	RunE:  allShopCmd.RunE,
 }
 
 var allShopCmd = &cobra.Command{
@@ -23,27 +24,27 @@ var allShopCmd = &cobra.Command{
 		}
 		res, err := rest.Traders(rID)
 		if err != nil {
-		  return err
+			return err
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
-		  prettyPrint(res)
-		  return nil
+			prettyPrint(res)
+			return nil
 		}
 		if len(res.Traders) == 0 {
-		  fmt.Println("No shops found.")
-		  return nil
+			fmt.Println("No shops found.")
+			return nil
 		}
 		var shops [][]string
 		for _, t := range res.Traders {
-		  shops = append(shops, []string{
-			t.ControllerCode, t.ShopName, t.OwnerName,
-			wrap(t.Description, 40), t.Location, d(t.TradeCount),
-			d(t.TotalStock),
-		  })
+			shops = append(shops, []string{
+				t.ControllerCode, t.ShopName, t.OwnerName,
+				wrap(t.Description, 40), t.Location, d(t.TradeCount),
+				d(t.TotalStock),
+			})
 		}
 		printTable([]string{
-		  "Code", "Name", "Owner", "Description", "Location", "Trades", "Stock",
-		  }, shops)
+			"Code", "Name", "Owner", "Description", "Location", "Trades", "Stock",
+		}, shops)
 		return nil
 	},
 }
@@ -55,29 +56,29 @@ var shopTradesCmd = &cobra.Command{
 		sid, _ := cmd.Flags().GetString("shop")
 		res, err := rest.Trades(sid)
 		if err != nil {
-		  return err
+			return err
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
-		  prettyPrint(res)
-		  return nil
+			prettyPrint(res)
+			return nil
 		}
 		if len(res.Trades) == 0 {
-		  fmt.Println("No trades found.")
-		  return nil
+			fmt.Println("No trades found.")
+			return nil
 		}
 		var data [][]string
 		for _, t := range res.Trades {
-		  data = append(data, []string{
-			t.Name, t.Code, d(t.CurrentStock),
-			m(t.Criteria.Resources), m(t.Criteria.Devices),
-			m(t.Rewards.Resources), m(t.Rewards.Devices),
-		  })
+			data = append(data, []string{
+				t.Name, t.Code, d(t.CurrentStock),
+				m(t.Criteria.Resources), m(t.Criteria.Devices),
+				m(t.Rewards.Resources), m(t.Rewards.Devices),
+			})
 		}
 
 		fmt.Printf("Trades listed for %s:\n", sid)
 		printTable([]string{
-		  "Name", "Code", "Stock", "Resource cost", "Device cost",
-		  "Resource rewards", "Device rewards",
+			"Name", "Code", "Stock", "Resource cost", "Device cost",
+			"Resource rewards", "Device rewards",
 		}, data)
 		return nil
 	},
@@ -95,34 +96,37 @@ var executeTradeCmd = &cobra.Command{
 		// Find the shop controller for this trade
 		shops, err := rest.Traders(rID)
 		if err != nil {
-		  return err
+			return err
 		}
 		var cid string
+		var trade *models.Trade
 		for _, s := range shops.Traders {
-		  trades, err := rest.Trades(s.ControllerCode)
-		  if err != nil {
-			return err
-		  }
-		  for _, t := range trades.Trades {
-			if t.Code == tid {
-			  cid = s.ControllerCode
-			  break
+			trades, err := rest.Trades(s.ControllerCode)
+			if err != nil {
+				return err
 			}
-		  }
-		  if cid != "" {
-			break
-		  }
+			for _, t := range trades.Trades {
+				if t.Code == tid {
+					trade = t
+					cid = s.ControllerCode
+					break
+				}
+			}
+			if cid != "" {
+				break
+			}
 		}
 
 		if cid == "" {
-		  return fmt.Errorf("Can't find a shop for %q", tid)
+			return fmt.Errorf("Can't find a shop for %q", tid)
 		}
 
-		res, err := rest.Trade(cid, tid)
+		_, err = rest.Trade(cid, tid)
 		if err != nil {
-		  return err
+			return err
 		}
-		prettyPrint(res)
+		printTable([]string{"Devices", "Resources"},
+			[][]string{{m(trade.Rewards.Devices), m(trade.Rewards.Resources)}})
 		return nil
 	},
 }

@@ -147,6 +147,7 @@ type CommandResp struct {
 	OriginName           string          `json:"origin_name"`
 	ProgressPercent      float32         `json:"progress_percent"`
 	Released             []*StowedDevice `json:"released"`
+	ResourcesRecovered   map[string]int  `json:"resources_recovered"`
 	Route                []*TripLeg      `json:"route"`
 	Scanned              bool            `json:"scanned"`
 	Star                 string          `json:"star"`
