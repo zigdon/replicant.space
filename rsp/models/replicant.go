@@ -6,6 +6,7 @@ import (
 
 type ReplicantEvent struct {
 	CreatedAt  string         `json:"created_at"`
+	Created    time.Time
 	DeviceCode *CodeAlias     `json:"device_code"`
 	DeviceType string         `json:"device_type"`
 	Type       string         `json:"event_type"`
@@ -13,8 +14,21 @@ type ReplicantEvent struct {
 	Payload    map[string]any `json:"payload"`
 }
 
+func (re *ReplicantEvent) Fill() error {
+	return fillTime(re.CreatedAt, &re.Created)
+}
+
 type ReplicantEvents struct {
 	ReplicantEvents []*ReplicantEvent `json:"events"`
+}
+
+func (res *ReplicantEvents) Fill() error {
+	for _, re := range res.ReplicantEvents {
+		if err := re.Fill(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type OwnedDevices struct {

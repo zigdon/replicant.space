@@ -147,7 +147,7 @@ func init() {
 		if !ok {
 			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
 		}
-		return []string{"Status", "Recovered Resources"},
-	    	[][]string{{resp.Status, m(resp.ResourcesRecovered)}}
+		return []string{"Status", "Learned", "Recovered Resources"},
+	    	[][]string{{resp.Status, resp.BlueprintDiscovered, m(resp.ResourcesRecovered)}}
 	}
 }

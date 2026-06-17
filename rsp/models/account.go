@@ -158,9 +158,6 @@ type Event struct {
 }
 
 func (e *Event) Fill() error {
-	if e.DiscoveredAt == "" {
-		return nil
-	}
 	return fillTime(e.DiscoveredAt, &e.Discovered)
 }
 

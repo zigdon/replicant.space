@@ -121,14 +121,15 @@ type CommandResp struct {
 	AdoptedDevices       []*StowedDevice     `json:"adopted"`
 	AmiDirective         *DeviceDirective    `json:"ami_directive"`
 	AmiDirectiveStatus   string              `json:"ami_directive_status"`
-	ArrivesAt            string              `json:"arrives_at"`
 	Arrives              time.Time
+	ArrivesAt            string              `json:"arrives_at"`
 	AssignedDevices      map[string][]string `json:"assigned_devices"`
 	AttachedDevices      []string            `json:"attached_devices"`
 	AvailableSites       []*AvailableSite    `json:"available_sites"`
 	Belt                 string              `json:"belt"`
-	CompletesAt          string              `json:"completes_at"`
+	BlueprintDiscovered  string              `json:"blueprint_discovered"`
 	Completes            time.Time
+	CompletesAt          string              `json:"completes_at"`
 	Controller           *ControllerStatus   `json:"controller"`
 	ControllerCode       *CodeAlias          `json:"controller_code"`
 	DepartedAt           string              `json:"departed_at"`

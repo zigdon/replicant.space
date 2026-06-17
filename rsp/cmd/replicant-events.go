@@ -43,7 +43,7 @@ var eventCmd = &cobra.Command{
 					e.Type,
 					lg.NewStyle().Width(width).Render(e.Message),
 					lg.NewStyle().Width(width).Render(lines(payload)),
-					e.CreatedAt,
+					t(e.Created),
 				})
 			}
 			printTable([]string{
