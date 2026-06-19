@@ -2,6 +2,7 @@ package rest
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -62,6 +63,9 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 		log("err: %v", err)
 		return nil, err
 	}
+	if resp.StatusCode == 404 {
+		panic("404")
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
@@ -74,6 +78,14 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 		}
 	} else {
 		UnreadMessages = 0
+	}
+
+	var r map[string]any
+	if err = json.Unmarshal(body, &r); err != nil {
+		return body, err
+	}
+	if err, ok := r["error"]; ok {
+		return nil, fmt.Errorf("generic error: %v", err)
 	}
 
 	return body, err

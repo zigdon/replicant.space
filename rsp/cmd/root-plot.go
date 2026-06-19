@@ -19,8 +19,6 @@ var plotCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
-	plotCmd.Flags().StringP("source", "s", "", "Source system")
-	plotCmd.Flags().StringP("destination", "d", "", "Destination system")
 	plotCmd.MarkFlagRequired("source")
 	plotCmd.MarkFlagRequired("destination")
 }
@@ -30,8 +28,11 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	src, _ := cmd.Flags().GetString("source")
-	dst, _ := cmd.Flags().GetString("destination")
+	if len(args) < 2 {
+		return fmt.Errorf("Missing required args: plot <source> <dest>")
+	}
+	src := args[0]
+	dst := args[1]
 	hop, _ := cmd.Flags().GetFloat32("max_hop")
 
 	// Pathfinding:

@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,7 +18,7 @@ import (
 // ami mining + mining drone
 // ami scanning + scanning drone
 // ftl relay
-// Tag with mine:SYSTEM-BELT-1
+// Tag with mine-SYSTEM-BELT-1
 // Build missing devices
 // Deliver built devices
 // Adopt drones to ami
@@ -46,8 +48,7 @@ func init() {
 	autoCmd.AddCommand(autoMineCmd)
 	autoMineCmd.Flags().StringP("location", "l", "", "Belt location to mine")
 	autoMineCmd.MarkFlagRequired("location")
-	autoMineCmd.Flags().StringSliceP("factory", "f", []string{}, "Devices for building new ships")
-	autoMineCmd.MarkFlagRequired("factory")
+	autoMineCmd.Flags().StringSliceP("factory", "f", []string{"a-1"}, "Devices for building new ships")
 }
 
 func autoMine(cmd *cobra.Command, args []string) error {
@@ -59,7 +60,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get the existing fleet
-	tag := fmt.Sprintf("mine:%s", loc.Location)
+	tag := fmt.Sprintf("mine-%s", loc.Location)
 	devs, err := rest.GetTagged(tag)
 
 	// Build whatever is missing
@@ -74,7 +75,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	var data [][]string
 	fleet := make(map[string][]*models.Device)
 	for k, v := range missing {
-		data = append(data, []string{k, d(v), ""})
+		data = append(data, []string{k, d(v), "", ""})
 	}
 
 	amis := make(map[string]string)
@@ -87,9 +88,15 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		fleet[t] = append(fleet[t], d)
 	}
 	for _, l := range data {
-		l[2] = d(missing[l[0]])
+		var f []string
+		for _, d := range fleet[l[0]] {
+			f = append(f, alias(d.Code.String()))
+		}
+		slices.Sort(f)
+		l[2] = list(f)
+		l[3] = d(missing[l[0]])
 	}
-	printTable([]string{"Device", "Target", "Found"}, data)
+	printTable([]string{"Device", "Target", "Found", "Missing"}, data)
 
 	// Enqueue a build
 	var printing bool
@@ -98,16 +105,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if qty <= 0 {
 			continue
 		}
-		factory, rally, err := findPrinter(printers)
+		factory, err := findPrinter(printers)
 		if err != nil {
-			return fmt.Errorf("No available factory found to queue %s", devType)
+			return fmt.Errorf("No available factory found to queue %s: %v", devType, err)
 		}
 		cfg := map[string]any{
 			"device_type": devType,
-			"oncomplete": map[string]string{
-				"command":     "travel",
-				"destination": rally,
-			},
 		}
 		if t, ok := strings.CutSuffix(devType, "_drone"); ok {
 			if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
@@ -133,53 +136,38 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func findPrinter(printers []string) (string, string, error) {
+func findPrinter(printers []string) (string, error) {
 	// Check the queue for each potential printer. If there is an idle printer,
 	// use that. Otherwise, pick the one with the shortest queue, by remaining
 	// print time.
 	info := make(map[string]*models.Device)
+	fmt.Println("Printers:")
 	for _, p := range printers {
 		i, err := rest.DeviceInfo(p)
 		if err != nil {
-			return "", "", fmt.Errorf("can't get device info for %q: %v", p, err)
+			return "", fmt.Errorf("can't get device info for %q: %v", p, err)
 		}
 		info[p] = i
-	}
-
-	// Cache print times
-	printTime := make(map[string]time.Duration)
-	bps, err := rest.Blueprints()
-	if err != nil {
-		return "", "", err
-	}
-	for _, bp := range bps.Blueprints {
-		printTime[bp.DeviceType] = bp.PrintTime
+		fmt.Printf("  %s: %s\n", p, i.Type)
 	}
 
 	// Calculate the queue length for each printer
 	queue := make(map[string]time.Duration)
 	for _, p := range printers {
-		dev := info[p]
-		if dev.Printing == nil && len(dev.PrintQueue) == 0 {
-			queue[p] = 0
-			continue
+		eta, err := rest.GetPrintQueueETA(info[p])
+		if err != nil {
+			return "", fmt.Errorf("error getting print queue for %q: %v", p, err)
 		}
-		if dev.Printing != nil {
-			if l, ok := printTime[dev.Printing.DeviceType]; ok {
-				queue[p] += l
-			} else {
-				fmt.Printf("Can't find print time for %q\n", dev.Printing.DeviceType)
-			}
-		}
-		for _, q := range dev.PrintQueue {
-			if l, ok := printTime[q.Type]; ok {
-				queue[p] += l
-			} else {
-				fmt.Printf("Can't find print time for %q\n", q.Type)
-			}
-		}
-		fmt.Printf("queue for %q: %s\n", p, queue[p])
+		queue[p] = eta
 	}
+	if len(queue) == 0 {
+		return "", fmt.Errorf("No available printer found")
+	}
+	slices.SortFunc(printers, func(a, b string) int {
+		ta, _ := queue[a]
+		tb, _ := queue[b]
+		return cmp.Compare(ta, tb)
+	})
 
-	return "", "", fmt.Errorf("Still not implemented")
+	return printers[0], nil
 }

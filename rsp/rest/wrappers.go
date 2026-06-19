@@ -40,6 +40,9 @@ func PatchSettings(up *models.AccountUpdate) (*models.Account, error) {
 		return nil, err
 	}
 	res, err := Patch("accounts/me", data)
+	if err != nil {
+		return nil, err
+	}
 	acc, err := models.Parse[models.Account](res)
 	if err != nil {
 		return nil, err
@@ -358,6 +361,9 @@ func DeviceNetwork(id string) (*models.Network, error) {
 }
 
 func GetType(id string) (string, error) {
+	if id == "" {
+		return "", fmt.Errorf("can't get type of blank")
+	}
 	dev, err := DeviceInfo(id)
 	if err != nil {
 		return "", err
@@ -384,6 +390,9 @@ func UpdateTags(id string, operation TagOp, tags []string) (*models.Device, erro
 		return nil, err
 	}
 	res, err := Patch("devices/%s", data, id)
+	if err != nil {
+		return nil, err
+	}
 	return models.Parse[models.Device](res)
 }
 

@@ -23,3 +23,36 @@ func fill[T []E, E models.Fillable](s []E) error {
 	}
 	return nil
 }
+
+func GetPrintQueueETA(dev *models.Device) (time.Duration, error) {
+	if dev.Printing == nil && len(dev.PrintQueue) == 0 {
+		return 0, nil
+	}
+
+	printTime := make(map[string]time.Duration)
+	bps, err := Blueprints()
+	if err != nil {
+		return 0, fmt.Errorf("can't load blueprints: %v", err)
+	}
+	for _, bp := range bps.Blueprints {
+		printTime[bp.DeviceType] = bp.PrintTime
+	}
+	var res time.Duration
+	if dev.Printing != nil {
+		cur := dev.Printing.DeviceType
+		if l, ok := printTime[cur]; ok {
+			res += l
+		} else {
+			return 0, fmt.Errorf("can't find print time for %q", cur)
+		}
+	}
+	for _, q := range dev.PrintQueue {
+		if l, ok := printTime[q.Type]; ok {
+			res += l
+		} else {
+			return 0, fmt.Errorf("can't find print time for %q", q.Type)
+		}
+	}
+
+	return res, nil
+}
