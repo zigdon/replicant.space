@@ -83,6 +83,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		t := d.Type
 		if strings.Contains(t, "ami") {
 			amis[t] = d.Code.String()
+			fmt.Printf("ami found: %s -> %s\n", t, d.Code.String())
 		}
 		missing[t] -= 1
 		fleet[t] = append(fleet[t], d)
@@ -99,8 +100,8 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	printTable([]string{"Device", "Target", "Found", "Missing"}, data)
 
 	// Enqueue a build
-	var printing bool
 	printers, _ := cmd.Flags().GetStringSlice("factory")
+	data = [][]string{}
 	for devType, qty := range missing {
 		if qty <= 0 {
 			continue
@@ -122,12 +123,16 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		prettyPrint(res)
-		printing = true
+		data = append(data, []string{
+			factory, devType, res.Status, d(res.QueueLength+1),
+		})
 	}
 
-	if printing {
-		fmt.Println("Waiting for missing devices.")
+	if len(data) > 0 {
+		fmt.Println("Waiting for missing devices:")
+		printTable([]string{
+			"Factory", "Type", "Status", "Queue Posititon",
+		}, data)
 		return nil
 	}
 

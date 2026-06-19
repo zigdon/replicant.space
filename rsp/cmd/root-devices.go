@@ -29,8 +29,9 @@ var deviceListCmd = &cobra.Command{
 			filter, _ = cmd.Flags().GetStringSlice("filter_tags")
 		}
 		owner, _ := cmd.Flags().GetString("replicant")
+		location, _ := cmd.Flags().GetString("location")
 		for _, n := range names {
-			printReplicantDeviceList(acc.Replicants[n], filter, unalias(owner))
+			printReplicantDeviceList(acc.Replicants[n], filter, unalias(owner), location)
 			if acc.ReplicantCooperation == "shared" {
 				break
 			}
@@ -109,6 +110,7 @@ func init() {
 	deviceListCmd.Flags().Bool("ignore_tags", false, "If set, ignore tag filters")
 	deviceListCmd.Flags().StringSliceP("filter_tags", "t", []string{"infrastructure"}, "Filter results with these tags")
 	deviceListCmd.Flags().StringP("replicant", "r", "", "Show devices owned by this replicant, default all")
+	deviceListCmd.Flags().StringP("location", "l", "", "Only show devices in this location")
 
 	rootCmd.AddCommand(networkCmd)
 }

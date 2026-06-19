@@ -3,6 +3,7 @@ package rest
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -84,8 +85,14 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 	if err = json.Unmarshal(body, &r); err != nil {
 		return body, err
 	}
-	if err, ok := r["error"]; ok {
-		return nil, fmt.Errorf("generic error: %v", err)
+	if e, ok := r["error"]; ok {
+		errs := []error{errors.New(e.(string))}
+		if es, ok := r["errors"]; ok {
+			for _, e := range es.([]map[string]any) {
+				errs = append(errs, fmt.Errorf("%s: %s", e["device_code"], e["error"]))
+			}
+		}
+		return nil, fmt.Errorf("generic error: %v", errors.Join(errs...))
 	}
 
 	return body, err

@@ -69,7 +69,7 @@ var infoCmd = &cobra.Command{
 				"Type", "Progress", "ETA", "Started", "Ends",
 			}, [][]string{{
 				print.DeviceType, p(print.ProgressPercent),
-				print.Eta.String(), print.StartedAt, print.CompletesAt,
+				print.Eta.String(), t(print.Started), t(print.Completes),
 			}})
 		}
 		if len(dev.WaitingFor) > 0 {

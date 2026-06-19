@@ -15,6 +15,28 @@ type Fillable interface {
 	Fill() error
 }
 
+type fillPair struct {
+	fsrc float32
+	ssrc string
+	fdst *time.Duration
+	sdst *time.Time
+}
+
+func fillPairs(pairs []fillPair) error {
+	for _, p := range pairs {
+		if p.ssrc != "" {
+			if err := fillTime(p.ssrc, p.sdst); err != nil {
+				return err
+			}
+		} else {
+			if err := fillDuration(p.fsrc, p.fdst); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func fillTime(ts string, dest *time.Time) error {
 	if ts == "" {
 		return nil

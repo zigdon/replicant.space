@@ -15,13 +15,15 @@ type DevicePrint struct {
 	Eta             time.Duration
 	ProgressPercent float32   `json:"progress_percent"`
 	StartedAt       string    `json:"started_at"`
+	Started         time.Time
 }
 
 func (dp *DevicePrint) Fill() error {
-	if err := fillDuration(dp.EtaSeconds, &dp.Eta); err != nil {
-		return err
-	}
-	return fillTime(dp.CompletesAt, &dp.Completes)
+	return fillPairs([]fillPair{
+		{fsrc: dp.EtaSeconds, fdst: &dp.Eta},
+		{ssrc: dp.StartedAt, sdst: &dp.Started},
+		{ssrc: dp.CompletesAt, sdst: &dp.Completes},
+	})
 }
 
 type ControlledDevice struct {
@@ -58,8 +60,9 @@ func (ds *DeviceScan) Fill() error {
 }
 
 type DevicePrintQueue struct {
-	Type   string            `json:"device_type"`
-	Notify map[string]string `json:"notify"`
+	Controller string            `json:"Controller"`
+	Type       string            `json:"device_type"`
+	Notify     map[string]string `json:"notify"`
 }
 
 type Device struct {
@@ -132,29 +135,31 @@ type CommandResp struct {
 	CompletesAt          string              `json:"completes_at"`
 	Controller           *ControllerStatus   `json:"controller"`
 	ControllerCode       *CodeAlias          `json:"controller_code"`
-	DepartedAt           string              `json:"departed_at"`
 	Departed             time.Time
+	DepartedAt           string              `json:"departed_at"`
 	Destination          string              `json:"destination"`
 	DestinationName      string              `json:"destination_name"`
 	DestinationType      string              `json:"destination_type"`
 	DeviceCode           *CodeAlias          `json:"device_code"`
 	Eta                  time.Duration
-	EtaSeconds           float32         `json:"eta_seconds"`
-	FinalDestination     string          `json:"final_destination"`
-	FinalDestinationName string          `json:"final_destination_name"`
-	JsonErr              string          `json:"error"`
-	Location             string          `json:"location"`
-	Moon                 *Moon           `json:"moon"`
-	Origin               string          `json:"origin"`
-	OriginName           string          `json:"origin_name"`
-	ProgressPercent      float32         `json:"progress_percent"`
-	Released             []*StowedDevice `json:"released"`
-	ResourcesRecovered   map[string]int  `json:"resources_recovered"`
-	Route                []*TripLeg      `json:"route"`
-	Scanned              bool            `json:"scanned"`
-	Star                 string          `json:"star"`
-	StartedAt            string          `json:"started_at"`
+	EtaSeconds           float32             `json:"eta_seconds"`
+	FinalDestination     string              `json:"final_destination"`
+	FinalDestinationName string              `json:"final_destination_name"`
+	JsonErr              string              `json:"error"`
+	Location             string              `json:"location"`
+	Moon                 *Moon               `json:"moon"`
+	Origin               string              `json:"origin"`
+	OriginName           string              `json:"origin_name"`
+	ProgressPercent      float32             `json:"progress_percent"`
+	Queue                []*DevicePrintQueue `json:"queue"`
+	QueueLength          int                 `json:"queue_length"`
+	Released             []*StowedDevice     `json:"released"`
+	ResourcesRecovered   map[string]int      `json:"resources_recovered"`
+	Route                []*TripLeg          `json:"route"`
+	Scanned              bool                `json:"scanned"`
+	Star                 string              `json:"star"`
 	Started              time.Time
+	StartedAt            string              `json:"started_at"`
 	Status               string          `json:"status"`
 	TotalDistanceLy      float32         `json:"total_distance_ly"`
 	TotalTime            time.Duration

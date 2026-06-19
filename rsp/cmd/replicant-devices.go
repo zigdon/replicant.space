@@ -36,7 +36,8 @@ var devicesCmd = &cobra.Command{
 			if ignore, _ := cmd.Flags().GetBool("ignore_tags"); !ignore {
 				filter, _ = cmd.Flags().GetStringSlice("filter_tags")
 			}
-			printReplicantDeviceList(r, filter, rID)
+			loc, _ := cmd.Flags().GetString("location")
+			printReplicantDeviceList(r, filter, rID, loc)
 		}
 		return nil
 	},
@@ -49,7 +50,7 @@ func init() {
 	devicesCmd.Flags().StringSliceP("filter_tags", "t", []string{"infrastructure"}, "Filter results with these tags")
 }
 
-func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner string) {
+func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner, location string) {
 	devs, err := rest.ReplicantDevices(r.ReplicantCode.String(), "")
 	if err != nil {
 		log(err.Error())
@@ -82,6 +83,9 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner st
 	skipped := make(map[string]int)
 	for _, d := range devs {
 		if owner != "" && d.OwnerReplicantCode != owner {
+			continue
+		}
+		if location != "" && !strings.Contains(strings.ToLower(d.Location), strings.ToLower(location)) {
 			continue
 		}
 		if ignored[d.Code.String()] {
