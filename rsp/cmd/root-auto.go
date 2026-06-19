@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -108,8 +109,8 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				"destination": rally,
 			},
 		}
-		if t := strings.TrimSuffix(devType, "_drone"); t != devType {
-			if c, ok := amis[t]; ok {
+		if t, ok := strings.CutSuffix(devType, "_drone"); ok {
+			if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
 				cfg["controller"] = c
 			}
 		}
@@ -145,18 +146,39 @@ func findPrinter(printers []string) (string, string, error) {
 		info[p] = i
 	}
 
-	// Find the first printer that is either idle, or has space in the queue.
-	var found *models.Device
+	// Cache print times
+	printTime := make(map[string]time.Duration)
+	bps, err := rest.Blueprints()
+	if err != nil {
+		return "", "", err
+	}
+	for _, bp := range bps.Blueprints {
+		printTime[bp.DeviceType] = bp.PrintTime
+	}
+
+	// Calculate the queue length for each printer
+	queue := make(map[string]time.Duration)
 	for _, p := range printers {
 		dev := info[p]
 		if dev.Printing == nil && len(dev.PrintQueue) == 0 {
-			found = dev
-			break
+			queue[p] = 0
+			continue
 		}
-	}
-
-	if found == nil {
-		return "", "", fmt.Errorf("can't find an available printer")
+		if dev.Printing != nil {
+			if l, ok := printTime[dev.Printing.DeviceType]; ok {
+				queue[p] += l
+			} else {
+				fmt.Printf("Can't find print time for %q\n", dev.Printing.DeviceType)
+			}
+		}
+		for _, q := range dev.PrintQueue {
+			if l, ok := printTime[q.Type]; ok {
+				queue[p] += l
+			} else {
+				fmt.Printf("Can't find print time for %q\n", q.Type)
+			}
+		}
+		fmt.Printf("queue for %q: %s\n", p, queue[p])
 	}
 
 	return "", "", fmt.Errorf("Still not implemented")

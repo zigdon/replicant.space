@@ -91,7 +91,18 @@ var surveyCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Can't set directive: %v", err)
 		}
-		prettyPrint(res)
+		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+			prettyPrint(res)
+			return nil
+		}
+		printTable([]string{
+			"Directive", "Planets", "Moons", "Recall", "Status",
+		}, [][]string{{
+			res.AmiDirective.Name, res.AmiDirective.Config["planets"].(string), 
+			res.AmiDirective.Config["moons"].(string),
+			b(res.AmiDirective.Config["recall"].(bool)),
+			res.AmiDirectiveStatus,
+		}})
 		return nil
 	},
 }
@@ -115,7 +126,7 @@ func init() {
 			}}, "",
 	)
 	mkDeviceCommand(
-		"launch", "Deploy the fleet and start executing the current directive", "launch", nil, "launch",
+		"launch", "Deploy the fleet and start executing the current directive", "launch", nil, "device-launch",
 	)
 	mkDeviceCommand(
 		"resume", "pick up a stopped directive from where it left off", "resume_directive", nil, "",
