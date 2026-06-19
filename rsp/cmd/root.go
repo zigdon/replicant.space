@@ -91,8 +91,9 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 			var argsFlag flagDesc
 			var reps = 1
 			for _, f := range flags {
-				if f.name == "repeat" {
+				if f.name == "repeat" && f.value.(int) > 1 {
 					reps = f.value.(int)
+					fmt.Printf("Repeating %d times\n", reps)
 					continue
 				}
 				if f.name == "" {
