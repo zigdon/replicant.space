@@ -59,11 +59,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Get the existing fleet
-	tag := fmt.Sprintf("mine-%s", loc.Location)
-	devs, err := rest.GetTagged(tag)
-
-	// Build whatever is missing
+	// Define the desired fleet shape
 	missing := map[string]int{
 		"ami_mining_controller": 1,
 		"ami_survey_controller": 1,
@@ -72,35 +68,95 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		"survey_drone":          2,
 		"ftl_relay":             1,
 	}
-	var data [][]string
-	fleet := make(map[string][]*models.Device)
-	for k, v := range missing {
-		data = append(data, []string{k, d(v), "", ""})
+	type statLine struct{
+		found, idle, extra int
+	}
+	stats := make(map[string]*statLine)
+	for k := range missing {
+		stats[k] = new(statLine)
 	}
 
+	// Get printer locations
+	locs := make(map[string]bool)
+	printers, _ := cmd.Flags().GetStringSlice("factory")
+	for _, f := range printers {
+		dev, err := rest.DeviceInfo(f)
+		if err != nil {
+			return err
+		}
+		locs[dev.Location] = true
+	}
+	log("Printers found: %v", locs)
+
+	// Get the existing or idle fleet
+	fleet := make(map[string][]*models.Device)
+	tag := fmt.Sprintf("mine-%s", loc.Location)
+	tagged, err := rest.GetTagged(tag)
+
+	// Find what is missing
 	amis := make(map[string]string)
-	for _, d := range devs.Devices {
+	for _, d := range tagged.Devices {
 		t := d.Type
+		stats[t].found += 1
 		if strings.Contains(t, "ami") {
 			amis[t] = d.Code.String()
-			fmt.Printf("ami found: %s -> %s\n", t, d.Code.String())
+			log("ami found: %s -> %s", t, d.Code.String())
 		}
+		if m := missing[t]; m <= 0 {
+			stats[t].extra += 1
+			log("Found a spare tagged %s: %s", t, d.Code.String())
+			continue
+		}
+
 		missing[t] -= 1
 		fleet[t] = append(fleet[t], d)
 	}
-	for _, l := range data {
+
+	// See if we can repurpose idle devices
+	devs, err := rest.AllDevices() 
+	if err != nil {
+		return err
+	}
+	for _, d := range devs {
+		if _, ok := locs[d.Location]; !ok {
+			continue
+		}
+		if d.Status != "idle" {
+			continue
+		}
+		t := d.Type
+		if m := missing[t]; m > 0 {
+			stats[t].idle += 1
+			missing[t] -= 1
+			fleet[t] = append(fleet[t], d)
+			log("Tagging idle %s (%s)", t, d.Code.String())
+			_, err := rest.UpdateTags(d.Code.String(), rest.AddTag, []string{tag})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	var types []string
+	for t := range missing {
+		types = append(types, t)
+	}
+	slices.Sort(types)
+
+	var data [][]string
+	for _, t := range types {
 		var f []string
-		for _, d := range fleet[l[0]] {
+		for _, d := range fleet[t] {
 			f = append(f, alias(d.Code.String()))
 		}
 		slices.Sort(f)
-		l[2] = list(f)
-		l[3] = d(missing[l[0]])
+		data = append(data, []string{
+			t, d(missing[t] + len(fleet[t])), d(len(fleet[t])), d(stats[t].idle), d(missing[t]), d(stats[t].extra), list(f),
+		})
 	}
-	printTable([]string{"Device", "Target", "Found", "Missing"}, data)
+	printTable([]string{"Device", "Target", "Found", "Repurposed", "Missing", "Extra", "Members"}, data)
 
 	// Enqueue a build
-	printers, _ := cmd.Flags().GetStringSlice("factory")
 	data = [][]string{}
 	for devType, qty := range missing {
 		if qty <= 0 {
@@ -118,7 +174,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				cfg["controller"] = c
 			}
 		}
-		fmt.Printf("Printing %q at %q...\n", devType, factory)
+		log("Printing %q at %q...", devType, factory)
 		res, err := rest.DeviceCommand(factory, "enqueue_print", cfg)
 		if err != nil {
 			return err
@@ -129,14 +185,14 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(data) > 0 {
-		fmt.Println("Waiting for missing devices:")
+		log("Waiting for missing devices:")
 		printTable([]string{
 			"Factory", "Type", "Status", "Queue Posititon",
 		}, data)
 		return nil
 	}
 
-	fmt.Println("Fleet ready to ship")
+	log("Fleet ready to ship")
 
 	return nil
 }
@@ -146,14 +202,14 @@ func findPrinter(printers []string) (string, error) {
 	// use that. Otherwise, pick the one with the shortest queue, by remaining
 	// print time.
 	info := make(map[string]*models.Device)
-	fmt.Println("Printers:")
+	log("Printers:")
 	for _, p := range printers {
 		i, err := rest.DeviceInfo(p)
 		if err != nil {
 			return "", fmt.Errorf("can't get device info for %q: %v", p, err)
 		}
 		info[p] = i
-		fmt.Printf("  %s: %s\n", p, i.Type)
+		log("  %s: %s", p, i.Type)
 	}
 
 	// Calculate the queue length for each printer
