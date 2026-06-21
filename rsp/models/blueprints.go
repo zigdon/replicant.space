@@ -18,11 +18,10 @@ type Blueprint struct {
 }
 
 func (b *Blueprint) Fill() error {
-	var err error
 	if b.PrintTimeSeconds > 0 {
-		b.PrintTime, err = time.ParseDuration(fmt.Sprintf("%.2fs", b.PrintTimeSeconds))
+		return fillDuration(b.PrintTimeSeconds, &b.PrintTime)
 	}
-	return err
+	return nil
 }
 
 type Blueprints struct {
@@ -30,12 +29,7 @@ type Blueprints struct {
 }
 
 func (bs *Blueprints) Fill() error {
-	for _, b := range bs.Blueprints {
-		if err := b.Fill(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return fill([]fillData{{recurse: f(bs.Blueprints)}})
 }
 
 type PrintResp struct {
@@ -49,11 +43,10 @@ type PrintResp struct {
 }
 
 func (pr *PrintResp) Fill() error {
-	var err error
 	if pr.PrintTimeSeconds > 0 {
-		pr.PrintTime, err = time.ParseDuration(fmt.Sprintf("%.2fs", pr.PrintTimeSeconds))
+		return fillDuration(pr.PrintTimeSeconds, &pr.PrintTime)
 	}
-	return err
+	return nil
 }
 
 type Queued struct {

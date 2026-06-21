@@ -15,18 +15,33 @@ type Fillable interface {
 	Fill() error
 }
 
-type fillPair struct {
+type fillData struct {
 	fsrc float32
 	ssrc string
 	fdst *time.Duration
 	sdst *time.Time
+	recurse []Fillable
 }
 
-func fillPairs(pairs []fillPair) error {
+func f[T Fillable](fs []T) []Fillable {
+	res := make([]Fillable, len(fs))
+	for i, m := range fs {
+		res[i] = m
+	}
+	return res
+}
+
+func fill(pairs []fillData) error {
 	for _, p := range pairs {
 		if p.ssrc != "" {
 			if err := fillTime(p.ssrc, p.sdst); err != nil {
 				return err
+			}
+		} else if len(p.recurse) > 0 {
+			for _, r := range p.recurse {
+				if err := r.Fill(); err != nil {
+					return err
+				}
 			}
 		} else {
 			if err := fillDuration(p.fsrc, p.fdst); err != nil {

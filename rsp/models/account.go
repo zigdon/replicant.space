@@ -65,12 +65,7 @@ type Messages struct {
 }
 
 func (m *Messages) Fill() error {
-	for _, msg := range m.Messages {
-		if err := msg.Fill(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return fill([]fillData{{recurse: f(m.Messages)}})
 }
 
 type Bob struct {
@@ -96,12 +91,7 @@ type Bobs struct {
 }
 
 func (bs *Bobs) Fill() error {
-	for _, b := range bs.Messages {
-		if err := b.Fill(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return fill([]fillData{{recurse: f(bs.Messages)}})
 }
 
 type EventCriteria struct {
@@ -167,10 +157,5 @@ type Events struct {
 }
 
 func (es *Events) Fill() error {
-	for _, e := range es.Events {
-		if err := e.Fill(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return fill([]fillData{{recurse: f(es.Events)}})
 }

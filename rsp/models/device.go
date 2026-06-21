@@ -19,7 +19,7 @@ type DevicePrint struct {
 }
 
 func (dp *DevicePrint) Fill() error {
-	return fillPairs([]fillPair{
+	return fill([]fillData{
 		{fsrc: dp.EtaSeconds, fdst: &dp.Eta},
 		{ssrc: dp.StartedAt, sdst: &dp.Started},
 		{ssrc: dp.CompletesAt, sdst: &dp.Completes},
@@ -53,10 +53,10 @@ type DeviceScan struct {
 }
 
 func (ds *DeviceScan) Fill() error {
-	if err := fillDuration(ds.EtaSeconds, &ds.Eta); err != nil {
-		return err
-	}
-	return fillTime(ds.StartedAt, &ds.Started)
+	return fill([]fillData{
+		{fsrc: ds.EtaSeconds, fdst: &ds.Eta},
+		{ssrc: ds.StartedAt, sdst: &ds.Started},
+	})
 }
 
 type DevicePrintQueue struct {
@@ -105,9 +105,7 @@ func (d *Device) Fill() error {
 		d.Printing.Fill()
 	}
 	if d.Travel != nil {
-		if err := d.Travel.Fill(); err != nil {
-			return err
-		}
+		return d.Travel.Fill()
 	}
 	return nil
 }
@@ -168,30 +166,15 @@ type CommandResp struct {
 }
 
 func (cs *CommandResp) Fill() error {
-	if err := fillTime(cs.ArrivesAt, &cs.Arrives); err != nil {
-		return err
-	}
-	if err := fillTime(cs.DepartedAt, &cs.Departed); err != nil {
-		return err
-	}
-	if err := fillTime(cs.StartedAt, &cs.Started); err != nil {
-		return err
-	}
-	if err := fillTime(cs.CompletesAt, &cs.Completes); err != nil {
-		return err
-	}
-	if err := fillDuration(cs.EtaSeconds, &cs.Eta); err != nil {
-		return err
-	}
-	if err := fillDuration(cs.TotalTimeSeconds, &cs.TotalTime); err != nil {
-		return err
-	}
-	for _, l := range cs.Route {
-		if err := l.Fill(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return fill([]fillData{
+		{ssrc: cs.ArrivesAt, sdst: &cs.Arrives},
+		{ssrc: cs.DepartedAt, sdst: &cs.Departed},
+		{ssrc: cs.StartedAt, sdst: &cs.Started},
+		{ssrc: cs.CompletesAt, sdst: &cs.Completes},
+		{fsrc: cs.EtaSeconds, fdst: &cs.Eta},
+		{fsrc: cs.TotalTimeSeconds, fdst: &cs.TotalTime},
+		{recurse: f(cs.Route)},
+	})
 }
 
 type AvailableSite struct {
@@ -262,9 +245,7 @@ type DeviceEvent struct {
 }
 
 func (e *DeviceEvent) Fill() error {
-	var err error
-	e.Created, err = time.Parse(time.RFC3339, e.CreatedAt)
-	return err
+	return fillTime(e.CreatedAt, &e.Created)
 }
 
 type DeviceLogs struct {
@@ -273,10 +254,5 @@ type DeviceLogs struct {
 }
 
 func (e *DeviceLogs) Fill() error {
-	for _, ev := range e.Events {
-		if err := ev.Fill(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return fill([]fillData{{recurse: f(e.Events)}})
 }
