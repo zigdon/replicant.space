@@ -49,6 +49,7 @@ func init() {
 	autoMineCmd.Flags().StringP("location", "l", "", "Belt location to mine")
 	autoMineCmd.MarkFlagRequired("location")
 	autoMineCmd.Flags().StringSliceP("factory", "f", []string{"a-1"}, "Devices for building new ships")
+	autoMineCmd.Flags().BoolP("dry_run", "n", false, "Only plan, don't actually queue prints")
 }
 
 func autoMine(cmd *cobra.Command, args []string) error {
@@ -121,7 +122,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if _, ok := locs[d.Location]; !ok {
 			continue
 		}
-		if d.Status != "idle" {
+		if d.Status != "idle" && d.Status != "inactive" {
 			continue
 		}
 		t := d.Type
@@ -155,6 +156,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		})
 	}
 	printTable([]string{"Device", "Target", "Found", "Repurposed", "Missing", "Extra", "Members"}, data)
+
+	if dr, _ := cmd.Flags().GetBool("dry_run"); dr {
+		return nil
+	}
 
 	// Enqueue a build
 	data = [][]string{}

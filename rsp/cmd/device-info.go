@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
@@ -32,17 +33,13 @@ var infoCmd = &cobra.Command{
 			cargo = append([]string{fmt.Sprintf("%.2f/%d (%.0f%%)",
 				totalCargo, dev.CargoCapacity, totalCargo/float32(dev.CargoCapacity)*100)}, cargo...)
 		}
-		var pq []string
-		for _, q := range dev.PrintQueue {
-			pq = append(pq, q.Type)
-		}
 		printTable(
 			[]string{"Code", "Type", "Location", "Features", "Status", "Taxi Mode",
-				"Replicant", "Commands", "Ops Capacity", "Cargo", "Tags", "Print Queue"},
+				"Replicant", "Commands", "Ops Capacity", "Cargo", "Tags"},
 			[][]string{{code, dev.Type, dev.Location,
 				lines(dev.Features), dev.Status, dev.TaxiMode, alias(dev.ReplicantCode.String()),
 				lines(dev.AvailableCommands), f(dev.OperationalCapacity),
-				lines(cargo), lines(dev.Tags), lines(pq),
+				lines(cargo), lines(dev.Tags),
 			}},
 		)
 		if len(dev.AvailableDirectives) > 0 {
@@ -64,13 +61,28 @@ var infoCmd = &cobra.Command{
 			}})
 		}
 		if dev.Printing != nil {
+			printTime := make(map[string]time.Duration)
+			bps, err := rest.Blueprints()
+			if err != nil {
+				return err
+			}
+			for _, bp := range bps.Blueprints {
+				printTime[bp.DeviceType] = bp.PrintTime
+			}
 			print := dev.Printing
-			printTable([]string{
-				"Type", "Progress", "ETA", "Started", "Ends",
-			}, [][]string{{
+			data := [][]string{{
 				print.DeviceType, p(print.ProgressPercent),
 				print.Eta.String(), t(print.Started), t(print.Completes),
-			}})
+			}}
+			est := print.Completes
+			for _, q := range dev.PrintQueue {
+				dur := printTime[q.Type]
+				data = append(data, []string{
+					q.Type, "Queued", dur.String(), t(est), t(est.Add(dur)),
+				})
+				est = est.Add(dur)
+			}
+			printTable([]string{"Type", "Progress", "ETA", "Started", "Ends"}, data)
 		}
 		if len(dev.WaitingFor) > 0 {
 			var w [][]string

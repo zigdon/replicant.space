@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 
 	lg "charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -155,6 +157,9 @@ var locationCmd = &cobra.Command{
 		}
 
 		data = [][]string{}
+		slices.SortFunc(res.Devices, func(a, b *models.Device) int {
+			return cmp.Compare(a.Type, b.Type)
+		})
 		for _, d := range res.Devices {
 			data = append(data, []string{alias(d.Code.String()), d.Type, d.Status})
 		}

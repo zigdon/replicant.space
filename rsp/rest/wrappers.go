@@ -400,7 +400,7 @@ func GetTagged(tag string) (*models.TaggedDevices, error) {
 	var cursor int
 	all := new(models.TaggedDevices)
 	for {
-		res, err := cacheGET("", 0, "devices/tags/%s?limit=5&cursor=%d", tag, cursor)
+		res, err := cacheGET("", 5 * time.Minute, "devices/tags/%s?limit=5&cursor=%d", tag, cursor)
 		if err != nil {
 			return nil, err
 		}
