@@ -65,22 +65,13 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner, l
 			r.Name, r.ReplicantCode, r.CurrentLocation)
 	}
 
-	ignored := make(map[string]bool)
-	if len(filterTags) > 0 {
-		for _, f := range filterTags {
-			res, err := rest.GetTagged(f)
-			if err != nil {
-				log(err.Error())
-				return
-			}
-			for _, d := range res.Devices {
-				ignored[d.Code.String()] = true
-			}
-		}
-	}
-
 	var data [][]string
 	skipped := make(map[string]int)
+	skipTags := make(map[string]bool)
+	for _, tag := range filterTags {
+		skipTags[tag] = true
+	}
+
 	for _, d := range devs {
 		if owner != "" && d.OwnerReplicantCode != owner {
 			continue
@@ -88,8 +79,19 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner, l
 		if location != "" && !strings.Contains(strings.ToLower(d.Location), strings.ToLower(location)) {
 			continue
 		}
-		if ignored[d.Code.String()] {
-			skipped[d.Type]++
+		if skipTags["mine"] && slices.Contains(d.Tags, fmt.Sprintf("mine-%s", strings.ToLower(d.Location))) {
+			skipped["mining"]++
+			continue
+		}
+		skip := false
+		for _, tag := range d.Tags {
+			if s := skipTags[tag]; s {
+				skipped[d.Type]++
+				skip = true
+				break
+			}
+		}
+		if skip {
 			continue
 		}
 		status := d.Status
