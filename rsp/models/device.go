@@ -7,11 +7,11 @@ import (
 )
 
 type DevicePrint struct {
-	Completes       JSONTime      `json:"completes_at"`
-	DeviceType      string        `json:"device_type"`
-	Eta             JSONTimeDelta `json:"eta_seconds"`
-	ProgressPercent float32       `json:"progress_percent"`
-	Started         JSONTime      `json:"started_at"`
+	Completes       *JSONTime      `json:"completes_at"`
+	DeviceType      string         `json:"device_type"`
+	Eta             *JSONTimeDelta `json:"eta_seconds"`
+	ProgressPercent float32        `json:"progress_percent"`
+	Started         *JSONTime      `json:"started_at"`
 }
 
 type ControlledDevice struct {
@@ -32,10 +32,10 @@ type DeviceDirective struct {
 }
 
 type DeviceScan struct {
-	Eta             JSONTimeDelta `json:"eta_seconds"`
-	ProgressPercent float32       `json:"progress_percent"`
-	Started         JSONTime      `json:"started_at"`
-	Target          string        `json:"target"`
+	Eta             *JSONTimeDelta `json:"eta_seconds"`
+	ProgressPercent float32        `json:"progress_percent"`
+	Started         *JSONTime      `json:"started_at"`
+	Target          string         `json:"target"`
 }
 
 type DevicePrintQueue struct {
@@ -91,21 +91,21 @@ type CommandResp struct {
 	AdoptedDevices       []*StowedDevice     `json:"adopted"`
 	AmiDirective         *DeviceDirective    `json:"ami_directive"`
 	AmiDirectiveStatus   string              `json:"ami_directive_status"`
-	Arrives              JSONTime            `json:"arrives_at"`
+	Arrives              *JSONTime           `json:"arrives_at"`
 	AssignedDevices      map[string][]string `json:"assigned_devices"`
 	AttachedDevices      []string            `json:"attached_devices"`
 	AvailableSites       []*AvailableSite    `json:"available_sites"`
 	Belt                 string              `json:"belt"`
 	BlueprintDiscovered  string              `json:"blueprint_discovered"`
-	Completes            JSONTime            `json:"completes_at"`
+	Completes            *JSONTime           `json:"completes_at"`
 	Controller           *ControllerStatus   `json:"controller"`
 	ControllerCode       *CodeAlias          `json:"controller_code"`
-	Departed             JSONTime            `json:"departed_at"`
+	Departed             *JSONTime           `json:"departed_at"`
 	Destination          string              `json:"destination"`
 	DestinationName      string              `json:"destination_name"`
 	DestinationType      string              `json:"destination_type"`
 	DeviceCode           *CodeAlias          `json:"device_code"`
-	Eta                  JSONTimeDelta       `json:"eta_seconds"`
+	Eta                  *JSONTimeDelta      `json:"eta_seconds"`
 	FinalDestination     string              `json:"final_destination"`
 	FinalDestinationName string              `json:"final_destination_name"`
 	JsonErr              string              `json:"error"`
@@ -121,10 +121,10 @@ type CommandResp struct {
 	Route                []*TripLeg          `json:"route"`
 	Scanned              bool                `json:"scanned"`
 	Star                 string              `json:"star"`
-	Started              JSONTime            `json:"started_at"`
+	Started              *JSONTime           `json:"started_at"`
 	Status               string              `json:"status"`
 	TotalDistanceLy      float32             `json:"total_distance_ly"`
-	TotalTime            JSONTimeDelta       `json:"total_time_seconds"`
+	TotalTime            *JSONTimeDelta      `json:"total_time_seconds"`
 	TravelType           string              `json:"travel_type"`
 }
 
@@ -185,7 +185,7 @@ func (n *Network) Equal(n2 *Network) bool {
 }
 
 type DeviceEvent struct {
-	Created    JSONTime       `json:"created_at"`
+	Created    *JSONTime      `json:"created_at"`
 	DeviceCode string         `json:"device_code"`
 	DeviceType string         `json:"device_type"`
 	EventType  string         `json:"event_type"`

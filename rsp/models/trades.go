@@ -7,9 +7,9 @@ import (
 )
 
 type Trade struct {
-	Code      string `json:"trade_code"`
-	Created   JSONTime `json:"created_at"`
-	Criteria  struct {
+	Code     string    `json:"trade_code"`
+	Created  *JSONTime `json:"created_at"`
+	Criteria struct {
 		Devices   map[string]int `json:"devices"`
 		Resources map[string]int `json:"resources"`
 	} `json:"criteria"`

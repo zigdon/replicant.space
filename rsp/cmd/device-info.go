@@ -123,7 +123,6 @@ var infoCmd = &cobra.Command{
 		}
 		if dev.Travel != nil {
 			trip := dev.Travel
-			log("%+v", trip)
 			printTable([]string{
 				"Origin", "Destination", "ETA", "Percent", "Time Left", "Type",
 			}, [][]string{{

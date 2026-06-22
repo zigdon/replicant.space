@@ -1,7 +1,7 @@
 package models
 
 type ReplicantEvent struct {
-	Created    JSONTime       `json:"created_at"`
+	Created    *JSONTime      `json:"created_at"`
 	DeviceCode *CodeAlias     `json:"device_code"`
 	DeviceType string         `json:"device_type"`
 	Type       string         `json:"event_type"`
@@ -32,26 +32,26 @@ type MissingResources struct {
 }
 
 type Travel struct {
-	Arrives          JSONTime `json:"arrives_at"`
-	Departed         JSONTime `json:"departed_at"`
-	Destination      string  `json:"destination"`
-	DestinationName  string  `json:"destination_name"`
-	DestinationType  string  `json:"destination_type"`
-	Eta              JSONTimeDelta `json:"eta_seconds"`
-	Origin           string     `json:"origin"`
-	OriginName       string     `json:"origin_name"`
-	ProgressPercent  float32    `json:"progress_percent"`
-	Route            []*TripLeg `json:"route"`
-	Stage            string     `json:"stage"`
-	TotalDistanceLy  float32    `json:"total_distance_ly"`
-	TotalTime        JSONTimeDelta `json:"total_time_seconds"`
-	Type             string `json:"type"`
+	Arrives         *JSONTime      `json:"arrives_at"`
+	Departed        *JSONTime      `json:"departed_at"`
+	Destination     string         `json:"destination"`
+	DestinationName string         `json:"destination_name"`
+	DestinationType string         `json:"destination_type"`
+	Eta             *JSONTimeDelta `json:"eta_seconds"`
+	Origin          string         `json:"origin"`
+	OriginName      string         `json:"origin_name"`
+	ProgressPercent float32        `json:"progress_percent"`
+	Route           []*TripLeg     `json:"route"`
+	Stage           string         `json:"stage"`
+	TotalDistanceLy float32        `json:"total_distance_ly"`
+	TotalTime       *JSONTimeDelta `json:"total_time_seconds"`
+	Type            string         `json:"type"`
 }
 
 type Replicant struct {
 	AttachedDevices     []string                     `json:"attached_devices"`
 	Cargo               []string                     `json:"cargo"`
-	Created             JSONTime                     `json:"created_at"`
+	Created             *JSONTime                    `json:"created_at"`
 	CurrentLocation     string                       `json:"current_location"`
 	CurrentLocationName string                       `json:"current_location_name"`
 	CurrentStar         string                       `json:"current_star"`

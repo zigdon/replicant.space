@@ -21,7 +21,7 @@ type AccountUpdate struct {
 
 type Account struct {
 	BobnetChannels        []string              `json:"bobnet_channels"`
-	Created               JSONTime              `json:"created_at"`
+	Created               *JSONTime             `json:"created_at"`
 	Email                 string                `json:"email"`
 	EmailVerified         bool                  `json:"email_verified"`
 	ExperiencePointsTotal int                   `json:"experience_points_total"`
@@ -36,12 +36,12 @@ type Account struct {
 }
 
 type Message struct {
-	ID      int      `json:"id"`
-	Type    string   `json:"message_type"`
-	Title   string   `json:"title"`
-	Body    string   `json:"body"`
-	Read    bool     `json:"is_read"`
-	Created JSONTime `json:"created_at"`
+	ID      int       `json:"id"`
+	Type    string    `json:"message_type"`
+	Title   string    `json:"title"`
+	Body    string    `json:"body"`
+	Read    bool      `json:"is_read"`
+	Created *JSONTime `json:"created_at"`
 }
 
 type Messages struct {
@@ -51,13 +51,13 @@ type Messages struct {
 }
 
 type Bob struct {
-	Id            int      `json:"id"`
-	Channel       string   `json:"channel"`
-	CurrentStar   string   `json:"current_star"`
-	Message       string   `json:"message"`
-	ReplicantCode string   `json:"replicant_code"`
-	ReplicantName string   `json:"replicant_name"`
-	Time 		  JSONTime `json:"time"`
+	Id            int       `json:"id"`
+	Channel       string    `json:"channel"`
+	CurrentStar   string    `json:"current_star"`
+	Message       string    `json:"message"`
+	ReplicantCode string    `json:"replicant_code"`
+	ReplicantName string    `json:"replicant_name"`
+	Time          *JSONTime `json:"time"`
 }
 
 type Bobs struct {
@@ -107,7 +107,7 @@ type Event struct {
 	Criteria         []*EventCriteria `json:"criteria"`
 	Description      string           `json:"description"`
 	Designation      string           `json:"designation"`
-	Discovered       JSONTime         `json:"discovered_at"`
+	Discovered       *JSONTime        `json:"discovered_at"`
 	Error            string           `json:"error"`
 	Location         string           `json:"location"`
 	LocationName     string           `json:"location_name"`

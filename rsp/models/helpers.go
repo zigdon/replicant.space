@@ -16,10 +16,10 @@ type Fillable interface {
 }
 
 type fillData struct {
-	fsrc float32
-	ssrc string
-	fdst *time.Duration
-	sdst *time.Time
+	fsrc    float32
+	ssrc    string
+	fdst    *time.Duration
+	sdst    *time.Time
 	recurse []Fillable
 }
 
@@ -94,19 +94,22 @@ func ConnectDB(cdb *cache.Cache) {
 
 type JSONTimeDelta struct {
 	seconds float32
-	td time.Duration
+	td      time.Duration
 }
 
 func (jtd *JSONTimeDelta) UnmarshalJSON(data []byte) error {
-	jtd = new(JSONTimeDelta{})
-	if err := json.Unmarshal(data, &jtd.seconds); err != nil {
+	var seconds float32
+	if err := json.Unmarshal(data, &seconds); err != nil {
 		return err
 	}
-	return fillDuration(jtd.seconds, &jtd.td)
+	var td time.Duration
+	err := fillDuration(seconds, &td)
+	*jtd = JSONTimeDelta{seconds, td}
+	return err
 }
 
 func (jtd *JSONTimeDelta) String() string {
-	if jtd.seconds == 0 {
+	if jtd == nil {
 		return ""
 	}
 	return jtd.td.String()
@@ -118,19 +121,22 @@ func (jtd *JSONTimeDelta) Duration() time.Duration {
 
 type JSONTime struct {
 	orig string
-	ts time.Time
+	ts   time.Time
 }
 
 func (jt *JSONTime) UnmarshalJSON(data []byte) error {
-	jt = new(JSONTime{})
-	if err := json.Unmarshal(data, &jt.orig); err != nil {
+	var orig string
+	if err := json.Unmarshal(data, &orig); err != nil {
 		return err
 	}
-	return fillTime(jt.orig, &jt.ts)
+	var ts time.Time
+	err := fillTime(orig, &ts)
+	*jt = JSONTime{orig, ts}
+	return err
 }
 
 func (jt *JSONTime) String() string {
-	if jt.orig == "" {
+	if jt == nil {
 		return ""
 	}
 	now := time.Now()
