@@ -210,6 +210,31 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// If the afc is at the destination, unattach all the things
+	afcInfo, err := rest.DeviceInfo(afc)
+	if err != nil {
+		return err
+	}
+	platforms := afcInfo.ControlledDevices
+	for _, p := range platforms {
+		info, err := rest.DeviceInfo(p.Code.String())
+		if err != nil {
+			return err
+		}
+		var devs []string
+		for _, d := range info.AttachedDevices {
+			devs = append(devs, d.Code.String())
+		}
+		if len(devs) == 0 {
+			continue
+		}
+		log("Detaching %v from %s", devs, info.Code.Alias())
+		_, err = rest.DeviceCommand(info.Code.String(), "detach", map[string]any{"targets": devs})
+		if err != nil {
+			return err
+		}
+	}
+
 	// Figure out where we have devices that are not at our destination
 	var dest string
 	var needPicked []string
@@ -218,15 +243,16 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			if d.Location == loc.Location {
 				continue
 			}
-			if d.Status != "idle" {
+			if dest != "" && d.Location != dest {
+				continue
+			}
+			if d.Status != "idle" && d.Status != "inactive" {
 				continue
 			}
 			needPicked = append(needPicked, d.Code.String())
-			dest = d.Location
-			break
-		}
-		if dest != "" {
-			break
+			if dest == "" {
+				dest = d.Location
+			}
 		}
 	}
 	if dest == "" {
@@ -240,22 +266,17 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if err == nil {
-		log("Fleet in transit, eta %s", res.Eta.String())
+		log("Fleet in transit, eta %s", res.TotalTime.String())
 		return nil
 	}
 
 	// Attach any devices that need to ship
-	info, err := rest.DeviceInfo(afc)
-	if err != nil {
-		return err
-	}
-	platforms := info.ControlledDevices
 	for _, p := range platforms {
 		info, err := rest.DeviceInfo(p.Code.String())
 		if err != nil {
 			return err
 		}
-		cap := max(info.AttachCapacity - len(info.AttachedDevices), len(needPicked))
+		cap := min(info.AttachCapacity - len(info.AttachedDevices), len(needPicked))
 		if cap > 0 {
 			log("Attaching %v to %s", needPicked[0:cap], p.Code.Alias())
 			_, err := rest.DeviceCommand(p.Code.String(), "attach", map[string]any{

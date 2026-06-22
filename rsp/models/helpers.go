@@ -92,6 +92,61 @@ func ConnectDB(cdb *cache.Cache) {
 	db = cdb
 }
 
+type JSONTimeDelta struct {
+	seconds float32
+	td time.Duration
+}
+
+func (jtd *JSONTimeDelta) UnmarshalJSON(data []byte) error {
+	jtd = new(JSONTimeDelta{})
+	if err := json.Unmarshal(data, &jtd.seconds); err != nil {
+		return err
+	}
+	return fillDuration(jtd.seconds, &jtd.td)
+}
+
+func (jtd *JSONTimeDelta) String() string {
+	if jtd.seconds == 0 {
+		return ""
+	}
+	return jtd.td.String()
+}
+
+func (jtd *JSONTimeDelta) Duration() time.Duration {
+	return jtd.td
+}
+
+type JSONTime struct {
+	orig string
+	ts time.Time
+}
+
+func (jt *JSONTime) UnmarshalJSON(data []byte) error {
+	jt = new(JSONTime{})
+	if err := json.Unmarshal(data, &jt.orig); err != nil {
+		return err
+	}
+	return fillTime(jt.orig, &jt.ts)
+}
+
+func (jt *JSONTime) String() string {
+	if jt.orig == "" {
+		return ""
+	}
+	now := time.Now()
+	var eta string
+	if jt.ts.Before(now) {
+		eta = fmt.Sprintf("%s ago", now.Sub(jt.ts).Round(time.Second).String())
+	} else {
+		eta = fmt.Sprintf("in %s", jt.ts.Sub(now).Round(time.Second).String())
+	}
+	return fmt.Sprintf("%s (%s)", jt.ts.Format(time.DateTime), eta)
+}
+
+func (jt *JSONTime) Time() time.Time {
+	return jt.ts
+}
+
 type CodeAlias struct {
 	orig  string
 	alias string

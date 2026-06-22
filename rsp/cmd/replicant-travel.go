@@ -32,7 +32,7 @@ var travelCmd = &cobra.Command{
 				"Duration", "Departed", "Arrives",
 			}, [][]string{{
 				res.Origin, res.Destination, res.Status,
-				res.TotalTime.String(), t(res.Departed), t(res.Arrives),
+				res.TotalTime.String(), t(res.Departed.Time()), t(res.Arrives.Time()),
 			}})
 			var ls [][]string
 			for _, l := range res.Route {

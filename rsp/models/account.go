@@ -1,9 +1,5 @@
 package models
 
-import (
-	"time"
-)
-
 type NotifyDetails struct {
 	Email   map[string]bool `json:"email"`
 	Webhook map[string]bool `json:"webhook"`
@@ -25,8 +21,7 @@ type AccountUpdate struct {
 
 type Account struct {
 	BobnetChannels        []string              `json:"bobnet_channels"`
-	CreatedAt             string                `json:"created_at"`
-	Created               time.Time
+	Created               JSONTime              `json:"created_at"`
 	Email                 string                `json:"email"`
 	EmailVerified         bool                  `json:"email_verified"`
 	ExperiencePointsTotal int                   `json:"experience_points_total"`
@@ -40,22 +35,13 @@ type Account struct {
 	UnreadMessageCount    int                   `json:"unread_message_count"`
 }
 
-func (a *Account) Fill() error {
-	return fillTime(a.CreatedAt, &a.Created)
-}
-
 type Message struct {
-	ID        int    `json:"id"`
-	Type      string `json:"message_type"`
-	Title     string `json:"title"`
-	Body      string `json:"body"`
-	Read      bool   `json:"is_read"`
-	Created   time.Time
-	CreatedAt string `json:"created_at"`
-}
-
-func (m *Message) Fill() error {
-	return fillTime(m.CreatedAt, &m.Created)
+	ID      int      `json:"id"`
+	Type    string   `json:"message_type"`
+	Title   string   `json:"title"`
+	Body    string   `json:"body"`
+	Read    bool     `json:"is_read"`
+	Created JSONTime `json:"created_at"`
 }
 
 type Messages struct {
@@ -64,23 +50,14 @@ type Messages struct {
 	UnreadCount int        `json:"unread_message_count"`
 }
 
-func (m *Messages) Fill() error {
-	return fill([]fillData{{recurse: f(m.Messages)}})
-}
-
 type Bob struct {
-	Id            int       `json:"id"`
-	Channel       string    `json:"channel"`
-	CurrentStar   string    `json:"current_star"`
-	Message       string    `json:"message"`
-	ReplicantCode string    `json:"replicant_code"`
-	ReplicantName string    `json:"replicant_name"`
-	TimeRaw       string    `json:"time"`
-	Time 		  time.Time
-}
-
-func (b *Bob) Fill() error {
-	return fillTime(b.TimeRaw, &b.Time)
+	Id            int      `json:"id"`
+	Channel       string   `json:"channel"`
+	CurrentStar   string   `json:"current_star"`
+	Message       string   `json:"message"`
+	ReplicantCode string   `json:"replicant_code"`
+	ReplicantName string   `json:"replicant_name"`
+	Time 		  JSONTime `json:"time"`
 }
 
 type Bobs struct {
@@ -88,10 +65,6 @@ type Bobs struct {
 	NextCursor    int    `json:"next_cursor"`
 	Total         int    `json:"total"`
 	TotalMessages int    `json:"total_messages"`
-}
-
-func (bs *Bobs) Fill() error {
-	return fill([]fillData{{recurse: f(bs.Messages)}})
 }
 
 type EventCriteria struct {
@@ -134,8 +107,7 @@ type Event struct {
 	Criteria         []*EventCriteria `json:"criteria"`
 	Description      string           `json:"description"`
 	Designation      string           `json:"designation"`
-	Discovered       time.Time
-	DiscoveredAt     string           `json:"discovered_at"`
+	Discovered       JSONTime         `json:"discovered_at"`
 	Error            string           `json:"error"`
 	Location         string           `json:"location"`
 	LocationName     string           `json:"location_name"`
@@ -147,15 +119,7 @@ type Event struct {
 	Type             string           `json:"event_type"`
 }
 
-func (e *Event) Fill() error {
-	return fillTime(e.DiscoveredAt, &e.Discovered)
-}
-
 type Events struct {
 	Events     []*Event `json:"events"`
 	NextCursor int      `json:"next_cursor"`
-}
-
-func (es *Events) Fill() error {
-	return fill([]fillData{{recurse: f(es.Events)}})
 }

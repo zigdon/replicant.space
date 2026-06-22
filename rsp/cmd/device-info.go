@@ -67,14 +67,14 @@ var infoCmd = &cobra.Command{
 				return err
 			}
 			for _, bp := range bps.Blueprints {
-				printTime[bp.DeviceType] = bp.PrintTime
+				printTime[bp.DeviceType] = bp.PrintTime.Duration()
 			}
 			print := dev.Printing
 			data := [][]string{{
 				print.DeviceType, p(print.ProgressPercent),
-				print.Eta.String(), t(print.Started), t(print.Completes),
+				print.Eta.String(), t(print.Started.Time()), t(print.Completes.Time()),
 			}}
-			est := print.Completes
+			est := print.Completes.Time()
 			for _, q := range dev.PrintQueue {
 				dur := printTime[q.Type]
 				data = append(data, []string{
@@ -118,15 +118,17 @@ var infoCmd = &cobra.Command{
 			printTable([]string{
 				"Target", "Started", "Progress", "ETA",
 			}, [][]string{{
-				s.Target, s.StartedAt, f(s.ProgressPercent) + "%", s.Eta.String(),
+				s.Target, s.Started.String(), f(s.ProgressPercent) + "%", s.Eta.String(),
 			}})
 		}
 		if dev.Travel != nil {
 			trip := dev.Travel
+			log("%+v", trip)
 			printTable([]string{
 				"Origin", "Destination", "ETA", "Percent", "Time Left", "Type",
 			}, [][]string{{
-				trip.Origin, trip.Destination, t(trip.Arrives), f(trip.ProgressPercent), trip.Eta.String(), trip.Type,
+				trip.Origin, trip.Destination, t(trip.Arrives.Time()), f(trip.ProgressPercent),
+				trip.Eta.String(), trip.Type,
 			}})
 			var legs [][]string
 			for _, l := range trip.Route {

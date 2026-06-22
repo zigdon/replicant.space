@@ -184,14 +184,6 @@ func Replicant(id string) (*models.Replicant, error) {
 	if r.CurrentLocationName == "" {
 		r.CurrentLocationName = r.LocationName
 	}
-	if r.Travel != nil {
-		r.Travel.Eta = durationFromSeconds(r.Travel.EtaSeconds)
-		r.Travel.TotalTime = durationFromSeconds(r.Travel.TotalTimeSeconds)
-		for i, l := range r.Travel.Route {
-			l.Time = durationFromSeconds(l.TimeSeconds)
-			r.Travel.Route[i] = l
-		}
-	}
 	return r, nil
 }
 
@@ -225,11 +217,6 @@ func ReplicantTravel(id, dest string) (*models.Trip, error) {
 	if err == nil && m.Error != "" {
 		err = fmt.Errorf("Travel error: %v", m.Error)
 		return m, err
-	}
-	m.TotalTime = durationFromSeconds(m.TotalTimeSeconds)
-	for i, l := range m.Route {
-		l.Time = durationFromSeconds(l.TimeSeconds)
-		m.Route[i] = l
 	}
 	return m, err
 }
@@ -277,12 +264,12 @@ func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp
 	}
 	// If there are any args that are aliases, replace them with the original values
 	for k, v := range args {
-		switch v.(type) {
+		switch v := v.(type) {
 		case string:
-			args[k] = db.Dealias(v.(string))
+			args[k] = db.Dealias(v)
 		case []string:
 			var res []string
-			for _, i := range v.([]string) {
+			for _, i := range v {
 				res = append(res, db.Dealias(i))
 			}
 			args[k] = res
@@ -294,12 +281,7 @@ func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp
 	if err != nil {
 		return nil, err
 	}
-	m, err := models.Parse[models.CommandResp](trip)
-	if m != nil {
-		m.Eta = durationFromSeconds(m.EtaSeconds)
-		m.TotalTime = durationFromSeconds(m.TotalTimeSeconds)
-	}
-	return m, err
+	return models.Parse[models.CommandResp](trip)
 }
 
 func DeviceLogs(id string, latest bool, page, limit int) (*models.DeviceLogs, error) {
@@ -459,9 +441,7 @@ func ReplicantPrint(id, command, device string) (*models.PrintResp, error) {
 	if err != nil {
 		return nil, err
 	}
-	m, err := models.Parse[models.PrintResp](queue)
-	m.PrintTime = durationFromSeconds(m.PrintTimeSeconds)
-	return m, err
+	return models.Parse[models.PrintResp](queue)
 }
 
 // Trades

@@ -36,7 +36,7 @@ var deviceLogsCmd = &cobra.Command{
 		style := lg.NewStyle().Width(width)
 		var ev [][]string
 		for _, e := range logs.Events {
-		  ev = append(ev, []string{t(e.Created), e.EventType, style.Render(e.Message), v(e.Payload)})
+		  ev = append(ev, []string{t(e.Created.Time()), e.EventType, style.Render(e.Message), v(e.Payload)})
 		}
 		printTable([]string{"Time", "Type", "Message", "Payload"}, ev)
 

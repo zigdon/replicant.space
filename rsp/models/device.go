@@ -4,26 +4,14 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 )
 
 type DevicePrint struct {
-	CompletesAt     string    `json:"completes_at"`
-	Completes       time.Time
-	DeviceType      string    `json:"device_type"`
-	EtaSeconds      float32   `json:"eta_seconds"`
-	Eta             time.Duration
-	ProgressPercent float32   `json:"progress_percent"`
-	StartedAt       string    `json:"started_at"`
-	Started         time.Time
-}
-
-func (dp *DevicePrint) Fill() error {
-	return fill([]fillData{
-		{fsrc: dp.EtaSeconds, fdst: &dp.Eta},
-		{ssrc: dp.StartedAt, sdst: &dp.Started},
-		{ssrc: dp.CompletesAt, sdst: &dp.Completes},
-	})
+	Completes       JSONTime      `json:"completes_at"`
+	DeviceType      string        `json:"device_type"`
+	Eta             JSONTimeDelta `json:"eta_seconds"`
+	ProgressPercent float32       `json:"progress_percent"`
+	Started         JSONTime      `json:"started_at"`
 }
 
 type ControlledDevice struct {
@@ -44,19 +32,10 @@ type DeviceDirective struct {
 }
 
 type DeviceScan struct {
-	EtaSeconds      float32   `json:"eta_seconds"`
-	Eta             time.Duration
-	ProgressPercent float32   `json:"progress_percent"`
-	StartedAt       string    `json:"started_at"`
-	Started         time.Time
-	Target          string    `json:"target"`
-}
-
-func (ds *DeviceScan) Fill() error {
-	return fill([]fillData{
-		{fsrc: ds.EtaSeconds, fdst: &ds.Eta},
-		{ssrc: ds.StartedAt, sdst: &ds.Started},
-	})
+	Eta             JSONTimeDelta `json:"eta_seconds"`
+	ProgressPercent float32       `json:"progress_percent"`
+	Started         JSONTime      `json:"started_at"`
+	Target          string        `json:"target"`
 }
 
 type DevicePrintQueue struct {
@@ -100,16 +79,6 @@ type Device struct {
 	WaitingFor           map[string]*MissingResources `json:"waiting_for"`
 }
 
-func (d *Device) Fill() error {
-	if d.Printing != nil {
-		d.Printing.Fill()
-	}
-	if d.Travel != nil {
-		return d.Travel.Fill()
-	}
-	return nil
-}
-
 type ControllerStatus struct {
 	DirectivePaused       bool   `json:"directive_paused"`
 	DirectiveResumed      bool   `json:"directive_resumed"`
@@ -122,25 +91,21 @@ type CommandResp struct {
 	AdoptedDevices       []*StowedDevice     `json:"adopted"`
 	AmiDirective         *DeviceDirective    `json:"ami_directive"`
 	AmiDirectiveStatus   string              `json:"ami_directive_status"`
-	Arrives              time.Time
-	ArrivesAt            string              `json:"arrives_at"`
+	Arrives              JSONTime            `json:"arrives_at"`
 	AssignedDevices      map[string][]string `json:"assigned_devices"`
 	AttachedDevices      []string            `json:"attached_devices"`
 	AvailableSites       []*AvailableSite    `json:"available_sites"`
 	Belt                 string              `json:"belt"`
 	BlueprintDiscovered  string              `json:"blueprint_discovered"`
-	Completes            time.Time
-	CompletesAt          string              `json:"completes_at"`
+	Completes            JSONTime            `json:"completes_at"`
 	Controller           *ControllerStatus   `json:"controller"`
 	ControllerCode       *CodeAlias          `json:"controller_code"`
-	Departed             time.Time
-	DepartedAt           string              `json:"departed_at"`
+	Departed             JSONTime            `json:"departed_at"`
 	Destination          string              `json:"destination"`
 	DestinationName      string              `json:"destination_name"`
 	DestinationType      string              `json:"destination_type"`
 	DeviceCode           *CodeAlias          `json:"device_code"`
-	Eta                  time.Duration
-	EtaSeconds           float32             `json:"eta_seconds"`
+	Eta                  JSONTimeDelta       `json:"eta_seconds"`
 	FinalDestination     string              `json:"final_destination"`
 	FinalDestinationName string              `json:"final_destination_name"`
 	JsonErr              string              `json:"error"`
@@ -156,25 +121,11 @@ type CommandResp struct {
 	Route                []*TripLeg          `json:"route"`
 	Scanned              bool                `json:"scanned"`
 	Star                 string              `json:"star"`
-	Started              time.Time
-	StartedAt            string              `json:"started_at"`
-	Status               string          `json:"status"`
-	TotalDistanceLy      float32         `json:"total_distance_ly"`
-	TotalTime            time.Duration
-	TotalTimeSeconds     float32 `json:"total_time_seconds"`
-	TravelType           string  `json:"travel_type"`
-}
-
-func (cs *CommandResp) Fill() error {
-	return fill([]fillData{
-		{ssrc: cs.ArrivesAt, sdst: &cs.Arrives},
-		{ssrc: cs.DepartedAt, sdst: &cs.Departed},
-		{ssrc: cs.StartedAt, sdst: &cs.Started},
-		{ssrc: cs.CompletesAt, sdst: &cs.Completes},
-		{fsrc: cs.EtaSeconds, fdst: &cs.Eta},
-		{fsrc: cs.TotalTimeSeconds, fdst: &cs.TotalTime},
-		{recurse: f(cs.Route)},
-	})
+	Started              JSONTime            `json:"started_at"`
+	Status               string              `json:"status"`
+	TotalDistanceLy      float32             `json:"total_distance_ly"`
+	TotalTime            JSONTimeDelta       `json:"total_time_seconds"`
+	TravelType           string              `json:"travel_type"`
 }
 
 type AvailableSite struct {
@@ -234,8 +185,7 @@ func (n *Network) Equal(n2 *Network) bool {
 }
 
 type DeviceEvent struct {
-	Created    time.Time
-	CreatedAt  string         `json:"created_at"`
+	Created    JSONTime       `json:"created_at"`
 	DeviceCode string         `json:"device_code"`
 	DeviceType string         `json:"device_type"`
 	EventType  string         `json:"event_type"`
@@ -244,15 +194,7 @@ type DeviceEvent struct {
 	Payload    map[string]any `json:"payload"`
 }
 
-func (e *DeviceEvent) Fill() error {
-	return fillTime(e.CreatedAt, &e.Created)
-}
-
 type DeviceLogs struct {
 	Events     []*DeviceEvent `json:"events"`
 	NextCursor int            `json:"next_cursor"`
-}
-
-func (e *DeviceLogs) Fill() error {
-	return fill([]fillData{{recurse: f(e.Events)}})
 }

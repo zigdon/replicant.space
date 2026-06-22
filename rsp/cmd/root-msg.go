@@ -45,7 +45,7 @@ var msgCmd = &cobra.Command{
 			  tStyle.Render(m.Title),
 			  bStyle.Render(m.Body),
 			  b(m.Read),
-			  t(m.Created),
+			  m.Created.String(),
 			})
 		  }
 		  printTable([]string{"ID", "Type", "Title", "Body", "Read", "Created"}, msgs)
@@ -112,7 +112,7 @@ var bobCmd = &cobra.Command{
 				who = d.ReplicantName
 			}
 			lines = append(lines, []string{
-				d.Channel, who, t(d.Time), style.Render(d.Message),
+				d.Channel, who, d.Time.String(), style.Render(d.Message),
 			})
 		}
 		printTable(headers, lines)

@@ -38,7 +38,7 @@ var replicantCmd = &cobra.Command{
 			}, [][]string{{
 				trip.Origin, trip.Destination, trip.Eta.String(), trip.Stage,
 			}, {
-				trip.DepartedAt, trip.ArrivesAt, p(trip.ProgressPercent), "",
+				trip.Departed.String(), trip.Arrives.String(), p(trip.ProgressPercent), "",
 			}})
 			var legs [][]string
 			for _, l := range trip.Route {

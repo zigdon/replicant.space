@@ -4,13 +4,11 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
-	"time"
 )
 
 type Trade struct {
 	Code      string `json:"trade_code"`
-	CreatedAt string `json:"created_at"`
-	Created   time.Time
+	Created   JSONTime `json:"created_at"`
 	Criteria  struct {
 		Devices   map[string]int `json:"devices"`
 		Resources map[string]int `json:"resources"`
@@ -22,10 +20,6 @@ type Trade struct {
 		Devices   map[string]int `json:"devices"`
 		Resources map[string]int `json:"resources"`
 	} `json:"rewards"`
-}
-
-func (t *Trade) Fill() error {
-	return fillTime(t.CreatedAt, &t.Created)
 }
 
 type Shop struct {
@@ -51,11 +45,6 @@ func (s *Shop) Fill() error {
 	slices.SortFunc(s.Trades, func(a, b *Trade) int {
 		return cmp.Compare(a.Code, b.Code)
 	})
-	for _, t := range s.Trades {
-		if err := t.Fill(); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

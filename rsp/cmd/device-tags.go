@@ -25,8 +25,12 @@ var addTagCmd = &cobra.Command{
 			prettyPrint(res)
 			return nil
 		}
+		tags := res.Tags
+		if len(tags) == 0 {
+			tags = []string{"N/A"}
+		}
 		printTable([]string{"Device", "Tags"}, [][]string{{
-			res.Code.Alias(), lines(res.Tags),
+			res.Code.Alias(), list(tags),
 		}})
 		return nil
 	},
@@ -45,8 +49,12 @@ var delTagCmd = &cobra.Command{
 			prettyPrint(res)
 			return nil
 		}
+		tags := res.Tags
+		if len(tags) == 0 {
+			tags = []string{"N/A"}
+		}
 		printTable([]string{"Device", "Tags"}, [][]string{{
-			res.Code.Alias(), lines(res.Tags),
+			res.Code.Alias(), list(tags),
 		}})
 		return nil
 	},

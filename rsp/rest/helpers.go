@@ -35,7 +35,7 @@ func GetPrintQueueETA(dev *models.Device) (time.Duration, error) {
 		return 0, fmt.Errorf("can't load blueprints: %v", err)
 	}
 	for _, bp := range bps.Blueprints {
-		printTime[bp.DeviceType] = bp.PrintTime
+		printTime[bp.DeviceType] = bp.PrintTime.Duration()
 	}
 	var res time.Duration
 	if dev.Printing != nil {

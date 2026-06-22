@@ -43,6 +43,9 @@ func Execute() {
 		rest.ConnectDB(db)
 	}
 
+	// Create any missing aliases
+	_, err = rest.AllDevices()
+
 	err = rootCmd.Execute()
 	if err != nil {
 		die(err.Error())
@@ -62,18 +65,12 @@ var outputTable = map[string]func(data any) ([]string, [][]string){
 		if !ok {
 			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
 		}
-		var eta string
-		if resp.Eta > 0 {
-			eta = resp.Eta.String()
-		} else if resp.TotalTime > 0 {
-			eta = resp.TotalTime.String()
-		}
 		return []string{
 				"Code", "Location", "Star", "Belt", "Status",
 				"ETA", "Started", "Ends"},
 			[][]string{{
 				resp.DeviceCode.Alias(), resp.Location, resp.Star,
-				resp.Belt, resp.Status, eta, resp.StartedAt, resp.CompletesAt,
+				resp.Belt, resp.Status, resp.Eta.String(), resp.Started.String(), resp.Completes.String(),
 			}}
 	},
 }
