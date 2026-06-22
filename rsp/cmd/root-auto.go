@@ -50,6 +50,7 @@ func init() {
 	autoMineCmd.MarkFlagRequired("location")
 	autoMineCmd.Flags().StringSliceP("factory", "f", []string{"a-1"}, "Devices for building new ships")
 	autoMineCmd.Flags().BoolP("dry_run", "n", false, "Only plan, don't actually queue prints")
+	autoMineCmd.Flags().String("fleet", "", "Fleet controller to use for transportation")
 }
 
 func autoMine(cmd *cobra.Command, args []string) error {
@@ -91,7 +92,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Get the existing or idle fleet
 	fleet := make(map[string][]*models.Device)
-	tag := fmt.Sprintf("mine-%s", loc.Location)
+	tag := fmt.Sprintf("mine-%s", strings.ToLower(loc.Location))
 	tagged, err := rest.GetTagged(tag)
 
 	// Find what is missing
@@ -119,6 +120,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	for _, d := range devs {
+		if slices.Contains(d.Tags, tag) {
+			continue
+		}
 		if _, ok := locs[d.Location]; !ok {
 			continue
 		}
@@ -198,6 +202,77 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	log("Fleet ready to ship")
+
+	// If there isn't an assigned afc, we're done
+	afc, _ := cmd.Flags().GetString("fleet")
+	if afc == "" {
+		log("No assigned AFC, fleet still needs to be transported")
+		return nil
+	}
+
+	// Figure out where we have devices that are not at our destination
+	var dest string
+	var needPicked []string
+	for _, ds := range fleet {
+		for _, d := range ds {
+			if d.Location == loc.Location {
+				continue
+			}
+			if d.Status != "idle" {
+				continue
+			}
+			needPicked = append(needPicked, d.Code.String())
+			dest = d.Location
+			break
+		}
+		if dest != "" {
+			break
+		}
+	}
+	if dest == "" {
+		log("Can't identify pickup location")
+		return nil
+	}
+
+	log("Sending %s to %s", afc, dest)
+	res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": dest})
+	if err != nil && !strings.Contains(err.Error(), "Already at destination") {
+		return err
+	}
+	if err == nil {
+		log("Fleet in transit, eta %s", res.Eta.String())
+		return nil
+	}
+
+	// Attach any devices that need to ship
+	info, err := rest.DeviceInfo(afc)
+	if err != nil {
+		return err
+	}
+	platforms := info.ControlledDevices
+	for _, p := range platforms {
+		info, err := rest.DeviceInfo(p.Code.String())
+		if err != nil {
+			return err
+		}
+		cap := max(info.AttachCapacity - len(info.AttachedDevices), len(needPicked))
+		if cap > 0 {
+			log("Attaching %v to %s", needPicked[0:cap], alias(p.Code.String()))
+			_, err := rest.DeviceCommand(p.Code.String(), "attach", map[string]any{
+				"targets": needPicked[0:cap],
+			})
+			if err != nil {
+				return err
+			}
+			needPicked = needPicked[cap:]
+		}
+	}
+
+	// Ship em
+	res, err = rest.DeviceCommand(afc, "travel", map[string]any{"destination": locName})
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

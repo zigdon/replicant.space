@@ -240,27 +240,31 @@ func AllDevices() ([]*models.Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	var devs []*models.Device
+	devs := make(map[string]*models.Device)
 	for _, r := range acc.Replicants {
 		res, err := ReplicantDevices(r.ReplicantCode.String(), "")
 		if err != nil {
 			return nil, err
 		}
-		devs = append(devs, res...)
+		for _, d := range res {
+			devs[d.Code.String()] = d
+		}
 	}
 	aliases := make(map[string]string)
+	var res []*models.Device
 	for _, d := range devs {
+		res = append(res, d)
 		alias, err := db.Alias(d.Code.String(), d.Type)
 		if err != nil {
 			return nil, err
 		}
 		aliases[d.Code.String()] = alias
 	}
-	slices.SortFunc(devs, func(a, b *models.Device) int {
+	slices.SortFunc(res, func(a, b *models.Device) int {
 		return cmp.Compare(aliases[a.Code.String()], aliases[b.Code.String()])
 	})
 
-	return devs, nil
+	return res, nil
 }
 
 func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp, error) {

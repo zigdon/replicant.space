@@ -33,7 +33,7 @@ func f[T Fillable](fs []T) []Fillable {
 
 func fill(pairs []fillData) error {
 	for _, p := range pairs {
-		if p.ssrc != "" {
+		if p.sdst != nil {
 			if err := fillTime(p.ssrc, p.sdst); err != nil {
 				return err
 			}
@@ -43,7 +43,7 @@ func fill(pairs []fillData) error {
 					return err
 				}
 			}
-		} else {
+		} else if p.fdst != nil {
 			if err := fillDuration(p.fsrc, p.fdst); err != nil {
 				return err
 			}
