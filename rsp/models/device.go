@@ -93,10 +93,12 @@ type CommandResp struct {
 	AmiDirectiveStatus   string              `json:"ami_directive_status"`
 	Arrives              *JSONTime           `json:"arrives_at"`
 	AssignedDevices      map[string][]string `json:"assigned_devices"`
+	Attached             []*StowedDevice     `json:"attached"`
 	AttachedDevices      []string            `json:"attached_devices"`
 	AvailableSites       []*AvailableSite    `json:"available_sites"`
 	Belt                 string              `json:"belt"`
 	BlueprintDiscovered  string              `json:"blueprint_discovered"`
+	CarrierCode          *CodeAlias          `json:"carrier_code"`
 	Completes            *JSONTime           `json:"completes_at"`
 	Controller           *ControllerStatus   `json:"controller"`
 	ControllerCode       *CodeAlias          `json:"controller_code"`
@@ -104,6 +106,7 @@ type CommandResp struct {
 	Destination          string              `json:"destination"`
 	DestinationName      string              `json:"destination_name"`
 	DestinationType      string              `json:"destination_type"`
+	Detached             []*StowedDevice     `json:"detached"`
 	DeviceCode           *CodeAlias          `json:"device_code"`
 	Eta                  *JSONTimeDelta      `json:"eta_seconds"`
 	FinalDestination     string              `json:"final_destination"`
