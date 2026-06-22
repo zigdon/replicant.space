@@ -152,7 +152,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	for _, t := range types {
 		var f []string
 		for _, d := range fleet[t] {
-			f = append(f, alias(d.Code.String()))
+			f = append(f, d.Code.Alias())
 		}
 		slices.Sort(f)
 		data = append(data, []string{
@@ -257,7 +257,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		}
 		cap := max(info.AttachCapacity - len(info.AttachedDevices), len(needPicked))
 		if cap > 0 {
-			log("Attaching %v to %s", needPicked[0:cap], alias(p.Code.String()))
+			log("Attaching %v to %s", needPicked[0:cap], p.Code.Alias())
 			_, err := rest.DeviceCommand(p.Code.String(), "attach", map[string]any{
 				"targets": needPicked[0:cap],
 			})

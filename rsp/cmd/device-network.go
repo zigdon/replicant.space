@@ -25,7 +25,7 @@ var deviceNetworkCmd = &cobra.Command{
 		var nodes [][]string
 		for _, n := range res.Connections {
 			nodes = append(nodes, []string{
-				n.Star, alias(n.DeviceCode.String()), f(n.DistanceLy),
+				n.Star, n.DeviceCode.Alias(), f(n.DistanceLy),
 			})
 		}
 		printTable([]string{"Star", "Device", "Distance LY"}, nodes)

@@ -28,7 +28,7 @@ var replicantCmd = &cobra.Command{
 		printTable([]string{
 			"Name", "Code", "Location", "XP", "Description", "Status",
 		}, [][]string{{
-			repl.Name, alias(repl.ReplicantCode.String()), repl.Location,
+			repl.Name, repl.ReplicantCode.Alias(), repl.Location,
 			d(repl.ExperiencePoints), repl.Description, repl.Status,
 		}})
 		if repl.Travel != nil {

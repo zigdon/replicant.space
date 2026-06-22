@@ -70,11 +70,11 @@ var networkCmd = &cobra.Command{
 				return err
 			}
 			if net == nil || net.Status != "relaying" {
-				loc := alias(d.StowedInDeviceCode.String())
+				loc := d.StowedInDeviceCode.Alias()
 				if loc == "" {
 					loc = d.Location
 				}
-				inactive = append(inactive, []string{alias(d.Code.String()), loc})
+				inactive = append(inactive, []string{d.Code.Alias(), loc})
 				continue
 			}
 			for _, n := range networks {

@@ -21,7 +21,7 @@ var infoCmd = &cobra.Command{
 			prettyPrint(dev)
 			return nil
 		}
-		code := alias(dev.Code.String())
+		code := dev.Code.Alias()
 		code = lines([]string{code, unalias(code)})
 		var cargo []string
 		if dev.CargoCapacity > 0 {
@@ -37,7 +37,7 @@ var infoCmd = &cobra.Command{
 			[]string{"Code", "Type", "Location", "Features", "Status", "Taxi Mode",
 				"Replicant", "Commands", "Ops Capacity", "Cargo", "Tags"},
 			[][]string{{code, dev.Type, dev.Location,
-				lines(dev.Features), dev.Status, dev.TaxiMode, alias(dev.ReplicantCode.String()),
+				lines(dev.Features), dev.Status, dev.TaxiMode, dev.ReplicantCode.Alias(),
 				lines(dev.AvailableCommands), f(dev.OperationalCapacity),
 				lines(cargo), lines(dev.Tags),
 			}},
@@ -97,7 +97,7 @@ var infoCmd = &cobra.Command{
 			var cds [][]string
 			for _, d := range dev.ControlledDevices {
 				cds = append(cds, []string{
-					alias(d.Code.String()), d.Type, d.Location, d.Status,
+					d.Code.Alias(), d.Type, d.Location, d.Status,
 				})
 			}
 			printTable([]string{
@@ -109,7 +109,7 @@ var infoCmd = &cobra.Command{
 				len(dev.AttachedDevices), dev.AttachCapacity)
 			var ds [][]string
 			for _, d := range dev.AttachedDevices {
-				ds = append(ds, []string{d.Type, alias(d.Code.String()), d.Code.String()})
+				ds = append(ds, []string{d.Type, d.Code.Alias(), d.Code.String()})
 			}
 			printTable([]string{"Type", "Alias", "Code"}, ds)
 		}

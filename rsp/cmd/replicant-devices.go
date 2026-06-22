@@ -101,13 +101,13 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner, l
 		}
 		data = append(data, []string{
 			d.Type,
-			alias(d.Code.String()),
-			alias(d.ControllerDeviceCode.String()),
+			d.Code.Alias(),
+			d.ControllerDeviceCode.Alias(),
 			b(d.InControlRange),
 			d.Location,
 			f(d.OperationalCapacity),
 			status,
-			alias(d.StowedInDeviceCode.String()),
+			d.StowedInDeviceCode.Alias(),
 			list(d.Tags),
 			alias(d.OwnerReplicantCode),
 		})

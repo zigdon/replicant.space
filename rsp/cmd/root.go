@@ -72,7 +72,7 @@ var outputTable = map[string]func(data any) ([]string, [][]string){
 				"Code", "Location", "Star", "Belt", "Status",
 				"ETA", "Started", "Ends"},
 			[][]string{{
-				alias(resp.DeviceCode.String()), resp.Location, resp.Star,
+				resp.DeviceCode.Alias(), resp.Location, resp.Star,
 				resp.Belt, resp.Status, eta, resp.StartedAt, resp.CompletesAt,
 			}}
 	},

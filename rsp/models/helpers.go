@@ -123,3 +123,13 @@ func (a *CodeAlias) String() string {
 	}
 	return ""
 }
+
+func (a *CodeAlias) Alias() string {
+	if a != nil {
+		if a.alias != "" {
+			return a.alias
+		}
+		return a.orig
+	}
+	return ""
+}

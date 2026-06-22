@@ -26,7 +26,7 @@ var addTagCmd = &cobra.Command{
 			return nil
 		}
 		printTable([]string{"Device", "Tags"}, [][]string{{
-			alias(res.Code.String()), lines(res.Tags),
+			res.Code.Alias(), lines(res.Tags),
 		}})
 		return nil
 	},
@@ -46,7 +46,7 @@ var delTagCmd = &cobra.Command{
 			return nil
 		}
 		printTable([]string{"Device", "Tags"}, [][]string{{
-			alias(res.Code.String()), lines(res.Tags),
+			res.Code.Alias(), lines(res.Tags),
 		}})
 		return nil
 	},
@@ -65,7 +65,7 @@ var findTagsCmd = &cobra.Command{
 		}
 		var details [][]string
 		for _, d := range res.Devices {
-			code := alias(d.Code.String())
+			code := d.Code.Alias()
 			code = lines([]string{code, unalias(code)})
 			var totalCargo float32
 			var cargo []string
@@ -76,7 +76,7 @@ var findTagsCmd = &cobra.Command{
 			cargo = append([]string{fmt.Sprintf("%.2f/%d (%.0f%%)",
 				totalCargo, d.CargoCapacity, totalCargo/float32(d.CargoCapacity)*100)}, cargo...)
 			details = append(details, []string{code, d.Type, d.Location,
-				d.Status, alias(d.ReplicantCode.String()),
+				d.Status, d.ReplicantCode.Alias(),
 				lines(cargo),
 			})
 		}

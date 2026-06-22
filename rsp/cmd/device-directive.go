@@ -163,7 +163,7 @@ func init() {
 		return []string{
 				"Controller", "Status", "Already deployed", "Deployed", "Failed", "Skipped",
 			}, [][]string{{
-				alias(resp.DeviceCode.String()),
+				resp.DeviceCode.Alias(),
 				fmt.Sprintf("%s -> %s", resp.Controller.DirectiveStatusBefore,
 					resp.Controller.DirectiveStatusAfter),
 				lines(lists["a"]), lines(lists["d"]), lines(lists["f"]), lines(lists["s"]),
