@@ -81,16 +81,21 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 		UnreadMessages = 0
 	}
 
-	var r map[string]any
-	if err = json.Unmarshal(body, &r); err != nil {
-		return body, err
+	type jsonErrs struct {
+		Error  string
+		Errors []struct {
+			DeviceCode string `json:"device_code"`
+			Error      string
+		}
 	}
-	if e, ok := r["error"]; ok {
-		errs := []error{errors.New(e.(string))}
-		if es, ok := r["errors"]; ok {
-			for _, e := range es.([]map[string]any) {
-				errs = append(errs, fmt.Errorf("%s: %s", e["device_code"], e["error"]))
-			}
+	var r jsonErrs
+	if err = json.Unmarshal(body, &r); err != nil {
+		return body, nil
+	}
+	if r.Error != "" {
+		errs := []error{errors.New(r.Error)}
+		for _, e := range r.Errors {
+			errs = append(errs, fmt.Errorf("%s: %s", e.DeviceCode, e.Error))
 		}
 		return nil, fmt.Errorf("generic error: %v", errors.Join(errs...))
 	}

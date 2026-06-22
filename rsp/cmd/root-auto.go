@@ -67,10 +67,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		"ami_survey_controller": 1,
 		"maintenance_drone":     1,
 		"mining_drone":          3,
-		"survey_drone":          2,
+		"belt_surveyor":         1,
 		"ftl_relay":             1,
 	}
-	type statLine struct{
+	type statLine struct {
 		found, idle, extra int
 	}
 	stats := make(map[string]*statLine)
@@ -115,7 +115,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	// See if we can repurpose idle devices
-	devs, err := rest.AllDevices() 
+	devs, err := rest.AllDevices()
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		data = append(data, []string{
-			factory, devType, res.Status, d(res.QueueLength+1),
+			factory, devType, res.Status, d(res.QueueLength + 1),
 		})
 	}
 
@@ -276,7 +276,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		cap := min(info.AttachCapacity - len(info.AttachedDevices), len(needPicked))
+		cap := min(info.AttachCapacity-len(info.AttachedDevices), len(needPicked))
 		if cap > 0 {
 			log("Attaching %v to %s", needPicked[0:cap], p.Code.Alias())
 			_, err := rest.DeviceCommand(p.Code.String(), "attach", map[string]any{

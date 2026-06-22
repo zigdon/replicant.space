@@ -95,8 +95,6 @@ func init() {
 			name: "on_complete", short: 'o', mapFlag: true,
 			desc:    "Commands to queue when print is done",
 			jsonKey: "oncomplete",
-		}, {
-			name: "repeat", short: 'r', intFlag: true, value: 1,
 		}}, "",
 	)
 	mkDeviceCommand(
@@ -139,7 +137,7 @@ func init() {
 		[]flagDesc{{
 			// args[0]
 			required: true, jsonKey: "destination",
-		}}, "",
+		}}, "device-travel",
 	)
 
 	outputTable["device-decommission"] = func(data any) ([]string, [][]string) {
@@ -148,6 +146,19 @@ func init() {
 			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
 		}
 		return []string{"Status", "Learned", "Recovered Resources"},
-	    	[][]string{{resp.Status, resp.BlueprintDiscovered, m(resp.ResourcesRecovered)}}
+			[][]string{{resp.Status, resp.BlueprintDiscovered, m(resp.ResourcesRecovered)}}
+	}
+	outputTable["device-travel"] = func(data any) ([]string, [][]string) {
+		resp, ok := data.(*models.CommandResp)
+		if !ok {
+			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+		}
+		var origin, dest []string
+		origin = append(origin, resp.Origin)
+		origin = append(origin, t(resp.Departed.Time()))
+		dest = append(dest, resp.Destination)
+		dest = append(dest, t(resp.Arrives.Time()))
+		return []string{"Status", "Departed", "Destination", "Total Time"},
+			[][]string{{resp.Status, lines(origin), lines(dest), resp.TotalTime.String()}}
 	}
 }

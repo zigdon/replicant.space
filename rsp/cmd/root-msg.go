@@ -11,9 +11,9 @@ import (
 )
 
 var msgCmd = &cobra.Command{
-	Use:   "msg",
+	Use:     "msg",
 	Aliases: []string{"msgs"},
-	Short: "Read the current messages",
+	Short:   "Read the current messages",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var partial bool
 		ids, _ := cmd.Flags().GetIntSlice("ids")
@@ -32,30 +32,30 @@ var msgCmd = &cobra.Command{
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(data)
 		} else {
-		  var msgs [][]string
-		  tStyle := lg.NewStyle().Width(20)
-		  bStyle := lg.NewStyle().Width(width)
-		  for _, m := range data.Messages {
-			if !partial {
-				ids = append(ids, m.ID)
+			var msgs [][]string
+			tStyle := lg.NewStyle().Width(20)
+			bStyle := lg.NewStyle().Width(width)
+			for _, m := range data.Messages {
+				if !partial {
+					ids = append(ids, m.ID)
+				}
+				msgs = append(msgs, []string{
+					d(m.ID),
+					m.Type,
+					tStyle.Render(m.Title),
+					bStyle.Render(m.Body),
+					b(m.Read),
+					t(m.Created.Time()),
+				})
 			}
-			msgs = append(msgs, []string{
-			  d(m.ID),
-			  m.Type,
-			  tStyle.Render(m.Title),
-			  bStyle.Render(m.Body),
-			  b(m.Read),
-			  m.Created.String(),
-			})
-		  }
-		  printTable([]string{"ID", "Type", "Title", "Body", "Read", "Created"}, msgs)
+			printTable([]string{"ID", "Type", "Title", "Body", "Read", "Created"}, msgs)
 
-		  if mark, _ := cmd.Flags().GetBool("mark"); partial || mark {
-			log("Marking messages read: %v", ids)
-			if err := rest.MarkRead(ids); err != nil {
-			  log("Error marking messages read: %v", err)
+			if mark, _ := cmd.Flags().GetBool("mark"); partial || mark {
+				log("Marking messages read: %v", ids)
+				if err := rest.MarkRead(ids); err != nil {
+					log("Error marking messages read: %v", err)
+				}
 			}
-		  }
 		}
 		return nil
 	},
@@ -67,18 +67,26 @@ var bobCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Find a relay we can use
 		acc, err := rest.Account()
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 
 		var relayID string
 		for _, r := range acc.Replicants {
 			devices, err := rest.ReplicantDevices(r.ReplicantCode.String(), "")
-			if err != nil { continue }
+			if err != nil {
+				continue
+			}
 			for _, d := range devices {
-				if d.Type != "ftl_relay" || d.Status != "relaying" || !d.InControlRange { continue }
+				if d.Type != "ftl_relay" || d.Status != "relaying" || !d.InControlRange {
+					continue
+				}
 				relayID = d.Code.String()
 				break
 			}
-			if relayID != "" { break }
+			if relayID != "" {
+				break
+			}
 		}
 
 		if relayID == "" {
@@ -102,7 +110,9 @@ var bobCmd = &cobra.Command{
 		style := lg.NewStyle().Width(width)
 		slices.Reverse(data.Messages)
 		for _, d := range data.Messages {
-			if len(channels) > 0 && !slices.Contains(channels, d.Channel) { continue }
+			if len(channels) > 0 && !slices.Contains(channels, d.Channel) {
+				continue
+			}
 			var who string
 			if ids || locs {
 				d.ReplicantCode = "#" + d.ReplicantCode
