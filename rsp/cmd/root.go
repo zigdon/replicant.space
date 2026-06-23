@@ -8,6 +8,7 @@ import (
 	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
+	"github.com/zigdon/rsp/tui"
 )
 
 type flagDesc struct {
@@ -57,6 +58,7 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().Bool("raw", false, "emit the json returned")
+	rootCmd.AddCommand(tui.TUI)
 }
 
 var outputTable = map[string]func(data any) ([]string, [][]string){
