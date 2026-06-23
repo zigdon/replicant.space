@@ -1,5 +1,10 @@
 package models
 
+import (
+	"fmt"
+	"strings"
+)
+
 type ReplicantEvent struct {
 	Created    *JSONTime      `json:"created_at"`
 	DeviceCode *CodeAlias     `json:"device_code"`
@@ -76,6 +81,26 @@ type Replicant struct {
 	WaitingFor          map[string]*MissingResources `json:"waiting_for"`
 }
 
+func (r *Replicant) Details() *Grid {
+	is := []GridItem{
+			{Title: r.ReplicantCode.Alias(), Text: r.Name, W: 2},
+			{Y: 1, Title: "Location", Text: r.CurrentLocation},
+			{Y: 1, X: 1, Title: "Status", Text: r.Status},
+		}
+	var l []string
+	for _, pq := range r.PrintQueue {
+		l = append(l, pq.DeviceType)
+	}
+	is = append(is, GridItem{Y: 2, Title: "Print Queue", Text: strings.Join(l, "\n")})
+	l = []string{}
+	for _, d := range r.StowedDevices {
+		l = append(l, d.Type)
+	}
+	is = append(is, GridItem{Y: 2, X:1, Title: "Stowed", Text: strings.Join(l, "\n")})
+
+	return &Grid{Items: is}
+}
+
 func (r *Replicant) GetDeviceIDs() []string {
 	var res []string
 	for _, d := range r.StowedDevices {
@@ -83,3 +108,8 @@ func (r *Replicant) GetDeviceIDs() []string {
 	}
 	return res
 }
+
+func (r *Replicant) ListItem() (string, string) {
+	return fmt.Sprintf("%s: %s", r.ReplicantCode.Alias(), r.Name), r.CurrentLocation
+}
+

@@ -1,5 +1,10 @@
 package models
 
+import (
+	"cmp"
+	"slices"
+)
+
 type NotifyDetails struct {
 	Email   map[string]bool `json:"email"`
 	Webhook map[string]bool `json:"webhook"`
@@ -33,6 +38,13 @@ type Account struct {
 	Status                string                `json:"status"`
 	Timezone              string                `json:"timezone"`
 	UnreadMessageCount    int                   `json:"unread_message_count"`
+}
+
+func (a *Account) Fill() error {
+	slices.SortFunc(a.ReplicantList, func(a, b *Replicant) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+	return nil
 }
 
 type Message struct {

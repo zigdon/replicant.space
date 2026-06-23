@@ -194,3 +194,12 @@ func (a *CodeAlias) Alias() string {
 	}
 	return ""
 }
+
+type GridItem struct {
+	X, Y, W, H, MH, MW int
+	Title, Text string
+}
+
+type Grid struct {
+	Items []GridItem
+}
