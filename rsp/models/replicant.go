@@ -1,8 +1,11 @@
 package models
 
 import (
+	"cmp"
 	"fmt"
-	"strings"
+	"slices"
+
+	"github.com/rivo/tview"
 )
 
 type ReplicantEvent struct {
@@ -55,7 +58,7 @@ type Travel struct {
 
 type Replicant struct {
 	AttachedDevices     []string                     `json:"attached_devices"`
-	Cargo               []string                     `json:"cargo"`
+	Cargo               []*Inventory                 `json:"cargo"`
 	Created             *JSONTime                    `json:"created_at"`
 	CurrentLocation     string                       `json:"current_location"`
 	CurrentLocationName string                       `json:"current_location_name"`
@@ -81,24 +84,36 @@ type Replicant struct {
 	WaitingFor          map[string]*MissingResources `json:"waiting_for"`
 }
 
-func (r *Replicant) Details() *Grid {
-	is := []GridItem{
-			{Title: r.ReplicantCode.Alias(), Text: r.Name, W: 2},
-			{Y: 1, Title: "Location", Text: r.CurrentLocation},
-			{Y: 1, X: 1, Title: "Status", Text: r.Status},
-		}
-	var l []string
-	for _, pq := range r.PrintQueue {
-		l = append(l, pq.DeviceType)
-	}
-	is = append(is, GridItem{Y: 2, Title: "Print Queue", Text: strings.Join(l, "\n")})
-	l = []string{}
-	for _, d := range r.StowedDevices {
-		l = append(l, d.Type)
-	}
-	is = append(is, GridItem{Y: 2, X:1, Title: "Stowed", Text: strings.Join(l, "\n")})
+func (r *Replicant) Fill() error {
+	slices.SortFunc(r.Cargo, func(a, b *Inventory) int {
+		return cmp.Compare(a.ResourceType, b.ResourceType)
+	})
+	slices.Sort(r.AttachedDevices)
+	return nil
+}
 
-	return &Grid{Items: is}
+func (r *Replicant) Details() []*tview.TreeNode {
+	res := []*tview.TreeNode{TreeNode(r.Name).
+		AddChild(TreeNode("%s: %s", r.ReplicantCode.Alias(), r.ReplicantCode.String())).
+		AddChild(TreeNode("Location: %s", r.CurrentLocation)).
+		AddChild(TreeNode("Status: %s", r.Status)).
+		AddChild(TreeNode("XP: %d", r.ExperiencePoints))}
+	if len(r.Cargo) > 0 {
+		cargo := TreeNode("Cargo")
+		for _, c := range r.Cargo {
+			cargo.AddChild(TreeNode("%3.0f x %s", c.Quantity, c.ResourceType))
+		}
+		res = append(res, cargo)
+	}
+	if len(r.AttachedDevices) > 0 {
+		ad := TreeNode("Attached Devices")
+		for _, d := range r.AttachedDevices {
+			ad.AddChild(TreeNode(d))
+		}
+		res = append(res, ad)
+	}
+	
+	return res
 }
 
 func (r *Replicant) GetDeviceIDs() []string {

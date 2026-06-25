@@ -8,7 +8,7 @@ import (
 )
 
 var devList = tview.NewList()
-var details = tview.NewGrid()
+var tree = tview.NewTreeView().SetRoot(tview.NewTreeNode("Details"))
 
 var TUI = &cobra.Command{
 	Use: "tui",
@@ -17,8 +17,8 @@ var TUI = &cobra.Command{
 		app := tview.NewApplication()
 		flex := tview.NewFlex()
 		flex.
-		  AddItem(devList, 0, 2, true).
-		  AddItem(details, 0, 5, false)
+		  AddItem(devList, 0, 1, true).
+		  AddItem(tree, 0, 5, false)
 		if err := initData(); err != nil {
 			return err
 		}
@@ -39,11 +39,12 @@ func initData() error {
 		m, s := rs[i].ListItem()
 		devList.AddItem(m, s, 0, nil)
 	}
-	details.SetBorders(true)
 	devList.SetChangedFunc(func(i int, _, _ string, _ rune) {
-		ModelGrid(details, rs[i].Details())
+		tree.GetRoot().ClearChildren()
+		for _, tn := range rs[i].Details() {
+			tree.GetRoot().AddChild(tn)
+		}
 	})
-	ModelGrid(details, rs[0].Details())
 
 	return nil
 }
