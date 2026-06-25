@@ -259,46 +259,101 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
-	if dest == "" {
-		log("Can't identify pickup location")
-		return nil
-	}
-
-	log("Sending %s to %s", afc, dest)
-	res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": dest})
-	if err != nil && !strings.Contains(err.Error(), "Already at destination") {
-		return err
-	}
-	if err == nil {
-		log("Fleet in transit, eta %s", res.TotalTime.String())
-		return nil
-	}
-
-	// Attach any devices that need to ship
-	for _, p := range platforms {
-		info, err := rest.DeviceInfo(p.Code.String())
-		if err != nil {
+	if dest != "" {
+		log("Sending %s to %s", afc, dest)
+		res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": dest})
+		if err != nil && !strings.Contains(err.Error(), "Already at destination") {
 			return err
 		}
-		cap := min(info.AttachCapacity-len(info.AttachedDevices), len(needPicked))
-		if cap > 0 {
-			log("Attaching %v to %s", needPicked[0:cap], p.Code.Alias())
-			_, err := rest.DeviceCommand(p.Code.String(), "attach", map[string]any{
-				"targets": needPicked[0:cap],
-			})
+		if err == nil {
+			log("Fleet in transit, eta %s", res.TotalTime.String())
+			return nil
+		}
+
+		// Attach any devices that need to ship
+		for _, p := range platforms {
+			info, err := rest.DeviceInfo(p.Code.String())
 			if err != nil {
 				return err
 			}
-			needPicked = needPicked[cap:]
+			cap := min(info.AttachCapacity-len(info.AttachedDevices), len(needPicked))
+			if cap > 0 {
+				log("Attaching %v to %s", needPicked[0:cap], p.Code.Alias())
+				_, err := rest.DeviceCommand(p.Code.String(), "attach", map[string]any{
+					"targets": needPicked[0:cap],
+				})
+				if err != nil {
+					return err
+				}
+				needPicked = needPicked[cap:]
+			}
+		}
+
+		// Ship em
+		res, err = rest.DeviceCommand(afc, "travel", map[string]any{"destination": locName})
+		if err != nil {
+			return err
 		}
 	}
 
-	// Ship em
-	res, err = rest.DeviceCommand(afc, "travel", map[string]any{"destination": locName})
-	if err != nil {
+	// Set up the directives:
+	// amc: gather_smallest
+	d, ok := amis["ami_mining_controller"]
+	if !ok {
+		return fmt.Errorf("Can't find amc")
+	}
+	if err := setDirective(d, locName, "deplete_smallest"); err != nil {
 		return err
 	}
 
+	// asc: search belt
+	d, ok = amis["ami_survey_controller"]
+	if !ok {
+		return fmt.Errorf("Can't find asc")
+	}
+	if err := setDirective(d, locName, "belt_search"); err != nil {
+		return err
+	}
+
+	// mtd: patrol
+	ds, ok := fleet["maintenance_drone"]
+	if !ok || len(ds) == 0 {
+		return fmt.Errorf("Can't find mtd")
+	}
+	if err := setDirective(ds[0].Code.String(), locName, "patrol"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func setDirective(id, location, directive string) error {
+	a := alias(id)
+	info, err := rest.DeviceInfo(id)
+	if err != nil {
+		return fmt.Errorf("Can't get %s info: %v", a, err)
+	}
+	if info.Location != location {
+		res, err := rest.DeviceCommand(id, "travel", map[string]any{
+			"destination": location,
+		})
+		if err != nil {
+			return fmt.Errorf("Failed to send %s from %q to %q: %v", a, info.Location, location, err)
+		}
+		log("Shipped %s to %s: ETA %s", a, location, res.TotalTime.String())
+		return nil
+	}
+	if _, err = rest.DeviceCommand(id, "set_directive", map[string]any{
+		"directive": directive,
+	}); err != nil {
+		return fmt.Errorf("Can't set %s directive: %v", a, err)
+	}
+	if directive != "patrol" {
+		if _, err = rest.DeviceCommand(id, "launch", nil); err != nil {
+			return fmt.Errorf("Can't launching %s: %v", a, err)
+		}
+	}
+	log("Set directive on %s: %s", a, directive)
 	return nil
 }
 

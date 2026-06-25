@@ -66,6 +66,7 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner, l
 	}
 
 	var data [][]string
+	var skippedCnt int
 	skipped := make(map[string]int)
 	skipTags := make(map[string]bool)
 	for _, tag := range filterTags {
@@ -80,18 +81,20 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner, l
 			continue
 		}
 		if skipTags["mine"] && slices.Contains(d.Tags, fmt.Sprintf("mine-%s", strings.ToLower(d.Location))) {
-			skipped["mining"]++
+			skipped[fmt.Sprintf("mine-%s", strings.ToLower(d.Location))]++
+			skippedCnt++
 			continue
 		}
 		skip := false
 		for _, tag := range d.Tags {
 			if s := skipTags[tag]; s {
-				skipped[d.Type]++
+				skipped[fmt.Sprintf("%s: %s", d.Type, tag)]++
 				skip = true
 				break
 			}
 		}
 		if skip {
+			skippedCnt++
 			continue
 		}
 		status := d.Status
@@ -131,9 +134,9 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner, l
 		"Replicant",
 	}, data)
 	if len(skipped) > 0 {
-		fmt.Printf("Skipped %d devices:\n", len(skipped))
+		fmt.Printf("Skipped %d devices:\n", skippedCnt)
 		for k, v := range skipped {
-			fmt.Printf("  %d x %s\n", v, k)
+			fmt.Printf("  %s: %d\n", k, v)
 		}
 	}
 }
