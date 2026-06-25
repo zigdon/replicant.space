@@ -129,6 +129,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if d.Status != "idle" && d.Status != "inactive" {
 			continue
 		}
+		if d.ControllerDeviceCode != nil {
+			continue
+		}
 		t := d.Type
 		if m := missing[t]; m > 0 {
 			stats[t].idle += 1
@@ -177,6 +180,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		}
 		cfg := map[string]any{
 			"device_type": devType,
+			"tags":        []string{tag},
 		}
 		if t, ok := strings.CutSuffix(devType, "_drone"); ok {
 			if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
