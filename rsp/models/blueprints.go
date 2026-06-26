@@ -1,14 +1,17 @@
 package models
 
 type Blueprint struct {
-	AttachCapacity int            `json:"attach_capacity"`
-	CargoCapacity  int            `json:"cargo_capacity"`
-	DeviceType     string         `json:"device_type"`
-	Directives     []string       `json:"directives"`
-	Features       []string       `json:"features"`
-	PrintTime      *JSONTimeDelta `json:"print_time"`
-	Resources      map[string]int `json:"resources"`
-	StowCapacity   int            `json:"stow_capacity"`
+	AttachCapacity   int            `json:"attach_capacity"`
+	CargoCapacity    int            `json:"cargo_capacity"`
+	DeviceType       string         `json:"device_type"`
+	Description      string         `json:"description"`
+	Directives       []string       `json:"directives"`
+	Features         []string       `json:"features"`
+	PrintTime        *JSONTimeDelta `json:"print_time"`
+	Resources        map[string]int `json:"resources"`
+	ShortDescription string         `json:"short_description"`
+	StowCapacity     int            `json:"stow_capacity"`
+	Strength         float32        `json:"strength"`
 }
 
 type Blueprints struct {

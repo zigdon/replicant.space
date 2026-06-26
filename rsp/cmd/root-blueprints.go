@@ -43,13 +43,14 @@ var blueprintsCmd = &cobra.Command{
 			}
 			blues = append(blues, []string{
 				b.DeviceType,
-				wrap(list(b.Features), 40),
+				wrap(list(b.Features), 20),
 				b.PrintTime.String(),
 				strings.Join(resources, "\n"),
+				wrap(b.Description, 40),
 			})
 		}
 		printTable(
-			[]string{"Type", "Features", "Print Time", "Resources"}, blues,
+			[]string{"Type", "Features", "Print Time", "Resources", "Description"}, blues,
 		)
 		return nil
 	},
