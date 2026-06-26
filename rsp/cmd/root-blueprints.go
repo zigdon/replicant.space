@@ -46,11 +46,16 @@ var blueprintsCmd = &cobra.Command{
 				wrap(list(b.Features), 20),
 				b.PrintTime.String(),
 				strings.Join(resources, "\n"),
+				lines([]string{
+					fmt.Sprintf("Attach: %d", b.AttachCapacity),
+					fmt.Sprintf("Cargo: %d", b.CargoCapacity),
+					fmt.Sprintf("Stow: %d", b.StowCapacity),
+				}),
 				wrap(b.Description, 40),
 			})
 		}
 		printTable(
-			[]string{"Type", "Features", "Print Time", "Resources", "Description"}, blues,
+			[]string{"Type", "Features", "Print Time", "Resources", "Stats", "Description"}, blues,
 		)
 		return nil
 	},
