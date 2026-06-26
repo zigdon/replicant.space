@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"encoding/json"
@@ -109,6 +110,10 @@ func (jtd *JSONTimeDelta) UnmarshalJSON(data []byte) error {
 	return err
 }
 
+func (jtd *JSONTimeDelta) MarshalJSON() ([]byte, error) {
+	return json.Marshal(jtd.String())
+}
+
 func (jtd *JSONTimeDelta) String() string {
 	if jtd == nil {
 		return ""
@@ -135,6 +140,11 @@ func (jt *JSONTime) UnmarshalJSON(data []byte) error {
 	*jt = JSONTime{orig, ts}
 	return err
 }
+
+func (jt *JSONTime) MarshalJSON() ([]byte, error) {
+	return json.Marshal(jt.String())
+}
+
 
 func (jt *JSONTime) String() string {
 	if jt == nil {
@@ -198,4 +208,17 @@ func (a *CodeAlias) Alias() string {
 
 func TreeNode(tmpl string, args ...any) *tview.TreeNode {
 	return tview.NewTreeNode(fmt.Sprintf(tmpl, args...))
+}
+
+func ProgressTime(width int, start, end time.Time) string {
+	total := end.Sub(start)
+	now := time.Now()
+	prog := now.Sub(start)
+	pct := prog.Seconds()/total.Seconds()
+	cnt := int(pct*float64(width))
+	return fmt.Sprintf("%s%s %s %.0f%%",
+		strings.Repeat("⬜", cnt),
+		strings.Repeat("⬛", width-cnt),
+		end.Sub(now).Round(time.Millisecond).String(),
+		100*pct)
 }

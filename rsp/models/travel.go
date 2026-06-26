@@ -24,7 +24,7 @@ type Trip struct {
 	Origin          string         `json:"origin"`
 	OriginName      string         `json:"origin_name"`
 	ProgressPercent float32        `json:"progress_percent"`
-	Route           []TripLeg      `json:"route"`
+	Route           []*TripLeg     `json:"route"`
 	Status          string         `json:"status"`
 	TotalTime       *JSONTimeDelta `json:"total_time_seconds"`
 	Type            string         `json:"type"`
@@ -45,5 +45,5 @@ type Journey struct {
 	SourcePosition Position
 	Dest           string
 	DestPosition   Position
-	Legs           []JourneyLeg
+	Legs           []*JourneyLeg
 }

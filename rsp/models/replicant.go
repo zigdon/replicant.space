@@ -88,6 +88,12 @@ func (r *Replicant) Fill() error {
 	slices.SortFunc(r.Cargo, func(a, b *Inventory) int {
 		return cmp.Compare(a.ResourceType, b.ResourceType)
 	})
+	slices.SortFunc(r.StowedDevices, func(a, b *Device) int {
+		return cmp.Or(
+			cmp.Compare(a.Type, b.Type),
+			cmp.Compare(a.Code.Alias(), b.Code.Alias()),
+		)
+	})
 	slices.Sort(r.AttachedDevices)
 	return nil
 }
@@ -111,6 +117,29 @@ func (r *Replicant) Details() []*tview.TreeNode {
 			ad.AddChild(TreeNode(d))
 		}
 		res = append(res, ad)
+	}
+	if len(r.PrintQueue) > 0 {
+		queue := TreeNode("Print Queue")
+		for _, pq := range r.PrintQueue {
+			queue.AddChild(TreeNode("%s", pq.DeviceType))
+		}
+		res = append(res, queue)
+	}
+	if len(r.StowedDevices) > 0 {
+		devs := TreeNode("Stowed")
+		for _, sd := range r.StowedDevices {
+			devs.AddChild(TreeNode("%s: %s", sd.Code.Alias(), sd.Type))
+		}
+		res = append(res, devs)
+	}
+	if r.Travel != nil {
+		t := r.Travel
+		trip := TreeNode("Travel")
+		trip.AddChild(TreeNode("From:  %s (%s)", t.Origin, t.Departed.String()))
+		trip.AddChild(TreeNode("To:    %s (%s)", t.Destination, t.Arrives.String()))
+		trip.AddChild(TreeNode("Stage: %s", t.Stage))
+		trip.AddChild(TreeNode("%s", ProgressTime(30, t.Departed.ts, t.Arrives.ts)))
+		res = append(res, trip)
 	}
 	
 	return res
