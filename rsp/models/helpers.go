@@ -44,7 +44,7 @@ func fillDuration(secs float32, dest *time.Duration) error {
 
 type Cachable interface {
 	Cache() error
-	Get() any
+	Get() error
 }
 
 func Parse[T any](data []byte) (*T, error) {
@@ -206,14 +206,6 @@ func ref[T any](s T) func()[]any {
 	return func()[]any {
 		return []any{s}
 	}
-}
-
-func lAny[T any](l []T) []any {
-	res := make([]any, len(l))
-	for i := range l {
-		res[i] = l[i]
-	}
-	return res
 }
 
 type UpdateFn struct {

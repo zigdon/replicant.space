@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -74,14 +75,18 @@ func reloadStars (cmd *cobra.Command, args []string) error {
 	}
 
 	// Get the current list of stars.
-	seen := make(map[string]*cache.Star)
-	oldStars, err := db.List("stars")
+	seen := make(map[string]*models.Star)
+	oldStars, err := db.ListIDs(cache.StarsTable)
 	if err != nil {
 		return err
 	}
 	log("%d stars loaded from the cache", len(oldStars))
-	for _, s := range oldStars {
-		seen[s.(*cache.Star).Designation] = s.(*cache.Star)
+	for _, id := range oldStars {
+		s := &models.Star{Designation: id}
+		if err := s.Get(); err != nil {
+			return err
+		}
+		seen[id] = s
 	}
 
 	// Get a replicant ID
@@ -92,7 +97,7 @@ func reloadStars (cmd *cobra.Command, args []string) error {
 
 	// Get page 1, and also how many pages there are
 	page := 0
-	var added, updated []string
+	var added, updated []*models.Star
 	unchanged := 0
 	for {
 		census, err := rest.ReplicantCensus(id, 50, page)
@@ -100,27 +105,16 @@ func reloadStars (cmd *cobra.Command, args []string) error {
 			return err
 		}
 		for _, star := range census.Stars {
-			ns := &cache.Star{
-				Designation: star.Designation,
-				EntryPoint: star.EntryPoint,
-				EstPlanets: star.EstimatedPlanets,
-				Explored: star.Explored,
-				HasLife: star.HasLife,
-				Name: star.Name,
-				PositionX: star.Position.X,
-				PositionY: star.Position.Y,
-				PositionZ: star.Position.Z,
-			}
-			if old, ok := seen[ns.Designation]; ok {
-				if old.Equal(ns) {
+			if old, ok := seen[star.Designation]; ok {
+				if old == star {
 					unchanged++
 					continue
 				}
-				updated = append(updated, ns.Designation)
+				updated = append(updated, star)
 			} else {
-				added = append(added, ns.Designation)
+				added = append(added, star)
 			}
-			seen[ns.Designation] = ns
+			seen[star.Designation] = star
 
 		}
 		log(
@@ -137,7 +131,7 @@ func reloadStars (cmd *cobra.Command, args []string) error {
 		"Fetch done: %d total stars, %d added, %d updated, %d unchanged",
 		len(added) + len(updated) + unchanged, len(added), len(updated), unchanged)
 	for _, s := range append(added, updated...) {
-		if err := db.Update(cache.StarsTable, seen[s].Map()); err != nil {
+		if err := s.Cache(); err != nil {
 			return err
 		}
 	}

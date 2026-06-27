@@ -45,21 +45,19 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 	// Ignore repeats (unless this is a shorter way to get to them)
 	// Repeat until destination is found
 
-	res, err := db.Get(cache.StarsTable, src)
-	if err != nil {
+	starSrc := &models.Star{Designation: src}
+	if err := starSrc.Get(); err != nil {
 		return err
 	}
-	starSrc := res.(*cache.Star)
-	res, err = db.Get(cache.StarsTable, dst)
-	if err != nil {
+	starDst := &models.Star{Designation: dst}
+	if err := starDst.Get(); err != nil {
 		return err
 	}
-	starDst := res.(*cache.Star)
 	
 	sPos := models.NewPosition(
-		starSrc.PositionX, starSrc.PositionY, starSrc.PositionZ)
+		starSrc.Position.X, starSrc.Position.Y, starSrc.Position.Z)
 	dPos := models.NewPosition(
-		starDst.PositionX, starDst.PositionY, starDst.PositionZ)
+		starDst.Position.X, starDst.Position.Y, starDst.Position.Z)
 	dist := sPos.Distance(dPos)
 	waypoints := map[string]*models.JourneyLeg{
 		src: {
@@ -148,17 +146,15 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 
 func TripStepCandidate(db *cache.Cache, srcStar, dstStar string, radius float32) ([]*models.JourneyLeg, error) {
 	// Get source coords
-	entry, err := db.Get(cache.StarsTable, srcStar)
-	if err != nil {
+	src := &models.Star{Designation: srcStar}
+	if err := src.Get(); err != nil {
 		return nil, err
 	}
-	src := entry.(*cache.Star)
 	// Get dest coords
-	entry, err = db.Get(cache.StarsTable, dstStar)
-	if err != nil {
+	dst := &models.Star{Designation: dstStar}
+	if err := dst.Get(); err != nil {
 		return nil, err
 	}
-	dst := entry.(*cache.Star)
 	rows, err := db.DB.Query(
 		`SELECT designation,
 			position_x,
@@ -173,12 +169,12 @@ func TripStepCandidate(db *cache.Cache, srcStar, dstStar string, radius float32)
 				power(position_y-?,2) +
 				power(position_z-?,2)) AS from_dst
 		FROM stars WHERE from_src <= ? AND from_src > 0.001`,
-		src.PositionX,
-		src.PositionY,
-		src.PositionZ,
-		dst.PositionX,
-		dst.PositionY,
-		dst.PositionZ,
+		src.Position.X,
+		src.Position.Y,
+		src.Position.Z,
+		dst.Position.X,
+		dst.Position.Y,
+		dst.Position.Z,
 		radius,
 	)
 	if err != nil {
@@ -193,9 +189,9 @@ func TripStepCandidate(db *cache.Cache, srcStar, dstStar string, radius float32)
 		res = append(res, &models.JourneyLeg{
 				From: src.Designation,
 				FromPosition: models.NewPosition(
-					src.PositionX,
-					src.PositionY,
-					src.PositionZ),
+					src.Position.X,
+					src.Position.Y,
+					src.Position.Z),
 				To: desg,
 				ToPosition: models.NewPosition(x, y, z),
 				DistFromSrc: fSrc,

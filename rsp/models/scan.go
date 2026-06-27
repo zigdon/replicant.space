@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"sort"
 )
 
@@ -71,7 +70,7 @@ type Scan struct {
 }
 
 func (s *Scan) Cache() error {
-	fmt.Printf("caching scan %q\n", s.Star.Designation)
+	s.Star.EntryPoint = s.EntryPoint
 	return s.Star.Cache()
 }
 

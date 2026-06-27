@@ -5,6 +5,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/zigdon/rsp/cache"
 )
 
 type Position struct {
@@ -78,12 +80,36 @@ type Star struct {
 }
 
 func (s *Star) Cache() error {
-	fmt.Printf("caching %s\n", s.Designation)
-	return nil
+	return db.Update(cache.StarsTable, map[string]any{
+		"designation": s.Designation,
+		"entry_point": s.EntryPoint,
+		"est_planets": s.EstimatedPlanets,
+		"explored":    s.Explored,
+		"has_life":    s.HasLife,
+		"name":        s.Name,
+		"position_x":  s.Position.X,
+		"position_y":  s.Position.Y,
+		"position_z":  s.Position.Z,
+	})
 }
 
-func (s *Star) Get() any {
-	return nil
+func (s *Star) Get() error {
+	if db == nil {
+		return fmt.Errorf("Not connected to cache")
+	}
+	if s.Designation == "" {
+		return fmt.Errorf("Can't load unknown star")
+	}
+	scan, err := db.Get(cache.StarsTable, s.Designation)
+	if err != nil {
+		return fmt.Errorf("Error querying cache: %v", err)
+	}
+	if s.Position == nil {
+		p := NewPosition(0,0,0)
+		s.Position = &p
+	}
+	return scan(&s.Designation, &s.Name, &s.EntryPoint, &s.EstimatedPlanets, &s.Explored,
+		&s.HasLife, &s.Position.X, &s.Position.Y, &s.Position.Z)
 }
 
 type Census struct {

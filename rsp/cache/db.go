@@ -41,9 +41,37 @@ const (
 	PlanetsTable Tables = "planets"
 	MoonsTable Tables = "moons"
 	BeltsTable Tables = "belts"
-	ResourcesTable Tables = "resources"
+	BeltResTable Tables = "belt_resources"
 	AliasTable Tables = "aliases"
+	BlueprintsTable Tables = "blueprints"
+	BlueprintResTable Tables = "blueprints_resources"
+	BlueprintDirsTable Tables = "blueprints_directives"
+	BlueprintFeaturesTable Tables = "blueprints_features"
 )
+
+var cols = map[Tables][]string{
+	StarsTable: {
+		"designation", "name", "entry_point", "est_planets", "explored", "has_life",
+		"position_x", "position_y", "position_z"},
+	PlanetsTable: {
+		"designation", "star", "name", "life_stage", "moons", "rings", "scanned", "type"},
+	MoonsTable: {
+		"designation", "planet", "star", "name", "scanned", "type"},
+	BeltsTable: {
+		"designation", "star", "density"},
+	BeltResTable: {
+		"belt", "resource", "density"},
+	AliasTable: {
+		"designation", "type", "name"},
+	BlueprintsTable: {
+		"type", "print_time", "attach_capacity", "cargo_capacity", "stow_capacity"},
+	BlueprintResTable: {
+		"blueprint_type", "type", "qty"},
+	BlueprintDirsTable: {
+		"blueprint_type", "directive"},
+	BlueprintFeaturesTable: {
+		"blueprint_type", "feature"},
+}
 
 type Cache struct {
 	DB *sql.DB
@@ -103,19 +131,14 @@ func (db *Cache) Stats() string {
 	return strings.Join(out, "\n")
 }
 
-func (db *Cache) Get(table Tables, key string) (any, error) {
+func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
 	row := db.DB.QueryRow(
-		fmt.Sprintf("SELECT * FROM %s WHERE designation = ?", table), key)
+		fmt.Sprintf("SELECT %s FROM %s WHERE designation = ?",
+			strings.Join(cols[table], ", "), table), key)
 	if row.Err() != nil {
 		return nil, row.Err()
 	}
-	switch table {
-	case "stars":
-		s := &Star{}
-		s.Load(row.Scan)
-		return s, nil
-	}
-	return nil, fmt.Errorf("Table %q not found", table)
+	return row.Scan, nil
 }
 
 func (db *Cache) Update(table Tables, data map[string]any) error {
@@ -145,19 +168,18 @@ func (db *Cache) Update(table Tables, data map[string]any) error {
 	return nil
 }
 
-func (db *Cache) List(table Tables) ([]any, error) {
-	rows, err := db.DB.Query(fmt.Sprintf("SELECT * FROM %s", table))
+func (db *Cache) ListIDs(table Tables) ([]string, error) {
+	rows, err := db.DB.Query(fmt.Sprintf("SELECT %s FROM %s", cols[table][0], table))
 	if err != nil {
 		return nil, err
 	}
-	var res []any
+	var res []string
 	for rows.Next() {
-		switch table {
-		case "stars":
-			s := &Star{}
-			s.Load(rows.Scan)
-			res = append(res, s)
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
 		}
+		res = append(res, id)
 	}
 	if rows.Err() != nil {
 		return nil, rows.Err()

@@ -114,6 +114,10 @@ var scanCmd = &cobra.Command{
 				printTable([]string{"Name", "Stock", "Code", "Criteria", "Rewards"}, trades)
 			}
 		}
+
+		if err := scan.Cache(); err != nil {
+			log("Error updating cache for %s: %v", scan.Star.Designation, err)
+		}
 		return nil
 	},
 }
