@@ -75,6 +75,7 @@ type Replicant struct {
 	Name                string                       `json:"name"`
 	Plan                string                       `json:"plan"`
 	Position            *Position                    `json:"position"`
+	Printing            *DevicePrint                 `json:"printing"`
 	PrintQueue          []*PrintQueue                `json:"print_queue"`
 	Project             string                       `json:"project"`
 	Pronouns            string                       `json:"pronouns"`
@@ -160,7 +161,7 @@ func (r *Replicant) Details() []*tview.TreeNode {
 		trip.AddChild(TreeNode("%s", ProgressTime(30, t.Departed.ts, t.Arrives.ts)))
 		res = append(res, trip)
 	}
-	
+
 	return res
 }
 
@@ -175,4 +176,3 @@ func (r *Replicant) GetDeviceIDs() []string {
 func (r *Replicant) ListItem() (string, string) {
 	return fmt.Sprintf("%s: %s", r.Code.Alias(), r.Name), r.CurrentLocation
 }
-
