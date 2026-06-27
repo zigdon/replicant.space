@@ -50,6 +50,7 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	start := time.Now()
 	resp, err := client.Do(&http.Request{
 		Method: method,
 		URL:    url,
@@ -59,7 +60,8 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 		},
 		Body: io.NopCloser(bytes.NewReader(data)),
 	})
-	log("%s %q -> %d:\n%s", method, url, resp.StatusCode, string(data))
+	end := time.Now()
+	log("%s %q -> %d (%s):\n%s", method, url, resp.StatusCode, end.Sub(start),string(data))
 	if err != nil {
 		log("err: %v", err)
 		return nil, err

@@ -232,6 +232,9 @@ func AllDevices() ([]*models.Device, error) {
 		for _, d := range res {
 			devs[d.Code.String()] = d
 		}
+		if acc.ReplicantCooperation == "shared" {
+			break
+		}
 	}
 	aliases := make(map[string]string)
 	var res []*models.Device
