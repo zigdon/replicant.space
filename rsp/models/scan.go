@@ -19,9 +19,9 @@ type Salvage struct {
 }
 
 type ScanReplicant struct {
-	LastActive string `json:"last_active"`
-	Location   string `json:"location"`
-	Name       string `json:"name"`
+	LastActive *JSONTime `json:"last_active"`
+	Location   string    `json:"location"`
+	Name       string    `json:"name"`
 	// Don't alias other replicants
 	Code string `json:"replicant_code"`
 }
