@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -114,16 +113,6 @@ var scanCmd = &cobra.Command{
 				}
 				printTable([]string{"Name", "Stock", "Code", "Criteria", "Rewards"}, trades)
 			}
-		}
-
-		if err := db.Update(cache.StarsTable, map[string]any{
-			"designation": scan.Star.Designation,
-			"entry_point": scan.EntryPoint,
-			"est_planets": len(scan.Planets),
-			"has_life":    scan.LifeDetected,
-			"name":        scan.Star.Name,
-		}); err != nil {
-			log("Failed to update stars cache: %v", err)
 		}
 		return nil
 	},

@@ -77,6 +77,15 @@ type Star struct {
 	TemperatureK    int       `json:"temperature_k"`
 }
 
+func (s *Star) Cache() error {
+	fmt.Printf("caching %s\n", s.Designation)
+	return nil
+}
+
+func (s *Star) Get() any {
+	return nil
+}
+
 type Census struct {
 	Page              int       `json:"page"`
 	PerPage           int       `json:"per_page"`

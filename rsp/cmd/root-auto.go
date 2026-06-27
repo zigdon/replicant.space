@@ -186,7 +186,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		}
 		if t, ok := strings.CutSuffix(devType, "_drone"); ok {
 			if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
-				cfg["controller"] = c
+				cfg["controller"] = c.String()
 			}
 		}
 		log("Printing %d %q at %q...", qty, devType, factory)

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"sort"
 )
 
@@ -67,6 +68,15 @@ type Scan struct {
 	Star          *Star            `json:"star"`
 	SystemObjects []*Object        `json:"system_objects"`
 	SystemTags    []string         `json:"system_tags"`
+}
+
+func (s *Scan) Cache() error {
+	fmt.Printf("caching scan %q\n", s.Star.Designation)
+	return s.Star.Cache()
+}
+
+func (s *Scan) Get() any {
+	return &Scan{}
 }
 
 func (s *Scan) ExtractLocations() []string {

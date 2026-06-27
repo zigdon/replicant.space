@@ -42,6 +42,11 @@ func fillDuration(secs float32, dest *time.Duration) error {
 	return nil
 }
 
+type Cachable interface {
+	Cache() error
+	Get() any
+}
+
 func Parse[T any](data []byte) (*T, error) {
 	s := new(T)
 
@@ -51,6 +56,11 @@ func Parse[T any](data []byte) (*T, error) {
 	if f, ok := any(s).(Fillable); ok {
 		if err := f.Fill(); err != nil {
 			return s, err
+		}
+	}
+	if c, ok := any(s).(Cachable); ok {
+		if err := c.Cache(); err != nil {
+			return s, fmt.Errorf("failed to update cache for %T: %v", s, err)
 		}
 	}
 
