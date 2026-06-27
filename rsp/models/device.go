@@ -111,7 +111,6 @@ type CommandResp struct {
 	Eta                  *JSONTimeDelta      `json:"eta_seconds"`
 	FinalDestination     string              `json:"final_destination"`
 	FinalDestinationName string              `json:"final_destination_name"`
-	JsonErr              string              `json:"error"`
 	Location             string              `json:"location"`
 	Moon                 *Moon               `json:"moon"`
 	Origin               string              `json:"origin"`

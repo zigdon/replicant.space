@@ -144,29 +144,17 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 					prettyPrint(resp)
 					continue
 				}
-				if resp.JsonErr == "" {
-					outFn, ok := outputTable[output]
-					if !ok {
-						return fmt.Errorf("Output format not found: %q", output)
-					}
-					headers, data := outFn(resp)
-					repHeaders = headers
-					repData = append(repData, data...)
-					continue
+				outFn, ok := outputTable[output]
+				if !ok {
+					return fmt.Errorf("Output format not found: %q", output)
 				}
-				log("error: %v", resp.JsonErr)
-				if len(resp.AvailableSites) > 0 {
-					var sites [][]string
-					for _, s := range resp.AvailableSites {
-						sites = append(sites, []string{
-							s.Designation, s.Name, s.SalvageType,
-						})
-					}
-					printTable([]string{"Designation", "Name", "SalvageType"}, sites)
-				}
-				return nil
+				headers, data := outFn(resp)
+				repHeaders = headers
+				repData = append(repData, data...)
 			}
-			printTable(repHeaders, repData)
+			if len(repData) > 0 {
+				printTable(repHeaders, repData)
+			}
 			return nil
 		},
 	}

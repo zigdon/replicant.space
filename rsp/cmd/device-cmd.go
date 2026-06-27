@@ -20,7 +20,7 @@ func init() {
 		[]flagDesc{{
 			name: "adopt", short: 'a', desc: "List of devices to adopt",
 			required: true, slice: true, jsonKey: "devices",
-		}}, "",
+		}}, "device-adopt",
 	)
 	mkDeviceCommand(
 		"attach", "Attach a device (passenger)", "attach",
@@ -105,7 +105,7 @@ func init() {
 		[]flagDesc{{
 			name: "release", short: 'r', desc: "List of devices to release",
 			required: true, slice: true, jsonKey: "devices",
-		}}, "",
+		}}, "device-adopt",
 	)
 	mkDeviceCommand(
 		"replicate", "Now there are two wubs", "replicate",
@@ -140,6 +140,22 @@ func init() {
 		}}, "device-travel",
 	)
 
+	outputTable["device-adopt"] = func(data any) ([]string, [][]string) {
+		resp, ok := data.(*models.CommandResp)
+		if !ok {
+			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+		}
+		var as, rs []string
+		for _, d := range resp.AdoptedDevices {
+			as = append(as, d.Code.Alias())
+		}
+		for _, d := range resp.Released {
+			as = append(as, d.Code.Alias())
+		}
+		return []string{"Controller", "Status", "Adopted", "Released"}, [][]string{{
+			resp.ControllerCode.Alias(), resp.Status, list(as), list(rs),
+		}}
+	}
 	outputTable["device-decommission"] = func(data any) ([]string, [][]string) {
 		resp, ok := data.(*models.CommandResp)
 		if !ok {

@@ -90,17 +90,18 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 	}
 	var r jsonErrs
 	if err = json.Unmarshal(body, &r); err != nil {
+		// Couldn't extract errors from the message.
 		return body, nil
 	}
-	if r.Error != "" {
-		errs := []error{errors.New(r.Error)}
-		for _, e := range r.Errors {
-			errs = append(errs, fmt.Errorf("%s: %s", e.DeviceCode, e.Error))
-		}
-		return nil, fmt.Errorf("generic error: %v", errors.Join(errs...))
-	}
 
-	return body, err
+	var errs []error
+	if r.Error != "" {
+		errs = []error{errors.New(r.Error)}
+	}
+	for _, e := range r.Errors {
+		errs = append(errs, fmt.Errorf("%s: %s", e.DeviceCode, e.Error))
+	}
+	return body, errors.Join(errs...)
 }
 
 func Patch(path string, data []byte, args ...any) ([]byte, error) {

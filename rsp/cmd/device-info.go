@@ -35,12 +35,12 @@ var infoCmd = &cobra.Command{
 				totalCargo, dev.CargoCapacity, totalCargo/float32(dev.CargoCapacity)*100)}, cargo...)
 		}
 		printTable(
-			[]string{"Code", "Type", "Location", "Features", "Status", "Taxi Mode",
-				"Replicant", "Commands", "Ops Capacity", "Cargo", "Tags"},
+			[]string{"Code", "Type", "Location", "Status", "Taxi Mode", "Controller",
+				"Replicant", "Commands", "Ops Capacity", "Cargo", "Tags", "Features"},
 			[][]string{{code, dev.Type, dev.Location,
-				lines(dev.Features), dev.Status, dev.TaxiMode, dev.ReplicantCode.Alias(),
+				dev.Status, dev.TaxiMode, dev.ControllerDeviceCode.Alias(), dev.ReplicantCode.Alias(),
 				lines(dev.AvailableCommands), f(dev.OperationalCapacity),
-				lines(cargo), lines(dev.Tags),
+				lines(cargo), lines(dev.Tags), lines(dev.Features), 
 			}},
 		)
 		if len(dev.AvailableDirectives) > 0 {
