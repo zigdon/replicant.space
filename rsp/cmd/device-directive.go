@@ -114,7 +114,10 @@ func init() {
 	mkDeviceCommand(
 		"clear_directive", "Drop the current directive entirely", "clear_directive", nil, "",
 	)
-	dirCmd := mkDeviceCommand(
+	launchCmd := mkDeviceCommand(
+		"launch", "Deploy the fleet and start executing the current directive", "launch", nil, "device-launch",
+	)
+	dirCmd := chainCmd(mkDeviceCommand(
 		"directive", "Update the automation policy for a device", "set_directive",
 		[]flagDesc{
 			{
@@ -124,10 +127,7 @@ func init() {
 				name: "configuration", short: 'c', required: false,
 				jsonKey: "configuration", mapFlag: true,
 			}}, "",
-	)
-	mkDeviceCommand(
-		"launch", "Deploy the fleet and start executing the current directive", "launch", nil, "device-launch",
-	)
+	), launchCmd)
 	mkDeviceCommand(
 		"resume", "pick up a stopped directive from where it left off", "resume_directive", nil, "",
 	)

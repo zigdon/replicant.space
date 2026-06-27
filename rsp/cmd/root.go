@@ -192,6 +192,20 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 	return cmd
 }
 
+var chainCmd = func(a, b *cobra.Command) *cobra.Command {
+	return &cobra.Command{
+		Use: a.Use,
+		Short: a.Short,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := a.RunE(cmd, args); err != nil {
+				return err
+			}
+			log("Chaining command: %s", b.Short)
+			return b.RunE(cmd, args)
+		},
+	}
+}
+
 func aliasType(in string) (string, string) {
 	if db == nil {
 		return "", ""
