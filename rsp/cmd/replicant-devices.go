@@ -27,18 +27,17 @@ var devicesCmd = &cobra.Command{
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(rd)
-		} else {
-			r, err := rest.Replicant(rID)
-			if err != nil {
-				return err
-			}
-			var filter []string
-			if ignore, _ := cmd.Flags().GetBool("ignore_tags"); !ignore {
-				filter, _ = cmd.Flags().GetStringSlice("filter_tags")
-			}
-			loc, _ := cmd.Flags().GetString("location")
-			printReplicantDeviceList(r, filter, rID, loc)
+			return nil
 		}
+		r, err := rest.Replicant(rID)
+		if err != nil {
+			return err
+		}
+		var filter []string
+		if ignore, _ := cmd.Flags().GetBool("ignore_tags"); !ignore {
+			filter, _ = cmd.Flags().GetStringSlice("filter_tags")
+		}
+		printReplicantDeviceList(r, filter, rID, loc)
 		return nil
 	},
 }
@@ -50,19 +49,19 @@ func init() {
 	devicesCmd.Flags().StringSliceP("filter_tags", "t", []string{"infrastructure"}, "Filter results with these tags")
 }
 
-func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner, location string) {
-	devs, err := rest.ReplicantDevices(r.ReplicantCode.String(), "")
+func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner *models.CodeAlias, location string) {
+	devs, err := rest.ReplicantDevices(r.Code, "")
 	if err != nil {
 		log(err.Error())
 		return
 	}
-	ra, err := db.Alias(r.ReplicantCode.String(), "replicant")
+	ra, err := db.Alias(r.Code.String(), "replicant")
 	if err == nil {
 		fmt.Printf("Replicant: %s (%s/%s @ %s)\n",
-			r.Name, ra, r.ReplicantCode, r.CurrentLocation)
+			r.Name, ra, r.Code, r.CurrentLocation)
 	} else {
 		fmt.Printf("Replicant: %s (%s @ %s)\n",
-			r.Name, r.ReplicantCode, r.CurrentLocation)
+			r.Name, r.Code, r.CurrentLocation)
 	}
 
 	var data [][]string
@@ -74,7 +73,7 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner, l
 	}
 
 	for _, d := range devs {
-		if owner != "" && d.OwnerReplicantCode != owner {
+		if owner != nil && d.OwnerReplicant != owner {
 			continue
 		}
 		if location != "" && !strings.Contains(strings.ToLower(d.Location), strings.ToLower(location)) {
@@ -112,7 +111,7 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner, l
 			status,
 			d.StowedInDeviceCode.Alias(),
 			list(d.Tags),
-			alias(d.OwnerReplicantCode),
+			d.OwnerReplicant.Alias(),
 		})
 	}
 	slices.SortFunc(data, func(a, b []string) int {

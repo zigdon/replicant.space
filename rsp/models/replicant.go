@@ -59,6 +59,7 @@ type Travel struct {
 type Replicant struct {
 	AttachedDevices     []string                     `json:"attached_devices"`
 	Cargo               []*Inventory                 `json:"cargo"`
+	Code                *CodeAlias                   `json:"replicant_code"`
 	Created             *JSONTime                    `json:"created_at"`
 	CurrentLocation     string                       `json:"current_location"`
 	CurrentLocationName string                       `json:"current_location_name"`
@@ -77,11 +78,25 @@ type Replicant struct {
 	PrintQueue          []*PrintQueue                `json:"print_queue"`
 	Project             string                       `json:"project"`
 	Pronouns            string                       `json:"pronouns"`
-	ReplicantCode       *CodeAlias                   `json:"replicant_code"`
 	Status              string                       `json:"status"`
 	StowedDevices       []*Device                    `json:"stowed_devices"`
 	Travel              *Travel                      `json:"travel"`
 	WaitingFor          map[string]*MissingResources `json:"waiting_for"`
+
+	UpdateFn func(*CodeAlias) (*Replicant, error)
+}
+
+func (r *Replicant) Update() error {
+	if r.UpdateFn == nil {
+		return nil
+	}
+	nr, err := r.UpdateFn(r.Code)
+	if err != nil {
+		return err
+	}
+	*r = *nr
+
+	return nil
 }
 
 func (r *Replicant) Fill() error {
@@ -99,23 +114,27 @@ func (r *Replicant) Fill() error {
 }
 
 func (r *Replicant) Details() []*tview.TreeNode {
-	res := []*tview.TreeNode{TreeNode(r.Name).
-		AddChild(TreeNode("%s: %s", r.ReplicantCode.Alias(), r.ReplicantCode.String())).
-		AddChild(TreeNode("Location: %s", r.CurrentLocation)).
-		AddChild(TreeNode("Status: %s", r.Status)).
-		AddChild(TreeNode("XP: %d", r.ExperiencePoints))}
+	res := []*tview.TreeNode{TreeNode("%s", r.Name).
+		AddChild(TreeNode("%s: %s", r.Code.Alias(), r.Code.String())).
+		AddChild(TreeNodeFn("Location: %s", ref(r.CurrentLocation))).
+		AddChild(TreeNodeFn("Status: %s", ref(r.Status))).
+		AddChild(TreeNodeFn("XP: %d", ref(r.ExperiencePoints)))}
 	if len(r.Cargo) > 0 {
-		cargo := TreeNode("Cargo")
-		for _, c := range r.Cargo {
-			cargo.AddChild(TreeNode("%3.0f x %s", c.Quantity, c.ResourceType))
-		}
+		cargo := TreeNodeGen("Cargo", func() (res []string) {
+			for _, c := range r.Cargo {
+				res = append(res, fmt.Sprintf("%3.0f x %s", c.Quantity, c.ResourceType))
+			}
+			return
+		})
 		res = append(res, cargo)
 	}
 	if len(r.AttachedDevices) > 0 {
-		ad := TreeNode("Attached Devices")
-		for _, d := range r.AttachedDevices {
-			ad.AddChild(TreeNode(d))
-		}
+		ad := TreeNodeGen("Attached Devices", func() (res []string) {
+			for _, d := range r.AttachedDevices {
+				res = append(res, d)
+			}
+			return
+		})
 		res = append(res, ad)
 	}
 	if len(r.PrintQueue) > 0 {
@@ -154,6 +173,6 @@ func (r *Replicant) GetDeviceIDs() []string {
 }
 
 func (r *Replicant) ListItem() (string, string) {
-	return fmt.Sprintf("%s: %s", r.ReplicantCode.Alias(), r.Name), r.CurrentLocation
+	return fmt.Sprintf("%s: %s", r.Code.Alias(), r.Name), r.CurrentLocation
 }
 

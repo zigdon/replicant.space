@@ -31,6 +31,7 @@ func Account() (*models.Account, error) {
 	for _, r := range acc.ReplicantList {
 		acc.Replicants[r.Name] = r
 	}
+	acc.UpdateFn = Account
 	return acc, nil
 }
 
@@ -122,24 +123,23 @@ func CompleteEvent(eid string) (*models.Event, error) {
 }
 
 // Replicants
-func ReplicantID(id int) (string, error) {
+func ReplicantID(id int) (*models.CodeAlias, error) {
 	account, err := Account()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	name := fmt.Sprintf("%s-%d", account.Name, id)
 	var names []string
 	for _, r := range account.Replicants {
 		if r.Name == name {
-			return r.ReplicantCode.String(), nil
+			return r.Code, nil
 		}
 		names = append(names, r.Name)
 	}
-	return "", fmt.Errorf("no replicant %q found in %q", name, names)
+	return nil, fmt.Errorf("no replicant %q found in %q", name, names)
 }
 
-func ReplicantEvents(id string, cursor, limit int, latest bool, eventType, deviceType, deviceCode string) (*models.ReplicantEvents, error) {
-	id = db.Dealias(id)
+func ReplicantEvents(id *models.CodeAlias, cursor, limit int, latest bool, eventType, deviceType, deviceCode string) (*models.ReplicantEvents, error) {
 	res, err := Get("replicants/%s/events?cursor=%d&limit=%d&latest=%v&event_type=%s&device_type=%s&device_code=%s",
 		id, cursor, limit, latest, eventType, deviceType, deviceCode,
 	)
@@ -150,8 +150,7 @@ func ReplicantEvents(id string, cursor, limit int, latest bool, eventType, devic
 	return models.Parse[models.ReplicantEvents](res)
 }
 
-func ReplicantScan(id string) (*models.Scan, error) {
-	id = db.Dealias(id)
+func ReplicantScan(id *models.CodeAlias) (*models.Scan, error) {
 	res, err := cachePOST("", 0, "replicants/%s/scan", nil, id)
 	if err != nil {
 		return nil, err
@@ -159,8 +158,7 @@ func ReplicantScan(id string) (*models.Scan, error) {
 	return models.Parse[models.Scan](res)
 }
 
-func ReplicantCensus(id string, cnt, page int) (*models.Census, error) {
-	id = db.Dealias(id)
+func ReplicantCensus(id *models.CodeAlias, cnt, page int) (*models.Census, error) {
 	res, err := cacheGET(fmt.Sprintf("%s-census-%d-%d", id, cnt, page), 0, "replicants/%s/stars?per_page=%d&page=%d", id, cnt, page)
 	if err != nil {
 		return nil, err
@@ -168,8 +166,7 @@ func ReplicantCensus(id string, cnt, page int) (*models.Census, error) {
 	return models.Parse[models.Census](res)
 }
 
-func Replicant(id string) (*models.Replicant, error) {
-	id = db.Dealias(id)
+func Replicant(id *models.CodeAlias) (*models.Replicant, error) {
 	res, err := cacheGET("", 0, "replicants/%s", id)
 	if err != nil {
 		return nil, err
@@ -184,16 +181,16 @@ func Replicant(id string) (*models.Replicant, error) {
 	if r.CurrentLocationName == "" {
 		r.CurrentLocationName = r.LocationName
 	}
+	r.UpdateFn = Replicant
 	return r, nil
 }
 
-func ReplicantDevices(id, loc string) ([]*models.Device, error) {
-	id = db.Dealias(id)
+func ReplicantDevices(c *models.CodeAlias, loc string) ([]*models.Device, error) {
 	var q string
 	if loc != "" {
 		q = fmt.Sprintf("?location=%s", loc)
 	}
-	res, err := cacheGET("", 0, "replicants/%s/devices%s", id, q)
+	res, err := cacheGET("", 0, "replicants/%s/devices%s", c.String(), q)
 	if err != nil {
 		return nil, err
 	}
@@ -204,8 +201,7 @@ func ReplicantDevices(id, loc string) ([]*models.Device, error) {
 	return devs.Devices, nil
 }
 
-func ReplicantTravel(id, dest string) (*models.Trip, error) {
-	id = db.Dealias(id)
+func ReplicantTravel(id *models.CodeAlias, dest string) (*models.Trip, error) {
 	data, _ := json.Marshal(map[string]string{
 		"destination": dest,
 	})
@@ -229,7 +225,7 @@ func AllDevices() ([]*models.Device, error) {
 	}
 	devs := make(map[string]*models.Device)
 	for _, r := range acc.Replicants {
-		res, err := ReplicantDevices(r.ReplicantCode.String(), "")
+		res, err := ReplicantDevices(r.Code, "")
 		if err != nil {
 			return nil, err
 		}
@@ -254,9 +250,8 @@ func AllDevices() ([]*models.Device, error) {
 	return res, nil
 }
 
-func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp, error) {
-	id = db.Dealias(id)
-	if command == "" || id == "" {
+func DeviceCommand(id *models.CodeAlias, command string, args map[string]any) (*models.CommandResp, error) {
+	if command == "" || id == nil {
 		return nil, fmt.Errorf("id and command are required")
 	}
 	if args == nil {
@@ -284,8 +279,7 @@ func DeviceCommand(id, command string, args map[string]any) (*models.CommandResp
 	return models.Parse[models.CommandResp](trip)
 }
 
-func DeviceLogs(id string, latest bool, page, limit int) (*models.DeviceLogs, error) {
-	id = db.Dealias(id)
+func DeviceLogs(id *models.CodeAlias, latest bool, page, limit int) (*models.DeviceLogs, error) {
 	var res []byte
 	var err error
 	skip := page * limit
@@ -323,8 +317,7 @@ func DeviceLogs(id string, latest bool, page, limit int) (*models.DeviceLogs, er
 	return ret, nil
 }
 
-func DeviceInfo(id string) (*models.Device, error) {
-	id = db.Dealias(id)
+func DeviceInfo(id *models.CodeAlias) (*models.Device, error) {
 	res, err := cacheGET("", 0, "devices/%s", id)
 	if err != nil {
 		return nil, err
@@ -332,8 +325,7 @@ func DeviceInfo(id string) (*models.Device, error) {
 	return models.Parse[models.Device](res)
 }
 
-func DeviceNetwork(id string) (*models.Network, error) {
-	id = db.Dealias(id)
+func DeviceNetwork(id *models.CodeAlias) (*models.Network, error) {
 	res, err := cacheGET("", 0, "devices/%s/network", id)
 	if err != nil {
 		return nil, err
@@ -346,11 +338,11 @@ func DeviceNetwork(id string) (*models.Network, error) {
 	return n, err
 }
 
-func GetType(id string) (string, error) {
-	if id == "" {
+func GetType(code string) (string, error) {
+	if code == "" {
 		return "", fmt.Errorf("can't get type of blank")
 	}
-	dev, err := DeviceInfo(id)
+	dev, err := DeviceInfo(models.NewCodeAlias(code))
 	if err != nil {
 		return "", err
 	}
@@ -365,8 +357,7 @@ const (
 	DelTag  TagOp = "remove_tags"
 )
 
-func UpdateTags(id string, operation TagOp, tags []string) (*models.Device, error) {
-	id = db.Dealias(id)
+func UpdateTags(id *models.CodeAlias, operation TagOp, tags []string) (*models.Device, error) {
 	data, err := json.Marshal(map[string]any{
 		"configuration": map[string][]string{
 			string(operation): tags,
@@ -427,8 +418,7 @@ func Blueprints() (*models.Blueprints, error) {
 	return models.Parse[models.Blueprints](res)
 }
 
-func ReplicantPrint(id, command, device string) (*models.PrintResp, error) {
-	id = db.Dealias(id)
+func ReplicantPrint(id *models.CodeAlias, command, device string) (*models.PrintResp, error) {
 	data := make(map[string]string)
 	if command != "" {
 		data["command"] = command
@@ -445,8 +435,8 @@ func ReplicantPrint(id, command, device string) (*models.PrintResp, error) {
 }
 
 // Trades
-func Traders(rid string) (*models.Shops, error) {
-	res, err := cacheGET(fmt.Sprintf("traders-%s", rid), 0, "replicants/%s/traders", rid)
+func Traders(id *models.CodeAlias) (*models.Shops, error) {
+	res, err := cacheGET(fmt.Sprintf("traders-%s", id), 0, "replicants/%s/traders", id)
 	if err != nil {
 		return nil, err
 	}

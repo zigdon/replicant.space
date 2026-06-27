@@ -38,6 +38,20 @@ type Account struct {
 	Status                string                `json:"status"`
 	Timezone              string                `json:"timezone"`
 	UnreadMessageCount    int                   `json:"unread_message_count"`
+
+	UpdateFn func() (*Account, error)
+}
+
+func (a *Account) Update() error {
+	if a.UpdateFn == nil {
+		return nil
+	}
+	acc, err := a.UpdateFn()
+	if err != nil {
+		return err
+	}
+	*a = *acc
+	return nil
 }
 
 func (a *Account) Fill() error {

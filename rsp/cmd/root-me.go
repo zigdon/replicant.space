@@ -110,10 +110,9 @@ var accountCmd = &cobra.Command{
 		slices.Sort(names)
 		for _, name := range names {
 			r := acc.Replicants[name]
-			code, err := db.Alias(r.ReplicantCode.String(), "replicant")
+			code, err := db.Alias(r.Code.String(), "replicant")
 			if err != nil {
-				log("Error creating alias for %q: %v", err)
-				code = r.ReplicantCode.String()
+				return fmt.Errorf("Error creating alias for %q: %v", err)
 			}
 
 			reps = append(reps, []string{

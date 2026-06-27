@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -17,7 +18,7 @@ var addTagCmd = &cobra.Command{
 	Short: "Add a tag to a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
-		res, err := rest.UpdateTags(id, rest.AddTag, args)
+		res, err := rest.UpdateTags(models.NewCodeAlias(id), rest.AddTag, args)
 		if err != nil {
 			return err
 		}
@@ -41,7 +42,7 @@ var delTagCmd = &cobra.Command{
 	Short: "Remove a tag from a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
-		res, err := rest.UpdateTags(id, rest.DelTag, args)
+		res, err := rest.UpdateTags(models.NewCodeAlias(id), rest.DelTag, args)
 		if err != nil {
 			return err
 		}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -13,7 +14,7 @@ var infoCmd = &cobra.Command{
 	Short: "Show detailed information about a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
-		dev, err := rest.DeviceInfo(id)
+		dev, err := rest.DeviceInfo(models.NewCodeAlias(id))
 		if err != nil {
 			return fmt.Errorf("Failed to get info for %q: %v", id, err)
 		}

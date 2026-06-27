@@ -136,7 +136,7 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 			var repData [][]string
 			var repHeaders []string
 			for range reps {
-				resp, err := rest.DeviceCommand(id, command, data)
+				resp, err := rest.DeviceCommand(models.NewCodeAlias(id), command, data)
 				if err != nil {
 					return fmt.Errorf("Error sending %q to %q: %v", command, id, err)
 				}

@@ -46,7 +46,7 @@ var deliveryCmd = &cobra.Command{
 			},
 		}
 
-		res, err := rest.DeviceCommand(id, "set_directive", cfg)
+		res, err := rest.DeviceCommand(models.NewCodeAlias(id), "set_directive", cfg)
 		if err != nil {
 			return fmt.Errorf("Can't set directive: %v", err)
 		}
@@ -87,7 +87,7 @@ var surveyCmd = &cobra.Command{
 			},
 		}
 
-		res, err := rest.DeviceCommand(id, "set_directive", cfg)
+		res, err := rest.DeviceCommand(models.NewCodeAlias(id), "set_directive", cfg)
 		if err != nil {
 			return fmt.Errorf("Can't set directive: %v", err)
 		}

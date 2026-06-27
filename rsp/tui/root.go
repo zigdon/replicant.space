@@ -9,6 +9,7 @@ import (
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -17,6 +18,7 @@ var tree = tview.NewTreeView().SetRoot(tview.NewTreeNode("Details"))
 var dump = tview.NewTextView()
 var logWin = tview.NewTextView()
 var app *tview.Application
+var cache = make(map[string]map[string]*models.Updatable)
 
 var TUI = &cobra.Command{
 	Use: "tui",
@@ -24,9 +26,16 @@ var TUI = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		app = tview.NewApplication()
 		go processEventQueue()
-		Repeat("replicant page", 1 * time.Second, replPage, forever)
 		app.SetRoot(layout(), true)
+		if err := replPage(); err != nil {
+			return err
+		}
 		setKeys()
+		Repeat("update tree", 5*time.Second, func() error {
+			log("updating tree")
+			update(tree.GetRoot())
+			return nil
+		}, forever)
 		return app.Run()
 	},
 }
@@ -74,6 +83,43 @@ func layout() *tview.Flex {
 		AddItem(logWin, 10, 0, false)
 }
 
+func update(tn *tview.TreeNode) {
+	log("Updating %s...", tn.GetText())
+	if len(tn.GetChildren()) > 0 {
+		log("Updating children")
+		for _, c := range tn.GetChildren() {
+			update(c)
+		}
+	}
+	r := tn.GetReference()
+	if r == nil {
+		return
+	}
+	uf, ok := r.(models.UpdateFn)
+	if !ok {
+		log("Can't use %v as UpdateFn", r)
+		return
+	}
+	if uf.ArgFn != nil {
+		log("Found ArgFn")
+		tn.SetText(fmt.Sprintf(uf.Tmpl, uf.ArgFn()...))
+	} else if uf.TextFn != nil {
+		log("Found TextFn")
+		tn.SetText(uf.TextFn())
+	} else {
+		log("Setting text")
+		tn.SetText(uf.Tmpl)
+	}
+	if uf.ChildFn != nil {
+		log("Found ChildFn")
+		tn.ClearChildren()
+		for _, c := range uf.ChildFn() {
+			tn.AddChild(tview.NewTreeNode(c))
+		}
+		return
+	}
+}
+
 func replPage() error {
 	acc, err := rest.Account()
 	if err != nil {
@@ -84,7 +130,7 @@ func replPage() error {
 	rs := acc.ReplicantList
 	devList.Clear()
 	for i, r := range rs {
-		rs[i], err = rest.Replicant(r.ReplicantCode.String())
+		rs[i], err = rest.Replicant(r.Code)
 		m, s := rs[i].ListItem()
 		devList.AddItem(m, s, 0, func() {
 			app.SetFocus(dump)

@@ -62,7 +62,7 @@ type Device struct {
 	Location             string                       `json:"location"`
 	LocationName         string                       `json:"location_name"`
 	OperationalCapacity  float32                      `json:"operational_capacity"`
-	OwnerReplicantCode   string                       `json:"owner_replicant_code"`
+	OwnerReplicant       *CodeAlias                   `json:"owner_replicant_code"`
 	Printing             *DevicePrint                 `json:"printing"`
 	PrintQueue           []*DevicePrintQueue          `json:"print_queue"`
 	QueueSize            int                          `json:"queue_size"`

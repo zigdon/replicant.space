@@ -29,9 +29,13 @@ var deviceListCmd = &cobra.Command{
 			filter, _ = cmd.Flags().GetStringSlice("filter_tags")
 		}
 		owner, _ := cmd.Flags().GetString("replicant")
+		var oca *models.CodeAlias
+		if owner != "" {
+			oca = models.NewCodeAlias(owner)
+		}
 		location, _ := cmd.Flags().GetString("location")
 		for _, n := range names {
-			printReplicantDeviceList(acc.Replicants[n], filter, unalias(owner), location)
+			printReplicantDeviceList(acc.Replicants[n], filter, oca, location)
 			if acc.ReplicantCooperation == "shared" {
 				break
 			}
@@ -65,7 +69,7 @@ var networkCmd = &cobra.Command{
 				continue
 			}
 
-			net, err := rest.DeviceNetwork(d.Code.String())
+			net, err := rest.DeviceNetwork(d.Code)
 			if err != nil {
 				return err
 			}

@@ -13,45 +13,12 @@ import (
 
 var db *cache.Cache
 
+type Updatable interface {
+	Update() error
+}
+
 type Fillable interface {
 	Fill() error
-}
-
-type fillData struct {
-	fsrc    float32
-	ssrc    string
-	fdst    *time.Duration
-	sdst    *time.Time
-	recurse []Fillable
-}
-
-func f[T Fillable](fs []T) []Fillable {
-	res := make([]Fillable, len(fs))
-	for i, m := range fs {
-		res[i] = m
-	}
-	return res
-}
-
-func fill(pairs []fillData) error {
-	for _, p := range pairs {
-		if p.sdst != nil {
-			if err := fillTime(p.ssrc, p.sdst); err != nil {
-				return err
-			}
-		} else if len(p.recurse) > 0 {
-			for _, r := range p.recurse {
-				if err := r.Fill(); err != nil {
-					return err
-				}
-			}
-		} else if p.fdst != nil {
-			if err := fillDuration(p.fsrc, p.fdst); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func fillTime(ts string, dest *time.Time) error {
@@ -164,6 +131,21 @@ func (jt *JSONTime) Time() time.Time {
 	return jt.ts
 }
 
+func NewCodeAlias(input string) *CodeAlias {
+	c := &CodeAlias{}
+	if strings.Contains(input, "-") {
+		c.alias = input
+		c.orig = db.Dealias(input)
+	} else {
+		c.orig = input
+		alias, err := db.Alias(input, "")
+		if err == nil {
+			c.alias = alias
+		}
+	}
+	return c
+}
+
 type CodeAlias struct {
 	orig  string
 	alias string
@@ -207,7 +189,46 @@ func (a *CodeAlias) Alias() string {
 }
 
 func TreeNode(tmpl string, args ...any) *tview.TreeNode {
-	return tview.NewTreeNode(fmt.Sprintf(tmpl, args...))
+	return tview.NewTreeNode(fmt.Sprintf(" "+tmpl, args...))
+}
+
+func ref[T any](s T) func()[]any {
+	return func()[]any {
+		return []any{s}
+	}
+}
+
+func lAny[T any](l []T) []any {
+	res := make([]any, len(l))
+	for i := range l {
+		res[i] = l[i]
+	}
+	return res
+}
+
+type UpdateFn struct {
+	Tmpl string
+	ArgFn func() []any
+	TextFn func() string
+	ChildFn func() []string
+}
+
+func TreeNodeFn(tmpl string, fn func() []any) *tview.TreeNode {
+	return tview.NewTreeNode("").
+		SetText(fmt.Sprintf(" "+tmpl, fn()...)).
+		SetReference(UpdateFn{
+			Tmpl: tmpl,
+			ArgFn: fn,
+		})
+}
+
+func TreeNodeGen(label string, fn func() []string) *tview.TreeNode {
+	tn := tview.NewTreeNode(label).
+		SetReference(UpdateFn{
+			Tmpl: label,
+			ChildFn: fn,
+		})
+	return tn
 }
 
 func ProgressTime(width int, start, end time.Time) string {

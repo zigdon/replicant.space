@@ -82,7 +82,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	locs := make(map[string]bool)
 	printers, _ := cmd.Flags().GetStringSlice("factory")
 	for _, f := range printers {
-		dev, err := rest.DeviceInfo(f)
+		dev, err := rest.DeviceInfo(models.NewCodeAlias(f))
 		if err != nil {
 			return err
 		}
@@ -96,12 +96,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	tagged, err := rest.GetTagged(tag)
 
 	// Find what is missing
-	amis := make(map[string]string)
+	amis := make(map[string]*models.CodeAlias)
 	for _, d := range tagged.Devices {
 		t := d.Type
 		stats[t].found += 1
 		if strings.Contains(t, "ami") {
-			amis[t] = d.Code.String()
+			amis[t] = d.Code
 			log("ami found: %s -> %s", t, d.Code.String())
 		}
 		if m := missing[t]; m <= 0 {
@@ -138,7 +138,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			missing[t] -= 1
 			fleet[t] = append(fleet[t], d)
 			log("Tagging idle %s (%s)", t, d.Code.String())
-			_, err := rest.UpdateTags(d.Code.String(), rest.AddTag, []string{tag})
+			_, err := rest.UpdateTags(d.Code, rest.AddTag, []string{tag})
 			if err != nil {
 				return err
 			}
@@ -188,7 +188,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 		}
 		log("Printing %q at %q...", devType, factory)
-		res, err := rest.DeviceCommand(factory, "enqueue_print", cfg)
+		res, err := rest.DeviceCommand(models.NewCodeAlias(factory), "enqueue_print", cfg)
 		if err != nil {
 			return err
 		}
@@ -208,11 +208,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	log("Fleet ready to ship")
 
 	// If there isn't an assigned afc, we're done
-	afc, _ := cmd.Flags().GetString("fleet")
-	if afc == "" {
+	afcStr, _ := cmd.Flags().GetString("fleet")
+	if afcStr == "" {
 		log("No assigned AFC, fleet still needs to be transported")
 		return nil
 	}
+	afc := models.NewCodeAlias(afcStr)
 
 	// If the afc is at the destination, unattach all the things
 	afcInfo, err := rest.DeviceInfo(afc)
@@ -221,7 +222,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 	platforms := afcInfo.ControlledDevices
 	for _, p := range platforms {
-		info, err := rest.DeviceInfo(p.Code.String())
+		info, err := rest.DeviceInfo(p.Code)
 		if err != nil {
 			return err
 		}
@@ -233,7 +234,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		log("Detaching %v from %s", devs, info.Code.Alias())
-		_, err = rest.DeviceCommand(info.Code.String(), "detach", map[string]any{"targets": devs})
+		_, err = rest.DeviceCommand(info.Code, "detach", map[string]any{"targets": devs})
 		if err != nil {
 			return err
 		}
@@ -272,14 +273,14 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 		// Attach any devices that need to ship
 		for _, p := range platforms {
-			info, err := rest.DeviceInfo(p.Code.String())
+			info, err := rest.DeviceInfo(p.Code)
 			if err != nil {
 				return err
 			}
 			cap := min(info.AttachCapacity-len(info.AttachedDevices), len(needPicked))
 			if cap > 0 {
 				log("Attaching %v to %s", needPicked[0:cap], p.Code.Alias())
-				_, err := rest.DeviceCommand(p.Code.String(), "attach", map[string]any{
+				_, err := rest.DeviceCommand(p.Code, "attach", map[string]any{
 					"targets": needPicked[0:cap],
 				})
 				if err != nil {
@@ -320,40 +321,39 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if !ok || len(ds) == 0 {
 		return fmt.Errorf("Can't find mtd")
 	}
-	if err := setDirective(ds[0].Code.String(), locName, "patrol"); err != nil {
+	if err := setDirective(ds[0].Code, locName, "patrol"); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func setDirective(id, location, directive string) error {
-	a := alias(id)
+func setDirective(id *models.CodeAlias, location, directive string) error {
 	info, err := rest.DeviceInfo(id)
 	if err != nil {
-		return fmt.Errorf("Can't get %s info: %v", a, err)
+		return fmt.Errorf("Can't get %s info: %v", id.Alias(), err)
 	}
 	if info.Location != location {
 		res, err := rest.DeviceCommand(id, "travel", map[string]any{
 			"destination": location,
 		})
 		if err != nil {
-			return fmt.Errorf("Failed to send %s from %q to %q: %v", a, info.Location, location, err)
+			return fmt.Errorf("Failed to send %s from %q to %q: %v", id.Alias(), info.Location, location, err)
 		}
-		log("Shipped %s to %s: ETA %s", a, location, res.TotalTime.String())
+		log("Shipped %s to %s: ETA %s", id.Alias(), location, res.TotalTime.String())
 		return nil
 	}
 	if _, err = rest.DeviceCommand(id, "set_directive", map[string]any{
 		"directive": directive,
 	}); err != nil {
-		return fmt.Errorf("Can't set %s directive: %v", a, err)
+		return fmt.Errorf("Can't set %s directive: %v", id.Alias(), err)
 	}
 	if directive != "patrol" {
 		if _, err = rest.DeviceCommand(id, "launch", nil); err != nil {
-			return fmt.Errorf("Can't launching %s: %v", a, err)
+			return fmt.Errorf("Can't launching %s: %v", id.Alias(), err)
 		}
 	}
-	log("Set directive on %s: %s", a, directive)
+	log("Set directive on %s: %s", id.Alias(), directive)
 	return nil
 }
 
@@ -364,7 +364,7 @@ func findPrinter(printers []string) (string, error) {
 	info := make(map[string]*models.Device)
 	log("Printers:")
 	for _, p := range printers {
-		i, err := rest.DeviceInfo(p)
+		i, err := rest.DeviceInfo(models.NewCodeAlias(p))
 		if err != nil {
 			return "", fmt.Errorf("can't get device info for %q: %v", p, err)
 		}

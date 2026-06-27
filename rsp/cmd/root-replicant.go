@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -28,7 +29,7 @@ var replicantCmd = &cobra.Command{
 		printTable([]string{
 			"Name", "Code", "Location", "XP", "Description", "Status",
 		}, [][]string{{
-			repl.Name, repl.ReplicantCode.Alias(), repl.Location,
+			repl.Name, repl.Code.Alias(), repl.Location,
 			d(repl.ExperiencePoints), repl.Description, repl.Status,
 		}})
 		if repl.Travel != nil {
@@ -96,15 +97,12 @@ func init() {
 	replicantCmd.PersistentFlags().Int("id", 1, "Replicant ID to use (default 1, i.e. zigdon-1)")
 }
 
-func getRID(cmd *cobra.Command) (string, error) {
+func getRID(cmd *cobra.Command) (*models.CodeAlias, error) {
 	rID, _ := cmd.Flags().GetString("code")
-	if rID == "" {
-		id, _ := cmd.Flags().GetInt("id")
-		code, err := rest.ReplicantID(id)
-		if err != nil {
-			return "", fmt.Errorf("Replicant #%d not found: %v", id, err)
-		}
-		rID = code
+	if rID != "" {
+		return models.NewCodeAlias(rID), nil
 	}
-	return rID, nil
+
+	id, _ := cmd.Flags().GetInt("id")
+	return rest.ReplicantID(id)
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -10,7 +11,7 @@ var deviceNetworkCmd = &cobra.Command{
 	Short: "Show devices networked together",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
-		res, err := rest.DeviceNetwork(id)
+		res, err := rest.DeviceNetwork(models.NewCodeAlias(id))
 		if err != nil {
 			return err
 		}

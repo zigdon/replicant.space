@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 
 	lg "charm.land/lipgloss/v2"
@@ -19,7 +20,7 @@ var deviceLogsCmd = &cobra.Command{
 		latest, _ := cmd.Flags().GetBool("latest")
 		limit, _ := cmd.Flags().GetInt("number")
 		page, _ := cmd.Flags().GetInt("page")
-		logs, err := rest.DeviceLogs(id, latest, page, limit)
+		logs, err := rest.DeviceLogs(models.NewCodeAlias(id), latest, page, limit)
 		if err != nil {
 		  return err
 		}

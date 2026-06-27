@@ -22,7 +22,6 @@ func Queue(label string, ts time.Time, fn func() error) {
 	slices.SortFunc(eventQueue, func(a, b event) int {
 		return cmp.Compare(a.ts.Second(), b.ts.Second())
 	})
-	tick <- false
 }
 
 func forever() bool { return false }
@@ -40,6 +39,7 @@ func Repeat(label string, interval time.Duration, fn func() error, stop func () 
 		return nil
 	}
 	Queue(label, time.Now(), ev)
+	tick <- false
 }
 
 var tick = make(chan bool, 1)
@@ -55,8 +55,8 @@ func processEventQueue() {
 		log("%d events in queue", len(eventQueue))
 		var next time.Time
 		select {
-		case <- ticker.C:
-			log("timer tick")
+		case t := <-ticker.C:
+			log("timer tick: %s", t)
 			next = processEvents()
 		case c := <- tick:
 			log("manual tick")
@@ -67,7 +67,7 @@ func processEventQueue() {
 		}
 		log("next event: %s", next.String())
 		time.AfterFunc(time.Until(next), func() { tick <- false })
-		log("waiting for next event, %d events in queue", len(eventQueue))
+		log("waiting %s for next event, %d events in queue", time.Until(next), len(eventQueue))
 		app.Draw()
 	}
 }

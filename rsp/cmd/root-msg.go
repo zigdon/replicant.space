@@ -73,7 +73,7 @@ var bobCmd = &cobra.Command{
 
 		var relayID string
 		for _, r := range acc.Replicants {
-			devices, err := rest.ReplicantDevices(r.ReplicantCode.String(), "")
+			devices, err := rest.ReplicantDevices(r.Code, "")
 			if err != nil {
 				continue
 			}
