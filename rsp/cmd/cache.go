@@ -137,7 +137,7 @@ func reloadStars (cmd *cobra.Command, args []string) error {
 		"Fetch done: %d total stars, %d added, %d updated, %d unchanged",
 		len(added) + len(updated) + unchanged, len(added), len(updated), unchanged)
 	for _, s := range append(added, updated...) {
-		if err := db.Update("stars", seen[s].Map()); err != nil {
+		if err := db.Update(cache.StarsTable, seen[s].Map()); err != nil {
 			return err
 		}
 	}

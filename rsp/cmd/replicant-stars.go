@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -68,6 +69,19 @@ var starsCmd = &cobra.Command{
 				if dest != "" {
 					dist[s.Designation] = s.Position.Distance(target)
 					data = append(data, f(dist[s.Designation]))
+				}
+				if err := db.Update(cache.StarsTable, map[string]any{
+					"designation": s.Designation,
+					"entry_point": s.EntryPoint,
+					"est_planets": s.EstimatedPlanets,
+					"explored":    s.Explored,
+					"has_life":    s.HasLife,
+					"name":        s.Name,
+					"position_x":  s.Position.X,
+					"position_y":  s.Position.Y,
+					"position_z":  s.Position.Z,
+				}); err != nil {
+					log("Error updating cache for %q: %v", s.Designation, err)
 				}
 				stars = append(stars, data)
 			}

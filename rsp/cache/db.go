@@ -118,7 +118,7 @@ func (db *Cache) Get(table Tables, key string) (any, error) {
 	return nil, fmt.Errorf("Table %q not found", table)
 }
 
-func (db *Cache) Update(table string, data map[string]any) error {
+func (db *Cache) Update(table Tables, data map[string]any) error {
 	var columns, placeholders []string
 	var values []any
 	for k, v := range data {
