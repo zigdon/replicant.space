@@ -18,14 +18,14 @@ func init() {
 	mkDeviceCommand(
 		"adopt", "Add devices to a controller's fleet", "adopt",
 		[]flagDesc{{
-			name: "adopt", short: 'a', desc: "List of devices to adopt",
+			name: "target", short: 't', desc: "List of devices to adopt",
 			required: true, slice: true, jsonKey: "devices",
 		}}, "device-adopt",
 	)
 	mkDeviceCommand(
 		"attach", "Attach a device (passenger)", "attach",
 		[]flagDesc{{
-			name: "passenger", short: 'p', desc: "Device to attach",
+			name: "target", short: 't', desc: "Device to attach",
 			required: true, jsonKey: "targets", slice: true,
 		}}, "",
 	)
@@ -62,7 +62,7 @@ func init() {
 	mkDeviceCommand(
 		"detach", "Detach a device (passenger)", "detach",
 		[]flagDesc{{
-			name: "passenger", short: 'p', desc: "Device to detach",
+			name: "target", short: 't', desc: "Device to detach",
 			required: true, jsonKey: "targets", slice: true,
 		}}, "",
 	)
@@ -103,7 +103,7 @@ func init() {
 	mkDeviceCommand(
 		"release", "Return devices back to direct control", "release",
 		[]flagDesc{{
-			name: "release", short: 'r', desc: "List of devices to release",
+			name: "target", short: 't', desc: "List of devices to release",
 			required: true, slice: true, jsonKey: "devices",
 		}}, "device-adopt",
 	)
@@ -150,7 +150,7 @@ func init() {
 			as = append(as, d.Code.Alias())
 		}
 		for _, d := range resp.Released {
-			as = append(as, d.Code.Alias())
+			rs = append(rs, d.Code.Alias())
 		}
 		return []string{"Controller", "Status", "Adopted", "Released"}, [][]string{{
 			resp.ControllerCode.Alias(), resp.Status, list(as), list(rs),
