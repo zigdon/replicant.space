@@ -73,7 +73,7 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner *m
 	}
 
 	for _, d := range devs {
-		if owner != nil && d.OwnerReplicant != owner {
+		if owner != nil && d.OwnerReplicant.String() != owner.String() {
 			continue
 		}
 		if location != "" && !strings.Contains(strings.ToLower(d.Location), strings.ToLower(location)) {
