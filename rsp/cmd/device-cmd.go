@@ -27,7 +27,7 @@ func init() {
 		[]flagDesc{{
 			name: "target", short: 't', desc: "Device to attach",
 			required: true, jsonKey: "targets", slice: true,
-		}}, "",
+		}}, "device-attach",
 	)
 	mkDeviceCommand(
 		"collect", "Pick up resources at the current location", "collect_resources",
@@ -64,7 +64,7 @@ func init() {
 		[]flagDesc{{
 			name: "target", short: 't', desc: "Device to detach",
 			required: true, jsonKey: "targets", slice: true,
-		}}, "",
+		}}, "device-attach",
 	)
 	mkDeviceCommand(
 		"mine", "Instruct a drone to start mining", "start_mining",
@@ -153,6 +153,22 @@ func init() {
 			rs = append(rs, d.Code.Alias())
 		}
 		return []string{"Controller", "Status", "Adopted", "Released"}, [][]string{{
+			resp.ControllerCode.Alias(), resp.Status, list(as), list(rs),
+		}}
+	}
+	outputTable["device-attach"] = func(data any) ([]string, [][]string) {
+		resp, ok := data.(*models.CommandResp)
+		if !ok {
+			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+		}
+		var as, rs []string
+		for _, d := range resp.Attached {
+			as = append(as, d.Code.Alias())
+		}
+		for _, d := range resp.Detached {
+			rs = append(rs, d.Code.Alias())
+		}
+		return []string{"Controller", "Status", "Attached", "Detached"}, [][]string{{
 			resp.ControllerCode.Alias(), resp.Status, list(as), list(rs),
 		}}
 	}
