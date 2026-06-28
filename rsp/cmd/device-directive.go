@@ -117,7 +117,7 @@ func init() {
 	launchCmd := mkDeviceCommand(
 		"launch", "Deploy the fleet and start executing the current directive", "launch", nil, "device-launch",
 	)
-	dirCmd := chainCmd(mkDeviceCommand(
+	chainCmd(mkDeviceCommand(
 		"directive", "Update the automation policy for a device", "set_directive",
 		[]flagDesc{
 			{
@@ -135,13 +135,13 @@ func init() {
 		"withdraw", "Recall the fleet and pause execution", "withdraw", nil, "",
 	)
 
-	dirCmd.AddCommand(deliveryCmd)
+	deviceCmd.AddCommand(deliveryCmd)
 	deliveryCmd.Flags().StringP("route", "s", "", "source:dest location codes")
 	deliveryCmd.Flags().StringSliceP("resources", "r", []string{}, "resources to collect, type:qty, repeatable")
 	deliveryCmd.MarkFlagRequired("route")
 	deliveryCmd.MarkFlagRequired("resources")
 
-	dirCmd.AddCommand(surveyCmd)
+	deviceCmd.AddCommand(surveyCmd)
 	surveyCmd.Flags().BoolP("no_planets", "p", false, "set to skip scanning planets")
 	surveyCmd.Flags().BoolP("no_moons", "c", false, "set to skip scanning moons")
 	surveyCmd.Flags().BoolP("no_recall", "r", false, "set to not recall the drones once done")
