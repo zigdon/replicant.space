@@ -98,7 +98,7 @@ var surveyCmd = &cobra.Command{
 		printTable([]string{
 			"Directive", "Planets", "Moons", "Recall", "Status",
 		}, [][]string{{
-			res.AmiDirective.Name, res.AmiDirective.Config["planets"].(string), 
+			res.AmiDirective.Name, res.AmiDirective.Config["planets"].(string),
 			res.AmiDirective.Config["moons"].(string),
 			b(res.AmiDirective.Config["recall"].(bool)),
 			res.AmiDirectiveStatus,
@@ -114,10 +114,10 @@ func init() {
 	mkDeviceCommand(
 		"clear_directive", "Drop the current directive entirely", "clear_directive", nil, "",
 	)
-	launchCmd := mkDeviceCommand(
+	mkDeviceCommand(
 		"launch", "Deploy the fleet and start executing the current directive", "launch", nil, "device-launch",
 	)
-	chainCmd(mkDeviceCommand(
+	directiveCmd := mkDeviceCommand(
 		"directive", "Update the automation policy for a device", "set_directive",
 		[]flagDesc{
 			{
@@ -127,7 +127,7 @@ func init() {
 				name: "configuration", short: 'c', required: false,
 				jsonKey: "configuration", mapFlag: true,
 			}}, "",
-	), launchCmd)
+	)
 	mkDeviceCommand(
 		"resume", "pick up a stopped directive from where it left off", "resume_directive", nil, "",
 	)
@@ -135,7 +135,8 @@ func init() {
 		"withdraw", "Recall the fleet and pause execution", "withdraw", nil, "",
 	)
 
-	deviceCmd.AddCommand(deliveryCmd)
+	deviceCmd.AddCommand(directiveCmd)
+	directiveCmd.AddCommand(deliveryCmd)
 	deliveryCmd.Flags().StringP("route", "s", "", "source:dest location codes")
 	deliveryCmd.Flags().StringSliceP("resources", "r", []string{}, "resources to collect, type:qty, repeatable")
 	deliveryCmd.MarkFlagRequired("route")
