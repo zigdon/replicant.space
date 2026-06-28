@@ -18,7 +18,7 @@ var tree = tview.NewTreeView().SetRoot(tview.NewTreeNode("Details"))
 var dump = tview.NewTextView()
 var logWin = tview.NewTextView()
 var app *tview.Application
-var cache = make(map[string]map[string]*models.Updatable)
+var cache = make(map[string]models.Updatable)
 
 var TUI = &cobra.Command{
 	Use: "tui",
@@ -127,22 +127,28 @@ func replPage() error {
 		return err
 	}
 
-	rs := acc.ReplicantList
+	for _, r := range acc.Replicants {
+		cache[r.Code.String()] = r
+	}
+
 	devList.Clear()
-	for i, r := range rs {
-		rs[i], err = rest.Replicant(r.Code)
-		m, s := rs[i].ListItem()
+	var rs []string
+	for _, rep := range acc.ReplicantList {
+		rs = append(rs, rep.Code.String())
+		m, s := rep.ListItem()
 		devList.AddItem(m, s, 0, func() {
 			app.SetFocus(dump)
 		})
 	}
 	devList.SetChangedFunc(func(i int, _, _ string, _ rune) {
-		pp, _ := json.MarshalIndent(rs[i], "", "  ")
+		rep := cache[rs[i]].(*models.Replicant)
+		pp, _ := json.MarshalIndent(rep, "", "  ")
 		dump.SetText(string(pp))
 		tree.GetRoot().ClearChildren()
-		for _, tn := range rs[i].Details() {
+		for _, tn := range rep.Details() {
 			tree.GetRoot().AddChild(tn)
 		}
+		update(tree.GetRoot())
 	})
 	devList.SetCurrentItem(1)
 	devList.SetCurrentItem(0)

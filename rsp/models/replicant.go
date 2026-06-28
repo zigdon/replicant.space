@@ -139,26 +139,32 @@ func (r *Replicant) Details() []*tview.TreeNode {
 		res = append(res, ad)
 	}
 	if len(r.PrintQueue) > 0 {
-		queue := TreeNode("Print Queue")
-		for _, pq := range r.PrintQueue {
-			queue.AddChild(TreeNode("%s", pq.DeviceType))
-		}
+		queue := TreeNodeGen("Print Queue", func() (res []string) {
+			for _, pq := range r.PrintQueue {
+				res = append(res, pq.DeviceType)
+			}
+			return
+		})
 		res = append(res, queue)
 	}
 	if len(r.StowedDevices) > 0 {
-		devs := TreeNode("Stowed")
-		for _, sd := range r.StowedDevices {
-			devs.AddChild(TreeNode("%s: %s", sd.Code.Alias(), sd.Type))
-		}
+		devs := TreeNodeGen("Stowed", func() (res []string) {
+			for _, sd := range r.StowedDevices {
+				res = append(res, fmt.Sprintf("%s: %s", sd.Code.Alias(), sd.Type))
+			}
+			return
+		})
 		res = append(res, devs)
 	}
 	if r.Travel != nil {
 		t := r.Travel
-		trip := TreeNode("Travel")
-		trip.AddChild(TreeNode("From:  %s (%s)", t.Origin, t.Departed.String()))
-		trip.AddChild(TreeNode("To:    %s (%s)", t.Destination, t.Arrives.String()))
-		trip.AddChild(TreeNode("Stage: %s", t.Stage))
-		trip.AddChild(TreeNode("%s", ProgressTime(30, t.Departed.ts, t.Arrives.ts)))
+		trip := TreeNodeGen("Travel", func() []string {
+			return []string{
+				fmt.Sprintf("From:  %s (%s)", t.Origin, t.Departed.String()),
+				fmt.Sprintf("To:    %s (%s)", t.Destination, t.Arrives.String()),
+				fmt.Sprintf("Stage: %s", t.Stage),
+				fmt.Sprintf("%s", ProgressTime(30, t.Departed.ts, t.Arrives.ts))}
+		})
 		res = append(res, trip)
 	}
 
