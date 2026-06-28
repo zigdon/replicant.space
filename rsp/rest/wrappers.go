@@ -308,6 +308,9 @@ func DeviceLogs(id *models.CodeAlias, latest bool, page, limit int) (*models.Dev
 		if len(ret.Events) > skip+limit {
 			break
 		}
+		if logs.NextCursor == 0 {
+			break
+		}
 		time.Sleep(200 * time.Millisecond)
 		cursor = logs.NextCursor
 	}
