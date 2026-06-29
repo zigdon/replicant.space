@@ -80,3 +80,11 @@ CREATE TABLE IF NOT EXISTS blueprint_features(
   feature TEXT,
   FOREIGN KEY(blueprint_type) REFERENCES blueprints(type)
 );
+
+CREATE TABLE IF NOT EXISTS notifications(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  start INTEGER,
+  end INTEGER,
+  device TEXT,
+  text TEXT
+);

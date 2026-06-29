@@ -43,6 +43,10 @@ type Cachable interface {
 	Get() error
 }
 
+type LocalMsg interface {
+	Notification() *Notification
+}
+
 func Parse[T any](data []byte) (*T, error) {
 	s := new(T)
 
@@ -57,6 +61,11 @@ func Parse[T any](data []byte) (*T, error) {
 	if c, ok := any(s).(Cachable); ok {
 		if err := c.Cache(); err != nil {
 			return s, fmt.Errorf("failed to update cache for %T: %v", s, err)
+		}
+	}
+	if n, ok := any(s).(LocalMsg); ok {
+		if err := n.Notification().Save(); err != nil {
+			return s, fmt.Errorf("failed to create notification from %v: %v", s, err)
 		}
 	}
 
@@ -77,6 +86,9 @@ func (jtd *JSONTimeDelta) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &seconds); err != nil {
 		return err
 	}
+	if seconds <= 0 {
+		return nil
+	}
 	var td time.Duration
 	err := fillDuration(seconds, &td)
 	*jtd = JSONTimeDelta{seconds, td}
@@ -84,6 +96,9 @@ func (jtd *JSONTimeDelta) UnmarshalJSON(data []byte) error {
 }
 
 func (jtd *JSONTimeDelta) MarshalJSON() ([]byte, error) {
+	if jtd == nil {
+		return []byte{}, nil
+	}
 	return json.Marshal(jtd.String())
 }
 
@@ -108,6 +123,9 @@ func (jt *JSONTime) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &orig); err != nil {
 		return err
 	}
+	if orig == "" {
+		return nil
+	}
 	var ts time.Time
 	err := fillTime(orig, &ts)
 	*jt = JSONTime{orig, ts}
@@ -115,9 +133,11 @@ func (jt *JSONTime) UnmarshalJSON(data []byte) error {
 }
 
 func (jt *JSONTime) MarshalJSON() ([]byte, error) {
+	if jt == nil {
+		return []byte{}, nil
+	}
 	return json.Marshal(jt.String())
 }
-
 
 func (jt *JSONTime) String() string {
 	if jt == nil {

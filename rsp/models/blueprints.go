@@ -1,5 +1,7 @@
 package models
 
+import "fmt"
+
 type Blueprint struct {
 	AttachCapacity   int            `json:"attach_capacity"`
 	CargoCapacity    int            `json:"cargo_capacity"`
@@ -21,10 +23,18 @@ type Blueprints struct {
 type PrintResp struct {
 	Status            string         `json:"status"`
 	DeviceType        string         `json:"device_type"`
-	StartedAt         string         `json:"started_at"`
-	CompletesAt       string         `json:"completes_at"`
+	Started           *JSONTime      `json:"started_at"`
+	Completes         *JSONTime      `json:"completes_at"`
 	PrintTime         *JSONTimeDelta `json:"print_time_seconds"`
 	ResourcesRefunded bool           `json:"resources_refunded"`
+}
+
+func (pr *PrintResp) Notification() *Notification {
+	return &Notification{
+		Start: pr.Started.ts,
+		End: pr.Completes.ts,
+		Text: fmt.Sprintf("Finished printing %s", pr.DeviceType),
+	}
 }
 
 type Queued struct {

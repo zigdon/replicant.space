@@ -47,6 +47,7 @@ const (
 	BlueprintResTable Tables = "blueprints_resources"
 	BlueprintDirsTable Tables = "blueprints_directives"
 	BlueprintFeaturesTable Tables = "blueprints_features"
+	NotificationTable Tables = "notifications"
 )
 
 var cols = map[Tables][]string{
@@ -188,3 +189,19 @@ func (db *Cache) ListIDs(table Tables) ([]string, error) {
 	return res, nil
 }
 
+func (db *Cache) PendingNotifications() (*sql.Rows, error) {
+	now := time.Now()
+	return db.DB.Query(fmt.Sprintf(
+		"SELECT id, start, end, device, text FROM %s WHERE end < ?",
+	NotificationTable), now.Second())
+}
+
+func (db *Cache) ClearNotifications(ids []int) error {
+	var phs []string
+	for range ids {
+		phs = append(phs, "?")
+	}
+	_, err := db.DB.Exec(
+		fmt.Sprintf("DELETE FROM %s WHERE id in (%s)", NotificationTable, strings.Join(phs, ", ")), ids)
+	return err
+}

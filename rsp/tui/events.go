@@ -51,21 +51,23 @@ func processEventQueue() {
 	}
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
+	cnt := 0
 	for {
-		log("%d events in queue", len(eventQueue))
 		var next time.Time
 		select {
 		case t := <-ticker.C:
-			log("timer tick: %s", t)
-			next = processEvents()
+			log("%4d: timer tick: %s", cnt, t)
 		case c := <- tick:
-			log("manual tick")
+			log("%4d: manual tick", cnt)
 			if c {
+				log("Stopping event queue")
 				return
 			}
-			next = processEvents()
 		}
-		log("next event: %s", next.String())
+		cnt++
+		next = processEvents()
+		// TODO: This ends up sending repeated pings, we need to cancel the old
+		// timer before setting a new one.
 		time.AfterFunc(time.Until(next), func() { tick <- false })
 		log("waiting %s for next event, %d events in queue", time.Until(next), len(eventQueue))
 		app.Draw()

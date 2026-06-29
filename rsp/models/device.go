@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 )
 
 type DevicePrint struct {
@@ -128,6 +129,43 @@ type CommandResp struct {
 	TotalDistanceLy      float32             `json:"total_distance_ly"`
 	TotalTime            *JSONTimeDelta      `json:"total_time_seconds"`
 	TravelType           string              `json:"travel_type"`
+}
+
+func (cr *CommandResp) Notification() *Notification {
+	if cr.Departed != nil && cr.Arrives != nil {
+		return &Notification{
+			Start: cr.Departed.ts,
+			End: cr.Arrives.ts,
+			Device: cr.DeviceCode.String(),
+			Text: fmt.Sprintf("Arrived at %s", cr.Destination),
+		}
+	}
+	if cr.Started != nil && cr.Completes != nil {
+		return &Notification{
+			Start: cr.Started.ts,
+			End: cr.Completes.ts,
+			Device: cr.DeviceCode.String(),
+			Text: "Done",
+		}
+	}
+	now := time.Now()
+	if cr.Eta != nil {
+		return &Notification{
+			Start: now,
+			End: now.Add(cr.Eta.td),
+			Device: cr.DeviceCode.String(),
+			Text: "Done",
+		}
+	}
+	if cr.TotalTime != nil {
+		return &Notification{
+			Start: now,
+			End: now.Add(cr.TotalTime.td),
+			Device: cr.DeviceCode.String(),
+			Text: "Done",
+		}
+	}
+	return nil
 }
 
 type AvailableSite struct {
