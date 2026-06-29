@@ -20,9 +20,9 @@ var autoMineCmd = &cobra.Command{
 }
 
 var autoFerryCmd = &cobra.Command{
-	Use: "ferry",
+	Use:   "ferry",
 	Short: "Ferry resources to the home belt",
-	RunE: autoFerry,
+	RunE:  autoFerry,
 }
 
 func init() {
@@ -58,7 +58,7 @@ func getInfo(d *models.CodeAlias) (*models.Device, error) {
 	return i, nil
 }
 
-func setDirective(id *models.CodeAlias, location, directive string, cfg map[string]any) error {
+func travel(id *models.CodeAlias, location string) error {
 	info, err := getInfo(id)
 	if err != nil {
 		return fmt.Errorf("Can't get %s info: %v", id.Alias(), err)
@@ -71,20 +71,22 @@ func setDirective(id *models.CodeAlias, location, directive string, cfg map[stri
 			return fmt.Errorf("Failed to send %s from %q to %q: %v", id.Alias(), info.Location, location, err)
 		}
 		log("Shipped %s to %s: ETA %s", id.Alias(), location, res.TotalTime.String())
-		return nil
 	}
-	if _, err = rest.DeviceCommand(id, "set_directive", map[string]any{
-		"directive": directive,
+	return nil
+}
+
+func setDirective(id *models.CodeAlias, directive string, cfg map[string]any) error {
+	if _, err := rest.DeviceCommand(id, "set_directive", map[string]any{
+		"directive":     directive,
 		"configuration": cfg,
 	}); err != nil {
 		return fmt.Errorf("Can't set %s directive: %v", id.Alias(), err)
 	}
 	if directive != "patrol" {
-		if _, err = rest.DeviceCommand(id, "launch", nil); err != nil {
+		if _, err := rest.DeviceCommand(id, "launch", nil); err != nil {
 			return fmt.Errorf("Can't launching %s: %v", id.Alias(), err)
 		}
 	}
 	log("Set directive on %s: %s", id.Alias(), directive)
 	return nil
 }
-

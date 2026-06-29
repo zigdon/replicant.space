@@ -66,11 +66,11 @@ type Events struct {
 
 // Client notifications
 type Notification struct {
-	ID int
-	Start time.Time
-	End time.Time
+	ID     int
+	Start  time.Time
+	End    time.Time
 	Device string
-	Text string
+	Text   string
 }
 
 func PendingNotifications() ([]*Notification, error) {
@@ -90,11 +90,11 @@ func PendingNotifications() ([]*Notification, error) {
 		}
 		ids = append(ids, id)
 		n := &Notification{
-			ID: id,
-			Start: time.Unix(s, 0).Local(),
-			End: time.Unix(e, 0).Local(),
+			ID:     id,
+			Start:  time.Unix(s, 0).Local(),
+			End:    time.Unix(e, 0).Local(),
 			Device: d,
-			Text: t,
+			Text:   t,
 		}
 		res = append(res, n)
 	}
@@ -107,9 +107,9 @@ func (n *Notification) Save() error {
 		return nil
 	}
 	return db.Update(cache.NotificationTable, map[string]any{
-		"start": n.Start.Second(),
-		"end": n.End.Second(),
+		"start":  n.Start.Unix(),
+		"end":    n.End.Unix(),
 		"device": n.Device,
-		"text": n.Text,
+		"text":   n.Text,
 	})
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
@@ -53,6 +54,20 @@ func Execute() {
 	}
 	if rest.UnreadMessages > 0 {
 		log("Unread messages: %d", rest.UnreadMessages)
+	}
+	ns, err := models.PendingNotifications()
+	if len(ns) > 0 {
+		for _, n := range ns {
+			if n.Device != "" {
+				log("%s: %s -- %s", n.End.Round(time.Second).String(),
+					alias(n.Device), n.Text)
+			} else {
+				log("%s: %s", n.End.Round(time.Second).String(), n.Text)
+			}
+		}
+	}
+	if err != nil {
+		die(err.Error())
 	}
 }
 
@@ -194,7 +209,7 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 
 var chainCmd = func(a, b *cobra.Command) *cobra.Command {
 	return &cobra.Command{
-		Use: a.Use,
+		Use:   a.Use,
 		Short: a.Short,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := a.RunE(cmd, args); err != nil {

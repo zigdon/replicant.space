@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	dbPath = "./sql/replicant.db"
+	dbPath  = "./sql/replicant.db"
 	logFile = "/tmp/rsp-query.log"
 )
 
@@ -36,18 +36,19 @@ func log(tmpl string, args ...any) {
 }
 
 type Tables string
+
 const (
-	StarsTable Tables = "stars"
-	PlanetsTable Tables = "planets"
-	MoonsTable Tables = "moons"
-	BeltsTable Tables = "belts"
-	BeltResTable Tables = "belt_resources"
-	AliasTable Tables = "aliases"
-	BlueprintsTable Tables = "blueprints"
-	BlueprintResTable Tables = "blueprints_resources"
-	BlueprintDirsTable Tables = "blueprints_directives"
+	StarsTable             Tables = "stars"
+	PlanetsTable           Tables = "planets"
+	MoonsTable             Tables = "moons"
+	BeltsTable             Tables = "belts"
+	BeltResTable           Tables = "belt_resources"
+	AliasTable             Tables = "aliases"
+	BlueprintsTable        Tables = "blueprints"
+	BlueprintResTable      Tables = "blueprints_resources"
+	BlueprintDirsTable     Tables = "blueprints_directives"
 	BlueprintFeaturesTable Tables = "blueprints_features"
-	NotificationTable Tables = "notifications"
+	NotificationTable      Tables = "notifications"
 )
 
 var cols = map[Tables][]string{
@@ -151,9 +152,9 @@ func (db *Cache) Update(table Tables, data map[string]any) error {
 		placeholders = append(placeholders, "?")
 	}
 	q := fmt.Sprintf(
-			"REPLACE INTO %s (%s) VALUES (%s)",
-			table, strings.Join(columns, ", "),
-			strings.Join(placeholders, ", "))
+		"REPLACE INTO %s (%s) VALUES (%s)",
+		table, strings.Join(columns, ", "),
+		strings.Join(placeholders, ", "))
 	log("update: %q: %v", q, values)
 	res, err := db.DB.Exec(q, values...)
 
@@ -193,15 +194,17 @@ func (db *Cache) PendingNotifications() (*sql.Rows, error) {
 	now := time.Now()
 	return db.DB.Query(fmt.Sprintf(
 		"SELECT id, start, end, device, text FROM %s WHERE end < ?",
-	NotificationTable), now.Second())
+		NotificationTable), now.Unix())
 }
 
 func (db *Cache) ClearNotifications(ids []int) error {
 	var phs []string
-	for range ids {
+	as := make([]any, len(ids))
+	for i := range ids {
 		phs = append(phs, "?")
+		as[i] = ids[i]
 	}
 	_, err := db.DB.Exec(
-		fmt.Sprintf("DELETE FROM %s WHERE id in (%s)", NotificationTable, strings.Join(phs, ", ")), ids)
+		fmt.Sprintf("DELETE FROM %s WHERE id in (%s)", NotificationTable, strings.Join(phs, ", ")), as...)
 	return err
 }

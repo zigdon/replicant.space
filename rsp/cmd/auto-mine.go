@@ -309,7 +309,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if !ok {
 		return fmt.Errorf("Can't find amc")
 	}
-	if err := setDirective(d, locName, "deplete_smallest", nil); err != nil {
+	if err := travel(d, locName); err != nil {
+		return err
+	}
+	if err := setDirective(d, "deplete_smallest", nil); err != nil {
 		return err
 	}
 
@@ -318,7 +321,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if !ok {
 		return fmt.Errorf("Can't find asc")
 	}
-	if err := setDirective(d, locName, "belt_search", nil); err != nil {
+	if err := travel(d, locName); err != nil {
+		return err
+	}
+	if err := setDirective(d, "belt_search", nil); err != nil {
 		return err
 	}
 
@@ -327,7 +333,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if !ok || len(ds) == 0 {
 		return fmt.Errorf("Can't find mtd")
 	}
-	if err := setDirective(ds[0].Code, locName, "patrol", nil); err != nil {
+	if err := travel(d, locName); err != nil {
+		return err
+	}
+	if err := setDirective(ds[0].Code, "patrol", nil); err != nil {
 		return err
 	}
 
@@ -369,4 +378,3 @@ func findPrinter(printers []*models.CodeAlias) (*models.CodeAlias, error) {
 
 	return printers[0], nil
 }
-
