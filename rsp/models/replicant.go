@@ -100,6 +100,14 @@ func (r *Replicant) Update() error {
 	return nil
 }
 
+func (r *Replicant) ID() *CodeAlias {
+	return r.Code
+}
+
+func (r *Replicant) Type() string {
+	return "replicant"
+}
+
 func (r *Replicant) Fill() error {
 	slices.SortFunc(r.Cargo, func(a, b *Inventory) int {
 		return cmp.Compare(a.ResourceType, b.ResourceType)

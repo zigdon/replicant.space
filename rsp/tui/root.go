@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -10,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zigdon/rsp/models"
-	"github.com/zigdon/rsp/rest"
 )
 
 var devList = tview.NewList()
@@ -18,7 +19,7 @@ var tree = tview.NewTreeView().SetRoot(tview.NewTreeNode("Details"))
 var dump = tview.NewTextView()
 var logWin = tview.NewTextView()
 var app *tview.Application
-var cache = make(map[string]models.Updatable)
+var c = newCache()
 
 var TUI = &cobra.Command{
 	Use: "tui",
@@ -32,7 +33,6 @@ var TUI = &cobra.Command{
 		}
 		setKeys()
 		Repeat("update tree", 5*time.Second, func() error {
-			log("updating tree")
 			update(tree.GetRoot())
 			return nil
 		}, forever)
@@ -45,7 +45,9 @@ func log(tmpl string, args ...any) {
 	args = append([]any{now}, args...)
 	if app.GetFocus() != nil {
 		fmt.Fprintf(logWin, "%s: " + tmpl + "\n", args...)
-		logWin.ScrollToEnd()
+		if !logWin.HasFocus() {
+			logWin.ScrollToEnd()
+		}
 	} else {
 		fmt.Printf("%s: " + tmpl + "\n", args...)
 	}
@@ -55,7 +57,6 @@ func setKeys() {
 	app.SetInputCapture(func (ev *tcell.EventKey) *tcell.EventKey {
 		switch {
 		case ev.Rune() == 'l' && ev.Modifiers()&tcell.ModAlt != 0:
-			log("focus log window")
 			app.SetFocus(logWin)
 			return nil
 		}
@@ -84,9 +85,7 @@ func layout() *tview.Flex {
 }
 
 func update(tn *tview.TreeNode) {
-	log("Updating %s...", tn.GetText())
 	if len(tn.GetChildren()) > 0 {
-		log("Updating children")
 		for _, c := range tn.GetChildren() {
 			update(c)
 		}
@@ -101,17 +100,13 @@ func update(tn *tview.TreeNode) {
 		return
 	}
 	if uf.ArgFn != nil {
-		log("Found ArgFn")
 		tn.SetText(fmt.Sprintf(uf.Tmpl, uf.ArgFn()...))
 	} else if uf.TextFn != nil {
-		log("Found TextFn")
 		tn.SetText(uf.TextFn())
 	} else {
-		log("Setting text")
 		tn.SetText(uf.Tmpl)
 	}
 	if uf.ChildFn != nil {
-		log("Found ChildFn")
 		tn.ClearChildren()
 		for _, c := range uf.ChildFn() {
 			tn.AddChild(tview.NewTreeNode(c))
@@ -121,27 +116,26 @@ func update(tn *tview.TreeNode) {
 }
 
 func replPage() error {
-	acc, err := rest.Account()
-	if err != nil {
-		log("replpage error: %v", err)
+	if err := c.update(); err != nil {
 		return err
 	}
 
-	for _, r := range acc.Replicants {
-		cache[r.Code.String()] = r
-	}
-
 	devList.Clear()
-	var rs []string
-	for _, rep := range acc.ReplicantList {
-		rs = append(rs, rep.Code.String())
+	var reps []*models.Replicant
+	for _, r := range c.getAll("replicant") {
+		reps = append(reps, r.(*models.Replicant))
+	}
+	slices.SortFunc(reps, func(a, b *models.Replicant) int {
+		return cmp.Compare(a.Code.Alias(), b.Code.Alias())
+	})
+	for _, rep := range reps {
 		m, s := rep.ListItem()
 		devList.AddItem(m, s, 0, func() {
 			app.SetFocus(dump)
 		})
 	}
 	devList.SetChangedFunc(func(i int, _, _ string, _ rune) {
-		rep := cache[rs[i]].(*models.Replicant)
+		rep := c.c[reps[i].Code.String()].(*models.Replicant)
 		pp, _ := json.MarshalIndent(rep, "", "  ")
 		dump.SetText(string(pp))
 		tree.GetRoot().ClearChildren()

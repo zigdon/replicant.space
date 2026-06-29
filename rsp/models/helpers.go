@@ -13,10 +13,6 @@ import (
 
 var db *cache.Cache
 
-type Updatable interface {
-	Update() error
-}
-
 type Fillable interface {
 	Fill() error
 }
