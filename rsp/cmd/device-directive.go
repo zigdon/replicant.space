@@ -142,7 +142,7 @@ func init() {
 	deliveryCmd.MarkFlagRequired("route")
 	deliveryCmd.MarkFlagRequired("resources")
 
-	deviceCmd.AddCommand(surveyCmd)
+	directiveCmd.AddCommand(surveyCmd)
 	surveyCmd.Flags().BoolP("no_planets", "p", false, "set to skip scanning planets")
 	surveyCmd.Flags().BoolP("no_moons", "c", false, "set to skip scanning moons")
 	surveyCmd.Flags().BoolP("no_recall", "r", false, "set to not recall the drones once done")

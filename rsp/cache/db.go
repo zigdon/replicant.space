@@ -66,7 +66,7 @@ var cols = map[Tables][]string{
 	AliasTable: {
 		"designation", "type", "name"},
 	BlueprintsTable: {
-		"type", "print_time", "attach_capacity", "cargo_capacity", "stow_capacity"},
+		"type", "print_time", "attach_capacity", "cargo_capacity", "stow_capacity", "short", "description"},
 	BlueprintResTable: {
 		"blueprint_type", "type", "qty"},
 	BlueprintDirsTable: {
@@ -134,9 +134,13 @@ func (db *Cache) Stats() string {
 }
 
 func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
+	iCol := "designation"
+	if table == BlueprintsTable {
+		iCol = "type"
+	}
 	row := db.DB.QueryRow(
-		fmt.Sprintf("SELECT %s FROM %s WHERE designation = ?",
-			strings.Join(cols[table], ", "), table), key)
+		fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?",
+			strings.Join(cols[table], ", "), table, iCol), key)
 	if row.Err() != nil {
 		return nil, row.Err()
 	}

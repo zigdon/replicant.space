@@ -59,7 +59,9 @@ CREATE TABLE IF NOT EXISTS blueprints (
   print_time REAL,
   attach_capacity INTEGER,
   cargo_capacity INTEGER,
-  stow_capacity INTEGER
+  stow_capacity INTEGER,
+  short TEXT,
+  description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS blueprint_resources(

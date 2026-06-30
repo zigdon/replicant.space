@@ -56,6 +56,15 @@ type Travel struct {
 	Type            string         `json:"type"`
 }
 
+func (t *Travel) Notification() *Notification {
+	return &Notification{
+		Start: t.Departed.ts,
+		End: t.Arrives.ts,
+		Device: "Replicant",
+		Text: fmt.Sprintf("Arrived at %s", t.Destination),
+	}
+}
+
 type Replicant struct {
 	AttachedDevices     []string                     `json:"attached_devices"`
 	Cargo               []*Inventory                 `json:"cargo"`
