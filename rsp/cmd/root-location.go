@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	lg "charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
@@ -41,33 +42,42 @@ var locationCmd = &cobra.Command{
 			}
 			locs = append(locs, loc)
 		}
-		slices.Sort(locs)
+		var mu sync.Mutex
+		var wg sync.WaitGroup
 		for _, loc := range locs {
 			sum := res.Locations[loc]
-			line := []string{
-				loc, d(sum.Replicants), d(sum.Devices),
-				d(sum.LocationEvents), d(sum.ResourceSites),
-			}
-			if getInv {
-				if sum.Resources == 0 {
-					line = append(line, "N/A")
-				} else {
-					inv, err := rest.Location(loc)
-					if err != nil {
-						line = append(line, fmt.Sprintf("Err: %v", err))
-					} else {
-						var r []string
-						for _, i := range inv.Inventory {
-							r = append(r, fmt.Sprintf("%.0f x %s", i.Quantity, i.ResourceType))
-						}
-						line = append(line, lines(r))
-					}
+			wg.Go(func() {
+				line := []string{
+					loc, d(sum.Replicants), d(sum.Devices),
+					d(sum.LocationEvents), d(sum.ResourceSites),
 				}
-			} else {
-				line = append(line, d(sum.Resources))
-			}
-			data = append(data, line)
+				if getInv {
+					if sum.Resources == 0 {
+						line = append(line, "N/A")
+					} else {
+						inv, err := rest.Location(loc)
+						if err != nil {
+							line = append(line, fmt.Sprintf("Err: %v", err))
+						} else {
+							var r []string
+							for _, i := range inv.Inventory {
+								r = append(r, fmt.Sprintf("%.0f x %s", i.Quantity, i.ResourceType))
+							}
+							line = append(line, lines(r))
+						}
+					}
+				} else {
+					line = append(line, d(sum.Resources))
+				}
+				mu.Lock()
+				data = append(data, line)
+				mu.Unlock()
+			})
 		}
+		wg.Wait()
+		slices.SortFunc(data, func(a, b []string) int {
+			return cmp.Compare(a[0], b[0])
+		})
 		if len(data) > 0 {
 			headers := []string{"Designation", "Replicants", "Devices", "Events", "Sites"}
 			if getInv {
