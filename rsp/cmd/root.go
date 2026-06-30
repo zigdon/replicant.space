@@ -105,11 +105,6 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 			var argsFlag flagDesc
 			var reps = 1
 			for _, f := range flags {
-				if f.name == "repeat" && f.value.(int) > 1 {
-					reps = f.value.(int)
-					fmt.Printf("Repeating %d times\n", reps)
-					continue
-				}
 				if f.name == "" {
 					argsFlag = f
 				}
@@ -135,6 +130,13 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 					val = dataMap
 				} else {
 					val, _ = cmd.Flags().GetString(f.name)
+				}
+				if f.name == "repeat" {
+					if val.(int) > 0 {
+						reps = val.(int)
+						log("Repeating %d times\n", reps)
+					}
+					continue
 				}
 				if f.required {
 					data[f.jsonKey] = val
@@ -186,7 +188,7 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 				cmd.Flags().StringSlice(f.name, []string{val}, f.desc)
 			}
 		} else if f.intFlag {
-			val := f.value.(int)
+			val, _ := f.value.(int)
 			if f.short != 0 {
 				cmd.Flags().IntSliceP(f.name, string(f.short), []int{val}, f.desc)
 			} else {

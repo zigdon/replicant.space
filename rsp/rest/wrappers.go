@@ -275,11 +275,11 @@ func DeviceCommand(id *models.CodeAlias, command string, args map[string]any) (*
 	}
 	args["command"] = command
 	data, _ := json.Marshal(args)
-	trip, err := Post("devices/%s", data, id)
+	resp, err := Post("devices/%s", data, id)
 	if err != nil {
 		return nil, err
 	}
-	return models.Parse[models.CommandResp](trip)
+	return models.Parse[models.CommandResp](resp)
 }
 
 func DeviceLogs(id *models.CodeAlias, latest bool, page, limit int) (*models.DeviceLogs, error) {
