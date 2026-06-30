@@ -1,6 +1,12 @@
 package models
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/zigdon/rsp/cache"
+)
 
 type Blueprint struct {
 	AttachCapacity   int            `json:"attach_capacity"`
@@ -16,8 +22,72 @@ type Blueprint struct {
 	Strength         float32        `json:"strength"`
 }
 
+func (b *Blueprint) Cache() error {
+	return db.Update(cache.BlueprintsTable, map[string]any{
+		"type": b.DeviceType,
+		"print_time": b.PrintTime.seconds,
+		"attach_capacity": b.AttachCapacity,
+		"cargo_capacity": b.CargoCapacity,
+		"stow_capacity": b.StowCapacity,
+		"short": b.ShortDescription,
+		"description": b.Description,
+	})
+}
+
+func (b *Blueprint) Get() error {
+	if db == nil {
+		return fmt.Errorf("Not connected to cache")
+	}
+	if b.DeviceType == "" {
+		return fmt.Errorf("Can't load unknown blueprint")
+	}
+	scan, err := db.Get(cache.BlueprintsTable, b.DeviceType)
+	if err != nil {
+		return fmt.Errorf("Error querying cache: %v", err)
+	}
+	var pt float32
+	err = scan(
+		&b.DeviceType, &pt, &b.AttachCapacity, &b.CargoCapacity, &b.StowCapacity,
+		&b.ShortDescription, &b.Description)
+	if err != nil {
+		return err
+	}
+	d, err := time.ParseDuration(fmt.Sprintf("%fs", pt))
+	if err != nil {
+		return err
+	}
+	b.PrintTime = &JSONTimeDelta{pt, d}
+	return nil
+}
+
 type Blueprints struct {
 	Blueprints []*Blueprint `json:"blueprints"`
+}
+
+func (bs *Blueprints) Cache() error {
+	var errs []error
+	for _, b := range bs.Blueprints {
+		errs = append(errs, b.Cache())
+	}
+	return errors.Join(errs...)
+}
+
+func (bs *Blueprints) Get() error {
+	if db == nil {
+		return fmt.Errorf("Not connected to cache")
+	}
+	all, err := db.ListIDs(cache.BlueprintsTable)
+	if err != nil {
+		return err
+	}
+	for _, t := range all {
+		bp := &Blueprint{DeviceType: t}
+		if err := bp.Get(); err != nil {
+			return err
+		}
+		bs.Blueprints = append(bs.Blueprints, bp)
+	}
+	return nil
 }
 
 type PrintResp struct {

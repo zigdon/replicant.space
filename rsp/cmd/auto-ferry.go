@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -50,27 +51,36 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 	}
 
 	var dests []string
-	cnts := make(map[string]float32)
+	var cnts sync.Map
 	home, _ := cmd.Flags().GetString("home")
+	var wg sync.WaitGroup
 	for l := range locs.Locations {
 		if l == home {
 			continue
 		}
-		loc, err := rest.Location(l)
-		if err != nil {
-			log("Error getting location %q: %v", l, err)
-			continue
-		}
-		dests = append(dests, l)
-		cnts[l] = 0
-		for _, r := range loc.Inventory {
-			cnts[l] += r.Quantity
-		}
+		wg.Go(func() {
+			loc, err := rest.Location(l)
+			if err != nil {
+				log("Error getting location %q: %v", l, err)
+				return
+			}
+			dests = append(dests, l)
+			var c float32
+			for _, r := range loc.Inventory {
+				c += r.Quantity
+			}
+			log("... %s: %.0f", l, c)
+			cnts.Store(l, c)
+		})
 	}
+	wg.Wait()
 	slices.SortFunc(dests, func(a, b string) int {
-		return cmp.Compare(cnts[b], cnts[a])
+		ca, _ := cnts.Load(a)
+		cb, _ := cnts.Load(b)
+		return cmp.Compare(cb.(float32), ca.(float32))
 	})
-	log("Resource pile found at %s: %.0f", dests[0], cnts[dests[0]])
+	loot, _ := cnts.Load(dests[0])
+	log("Resource pile found at %s: %.0f", dests[0], loot)
 
 	return setDirective(atc.Code, "ferry", map[string]any{
 		"collect": dests[0],

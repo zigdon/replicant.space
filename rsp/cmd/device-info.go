@@ -63,7 +63,8 @@ var infoCmd = &cobra.Command{
 		}
 		if dev.Printing != nil {
 			printTime := make(map[string]time.Duration)
-			bps, err := rest.Blueprints()
+			bps := &models.Blueprints{}
+			err := bps.Get()
 			if err != nil {
 				return err
 			}
