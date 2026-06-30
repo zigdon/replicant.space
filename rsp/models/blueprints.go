@@ -100,6 +100,9 @@ type PrintResp struct {
 }
 
 func (pr *PrintResp) Notification() *Notification {
+	if pr.Started == nil || pr.Completes == nil {
+		return nil
+	}
 	return &Notification{
 		Start: pr.Started.ts,
 		End: pr.Completes.ts,

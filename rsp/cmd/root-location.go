@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strings"
 
 	lg "charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
@@ -30,10 +31,14 @@ var locationCmd = &cobra.Command{
 		}
 
 		getInv, _ := cmd.Flags().GetBool("inventory")
+		filter, _ := cmd.Flags().GetString("location")
 
 		var data [][]string
 		var locs []string
 		for loc := range res.Locations {
+			if filter != "" && !strings.Contains(loc, filter) {
+				continue
+			}
 			locs = append(locs, loc)
 		}
 		slices.Sort(locs)
@@ -191,4 +196,5 @@ var locationCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(locationCmd)
 	locationCmd.Flags().BoolP("inventory", "i", false, "Fetch inventory in each location")
+	locationCmd.Flags().StringP("location", "l", "", "Filter only locations that match")
 }

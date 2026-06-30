@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"net/http"
@@ -124,12 +125,9 @@ type cacheEntry struct {
 	res []byte
 }
 
-var cachedCalls map[string]cacheEntry
+var cachedCalls sync.Map
 
 func cachePOST(key string, ttl time.Duration, path string, data []byte, args ...any) ([]byte, error) {
-	if cachedCalls == nil {
-		cachedCalls = make(map[string]cacheEntry)
-	}
 	if ttl == 0 {
 		ttl = time.Minute
 	}
@@ -137,7 +135,8 @@ func cachePOST(key string, ttl time.Duration, path string, data []byte, args ...
 		key = fmt.Sprintf("%s:%v:%v", path, args, string(data))
 	}
 	now := time.Now()
-	ent, ok := cachedCalls[key]
+	c, ok := cachedCalls.Load(key)
+	ent, _ := c.(cacheEntry)
 	if ok && now.Sub(ent.ts) <= ttl {
 		return ent.res, nil
 	}
@@ -145,17 +144,14 @@ func cachePOST(key string, ttl time.Duration, path string, data []byte, args ...
 	if err != nil {
 		return nil, err
 	}
-	cachedCalls[key] = cacheEntry{
+	cachedCalls.Store(key, cacheEntry{
 		ts:  now,
 		res: res,
-	}
+	})
 	return res, nil
 }
 
 func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, error) {
-	if cachedCalls == nil {
-		cachedCalls = make(map[string]cacheEntry)
-	}
 	if ttl == 0 {
 		ttl = time.Minute
 	}
@@ -163,7 +159,8 @@ func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, 
 		key = fmt.Sprintf("%s:%v", path, args)
 	}
 	now := time.Now()
-	ent, ok := cachedCalls[key]
+	c, ok := cachedCalls.Load(key)
+	ent, _ := c.(cacheEntry)
 	if ok && now.Sub(ent.ts) <= ttl {
 		return ent.res, nil
 	}
@@ -171,9 +168,9 @@ func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	cachedCalls[key] = cacheEntry{
+	cachedCalls.Store(key, cacheEntry{
 		ts:  now,
 		res: res,
-	}
+	})
 	return res, nil
 }
