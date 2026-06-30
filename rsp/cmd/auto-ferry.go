@@ -64,13 +64,15 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 				log("Error getting location %q: %v", l, err)
 				return
 			}
-			dests = append(dests, l)
 			var c float32
 			for _, r := range loc.Inventory {
 				c += r.Quantity
 			}
-			log("... %s: %.0f", l, c)
-			cnts.Store(l, c)
+			if c > 0 {
+				log("... %s: %.0f", l, c)
+				dests = append(dests, l)
+				cnts.Store(l, c)
+			}
 		})
 	}
 	wg.Wait()

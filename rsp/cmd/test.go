@@ -2,17 +2,17 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/zigdon/rsp/models"
+	"github.com/zigdon/rsp/rest"
 )
 
 var testCmd = &cobra.Command{
-	Use:   "test",
+	Use: "test",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		bps := &models.Blueprints{}
-		if err := bps.Get(); err != nil {
+		devs, err := rest.Devices(nil)
+		if err != nil {
 			return err
 		}
-		log("%+v", bps.Blueprints)
+		log("%+v", devs)
 		return nil
 	},
 }

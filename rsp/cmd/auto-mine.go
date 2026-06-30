@@ -168,6 +168,8 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				factory.Alias(), devType, res.Status, d(res.QueueLength + 1),
 			})
 		}
+		// Clear the cached value so we'll get the new queue
+		clearInfo(factory)
 	}
 
 	if len(data) > 0 {

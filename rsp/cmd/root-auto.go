@@ -58,6 +58,10 @@ func getInfo(d *models.CodeAlias) (*models.Device, error) {
 	return i, nil
 }
 
+func clearInfo(d *models.CodeAlias) {
+	delete(infos, d)
+}
+
 func travel(id *models.CodeAlias, location string) error {
 	info, err := getInfo(id)
 	if err != nil {

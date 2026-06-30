@@ -62,7 +62,7 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 		Body: io.NopCloser(bytes.NewReader(data)),
 	})
 	end := time.Now()
-	log("%s %q -> %d (%s):\n%s", method, url, resp.StatusCode, end.Sub(start),string(data))
+	log("%s %q -> %d (%s):\n%s", method, url, resp.StatusCode, end.Sub(start).Round(10*time.Millisecond), string(data))
 	if err != nil {
 		log("err: %v", err)
 		return nil, err

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/zigdon/rsp/cache"
@@ -253,6 +254,36 @@ func AllDevices() ([]*models.Device, error) {
 	return res, nil
 }
 
+func Devices(filters map[string]string) ([]*models.Device, error) {
+	url := "devices"
+	params := []string{"limit=50", "cursor=%d"}
+	for k, v := range filters {
+		params = append(params, fmt.Sprintf("%s=%s", k, v))
+	}
+	if len(params) > 0 {
+		url += "?" + strings.Join(params, "&")
+	}
+	cur := 0
+	var devs []*models.Device
+	for {
+		resp, err := Get(url, cur)
+		if err != nil {
+			return nil, err
+		}
+		ds, err := models.Parse[models.TaggedDevices](resp)
+		if err != nil {
+			return nil, err
+		}
+		devs = append(devs, ds.Devices...)
+		if ds.NextCursor == 0 {
+			break
+		}
+		cur = ds.NextCursor
+	}
+
+	return devs, nil
+}
+
 func DeviceCommand(id *models.CodeAlias, command string, args map[string]any) (*models.CommandResp, error) {
 	if command == "" || id == nil {
 		return nil, fmt.Errorf("id and command are required")
@@ -383,7 +414,7 @@ func GetTagged(tag string) (*models.TaggedDevices, error) {
 	var cursor int
 	all := new(models.TaggedDevices)
 	for {
-		res, err := cacheGET("", 5 * time.Minute, "devices/tags/%s?limit=5&cursor=%d", tag, cursor)
+		res, err := cacheGET("", 5*time.Minute, "devices/tags/%s?limit=5&cursor=%d", tag, cursor)
 		if err != nil {
 			return nil, err
 		}
