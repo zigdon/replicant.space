@@ -194,11 +194,11 @@ func (db *Cache) ListIDs(table Tables) ([]string, error) {
 	return res, nil
 }
 
-func (db *Cache) PendingNotifications() (*sql.Rows, error) {
+func (db *Cache) PendingNotifications(read bool) (*sql.Rows, error) {
 	now := time.Now()
 	return db.DB.Query(fmt.Sprintf(
-		"SELECT id, start, end, device, text FROM %s WHERE end < ?",
-		NotificationTable), now.Unix())
+		"SELECT id, start, end, device, text FROM %s WHERE read == ? AND end < ?",
+		NotificationTable), read, now.Unix())
 }
 
 func (db *Cache) ClearNotifications(ids []int) error {
@@ -209,6 +209,6 @@ func (db *Cache) ClearNotifications(ids []int) error {
 		as[i] = ids[i]
 	}
 	_, err := db.DB.Exec(
-		fmt.Sprintf("DELETE FROM %s WHERE id in (%s)", NotificationTable, strings.Join(phs, ", ")), as...)
+		fmt.Sprintf("UPDATE %s SET read = true WHERE id in (%s)", NotificationTable, strings.Join(phs, ", ")), as...)
 	return err
 }

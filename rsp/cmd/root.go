@@ -55,7 +55,7 @@ func Execute() {
 	if rest.UnreadMessages > 0 {
 		log("Unread messages: %d", rest.UnreadMessages)
 	}
-	ns, err := models.PendingNotifications()
+	ns, err := models.PendingNotifications(false)
 	if len(ns) > 0 {
 		for _, n := range ns {
 			if n.Device != "" {

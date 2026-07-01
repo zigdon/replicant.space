@@ -133,7 +133,7 @@ func init() {
 		"stow", "Place a device in the hold of another device", "stow",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "Device to stow in",
-		}}, "",
+		}}, "device-stow",
 	)
 	mkDeviceCommand(
 		"travel", "Instruct a device to relocate", "travel",
@@ -142,6 +142,16 @@ func init() {
 			required: true, jsonKey: "destination",
 		}}, "device-travel",
 	)
+
+	outputTable["device-stow"] = func(data any) ([]string, [][]string) {
+		resp, ok := data.(*models.CommandResp)
+		if !ok {
+			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+		}
+		return []string{"Device", "Status", "Stowed in"}, [][]string{{
+			resp.DeviceCode.Alias(), resp.Status, resp.StowedIn.Alias(),
+		}}
+	}
 
 	outputTable["device-adopt"] = func(data any) ([]string, [][]string) {
 		resp, ok := data.(*models.CommandResp)

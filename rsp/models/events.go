@@ -71,10 +71,11 @@ type Notification struct {
 	End    time.Time
 	Device string
 	Text   string
+	Read   bool
 }
 
-func PendingNotifications() ([]*Notification, error) {
-	rows, err := db.PendingNotifications()
+func PendingNotifications(read bool) ([]*Notification, error) {
+	rows, err := db.PendingNotifications(read)
 	if err != nil {
 		return nil, err
 	}

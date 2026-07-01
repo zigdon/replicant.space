@@ -88,5 +88,6 @@ CREATE TABLE IF NOT EXISTS notifications(
   start INTEGER,
   end INTEGER,
   device TEXT,
-  text TEXT
+  text TEXT,
+  read INTEGER
 );

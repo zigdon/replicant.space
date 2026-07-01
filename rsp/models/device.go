@@ -129,6 +129,7 @@ type CommandResp struct {
 	TotalDistanceLy      float32             `json:"total_distance_ly"`
 	TotalTime            *JSONTimeDelta      `json:"total_time_seconds"`
 	TravelType           string              `json:"travel_type"`
+	StowedIn             *CodeAlias          `json:"stowed_in"`
 }
 
 func (cr *CommandResp) Notification() *Notification {
