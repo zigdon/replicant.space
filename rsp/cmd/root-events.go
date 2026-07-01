@@ -52,21 +52,24 @@ var eventsCmd = &cobra.Command{
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(data)
-		} else if noDetails {
+			return nil
+		}
+		if noDetails {
 			var events [][]string
 			for _, e := range data.Events {
 				events = append(events, []string{
-					e.Title, e.Type, e.Designation, e.Location, e.Category, e.Discovered.String(), e.Status, d(e.Tier),
+					e.Title, e.Designation, e.Location, e.Category, e.Status, d(e.Tier),
 				})
 			}
 			printTable([]string{
-				"Title", "Type", "Designation", "Location", "Category", "Discovered", "Status", "Tier",
+				"Title", "Designation", "Location", "Category", "Status", "Tier",
 			}, events)
-		} else {
-			for _, e := range data.Events {
-				if eventID != "" && e.Designation != eventID { continue }
-				printEvent(e, style)
-			}
+			return nil
+		}
+
+		for _, e := range data.Events {
+			if eventID != "" && e.Designation != eventID { continue }
+			printEvent(e, style)
 		}
 		return nil
 	},
