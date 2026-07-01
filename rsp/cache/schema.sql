@@ -68,19 +68,22 @@ CREATE TABLE IF NOT EXISTS blueprint_resources(
   blueprint_type TEXT NOT NULL,
   type TEXT,
   qty INTEGER,
-  FOREIGN KEY(blueprint_type) REFERENCES blueprints(type)
+  FOREIGN KEY(blueprint_type) REFERENCES blueprints(type),
+  UNIQUE (blueprint_type, type) ON CONFLICT REPLACE
 );
 
 CREATE TABLE IF NOT EXISTS blueprint_directives(
   blueprint_type TEXT NOT NULL,
   directive TEXT,
-  FOREIGN KEY(blueprint_type) REFERENCES blueprints(type)
+  FOREIGN KEY(blueprint_type) REFERENCES blueprints(type),
+  UNIQUE (blueprint_type, directive) ON CONFLICT REPLACE
 );
 
 CREATE TABLE IF NOT EXISTS blueprint_features(
   blueprint_type TEXT NOT NULL,
   feature TEXT,
-  FOREIGN KEY(blueprint_type) REFERENCES blueprints(type)
+  FOREIGN KEY(blueprint_type) REFERENCES blueprints(type),
+  UNIQUE (blueprint_type, feature) ON CONFLICT REPLACE
 );
 
 CREATE TABLE IF NOT EXISTS notifications(

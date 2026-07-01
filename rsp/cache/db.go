@@ -45,9 +45,9 @@ const (
 	BeltResTable           Tables = "belt_resources"
 	AliasTable             Tables = "aliases"
 	BlueprintsTable        Tables = "blueprints"
-	BlueprintResTable      Tables = "blueprints_resources"
-	BlueprintDirsTable     Tables = "blueprints_directives"
-	BlueprintFeaturesTable Tables = "blueprints_features"
+	BlueprintResTable      Tables = "blueprint_resources"
+	BlueprintDirsTable     Tables = "blueprint_directives"
+	BlueprintFeaturesTable Tables = "blueprint_features"
 	NotificationTable      Tables = "notifications"
 )
 
@@ -145,6 +145,20 @@ func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
 		return nil, row.Err()
 	}
 	return row.Scan, nil
+}
+
+func (db *Cache) GetAll(table Tables, key string) (*sql.Rows, error) {
+	iCol := "designation"
+	if table == BlueprintResTable {
+		iCol = "blueprint_type"
+	}
+	rows, err := db.DB.Query(
+		fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?",
+			strings.Join(cols[table], ", "), table, iCol), key)
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 func (db *Cache) Update(table Tables, data map[string]any) error {

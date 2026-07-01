@@ -23,15 +23,29 @@ type Blueprint struct {
 }
 
 func (b *Blueprint) Cache() error {
-	return db.Update(cache.BlueprintsTable, map[string]any{
-		"type": b.DeviceType,
-		"print_time": b.PrintTime.seconds,
+	if err := db.Update(cache.BlueprintsTable, map[string]any{
+		"type":            b.DeviceType,
+		"print_time":      b.PrintTime.seconds,
 		"attach_capacity": b.AttachCapacity,
-		"cargo_capacity": b.CargoCapacity,
-		"stow_capacity": b.StowCapacity,
-		"short": b.ShortDescription,
-		"description": b.Description,
-	})
+		"cargo_capacity":  b.CargoCapacity,
+		"stow_capacity":   b.StowCapacity,
+		"short":           b.ShortDescription,
+		"description":     b.Description,
+	}); err != nil {
+		return err
+	}
+
+	for r, q := range b.Resources {
+		if err := db.Update(cache.BlueprintResTable, map[string]any{
+			"blueprint_type": b.DeviceType,
+			"type":           r,
+			"qty":            q,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (b *Blueprint) Get() error {
@@ -57,6 +71,19 @@ func (b *Blueprint) Get() error {
 		return err
 	}
 	b.PrintTime = &JSONTimeDelta{pt, d}
+
+	if b.Resources == nil {
+		b.Resources = make(map[string]int)
+	}
+	rows, err := db.GetAll(cache.BlueprintResTable, b.DeviceType)
+	for rows.Next() {
+		var t, r string
+		var q int
+		if err := rows.Scan(&t, &r, &q); err != nil {
+			return err
+		}
+		b.Resources[r] = q
+	}
 	return nil
 }
 
@@ -105,8 +132,8 @@ func (pr *PrintResp) Notification() *Notification {
 	}
 	return &Notification{
 		Start: pr.Started.ts,
-		End: pr.Completes.ts,
-		Text: fmt.Sprintf("Finished printing %s", pr.DeviceType),
+		End:   pr.Completes.ts,
+		Text:  fmt.Sprintf("Finished printing %s", pr.DeviceType),
 	}
 }
 

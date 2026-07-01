@@ -7,8 +7,16 @@ import (
 )
 
 // Game events
+type EventDevice struct {
+	Count      int    `json:"count"`
+	Current    int    `json:"current"`
+	DeviceType string `json:"device_type"`
+	Met        bool   `json:"met"`
+	Required   int    `json:"required"`
+}
+
 type EventCriteria struct {
-	Devices   []any          `json:"devices"`
+	Devices   []*EventDevice `json:"devices"`
 	Name      string         `json:"name"`
 	Resources map[string]int `json:"resources"`
 }
@@ -21,7 +29,7 @@ type EventProgressResourceOption struct {
 }
 
 type EventProgressOption struct {
-	Devices   []any                          `json:"devices"`
+	Devices   []*EventDevice                 `json:"devices"`
 	Met       bool                           `json:"met"`
 	Name      string                         `json:"name"`
 	Resources []*EventProgressResourceOption `json:"resources"`

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -68,7 +69,9 @@ var eventsCmd = &cobra.Command{
 		}
 
 		for _, e := range data.Events {
-			if eventID != "" && e.Designation != eventID { continue }
+			if eventID != "" && e.Designation != eventID {
+				continue
+			}
 			printEvent(e, style)
 		}
 		return nil
@@ -102,20 +105,19 @@ func printEvent(e *models.Event, style lg.Style) {
 		m(e.Rewards.Resources),
 	}})
 	printTable([]string{}, [][]string{
-		{style.Render(e.Description+"\n")},
-		{style.Render(e.BroadcastMessage),
-	}})
+		{style.Render(e.Description + "\n")},
+		{style.Render(e.BroadcastMessage)}})
 	var crit [][]string
 	for _, c := range e.Criteria {
 		crit = append(crit, []string{
-			c.Name, v(c.Devices), m(c.Resources),
+			c.Name, formatDev(c.Devices, true), m(c.Resources),
 		})
 	}
 	printTable([]string{"Criteria", "Devices", "Resources"}, crit)
-	
+
 	var progress [][]string
 	for _, p := range e.Progress.Options {
-		line := []string{p.Name, b(p.Met), v(p.Devices)}
+		line := []string{p.Name, b(p.Met), formatDev(p.Devices, false)}
 		var delivered []string
 		for _, r := range p.Resources {
 			var st string
@@ -130,4 +132,42 @@ func printEvent(e *models.Event, style lg.Style) {
 		progress = append(progress, line)
 	}
 	printTable([]string{"Name", "Done", "Devices", "Resources"}, progress)
+}
+
+func formatDev(devs []*models.EventDevice, resBreakdown bool) string {
+	var out []string
+	bps := make(map[string]*models.Blueprint)
+	res := make(map[string]int)
+	for _, d := range devs {
+		dt := d.DeviceType
+		out = append(out, fmt.Sprintf("%d x %s", d.Count, dt))
+		if !resBreakdown {
+			continue
+		}
+		bp, ok := bps[dt]
+		if !ok {
+			bp = &models.Blueprint{DeviceType: dt}
+			if err := bp.Get(); err != nil {
+				log("Can't load blueprint %q: err", dt, err)
+				continue
+			}
+			bps[dt] = bp
+		}
+		for r, q := range bp.Resources {
+			res[r] += q
+		}
+	}
+	var rs []string
+	for k := range res {
+		rs = append(rs, k)
+	}
+	slices.Sort(rs)
+	for _, r := range rs {
+		if res[r] == 0 {
+			continue
+		}
+		out = append(out, fmt.Sprintf("(%4d x %s)", res[r], r))
+	}
+
+	return strings.Join(out, "\n")
 }
