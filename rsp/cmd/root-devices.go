@@ -112,7 +112,7 @@ var networkCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(deviceListCmd)
 	deviceListCmd.Flags().Bool("ignore_tags", false, "If set, ignore tag filters")
-	deviceListCmd.Flags().StringSliceP("filter_tags", "t", []string{"infrastructure", "mine"}, "Filter results with these tags")
+	deviceListCmd.Flags().StringSliceP("filter_tags", "t", []string{"infrastructure", "mine", "matrix"}, "Filter results with these tags")
 	deviceListCmd.Flags().StringP("replicant", "r", "", "Show devices owned by this replicant, default all")
 	deviceListCmd.Flags().StringP("location", "l", "", "Only show devices in this location")
 

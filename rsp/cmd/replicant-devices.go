@@ -79,6 +79,11 @@ func printReplicantDeviceList(r *models.Replicant, filterTags []string, owner *m
 		if location != "" && !strings.Contains(strings.ToLower(d.Location), strings.ToLower(location)) {
 			continue
 		}
+		if skipTags["matrix"] && d.Type == "replicant_matrix" && d.Status == "stowed" {
+			skipped["matrixes"]++
+			skippedCnt++
+			continue
+		}
 		if skipTags["mine"] && slices.ContainsFunc(d.Tags, func(s string) bool {
 			loc := strings.ToLower(d.Location)
 			if loc == "" { return false }
