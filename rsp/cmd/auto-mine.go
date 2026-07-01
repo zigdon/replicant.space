@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -307,57 +308,64 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Set up the directives:
 	// fr: go to the star entry point
+	// amc: gather_smallest
+	// asc: search belt
+	// mtd: patrol
 	star := locName[:strings.Index(locName, "-")]
 	s, err := rest.Location(star)
-	fr := fleet["ftl_relay"][0]
-	res, err := rest.DeviceCommand(fr.Code, "travel", map[string]any{"location": s.EntryPoint})
-	if err != nil {
-		return err
-	}
-	log("Queuing relay activate command in %s", res.TotalTime.Duration())
-	time.AfterFunc(res.TotalTime.Duration(), func() {
-		if _, err := rest.DeviceCommand(fr.Code, "activate", nil); err != nil {
-			log("Error activating relay at %s: %v", s.EntryPoint, err)
-		}
-	})
 
-	// amc: gather_smallest
-	d, ok := amis["ami_mining_controller"]
+	// Find the devices
+	frs, ok := fleet["ftl_relay"]
+	if !ok || len(frs) == 0 {
+		return fmt.Errorf("Can't find ftl relay")
+	}
+	amc, ok := amis["ami_mining_controller"]
 	if !ok {
 		return fmt.Errorf("Can't find amc")
 	}
-	if err := travel(d, locName); err != nil {
-		return err
-	}
-	if err := setDirective(d, "deplete_smallest", nil); err != nil {
-		return err
-	}
-
-	// asc: search belt
-	d, ok = amis["ami_survey_controller"]
+	asc, ok := amis["ami_survey_controller"]
 	if !ok {
 		return fmt.Errorf("Can't find asc")
 	}
-	if err := travel(d, locName); err != nil {
-		return err
-	}
-	if err := setDirective(d, "belt_search", nil); err != nil {
-		return err
-	}
-
-	// mtd: patrol
-	ds, ok := fleet["maintenance_drone"]
-	if !ok || len(ds) == 0 {
+	mds, ok := fleet["maintenance_drone"]
+	if !ok || len(mds) == 0 {
 		return fmt.Errorf("Can't find mtd")
 	}
-	if err := travel(d, locName); err != nil {
-		return err
+	md := mds[0]
+
+	// Issue travel commands
+	var errs []error
+	fr := frs[0]
+	if err = travel(fr.Code, s.EntryPoint); err != nil {
+		errs = append(errs, err)
 	}
-	if err := setDirective(ds[0].Code, "patrol", nil); err != nil {
+	for _, d := range []*models.CodeAlias{amc, asc, md.Code} {
+		if err := travel(d, locName); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	err = errors.Join(errs...)
+	if err != nil {
 		return err
 	}
 
-	return nil
+	if _, err := rest.DeviceCommand(fr.Code, "activate", nil); err != nil {
+		errs = append(errs, fmt.Errorf("Error activating relay at %s: %v", s.EntryPoint, err))
+	}
+
+	if err := setDirective(amc, "deplete_smallest", nil); err != nil {
+		errs = append(errs, err)
+	}
+
+	if err := setDirective(asc, "belt_search", nil); err != nil {
+		errs = append(errs, err)
+	}
+
+	if err := setDirective(md.Code, "patrol", nil); err != nil {
+		errs = append(errs, err)
+	}
+
+	return errors.Join(errs...)
 }
 
 func findPrinter(printers []*models.CodeAlias) (*models.CodeAlias, error) {
