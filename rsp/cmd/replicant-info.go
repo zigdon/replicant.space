@@ -51,18 +51,18 @@ var replicantInfoCmd = &cobra.Command{
 			printTable([]string{"Leg", "Active", "From", "To", "Time", "Distance", "Type"}, legs)
 		}
 		if len(repl.StowedDevices) > 0 {
-			cnt := make(map[string]int)
+			cnt := make(map[string][]string)
 			for _, d := range repl.StowedDevices {
-				cnt[d.Type]++
+				cnt[d.Type] = append(cnt[d.Type], d.Code.Alias())
 			}
 			var types [][]string
 			for t, n := range cnt {
-				types = append(types, []string{fmt.Sprintf("%d", n), t})
+				types = append(types, []string{fmt.Sprintf("%d", len(n)), t, list(n)})
 			}
 			slices.SortFunc(types, func(a, b []string) int {
 				return cmp.Compare(a[1], b[1])
 			})
-			printTable([]string{"Count", "Stowed"}, types)
+			printTable([]string{"Count", "Stowed", "IDs"}, types)
 		}
 		if repl.Printing != nil {
 			pr := repl.Printing
