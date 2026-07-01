@@ -47,7 +47,7 @@ var travelCmd = &cobra.Command{
 }
 
 var teleportCmd = &cobra.Command{
-	Use: "teleport",
+	Use:   "teleport",
 	Short: "Teleport to an empty matrix",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		rID, err := getRID(cmd)
@@ -56,6 +56,9 @@ var teleportCmd = &cobra.Command{
 		}
 		target, _ := cmd.Flags().GetString("target")
 		res, err := rest.ReplicantTeleport(rID, models.NewCodeAlias(target))
+		if err != nil {
+			return err
+		}
 		printTable([]string{
 			"Replicant", "Status", "Source", "Destination", "Matrix", "Completes", "Online",
 		}, [][]string{{

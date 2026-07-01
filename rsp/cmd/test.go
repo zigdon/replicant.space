@@ -19,11 +19,12 @@ var testCmd = &cobra.Command{
 		var data [][]string
 		for _, d := range devs {
 			data = append(data, []string{
-				d.Code.Alias(), d.Location, d.Type, d.Status, d.AttachedToDeviceCode.Alias(),
+				d.Code.Alias(), d.Location, d.Type, d.Status,
+				d.AttachedToDeviceCode.Alias(), d.StowedInDeviceCode.Alias(),
 			})
 		}
 		printTable([]string{
-			"Alias", "Location", "Type", "Status", "Attached to",
+			"Alias", "Location", "Type", "Status", "Attached to", "Stowed in",
 		}, data)
 
 		return nil

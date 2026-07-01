@@ -213,7 +213,6 @@ func ReplicantTravel(id *models.CodeAlias, dest string) (*models.Trip, error) {
 	m, err := models.Parse[models.Trip](trip)
 	if err == nil && m.Error != "" {
 		err = fmt.Errorf("Travel error: %v", m.Error)
-		return m, err
 	}
 	return m, err
 }
@@ -226,7 +225,11 @@ func ReplicantTeleport(id, target *models.CodeAlias) (*models.Teleport, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.Parse[models.Teleport](trip)
+	m, err := models.Parse[models.Teleport](trip)
+	if err == nil && m.Error != "" {
+		err = fmt.Errorf("Teleport error: %v", m.Error)
+	}
+	return m, err
 }
 
 // Devices

@@ -240,6 +240,11 @@ func alias(in string) string {
 		return out
 	}
 
+	// If it doesn't look like a code, don't try to look it up
+	if strings.ToUpper(in) != in {
+		return in
+	}
+
 	// No alias, get the device type before making one
 	deviceType, err := rest.GetType(in)
 	if err != nil || deviceType == "" {

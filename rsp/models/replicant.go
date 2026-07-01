@@ -40,21 +40,22 @@ type MissingResources struct {
 }
 
 type Teleport struct {
-	Status           string `json:"status"`
-	SourceStar       string `json:"source_star"`
-	DestinationStar  string `json:"destination_star"`
-	Started          *JSONTime `json:"started_at"`
-	Completes        *JSONTime `json:"completes_at"`
+	Status           string         `json:"status"`
+	SourceStar       string         `json:"source_star"`
+	DestinationStar  string         `json:"destination_star"`
+	Started          *JSONTime      `json:"started_at"`
+	Completes        *JSONTime      `json:"completes_at"`
 	Offline          *JSONTimeDelta `json:"offline_seconds"`
-	TargetMatrixCode *CodeAlias `json:"target_matrix_code"`
+	TargetMatrixCode *CodeAlias     `json:"target_matrix_code"`
+	Error            string         `json:"error"`
 }
 
 func (t *Teleport) Notification() *Notification {
 	return &Notification{
-		Start: t.Started.ts,
-		End: t.Completes.ts.Add(t.Offline.td),
+		Start:  t.Started.ts,
+		End:    t.Completes.ts.Add(t.Offline.td),
 		Device: "Replicant",
-		Text: fmt.Sprintf("Online in %s at %s", t.TargetMatrixCode.Alias(), t.DestinationStar),
+		Text:   fmt.Sprintf("Online in %s at %s", t.TargetMatrixCode.Alias(), t.DestinationStar),
 	}
 }
 
@@ -77,10 +78,10 @@ type Travel struct {
 
 func (t *Travel) Notification() *Notification {
 	return &Notification{
-		Start: t.Departed.ts,
-		End: t.Arrives.ts,
+		Start:  t.Departed.ts,
+		End:    t.Arrives.ts,
 		Device: "Replicant",
-		Text: fmt.Sprintf("Arrived at %s", t.Destination),
+		Text:   fmt.Sprintf("Arrived at %s", t.Destination),
 	}
 }
 
