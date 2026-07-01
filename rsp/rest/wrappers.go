@@ -495,3 +495,12 @@ func Trade(rid, tid string) (*models.Shop, error) {
 	}
 	return models.Parse[models.Shop](res)
 }
+
+// Aliens
+func Species() (*models.Species, error) {
+	res, err := cacheGET("", 0, "species")
+	if err != nil {
+		return nil, err
+	}
+	return models.Parse[models.Species](res)
+}
