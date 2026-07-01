@@ -36,7 +36,7 @@ func init() {
 	autoMineCmd.MarkFlagRequired("location")
 	autoMineCmd.Flags().StringSliceP("factory", "f", []string{"a-1", "a-2"}, "Devices for building new ships")
 	autoMineCmd.Flags().BoolP("dry_run", "n", false, "Only plan, don't actually queue prints")
-	autoMineCmd.Flags().String("fleet", "", "Fleet controller to use for transportation")
+	autoMineCmd.Flags().String("fleet", "afc-1", "Fleet controller to use for transportation")
 
 	autoCmd.AddCommand(autoFerryCmd)
 	autoFerryCmd.Flags().String("home", "MENKUNT-BELT-1", "Destination for ferrying")

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+dir=$(dirname $0)
+changed="$(find $dir/rsp -newer $dir/rsp/rsp)"
+if [[ -n "$changed" ]]; then
+  echo Rebuilding...
+  cd $dir/rsp
+  go build
+  cd $dir
+fi
+
+./rsp/rsp "$@"
