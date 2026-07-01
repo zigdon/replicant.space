@@ -39,6 +39,25 @@ type MissingResources struct {
 	Need int `json:"need"`
 }
 
+type Teleport struct {
+	Status           string `json:"status"`
+	SourceStar       string `json:"source_star"`
+	DestinationStar  string `json:"destination_star"`
+	Started          *JSONTime `json:"started_at"`
+	Completes        *JSONTime `json:"completes_at"`
+	Offline          *JSONTimeDelta `json:"offline_seconds"`
+	TargetMatrixCode *CodeAlias `json:"target_matrix_code"`
+}
+
+func (t *Teleport) Notification() *Notification {
+	return &Notification{
+		Start: t.Started.ts,
+		End: t.Completes.ts.Add(t.Offline.td),
+		Device: "Replicant",
+		Text: fmt.Sprintf("Online in %s at %s", t.TargetMatrixCode.Alias(), t.DestinationStar),
+	}
+}
+
 type Travel struct {
 	Arrives         *JSONTime      `json:"arrives_at"`
 	Departed        *JSONTime      `json:"departed_at"`

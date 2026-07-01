@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
-// travelCmd represents the travel command
 var travelCmd = &cobra.Command{
 	Use:   "travel",
 	Short: "Instruct a replicant to relocate",
@@ -46,6 +46,30 @@ var travelCmd = &cobra.Command{
 	},
 }
 
+var teleportCmd = &cobra.Command{
+	Use: "teleport",
+	Short: "Teleport to an empty matrix",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		rID, err := getRID(cmd)
+		if err != nil {
+			return fmt.Errorf("Replicant not found: %v", err)
+		}
+		target, _ := cmd.Flags().GetString("target")
+		res, err := rest.ReplicantTeleport(rID, models.NewCodeAlias(target))
+		printTable([]string{
+			"Replicant", "Status", "Source", "Destination", "Matrix", "Completes", "Online",
+		}, [][]string{{
+			rID.Alias(), res.Status, res.SourceStar, res.DestinationStar, res.TargetMatrixCode.Alias(),
+			t(res.Completes.Time()), t(res.Completes.Time().Add(res.Offline.Duration())),
+		}})
+		return nil
+	},
+}
+
 func init() {
 	replicantCmd.AddCommand(travelCmd)
+
+	replicantCmd.AddCommand(teleportCmd)
+	teleportCmd.Flags().StringP("target", "t", "", "Matrix id to teleport to")
+	teleportCmd.MarkFlagRequired("target")
 }

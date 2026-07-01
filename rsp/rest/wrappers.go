@@ -218,6 +218,17 @@ func ReplicantTravel(id *models.CodeAlias, dest string) (*models.Trip, error) {
 	return m, err
 }
 
+func ReplicantTeleport(id, target *models.CodeAlias) (*models.Teleport, error) {
+	data, _ := json.Marshal(map[string]string{
+		"target": target.String(),
+	})
+	trip, err := Post("replicants/%s/teleport", data, id)
+	if err != nil {
+		return nil, err
+	}
+	return models.Parse[models.Teleport](trip)
+}
+
 // Devices
 func AllDevices() ([]*models.Device, error) {
 	acc, err := Account()
