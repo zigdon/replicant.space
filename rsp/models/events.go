@@ -112,5 +112,6 @@ func (n *Notification) Save() error {
 		"end":    n.End.Unix(),
 		"device": n.Device,
 		"text":   n.Text,
+		"read":   false,
 	})
 }

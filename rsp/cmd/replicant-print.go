@@ -56,14 +56,14 @@ var printCmd = &cobra.Command{
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(res)
-		} else {
-			printTable([]string{
-				"Device Type", "Status", "Started", "Ends", "Duration", "Refunded",
-			}, [][]string{{
-				res.DeviceType, res.Status, t(res.Started.Time()), t(res.Completes.Time()),
-				res.PrintTime.String(), b(res.ResourcesRefunded),
-			}})
+			return nil
 		}
+		printTable([]string{
+			"Device Type", "Status", "Started", "Ends", "Duration", "Refunded",
+		}, [][]string{{
+			res.DeviceType, res.Status, t(res.Started.Time()), t(res.Completes.Time()),
+			res.PrintTime.String(), b(res.ResourcesRefunded),
+		}})
 		return nil
 	},
 }

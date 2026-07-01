@@ -6,7 +6,7 @@ if [[ -n "$changed" ]]; then
   echo Rebuilding...
   cd $dir/rsp
   go build
-  cd $dir
+  cd ..
 fi
 
 ./rsp/rsp "$@"

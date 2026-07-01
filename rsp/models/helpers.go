@@ -154,6 +154,9 @@ func (jt *JSONTime) String() string {
 }
 
 func (jt *JSONTime) Time() time.Time {
+	if jt == nil {
+		return time.Time{}
+	}
 	return jt.ts
 }
 
@@ -218,16 +221,16 @@ func TreeNode(tmpl string, args ...any) *tview.TreeNode {
 	return tview.NewTreeNode(fmt.Sprintf(" "+tmpl, args...))
 }
 
-func ref[T any](s T) func()[]any {
-	return func()[]any {
+func ref[T any](s T) func() []any {
+	return func() []any {
 		return []any{s}
 	}
 }
 
 type UpdateFn struct {
-	Tmpl string
-	ArgFn func() []any
-	TextFn func() string
+	Tmpl    string
+	ArgFn   func() []any
+	TextFn  func() string
 	ChildFn func() []string
 }
 
@@ -235,7 +238,7 @@ func TreeNodeFn(tmpl string, fn func() []any) *tview.TreeNode {
 	return tview.NewTreeNode("").
 		SetText(fmt.Sprintf(" "+tmpl, fn()...)).
 		SetReference(UpdateFn{
-			Tmpl: tmpl,
+			Tmpl:  tmpl,
 			ArgFn: fn,
 		})
 }
@@ -243,7 +246,7 @@ func TreeNodeFn(tmpl string, fn func() []any) *tview.TreeNode {
 func TreeNodeGen(label string, fn func() []string) *tview.TreeNode {
 	tn := tview.NewTreeNode(label).
 		SetReference(UpdateFn{
-			Tmpl: label,
+			Tmpl:    label,
 			ChildFn: fn,
 		})
 	return tn
@@ -253,8 +256,8 @@ func ProgressTime(width int, start, end time.Time) string {
 	total := end.Sub(start)
 	now := time.Now()
 	prog := now.Sub(start)
-	pct := prog.Seconds()/total.Seconds()
-	cnt := int(pct*float64(width))
+	pct := prog.Seconds() / total.Seconds()
+	cnt := int(pct * float64(width))
 	return fmt.Sprintf("%s%s %s %.0f%%",
 		strings.Repeat("⬜", cnt),
 		strings.Repeat("⬛", width-cnt),
