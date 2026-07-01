@@ -306,6 +306,21 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	// Set up the directives:
+	// fr: go to the star entry point
+	star := locName[:strings.Index(locName, "-")]
+	s, err := rest.Location(star)
+	fr := fleet["ftl_relay"][0]
+	res, err := rest.DeviceCommand(fr.Code, "travel", map[string]any{"location": s.EntryPoint})
+	if err != nil {
+		return err
+	}
+	log("Queuing relay activate command in %s", res.TotalTime.Duration())
+	time.AfterFunc(res.TotalTime.Duration(), func() {
+		if _, err := rest.DeviceCommand(fr.Code, "activate", nil); err != nil {
+			log("Error activating relay at %s: %v", s.EntryPoint, err)
+		}
+	})
+
 	// amc: gather_smallest
 	d, ok := amis["ami_mining_controller"]
 	if !ok {

@@ -1,6 +1,12 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"strings"
+
+	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
+	"github.com/zigdon/rsp/rest"
+)
 
 // Check if the destination already has a working relay
 // - If yes, check that it's in the home network
@@ -11,6 +17,58 @@ import "github.com/spf13/cobra"
 // Activate it
 
 func autoRelay(cmd *cobra.Command, args []string) error {
-	// locName, _ := cmd.Flags().GetString("location")
+	locName, _ := cmd.Flags().GetString("location")
+	home, _ := cmd.Flags().GetString("home")
+	ds, err := rest.AllDevices()
+	var devs []*models.Device
+	if err != nil {
+		return err
+	}
+	for _, d := range ds {
+		if d.Type != "ftl_relay" {
+			continue
+		}
+		if strings.Contains(d.Location, locName) {
+			devs = append(devs, d)
+		}
+	}
+	if len(devs) == 0 {
+		return missingRelay(locName)
+	}
+	var valid bool
+	var extras []string
+	for _, d := range devs {
+		net, err := rest.DeviceNetwork(d.Code)
+		if err != nil {
+			return err
+		}
+		for _, n := range net.Connections {
+			if n.Star == home {
+				valid = true
+				break
+			}
+		}
+		if valid {
+			break
+		}
+		extras = append(extras, d.Code.Alias())
+	}
+	if !valid {
+		log("None of the relays at %s are in the home network", locName)
+	}
+	if len(devs) > 1 {
+		log("Found %d extra relays: %s", len(extras), strings.Join(extras, ", "))
+		return returnExtraRelays(devs)
+	}
+	return nil
+}
+
+func missingRelay(loc string) error {
+	log("Need to find/make a relay for %s", loc)
+	return nil
+}
+
+func returnExtraRelays(devs []*models.Device) error {
+	log("Return/recycle %d extra relays", len(devs))
 	return nil
 }

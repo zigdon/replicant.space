@@ -25,6 +25,12 @@ var autoFerryCmd = &cobra.Command{
 	RunE:  autoFerry,
 }
 
+var autoRelayCmd = &cobra.Command{
+	Use:   "relay",
+	Short: "Set up relay network",
+	RunE:  autoRelay,
+}
+
 func init() {
 	rootCmd.AddCommand(autoCmd)
 
@@ -41,6 +47,9 @@ func init() {
 	autoCmd.AddCommand(autoFerryCmd)
 	autoFerryCmd.Flags().String("home", "MENKUNT-BELT-1", "Destination for ferrying")
 	autoFerryCmd.Flags().StringP("atc", "t", "atc-1", "Transport controller to use")
+
+	autoCmd.AddCommand(autoRelayCmd)
+	autoRelayCmd.Flags().String("home", "MENKUNT", "Home system")
 }
 
 var infos = make(map[*models.CodeAlias]*models.Device)
