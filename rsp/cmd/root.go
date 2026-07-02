@@ -45,9 +45,6 @@ func Execute() {
 		rest.ConnectDB(db)
 	}
 
-	// Create any missing aliases
-	_, err = rest.Devices(nil)
-
 	err = rootCmd.Execute()
 	if err != nil {
 		die(err.Error())
@@ -190,9 +187,9 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 		} else if f.intFlag {
 			val, _ := f.value.(int)
 			if f.short != 0 {
-				cmd.Flags().IntSliceP(f.name, string(f.short), []int{val}, f.desc)
+				cmd.Flags().IntP(f.name, string(f.short), val, f.desc)
 			} else {
-				cmd.Flags().IntSlice(f.name, []int{val}, f.desc)
+				cmd.Flags().Int(f.name, val, f.desc)
 			}
 		} else {
 			val, _ := f.value.(string)

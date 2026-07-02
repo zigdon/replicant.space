@@ -71,6 +71,8 @@ type Scan struct {
 
 func (s *Scan) Cache() error {
 	s.Star.EntryPoint = s.EntryPoint
+	s.Star.EstimatedPlanets = len(s.Planets)
+	s.Star.Explored = true
 	return s.Star.Cache()
 }
 

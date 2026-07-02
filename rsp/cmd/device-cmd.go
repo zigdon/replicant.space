@@ -98,9 +98,9 @@ func init() {
 			name: "on_complete", short: 'o', mapFlag: true,
 			desc:    "Commands to queue when print is done",
 			jsonKey: "oncomplete",
-		},{
+		}, {
 			name: "repeat", short: 'r', intFlag: true,
-			desc:    "Enqueue multiple copies",
+			desc: "Enqueue multiple copies",
 		}}, "",
 	)
 	mkDeviceCommand(
