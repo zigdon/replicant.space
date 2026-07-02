@@ -51,11 +51,13 @@ var deviceListCmd = &cobra.Command{
 			}
 		}
 
-		var tags []string
-		if ignore, _ := cmd.Flags().GetBool("ignore_tags"); !ignore {
-			tags, _ = cmd.Flags().GetStringSlice("filter_tags")
+		var skipped map[string]int
+		ignore, _ := cmd.Flags().GetBool("ignore_tags")
+		only, _ := cmd.Flags().GetStringSlice("only_tags")
+		filterTags, _ := cmd.Flags().GetStringSlice("filter_tags")
+		if !ignore {
+			devs, skipped = filterDevices(devs, filterTags, only)
 		}
-		devs, skipped := filterDevices(devs, tags)
 		printDeviceList(devs, origin)
 		var stats []string
 		for k, v := range skipped {
@@ -150,46 +152,67 @@ var networkCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(deviceListCmd)
 	deviceListCmd.Flags().Bool("ignore_tags", false, "If set, ignore tag filters")
-	deviceListCmd.Flags().StringSliceP("filter_tags", "t", []string{"infrastructure", "mine", "matrix"}, "Filter results with these tags")
+	deviceListCmd.Flags().StringSliceP("filter_tags", "f", []string{"infrastructure", "mine", "matrix"}, "Filter results with these tags")
+	deviceListCmd.Flags().StringSliceP("only_tags", "t", []string{}, "Show only results with these tags")
 	deviceListCmd.Flags().StringP("distance", "d", "", "Show distance from this object's star")
 
 	rootCmd.AddCommand(networkCmd)
 }
 
-func filterDevices(devs []*models.Device, tags []string) ([]*models.Device, map[string]int) {
+func filterDevices(devs []*models.Device, withoutTags, withTags []string) ([]*models.Device, map[string]int) {
 	var ret []*models.Device
 	var skipTags = make(map[string]bool)
-	for _, t := range tags {
+	var onlyTags = make(map[string]bool)
+	for _, t := range withoutTags {
 		skipTags[t] = true
+	}
+	for _, t := range withTags {
+		onlyTags[t] = true
 	}
 	var skipped = make(map[string]int)
 
 	for _, d := range devs {
-		if skipTags["matrix"] && d.Type == "replicant_matrix" && d.Status == "stowed" {
-			skipped["matrix"]++
-			continue
-		}
-		if skipTags["mine"] && slices.ContainsFunc(d.Tags, func(s string) bool {
-			loc := strings.ToLower(d.Location)
-			if loc == "" {
-				return false
+		if len(withTags) > 0 {
+			if len(d.Tags) == 0 {
+				continue
 			}
-			return slices.Contains(d.Tags, fmt.Sprintf("mine-%s", loc)) ||
-				strings.Contains(s, "-"+loc[:strings.Index(loc, "-")]+"-")
-		}) {
-			skipped["mines"]++
-			continue
-		}
-		skip := false
-		for _, tag := range d.Tags {
-			if s := skipTags[tag]; s {
-				skipped[fmt.Sprintf("%s: %s", d.Type, tag)]++
-				skip = true
-				break
+			var keep bool
+			for _, t := range d.Tags {
+				if onlyTags[t] {
+					keep = true
+					break
+				}
 			}
-		}
-		if skip {
-			continue
+			if !keep {
+				continue
+			}
+		} else {
+			if skipTags["matrix"] && d.Type == "replicant_matrix" && d.Status == "stowed" {
+				skipped["matrix"]++
+				continue
+			}
+			if skipTags["mine"] && slices.ContainsFunc(d.Tags, func(s string) bool {
+				loc := strings.ToLower(d.Location)
+				if loc == "" {
+					return false
+				}
+				return s == fmt.Sprintf("mine-%s", loc) ||
+					strings.Contains(s, "-"+loc[:strings.Index(loc, "-")]+"-")
+			}) {
+				skipped["mines"]++
+				continue
+			}
+			skip := false
+			for _, tag := range d.Tags {
+				if s := skipTags[tag]; s {
+					skipped[fmt.Sprintf("%s: %s", d.Type, tag)]++
+					skip = true
+					break
+				}
+			}
+			if skip {
+				continue
+			}
 		}
 		ret = append(ret, d)
 	}
