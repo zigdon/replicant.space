@@ -30,7 +30,7 @@ var starsCmd = &cobra.Command{
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
 			prettyPrint(resp)
 		} else {
-			var target models.Position
+			var target *models.Position
 			var err error
 			headers := []string{"Location", "Total Stars", "Page"}
 			data := [][]string{{

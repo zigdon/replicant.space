@@ -81,6 +81,30 @@ type Device struct {
 	WaitingFor           map[string]*MissingResources `json:"waiting_for"`
 }
 
+func (d *Device) Alias() {
+	if db != nil && d.Code.Alias() == d.Code.String() {
+		if a, err := db.Alias(d.Code.String(), d.Type); err == nil {
+			d.Code.alias = a
+		}
+		fmt.Printf("filled %v\n", d.Code)
+	}
+}
+
+func (d *Device) GetPosition() *Position {
+	if db == nil || d.Location == "" {
+		return nil
+	}
+	loc := d.Location
+	if i := strings.Index(d.Location, "-"); i > 0 {
+		loc = d.Location[:i]
+	}
+	s := &Star{Designation: loc}
+	if err := s.Get(); err != nil {
+		return nil
+	}
+	return s.Position
+}
+
 type ControllerStatus struct {
 	DirectivePaused       bool   `json:"directive_paused"`
 	DirectiveResumed      bool   `json:"directive_resumed"`

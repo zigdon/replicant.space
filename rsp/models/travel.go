@@ -32,9 +32,9 @@ type Trip struct {
 
 type JourneyLeg struct {
 	From         string
-	FromPosition Position
+	FromPosition *Position
 	To           string
-	ToPosition   Position
+	ToPosition   *Position
 	DistFromSrc  float32
 	DistToDest   float32
 	Processed    bool
@@ -42,8 +42,8 @@ type JourneyLeg struct {
 
 type Journey struct {
 	Source         string
-	SourcePosition Position
+	SourcePosition *Position
 	Dest           string
-	DestPosition   Position
+	DestPosition   *Position
 	Legs           []*JourneyLeg
 }

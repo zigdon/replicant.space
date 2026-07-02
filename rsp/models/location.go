@@ -15,35 +15,39 @@ type Position struct {
 	Z float32 `json:"z"`
 }
 
-func NewPosition(x, y, z float32) Position {
-	return Position{X: x, Y: y, Z: z}
+func NewPosition(x, y, z float32) *Position {
+	return &Position{X: x, Y: y, Z: z}
 }
 
-func ParsePosition(coords string) (Position, error) {
+func ParsePosition(coords string) (*Position, error) {
 	cs := strings.Split(coords, ",")
-	p := Position{}
 	if len(cs) != 3 {
-		return p, fmt.Errorf("Destination must be specified as x,y,z")
+		return nil, fmt.Errorf("Destination must be specified as x,y,z")
 	}
 	x, err := strconv.Atoi(cs[0])
 	if err != nil {
-		return p, err
+		return nil, err
 	}
 	y, err := strconv.Atoi(cs[1])
 	if err != nil {
-		return p, err
+		return nil, err
 	}
 	z, err := strconv.Atoi(cs[2])
 	if err != nil {
-		return p, err
+		return nil, err
 	}
-	p.X = float32(x)
-	p.Y = float32(y)
-	p.Z = float32(z)
+	p := &Position{
+		X: float32(x),
+		Y: float32(y),
+		Z: float32(z),
+	}
 	return p, nil
 }
 
-func (p Position) Distance(to Position) float32 {
+func (p Position) Distance(to *Position) float32 {
+	if to == nil {
+		return 0
+	}
 	return float32(math.Sqrt(
 		math.Pow(float64(p.X-to.X), 2) +
 			math.Pow(float64(p.Y-to.Y), 2) +
@@ -106,7 +110,7 @@ func (s *Star) Get() error {
 	}
 	if s.Position == nil {
 		p := NewPosition(0,0,0)
-		s.Position = &p
+		s.Position = p
 	}
 	return scan(&s.Designation, &s.Name, &s.EntryPoint, &s.EstimatedPlanets, &s.Explored,
 		&s.HasLife, &s.Position.X, &s.Position.Y, &s.Position.Z)

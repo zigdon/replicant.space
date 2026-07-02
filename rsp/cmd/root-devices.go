@@ -39,13 +39,24 @@ var deviceListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		for _, d := range devs {
+			d.Alias()
+		}
+
+		var origin *models.Position
+		if src, _ := cmd.Flags().GetString("distance"); src != "" {
+			if o, err := getInfo(models.NewCodeAlias(src)); err == nil {
+				origin = o.GetPosition()
+				log("Distance from %s: %s", o.Code.Alias(), origin)
+			}
+		}
 
 		var tags []string
 		if ignore, _ := cmd.Flags().GetBool("ignore_tags"); !ignore {
 			tags, _ = cmd.Flags().GetStringSlice("filter_tags")
 		}
 		devs, skipped := filterDevices(devs, tags)
-		printDeviceList(devs)
+		printDeviceList(devs, origin)
 		var stats []string
 		for k, v := range skipped {
 			if v == 0 {
@@ -140,6 +151,7 @@ func init() {
 	rootCmd.AddCommand(deviceListCmd)
 	deviceListCmd.Flags().Bool("ignore_tags", false, "If set, ignore tag filters")
 	deviceListCmd.Flags().StringSliceP("filter_tags", "t", []string{"infrastructure", "mine", "matrix"}, "Filter results with these tags")
+	deviceListCmd.Flags().StringP("distance", "d", "", "Show distance from this object's star")
 
 	rootCmd.AddCommand(networkCmd)
 }
@@ -183,27 +195,35 @@ func filterDevices(devs []*models.Device, tags []string) ([]*models.Device, map[
 	return ret, skipped
 }
 
-func printDeviceList(devs []*models.Device) {
+func printDeviceList(devs []*models.Device, reference *models.Position) {
 	var data [][]string
 
 	for _, d := range devs {
+		loc := d.GetPosition()
 		status := d.Status
 		if strings.Contains(status, "repairing (") {
 			target := status[strings.Index(status, "(")+1 : strings.Index(status, ")")]
 			status = fmt.Sprintf("repairing (%s)", alias(target))
 		}
-		data = append(data, []string{
+		line := []string{
 			d.Type,
 			d.Code.Alias(),
 			d.ControllerDeviceCode.Alias(),
-			b(d.InControlRange),
 			d.Location,
 			f(d.OperationalCapacity),
 			status,
 			d.StowedInDeviceCode.Alias(),
 			list(d.Tags),
 			d.OwnerReplicant.Alias(),
-		})
+		}
+		if reference != nil {
+			if loc != nil {
+				line = append(line, f(loc.Distance(reference)))
+			} else {
+				line = append(line, "")
+			}
+		}
+		data = append(data, line)
 	}
 	slices.SortFunc(data, func(a, b []string) int {
 		return cmp.Or(
@@ -211,16 +231,19 @@ func printDeviceList(devs []*models.Device) {
 			cmp.Compare(a[1], b[1]),
 		)
 	})
-	printTable([]string{
+	headers := []string{
 		"Type",
 		"Code",
 		"Controller",
-		"In range",
 		"Location",
 		"Operational Capacity",
 		"Status",
 		"Stowed in",
 		"Tags",
 		"Replicant",
-	}, data)
+	}
+	if reference != nil {
+		headers = append(headers, "Distance")
+	}
+	printTable(headers, data)
 }
