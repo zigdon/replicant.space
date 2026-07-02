@@ -75,6 +75,9 @@ func v(data any) string {
 		return ""
 	}
 	s, _ := json.MarshalIndent(data, "", "  ")
+	if string(s) == "null" {
+		return ""
+	}
 	return string(s)
 }
 

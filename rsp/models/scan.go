@@ -27,17 +27,19 @@ type ScanReplicant struct {
 }
 
 type Object struct {
-	ActivePlates      int     `json:"active_plates"`
-	CurrentProgress   float32 `json:"current_progress"`
-	Designation       string  `json:"designation"`
-	ImpactEta         string  `json:"impact_eta"`
-	ImpactTarget      string  `json:"impact_target"`
-	ObjectType        string  `json:"object_type"`
-	OrbitalDistanceAu float32 `json:"orbital_distance_au"`
-	ProgressPct       float32 `json:"progress_pct"`
-	RequiredStrength  float32 `json:"required_strength"`
-	SizeClass         string  `json:"size_class"`
-	Status            string  `json:"status"`
+	ActivePlates         int       `json:"active_plates"`
+	CurrentProgress      float32   `json:"current_progress"`
+	CurrentThrustPerHour float32   `json:"current_thrust_per_hour"`
+	Designation          string    `json:"designation"`
+	ImpactEta            *JSONTime `json:"impact_eta"`
+	ImpactLikelihood     float32   `json:"impact_likelihood"`
+	ImpactTarget         string    `json:"impact_target"`
+	ObjectType           string    `json:"object_type"`
+	OrbitalDistanceAu    float32   `json:"orbital_distance_au"`
+	ProgressPct          float32   `json:"progress_pct"`
+	RequiredStrength     float32   `json:"required_strength"`
+	SizeClass            string    `json:"size_class"`
+	Status               string    `json:"status"`
 }
 
 type LocationEvent struct {

@@ -115,6 +115,24 @@ var scanCmd = &cobra.Command{
 			}
 		}
 
+		if len(scan.SystemObjects) > 0 {
+			log("System objects")
+			var data [][]string
+			for _, so := range scan.SystemObjects {
+				data = append(data, []string{
+					so.Designation, so.Status, so.ObjectType, so.SizeClass, f(so.OrbitalDistanceAu),
+					so.ImpactTarget, t(so.ImpactEta.Time()), p(so.ImpactLikelihood), f(so.RequiredStrength),
+					d(so.ActivePlates),
+					fmt.Sprintf("%s (%s)", f(so.CurrentProgress), p(so.ProgressPct)),
+					f(so.CurrentThrustPerHour),
+				})
+			}
+			printTable([]string{
+				"Designation", "Status", "Type", "Class", "Distance AU", "Impact Target",
+				"ETA", "Likelyhood", "Required Strength", "Active Plates", "Progress",
+				"Thrust/hr"}, data)
+		}
+
 		if err := scan.Cache(); err != nil {
 			log("Error updating cache for %s: %v", scan.Star.Designation, err)
 		}
