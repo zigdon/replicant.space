@@ -64,10 +64,16 @@ func m[T any](in map[string]T) string {
 }
 
 func p(per float32) string {
+	if per == 0 {
+		return ""
+	}
 	return fmt.Sprintf("%.0f%%", per)
 }
 
 func v(data any) string {
+	if data == nil {
+		return ""
+	}
 	s, _ := json.MarshalIndent(data, "", "  ")
 	return string(s)
 }
@@ -92,6 +98,9 @@ func dt(t time.Duration) string {
 }
 
 func t(ts time.Time) string {
+	if ts.IsZero() {
+		return ""
+	}
 	var eta string
 	if ts.Before(time.Now()) {
 		eta = fmt.Sprintf("%s ago", dt(time.Since(ts)))

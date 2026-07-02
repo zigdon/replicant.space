@@ -38,15 +38,30 @@ var infoCmd = &cobra.Command{
 				totalCargo, dev.CargoCapacity, totalCargo/float32(dev.CargoCapacity)*100)}, cargo...)
 		}
 		printTable(
-			[]string{"Code", "Type", "Location", "Status", "Attached", "Taxi Mode", "Controller",
-				"Replicant", "Commands", "Ops Capacity", "Cargo", "Tags", "Features"},
+			[]string{"Code", "Type", "Location", "Status", "Attached", "Controller",
+				"Replicant", "Ops Capacity", "Cargo"},
 			[][]string{{code, dev.Type, dev.Location, dev.Status,
 				dev.AttachedToDeviceCode.Alias(),
-				dev.TaxiMode, dev.ControllerDeviceCode.Alias(), dev.ReplicantCode.Alias(),
-				lines(dev.AvailableCommands), f(dev.OperationalCapacity),
-				lines(cargo), lines(dev.Tags), lines(dev.Features),
+				dev.ControllerDeviceCode.Alias(), dev.ReplicantCode.Alias(),
+				f(dev.OperationalCapacity),
+				lines(cargo),
 			}},
 		)
+		var upkeep []string
+		for _, u := range dev.UpkeepRequirements {
+			upkeep = append(upkeep, u.String())
+		}
+		var grace string
+		if dev.GracePeriodRemaining > 0 {
+			grace = d(dev.GracePeriodRemaining)
+		}
+		printTable([]string{
+			"Created", "Deployed", "Grace", "Repairs", "System Active",
+			"Upkeep Requirements", "Taxi Mode", "Commands", "Tags", "Features"},
+			[][]string{{
+				t(dev.Created.Time()), t(dev.Deployed.Time()), grace,
+				p(dev.RepairPaidPct), v(dev.SystemStatus), lines(upkeep),
+				dev.TaxiMode, lines(dev.AvailableCommands), lines(dev.Tags), lines(dev.Features)}})
 		if len(dev.AvailableDirectives) > 0 {
 			var cfg map[string]any
 			var name string

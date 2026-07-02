@@ -55,6 +55,22 @@ func (i *Inventory) Short() string {
 	return fmt.Sprintf("%.0f x %s", i.Quantity, i.ResourceType)
 }
 
+type SystemStatus struct {
+	Active           bool    `json:"active"`
+	ActiveDiversions int     `json:"active_diversions"`
+	HubCapacity      float32 `json:"hub_capacity"`
+	Star             string  `json:"star"`
+}
+
+type UpkeepRequirement struct {
+	QuantityPer20pct int    `json:"quantity_per_20pct"`
+	ResourceType     string `json:"resource_type"`
+}
+
+func (ur *UpkeepRequirement) String() string {
+	return fmt.Sprintf("%d x %s", ur.QuantityPer20pct, ur.ResourceType)
+}
+
 type Device struct {
 	AmiDirective         *DeviceDirective             `json:"ami_directive"`
 	AmiDirectiveStatus   string                       `json:"ami_directive_status"`
@@ -68,26 +84,34 @@ type Device struct {
 	Code                 *CodeAlias                   `json:"device_code"`
 	ControlledDevices    []*ControlledDevice          `json:"controlled_devices"`
 	ControllerDeviceCode *CodeAlias                   `json:"controller_device_code"`
+	Created              *JSONTime                    `json:"created_at"`
+	Deployed             *JSONTime                    `json:"deployed_at"`
 	Features             []string                     `json:"features"`
+	GracePeriodRemaining int                          `json:"grace_period_remaining"`
 	InControlRange       bool                         `json:"in_control_range"`
 	Location             string                       `json:"location"`
 	LocationName         string                       `json:"location_name"`
 	OperationalCapacity  float32                      `json:"operational_capacity"`
 	OwnerReplicant       *CodeAlias                   `json:"owner_replicant_code"`
-	Printing             *DevicePrint                 `json:"printing"`
 	PrintQueue           []*DevicePrintQueue          `json:"print_queue"`
+	Printing             *DevicePrint                 `json:"printing"`
 	QueueSize            int                          `json:"queue_size"`
+	RepairPaidPct        float32                      `json:"repair_paid_pct"`
 	ReplicantCode        *CodeAlias                   `json:"replicant_code"`
 	Scan                 *DeviceScan                  `json:"scan"`
 	Status               string                       `json:"status"`
 	StowCapacity         int                          `json:"stow_capacity"`
+	StowUsed             int                          `json:"stow_used"`
 	StowedDevices        []*StowedDevice              `json:"stowed_devices"`
 	StowedInDeviceCode   *CodeAlias                   `json:"stowed_in_device_code"`
+	SystemStatus         *SystemStatus                `json:"system_status"`
 	Tags                 []string                     `json:"tags"`
 	TaxiMode             string                       `json:"taxi_mode"`
 	Travel               *Trip                        `json:"travel"`
 	Type                 string                       `json:"device_type"`
+	UpkeepRequirements   []*UpkeepRequirement         `json:"upkeep_requirements"`
 	WaitingFor           map[string]*MissingResources `json:"waiting_for"`
+	WelcomeMessage       string                       `json:"welcome_message"`
 }
 
 func (d *Device) Alias() {
