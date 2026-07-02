@@ -93,6 +93,13 @@ var replicantInfoCmd = &cobra.Command{
 			}
 			printTable([]string{"Resource", "Have", "Need"}, w)
 		}
+		if repl.Teleport != nil {
+			rt := repl.Teleport
+			printTable([]string{"Teleport status", "Source", "Destination", "Started", "Completes", "Target"},
+				[][]string{{
+					rt.Status, rt.SourceStar, rt.DestinationStar, t(rt.Started.Time()), t(rt.Completes.Time()), rt.TargetMatrixCode.Alias(),
+				}})
+		}
 		return nil
 	},
 }

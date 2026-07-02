@@ -140,7 +140,7 @@ func formatDev(devs []*models.EventDevice, resBreakdown bool) string {
 	res := make(map[string]int)
 	for _, d := range devs {
 		dt := d.DeviceType
-		out = append(out, fmt.Sprintf("%d x %s", d.Count, dt))
+		out = append(out, fmt.Sprintf("%d x %s", d.Count+d.Current, dt))
 		if !resBreakdown {
 			continue
 		}

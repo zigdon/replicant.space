@@ -40,7 +40,7 @@ var infoCmd = &cobra.Command{
 			[][]string{{code, dev.Type, dev.Location,
 				dev.Status, dev.TaxiMode, dev.ControllerDeviceCode.Alias(), dev.ReplicantCode.Alias(),
 				lines(dev.AvailableCommands), f(dev.OperationalCapacity),
-				lines(cargo), lines(dev.Tags), lines(dev.Features), 
+				lines(cargo), lines(dev.Tags), lines(dev.Features),
 			}},
 		)
 		if len(dev.AvailableDirectives) > 0 {
@@ -111,6 +111,15 @@ var infoCmd = &cobra.Command{
 				len(dev.AttachedDevices), dev.AttachCapacity)
 			var ds [][]string
 			for _, d := range dev.AttachedDevices {
+				ds = append(ds, []string{d.Type, d.Code.Alias(), d.Code.String()})
+			}
+			printTable([]string{"Type", "Alias", "Code"}, ds)
+		}
+		if len(dev.StowedDevices) > 0 {
+			fmt.Printf("Stowed devices (%d/%d):\n",
+				len(dev.StowedDevices), dev.StowCapacity)
+			var ds [][]string
+			for _, d := range dev.StowedDevices {
 				ds = append(ds, []string{d.Type, d.Code.Alias(), d.Code.String()})
 			}
 			printTable([]string{"Type", "Alias", "Code"}, ds)

@@ -110,6 +110,7 @@ type Replicant struct {
 	Pronouns            string                       `json:"pronouns"`
 	Status              string                       `json:"status"`
 	StowedDevices       []*Device                    `json:"stowed_devices"`
+	Teleport            *Teleport                    `json:"teleport"`
 	Travel              *Travel                      `json:"travel"`
 	WaitingFor          map[string]*MissingResources `json:"waiting_for"`
 
