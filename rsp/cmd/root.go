@@ -260,10 +260,3 @@ func unalias(in string) string {
 	}
 	return db.Dealias(in)
 }
-
-func star(loc string) string {
-	if idx := strings.Index(loc, "-"); idx > 0 {
-		return loc[:idx]
-	}
-	return loc
-}

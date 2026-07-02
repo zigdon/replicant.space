@@ -6,8 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
-
-	lg "charm.land/lipgloss/v2"
 )
 
 var msgCmd = &cobra.Command{
@@ -33,8 +31,6 @@ var msgCmd = &cobra.Command{
 			prettyPrint(data)
 		} else {
 			var msgs [][]string
-			tStyle := lg.NewStyle().Width(20)
-			bStyle := lg.NewStyle().Width(width)
 			for _, m := range data.Messages {
 				if !partial {
 					ids = append(ids, m.ID)
@@ -42,8 +38,8 @@ var msgCmd = &cobra.Command{
 				msgs = append(msgs, []string{
 					d(m.ID),
 					m.Type,
-					tStyle.Render(m.Title),
-					bStyle.Render(m.Body),
+					wrap(m.Title, 20),
+					wrap(m.Body, width),
 					b(m.Read),
 					t(m.Created.Time()),
 				})
@@ -107,7 +103,6 @@ var bobCmd = &cobra.Command{
 		}
 		headers := []string{"Channel", "Name", "Time", "Message"}
 		var lines [][]string
-		style := lg.NewStyle().Width(width)
 		slices.Reverse(data.Messages)
 		for _, d := range data.Messages {
 			if len(channels) > 0 && !slices.Contains(channels, d.Channel) {
@@ -122,7 +117,7 @@ var bobCmd = &cobra.Command{
 				who = d.ReplicantName
 			}
 			lines = append(lines, []string{
-				d.Channel, who, d.Time.String(), style.Render(d.Message),
+				d.Channel, who, t(d.Time.Time()), wrap(d.Message, width),
 			})
 		}
 		printTable(headers, lines)
