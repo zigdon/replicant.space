@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -62,12 +63,15 @@ var networkCmd = &cobra.Command{
 	Use:   "networks",
 	Short: "List all networks the FTL relays create",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		devs, err := rest.AllDevices()
+		devs, err := rest.Devices(nil)
 		if err != nil {
 			return err
 		}
 		networks := []*models.Network{}
 		var inactive [][]string
+		var wg sync.WaitGroup
+		var errs []error
+		var mu sync.Mutex
 		for _, d := range devs {
 			if d.Type != "ftl_relay" {
 				continue
@@ -83,29 +87,38 @@ var networkCmd = &cobra.Command{
 				continue
 			}
 
-			net, err := rest.DeviceNetwork(d.Code)
-			if err != nil {
-				return err
-			}
-			if net == nil || net.Status != "relaying" {
-				loc := d.StowedInDeviceCode.Alias()
-				if loc == "" {
-					loc = d.Location
+			wg.Go(func() {
+				net, err := rest.DeviceNetwork(d.Code)
+				if err != nil {
+					mu.Lock()
+					errs = append(errs, err)
+					mu.Unlock()
+					return
 				}
-				inactive = append(inactive, []string{d.Code.Alias(), loc})
-				continue
-			}
-			for _, n := range networks {
-				if n.Equal(net) {
-					found = true
-					break
+				if net == nil || net.Status != "relaying" {
+					loc := d.StowedInDeviceCode.Alias()
+					if loc == "" {
+						loc = d.Location
+					}
+					mu.Lock()
+					inactive = append(inactive, []string{d.Code.Alias(), loc})
+					mu.Unlock()
+					return
 				}
-			}
-			if found {
-				continue
-			}
-			networks = append(networks, net)
+				mu.Lock()
+				defer mu.Unlock()
+				if slices.ContainsFunc(networks, func(n *models.Network) bool {
+					return n.Equal(net)
+				}) {
+					return
+				}
+				networks = append(networks, net)
+			})
 		}
+		wg.Wait()
+		slices.SortFunc(inactive, func(a, b []string) int {
+			return cmp.Compare(a[1], b[1])
+		})
 		slices.SortFunc(networks, func(a, b *models.Network) int {
 			return cmp.Compare(a.Connections[0].Star, b.Connections[0].Star)
 		})

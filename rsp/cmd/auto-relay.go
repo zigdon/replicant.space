@@ -19,7 +19,7 @@ import (
 func autoRelay(cmd *cobra.Command, args []string) error {
 	locName, _ := cmd.Flags().GetString("location")
 	home, _ := cmd.Flags().GetString("home")
-	ds, err := rest.AllDevices()
+	ds, err := rest.Devices(nil)
 	var devs []*models.Device
 	if err != nil {
 		return err

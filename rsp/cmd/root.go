@@ -46,7 +46,7 @@ func Execute() {
 	}
 
 	// Create any missing aliases
-	_, err = rest.AllDevices()
+	_, err = rest.Devices(nil)
 
 	err = rootCmd.Execute()
 	if err != nil {

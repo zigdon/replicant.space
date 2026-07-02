@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"cmp"
+	"slices"
+
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
@@ -29,6 +32,9 @@ var deviceNetworkCmd = &cobra.Command{
 				n.Star, n.DeviceCode.Alias(), f(n.DistanceLy),
 			})
 		}
+		slices.SortFunc(nodes, func(a, b []string) int {
+			return cmp.Compare(a[0], b[0])
+		})
 		printTable([]string{"Star", "Device", "Distance LY"}, nodes)
 		return nil
 	},

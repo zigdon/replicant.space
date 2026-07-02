@@ -90,7 +90,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	// See if we can repurpose idle devices
-	devs, err := rest.AllDevices()
+	devs, err := rest.Devices(nil)
 	if err != nil {
 		return err
 	}

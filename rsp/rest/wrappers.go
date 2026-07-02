@@ -1,10 +1,8 @@
 package rest
 
 import (
-	"cmp"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -233,47 +231,23 @@ func ReplicantTeleport(id, target *models.CodeAlias) (*models.Teleport, error) {
 }
 
 // Devices
-func AllDevices() ([]*models.Device, error) {
-	acc, err := Account()
-	if err != nil {
-		return nil, err
-	}
-	devs := make(map[string]*models.Device)
-	for _, r := range acc.Replicants {
-		res, err := ReplicantDevices(r.Code, "")
-		if err != nil {
-			return nil, err
-		}
-		for _, d := range res {
-			devs[d.Code.String()] = d
-		}
-		if acc.ReplicantCooperation == "shared" {
-			break
-		}
-	}
-	aliases := make(map[string]string)
-	var res []*models.Device
-	for _, d := range devs {
-		res = append(res, d)
-		alias, err := db.Alias(d.Code.String(), d.Type)
-		if err != nil {
-			return nil, err
-		}
-		aliases[d.Code.String()] = alias
-	}
-	slices.SortFunc(res, func(a, b *models.Device) int {
-		return cmp.Compare(aliases[a.Code.String()], aliases[b.Code.String()])
-	})
-
-	return res, nil
-}
-
 func Devices(filters map[string]string) ([]*models.Device, error) {
+	ttl := 5 * time.Minute
 	url := "devices"
-	params := []string{"limit=50", "cursor=%d"}
+	var params []string
 	for k, v := range filters {
 		params = append(params, fmt.Sprintf("%s=%s", k, v))
 	}
+	key := "DEVS " + strings.Join(params, "&")
+	log("key: %q", key)
+	if c, ok := cachedCalls.Load(key); ok {
+		ent, _ := c.(cacheEntry)
+		log("cached ts: %s", ent.ts.String())
+		if time.Since(ent.ts) < ttl {
+			return ent.val.([]*models.Device), nil
+		}
+	}
+	params = append([]string{"limit=50", "cursor=%d"}, params...)
 	if len(params) > 0 {
 		url += "?" + strings.Join(params, "&")
 	}
@@ -294,6 +268,8 @@ func Devices(filters map[string]string) ([]*models.Device, error) {
 		}
 		cur = ds.NextCursor
 	}
+	log("caching to %q: %d", key, len(devs))
+	cachedCalls.Store(key, cacheEntry{ts: time.Now(), val: devs})
 
 	return devs, nil
 }

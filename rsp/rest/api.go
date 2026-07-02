@@ -119,10 +119,10 @@ func Get(path string, args ...any) ([]byte, error) {
 	return do("GET", path, nil, args...)
 }
 
-// / Cache
+// Cache
 type cacheEntry struct {
 	ts  time.Time
-	res []byte
+	val any
 }
 
 var cachedCalls sync.Map
@@ -132,21 +132,20 @@ func cachePOST(key string, ttl time.Duration, path string, data []byte, args ...
 		ttl = time.Minute
 	}
 	if key == "" {
-		key = fmt.Sprintf("%s:%v:%v", path, args, string(data))
+		key = fmt.Sprintf("POST %s:%v:%v", path, args, string(data))
 	}
-	now := time.Now()
 	c, ok := cachedCalls.Load(key)
 	ent, _ := c.(cacheEntry)
-	if ok && now.Sub(ent.ts) <= ttl {
-		return ent.res, nil
+	if ok && time.Since(ent.ts) <= ttl {
+		return ent.val.([]byte), nil
 	}
 	res, err := Post(path, data, args...)
 	if err != nil {
 		return nil, err
 	}
 	cachedCalls.Store(key, cacheEntry{
-		ts:  now,
-		res: res,
+		ts:  time.Now(),
+		val: res,
 	})
 	return res, nil
 }
@@ -156,13 +155,13 @@ func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, 
 		ttl = time.Minute
 	}
 	if key == "" {
-		key = fmt.Sprintf("%s:%v", path, args)
+		key = fmt.Sprintf("GET %s:%v", path, args)
 	}
 	now := time.Now()
 	c, ok := cachedCalls.Load(key)
 	ent, _ := c.(cacheEntry)
 	if ok && now.Sub(ent.ts) <= ttl {
-		return ent.res, nil
+		return ent.val.([]byte), nil
 	}
 	res, err := Get(path, args...)
 	if err != nil {
@@ -170,7 +169,7 @@ func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, 
 	}
 	cachedCalls.Store(key, cacheEntry{
 		ts:  now,
-		res: res,
+		val: res,
 	})
 	return res, nil
 }

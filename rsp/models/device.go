@@ -1,6 +1,7 @@
 package models
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -191,6 +192,13 @@ type Network struct {
 	Error       string         `json:"error"`
 	RangeLy     float32        `json:"range_ly"`
 	Status      string         `json:"status"`
+}
+
+func (n *Network) Fill() error {
+	slices.SortFunc(n.Connections, func(a, b *NetworkNode) int {
+		return cmp.Compare(a.Star, b.Star)
+	})
+	return nil
 }
 
 func (n *Network) Devices() []string {
