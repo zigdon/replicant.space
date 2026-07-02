@@ -188,6 +188,11 @@ func (db *Cache) Update(table Tables, data map[string]any) error {
 	return nil
 }
 
+func (db *Cache) Reset(table Tables) error {
+	_, err := db.DB.Exec(fmt.Sprintf("DELETE FROM %s", table))
+	return err
+}
+
 func (db *Cache) ListIDs(table Tables) ([]string, error) {
 	rows, err := db.DB.Query(fmt.Sprintf("SELECT %s FROM %s", cols[table][0], table))
 	if err != nil {

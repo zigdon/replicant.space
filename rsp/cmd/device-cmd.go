@@ -84,6 +84,9 @@ func init() {
 		}}, "",
 	)
 	mkDeviceCommand(
+		"clear_queue", "Clear print queue", "clear_queue", nil, "",
+	)
+	mkDeviceCommand(
 		"print", "Queue a print job", "enqueue_print",
 		[]flagDesc{{
 			// args[0]

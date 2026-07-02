@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -28,7 +29,7 @@ var cacheInitCmd = &cobra.Command{
 }
 
 var statsCmd = &cobra.Command{
-	Use: "stats",
+	Use:   "stats",
 	Short: "Show cache stats",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		db, err := cache.Connect(false)
@@ -41,7 +42,7 @@ var statsCmd = &cobra.Command{
 }
 
 var updateSchemaCmd = &cobra.Command{
-	Use: "update-schema",
+	Use:   "update-schema",
 	Short: "Update the database schema",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		db, err := cache.Connect(false)
@@ -53,22 +54,50 @@ var updateSchemaCmd = &cobra.Command{
 }
 
 var reloadStarsCmd = &cobra.Command{
-	Use: "reload-stars",
+	Use:   "reload-stars",
 	Short: "Fetch the full star census to the cache",
-	RunE: reloadStars,
+	RunE:  reloadStars,
+}
+
+var resetUniverseCmd = &cobra.Command{
+	Use:   "reset-universe",
+	Short: "Clear all the universe cache tables",
+	RunE:  resetUniverse,
 }
 
 func init() {
 	rootCmd.AddCommand(cacheCmd)
 	cacheCmd.AddCommand(cacheInitCmd)
 	cacheInitCmd.Flags().Bool("create", false,
-	  "Be willing to create a new db if none is found")
+		"Be willing to create a new db if none is found")
 	cacheCmd.AddCommand(reloadStarsCmd)
 	cacheCmd.AddCommand(statsCmd)
 	cacheCmd.AddCommand(updateSchemaCmd)
+	cacheCmd.AddCommand(resetUniverseCmd)
+	resetUniverseCmd.Flags().Bool("delete", false, "Confirm that all the data should be deleted")
+	resetUniverseCmd.MarkFlagRequired("delete")
 }
 
-func reloadStars (cmd *cobra.Command, args []string) error {
+func resetUniverse(cmd *cobra.Command, args []string) error {
+	for _, t := range []cache.Tables{
+		cache.StarsTable,
+		cache.PlanetsTable,
+		cache.MoonsTable,
+		cache.BeltsTable,
+		cache.BeltResTable,
+		cache.BlueprintsTable,
+		cache.BlueprintResTable,
+		cache.BlueprintDirsTable,
+		cache.BlueprintFeaturesTable,
+	} {
+		if err := db.Reset(t); err != nil {
+			return fmt.Errorf("Couldn't clear %s: %v", t, err)
+		}
+	}
+	return nil
+}
+
+func reloadStars(cmd *cobra.Command, args []string) error {
 	db, err := cache.Connect(false)
 	if err != nil {
 		return err
@@ -129,7 +158,7 @@ func reloadStars (cmd *cobra.Command, args []string) error {
 	}
 	log(
 		"Fetch done: %d total stars, %d added, %d updated, %d unchanged",
-		len(added) + len(updated) + unchanged, len(added), len(updated), unchanged)
+		len(added)+len(updated)+unchanged, len(added), len(updated), unchanged)
 	for _, s := range append(added, updated...) {
 		if err := s.Cache(); err != nil {
 			return err

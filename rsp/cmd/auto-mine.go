@@ -71,6 +71,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	amis := make(map[string]*models.CodeAlias)
 	for _, d := range tagged.Devices {
 		t := d.Type
+		if _, ok := stats[t]; !ok {
+			stats[t] = new(statLine)
+		}
 		stats[t].found += 1
 		if strings.Contains(t, "ami") {
 			amis[t] = d.Code
@@ -142,35 +145,48 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Enqueue a build
 	data = [][]string{}
-	for devType, qty := range missing {
-		if qty <= 0 {
-			continue
-		}
-		factory, err := findPrinter(printers)
-		if err != nil {
-			return fmt.Errorf("No available factory found to queue %s: %v", devType, err)
-		}
-		cfg := map[string]any{
-			"device_type": devType,
-			"tags":        []string{tag},
-		}
-		if t, ok := strings.CutSuffix(devType, "_drone"); ok {
-			if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
-				cfg["controller"] = c.String()
+	if noPrint, _ := cmd.Flags().GetBool("no_print"); !noPrint {
+		for devType, qty := range missing {
+			if qty <= 0 {
+				continue
 			}
-		}
-		log("Printing %d %q at %q...", qty, devType, factory)
-		for range qty {
-			res, err := rest.DeviceCommand(factory, "enqueue_print", cfg)
+			factory, err := findPrinter(printers)
 			if err != nil {
-				return err
+				return fmt.Errorf("No available factory found to queue %s: %v", devType, err)
 			}
-			data = append(data, []string{
-				factory.Alias(), devType, res.Status, d(res.QueueLength + 1),
-			})
+			cfg := map[string]any{
+				"device_type": devType,
+				"tags":        []string{tag},
+			}
+			if t, ok := strings.CutSuffix(devType, "_drone"); ok {
+				if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
+					cfg["controller"] = c.String()
+				}
+			}
+			log("Printing %d %q at %q...", qty, devType, factory)
+			for range qty {
+				res, err := rest.DeviceCommand(factory, "enqueue_print", cfg)
+				if err != nil {
+					return err
+				}
+				data = append(data, []string{
+					factory.Alias(), devType, res.Status, d(res.QueueLength + 1),
+				})
+			}
+			// Clear the cached value so we'll get the new queue
+			clearInfo(factory)
 		}
-		// Clear the cached value so we'll get the new queue
-		clearInfo(factory)
+	} else if len(missing) > 0 {
+		var skip []string
+		for k, v := range missing {
+			if v == 0 { 
+				continue
+			}
+			skip = append(skip, fmt.Sprintf("%d %s", v, k))
+		}
+		if len(skip) > 0 {
+			log("Skipping printing missing devices: %s", list(skip))
+		}
 	}
 
 	if len(data) > 0 {
@@ -350,7 +366,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	if _, err := rest.DeviceCommand(fr.Code, "activate", nil); err != nil {
-		errs = append(errs, fmt.Errorf("Error activating relay at %s: %v", s.EntryPoint, err))
+		if !strings.Contains(err.Error(), "Relay is already active") {
+			errs = append(errs, fmt.Errorf("Error activating relay at %s: %v", s.EntryPoint, err))
+		}
 	}
 
 	if err := setDirective(amc, "deplete_smallest", nil); err != nil {
