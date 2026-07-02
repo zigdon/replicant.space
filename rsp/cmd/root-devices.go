@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -12,34 +13,47 @@ import (
 
 var deviceListCmd = &cobra.Command{
 	Use:   "devices",
-	Short: "List all the devices on the account",
+	Short: "List all the devices",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		acc, err := rest.Account()
+		// Args are filter pairs
+		filter := make(map[string]string)
+		for i := 0; i < len(args)-1; i+=2 {
+			a := args[i]
+			if len(args) < i+2 {
+				return fmt.Errorf("Filter argument must be pairs, got: %v", args)
+			}
+			v := args[i+1]
+			switch a {
+			case "location":
+				filter["location"] = v
+			case "type":
+				filter["device_type"] = v
+			case "owner":
+				filter["replicant_code"] = db.Dealias(v)
+			default:
+				return fmt.Errorf("Unknown filter %s", a)
+			}
+		}
+		devs, err := rest.Devices(filter)
 		if err != nil {
 			return err
 		}
-		var names []string
-		for name := range acc.Replicants {
-			names = append(names, name)
-		}
-		slices.Sort(names)
 
-		var filter []string
+		var tags []string
 		if ignore, _ := cmd.Flags().GetBool("ignore_tags"); !ignore {
-			filter, _ = cmd.Flags().GetStringSlice("filter_tags")
+			tags, _ = cmd.Flags().GetStringSlice("filter_tags")
 		}
-		owner, _ := cmd.Flags().GetString("replicant")
-		var oca *models.CodeAlias
-		if owner != "" {
-			oca = models.NewCodeAlias(owner)
-		}
-		location, _ := cmd.Flags().GetString("location")
-		for _, n := range names {
-			printReplicantDeviceList(acc.Replicants[n], filter, oca, location)
-			if acc.ReplicantCooperation == "shared" {
-				break
+		devs, skipped := filterDevices(devs, tags)
+		printDeviceList(devs)
+		var stats []string
+		for k, v := range skipped {
+			if v == 0 {
+				continue
 			}
+			stats = append(stats, fmt.Sprintf("%s: %d", k, v))
 		}
+		slices.Sort(stats)
+		log(lines(stats))
 		return nil
 	},
 }
@@ -113,8 +127,87 @@ func init() {
 	rootCmd.AddCommand(deviceListCmd)
 	deviceListCmd.Flags().Bool("ignore_tags", false, "If set, ignore tag filters")
 	deviceListCmd.Flags().StringSliceP("filter_tags", "t", []string{"infrastructure", "mine", "matrix"}, "Filter results with these tags")
-	deviceListCmd.Flags().StringP("replicant", "r", "", "Show devices owned by this replicant, default all")
-	deviceListCmd.Flags().StringP("location", "l", "", "Only show devices in this location")
 
 	rootCmd.AddCommand(networkCmd)
+}
+
+func filterDevices(devs []*models.Device, tags []string) ([]*models.Device, map[string]int) {
+	var ret []*models.Device
+	var skipTags = make(map[string]bool)
+	for _, t := range tags {
+		skipTags[t] = true
+	}
+	var skipped = make(map[string]int)
+
+	for _, d := range devs {
+		if skipTags["matrix"] && d.Type == "replicant_matrix" && d.Status == "stowed" {
+			skipped["matrix"]++
+			continue
+		}
+		if skipTags["mine"] && slices.ContainsFunc(d.Tags, func(s string) bool {
+			loc := strings.ToLower(d.Location)
+			if loc == "" { return false }
+			return slices.Contains(d.Tags, fmt.Sprintf("mine-%s", loc)) ||
+				strings.Contains(s, "-"+loc[:strings.Index(loc, "-")]+"-")
+		}) {
+			skipped["mines"]++
+			continue
+		}
+		skip := false
+		for _, tag := range d.Tags {
+			if s := skipTags[tag]; s {
+				skipped[fmt.Sprintf("%s: %s", d.Type, tag)]++
+				skip = true
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+		ret = append(ret, d)
+	}
+
+	return ret, skipped
+}
+
+func printDeviceList(devs []*models.Device) {
+	var data [][]string
+
+	for _, d := range devs {
+		status := d.Status
+		if strings.Contains(status, "repairing (") {
+			target := status[strings.Index(status, "(")+1 : strings.Index(status, ")")]
+			status = fmt.Sprintf("repairing (%s)", alias(target))
+		}
+		data = append(data, []string{
+			d.Type,
+			d.Code.Alias(),
+			d.ControllerDeviceCode.Alias(),
+			b(d.InControlRange),
+			d.Location,
+			f(d.OperationalCapacity),
+			status,
+			d.StowedInDeviceCode.Alias(),
+			list(d.Tags),
+			d.OwnerReplicant.Alias(),
+		})
+	}
+	slices.SortFunc(data, func(a, b []string) int {
+		return cmp.Or(
+			cmp.Compare(a[0], b[0]),
+			cmp.Compare(a[1], b[1]),
+		)
+	})
+	printTable([]string{
+		"Type",
+		"Code",
+		"Controller",
+		"In range",
+		"Location",
+		"Operational Capacity",
+		"Status",
+		"Stowed in",
+		"Tags",
+		"Replicant",
+	}, data)
 }
