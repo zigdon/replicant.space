@@ -109,7 +109,7 @@ func (s *Star) Get() error {
 		return fmt.Errorf("Error querying cache: %v", err)
 	}
 	if s.Position == nil {
-		p := NewPosition(0,0,0)
+		p := NewPosition(0, 0, 0)
 		s.Position = p
 	}
 	return scan(&s.Designation, &s.Name, &s.EntryPoint, &s.EstimatedPlanets, &s.Explored,
@@ -132,11 +132,6 @@ type Belt struct {
 	InnerRadiusAu float32           `json:"inner_radius_au"`
 	OuterRadiusAu float32           `json:"outer_radius_au"`
 	Resources     map[string]string `json:"resources"`
-}
-
-type Inventory struct {
-	Quantity     float32 `json:"quantity"`
-	ResourceType string  `json:"resource_type"`
 }
 
 type Site struct {
@@ -192,8 +187,8 @@ type LocationSummary struct {
 
 type Location struct {
 	AsteroidBelt struct {
-		Belts []Belt `json:"belts"`
-		Present bool `json:"present"`
+		Belts   []Belt `json:"belts"`
+		Present bool   `json:"present"`
 	} `json:"asteroid_belt"`
 	Belt                *Belt                       `json:"belt"`
 	Devices             []*Device                   `json:"devices"`

@@ -64,7 +64,7 @@ func m[T any](in map[string]T) string {
 }
 
 func p(per float32) string {
-	return fmt.Sprintf("%.2f%%", per)
+	return fmt.Sprintf("%.0f%%", per)
 }
 
 func v(data any) string {
@@ -72,13 +72,31 @@ func v(data any) string {
 	return string(s)
 }
 
-func t(ts time.Time) string {
-	now := time.Now()
-	var eta string
-	if ts.Before(now) {
-		eta = fmt.Sprintf("%s ago", now.Sub(ts).Round(time.Second).String())
+func dt(t time.Duration) string {
+	t = t.Abs().Round(time.Second)
+	if t > 24*time.Hour {
+		t = t.Round(time.Minute)
+		bits := []string{fmt.Sprintf("%.0fd", t.Hours()/24)}
+		t %= 24 * time.Hour
+		if t.Hours() >= 1 {
+			bits = append(bits, fmt.Sprintf("%.0fh", t.Hours()))
+		}
+		t %= time.Hour
+		if t.Minutes() >= 1 {
+			bits = append(bits, fmt.Sprintf("%.0fm", t.Minutes()))
+		}
+		return strings.Join(bits, "")
 	} else {
-		eta = fmt.Sprintf("in %s", ts.Sub(now).Round(time.Second).String())
+		return t.String()
+	}
+}
+
+func t(ts time.Time) string {
+	var eta string
+	if ts.Before(time.Now()) {
+		eta = fmt.Sprintf("%s ago", dt(time.Since(ts)))
+	} else {
+		eta = fmt.Sprintf("in %s", dt(time.Until(ts)))
 	}
 	return lines([]string{
 		ts.Format(time.DateTime), eta,

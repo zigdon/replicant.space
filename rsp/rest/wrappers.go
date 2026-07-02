@@ -239,7 +239,6 @@ func Devices(filters map[string]string) ([]*models.Device, error) {
 		params = append(params, fmt.Sprintf("%s=%s", k, v))
 	}
 	key := "DEVS " + strings.Join(params, "&")
-	log("key: %q", key)
 	if c, ok := cachedCalls.Load(key); ok {
 		ent, _ := c.(cacheEntry)
 		log("cached ts: %s", ent.ts.String())
@@ -268,7 +267,6 @@ func Devices(filters map[string]string) ([]*models.Device, error) {
 		}
 		cur = ds.NextCursor
 	}
-	log("caching to %q: %d", key, len(devs))
 	cachedCalls.Store(key, cacheEntry{ts: time.Now(), val: devs})
 
 	return devs, nil

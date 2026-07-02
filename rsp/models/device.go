@@ -46,6 +46,15 @@ type DevicePrintQueue struct {
 	Notify     map[string]string `json:"notify"`
 }
 
+type Inventory struct {
+	Quantity     float32 `json:"quantity"`
+	ResourceType string  `json:"resource_type"`
+}
+
+func (i *Inventory) Short() string {
+	return fmt.Sprintf("%.0f x %s", i.Quantity, i.ResourceType)
+}
+
 type Device struct {
 	AmiDirective         *DeviceDirective             `json:"ami_directive"`
 	AmiDirectiveStatus   string                       `json:"ami_directive_status"`
@@ -86,7 +95,6 @@ func (d *Device) Alias() {
 		if a, err := db.Alias(d.Code.String(), d.Type); err == nil {
 			d.Code.alias = a
 		}
-		fmt.Printf("filled %v\n", d.Code)
 	}
 }
 
@@ -160,35 +168,35 @@ type CommandResp struct {
 func (cr *CommandResp) Notification() *Notification {
 	if cr.Departed != nil && cr.Arrives != nil {
 		return &Notification{
-			Start: cr.Departed.ts,
-			End: cr.Arrives.ts,
+			Start:  cr.Departed.ts,
+			End:    cr.Arrives.ts,
 			Device: cr.DeviceCode.String(),
-			Text: fmt.Sprintf("Arrived at %s", cr.Destination),
+			Text:   fmt.Sprintf("Arrived at %s", cr.Destination),
 		}
 	}
 	if cr.Started != nil && cr.Completes != nil {
 		return &Notification{
-			Start: cr.Started.ts,
-			End: cr.Completes.ts,
+			Start:  cr.Started.ts,
+			End:    cr.Completes.ts,
 			Device: cr.DeviceCode.String(),
-			Text: "Done",
+			Text:   "Done",
 		}
 	}
 	now := time.Now()
 	if cr.Eta != nil {
 		return &Notification{
-			Start: now,
-			End: now.Add(cr.Eta.td),
+			Start:  now,
+			End:    now.Add(cr.Eta.td),
 			Device: cr.DeviceCode.String(),
-			Text: "Done",
+			Text:   "Done",
 		}
 	}
 	if cr.TotalTime != nil {
 		return &Notification{
-			Start: now,
-			End: now.Add(cr.TotalTime.td),
+			Start:  now,
+			End:    now.Add(cr.TotalTime.td),
 			Device: cr.DeviceCode.String(),
-			Text: "Done",
+			Text:   "Done",
 		}
 	}
 	return nil

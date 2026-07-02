@@ -1,5 +1,7 @@
 package models
 
+import "fmt"
+
 type TripLeg struct {
 	Active     bool           `json:"active"`
 	DistanceAu float32        `json:"distance_au"`
@@ -28,6 +30,14 @@ type Trip struct {
 	Status          string         `json:"status"`
 	TotalTime       *JSONTimeDelta `json:"total_time_seconds"`
 	Type            string         `json:"type"`
+}
+
+func (t *Trip) Short() string {
+	if t == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s -> %s (%.0f%%, %s)",
+		t.Origin, t.Destination, t.ProgressPercent, t.Eta.String())
 }
 
 type JourneyLeg struct {

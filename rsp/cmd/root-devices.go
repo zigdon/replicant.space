@@ -18,7 +18,7 @@ var deviceListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Args are filter pairs
 		filter := make(map[string]string)
-		for i := 0; i < len(args)-1; i+=2 {
+		for i := 0; i < len(args)-1; i += 2 {
 			a := args[i]
 			if len(args) < i+2 {
 				return fmt.Errorf("Filter argument must be pairs, got: %v", args)
@@ -171,7 +171,9 @@ func filterDevices(devs []*models.Device, tags []string) ([]*models.Device, map[
 		}
 		if skipTags["mine"] && slices.ContainsFunc(d.Tags, func(s string) bool {
 			loc := strings.ToLower(d.Location)
-			if loc == "" { return false }
+			if loc == "" {
+				return false
+			}
 			return slices.Contains(d.Tags, fmt.Sprintf("mine-%s", loc)) ||
 				strings.Contains(s, "-"+loc[:strings.Index(loc, "-")]+"-")
 		}) {
@@ -210,9 +212,9 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 			d.Code.Alias(),
 			d.ControllerDeviceCode.Alias(),
 			d.Location,
-			f(d.OperationalCapacity),
+			p(d.OperationalCapacity),
 			status,
-			d.StowedInDeviceCode.Alias(),
+			d.StowedInDeviceCode.Alias() + d.AttachedToDeviceCode.Alias(),
 			list(d.Tags),
 			d.OwnerReplicant.Alias(),
 		}
@@ -236,9 +238,9 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 		"Code",
 		"Controller",
 		"Location",
-		"Operational Capacity",
+		"Ops %",
 		"Status",
-		"Stowed in",
+		"With",
 		"Tags",
 		"Replicant",
 	}

@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -35,10 +38,11 @@ var infoCmd = &cobra.Command{
 				totalCargo, dev.CargoCapacity, totalCargo/float32(dev.CargoCapacity)*100)}, cargo...)
 		}
 		printTable(
-			[]string{"Code", "Type", "Location", "Status", "Taxi Mode", "Controller",
+			[]string{"Code", "Type", "Location", "Status", "Attached", "Taxi Mode", "Controller",
 				"Replicant", "Commands", "Ops Capacity", "Cargo", "Tags", "Features"},
-			[][]string{{code, dev.Type, dev.Location,
-				dev.Status, dev.TaxiMode, dev.ControllerDeviceCode.Alias(), dev.ReplicantCode.Alias(),
+			[][]string{{code, dev.Type, dev.Location, dev.Status,
+				dev.AttachedToDeviceCode.Alias(),
+				dev.TaxiMode, dev.ControllerDeviceCode.Alias(), dev.ReplicantCode.Alias(),
 				lines(dev.AvailableCommands), f(dev.OperationalCapacity),
 				lines(cargo), lines(dev.Tags), lines(dev.Features),
 			}},
@@ -97,13 +101,37 @@ var infoCmd = &cobra.Command{
 		}
 		if len(dev.ControlledDevices) > 0 {
 			var cds [][]string
+			var mu sync.Mutex
+			var wg sync.WaitGroup
 			for _, d := range dev.ControlledDevices {
-				cds = append(cds, []string{
-					d.Code.Alias(), d.Type, d.Location, d.Status,
+				wg.Go(func() {
+					info, err := getInfo(d.Code)
+					if err != nil {
+						log("Error getting info for %q: %v", d, err)
+						return
+					}
+					route := info.Travel.Short()
+					var cargo string
+					if len(info.Cargo) > 0 {
+						var i []string
+						for _, c := range info.Cargo {
+							i = append(i, c.Short())
+						}
+						cargo = lines(i)
+					}
+					mu.Lock()
+					cds = append(cds, []string{
+						d.Code.Alias(), d.Type, d.Location, d.Status, route, cargo,
+					})
+					mu.Unlock()
 				})
 			}
+			wg.Wait()
+			slices.SortFunc(cds, func(a, b []string) int {
+				return cmp.Compare(a[0], b[0])
+			})
 			printTable([]string{
-				"Code", "Type", "Location", "Status",
+				"Code", "Type", "Location", "Status", "Route", "Cargo",
 			}, cds)
 		}
 		if len(dev.AttachedDevices) > 0 {
