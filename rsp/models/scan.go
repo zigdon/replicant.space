@@ -28,7 +28,6 @@ type ScanReplicant struct {
 
 type Object struct {
 	ActivePlates         int       `json:"active_plates"`
-	CurrentProgress      float32   `json:"current_progress"`
 	CurrentThrustPerHour float32   `json:"current_thrust_per_hour"`
 	Designation          string    `json:"designation"`
 	ImpactEta            *JSONTime `json:"impact_eta"`

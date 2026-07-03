@@ -122,9 +122,7 @@ var scanCmd = &cobra.Command{
 				data = append(data, []string{
 					so.Designation, so.Status, so.ObjectType, so.SizeClass, f(so.OrbitalDistanceAu),
 					so.ImpactTarget, t(so.ImpactEta.Time()), p(so.ImpactLikelihood), f(so.RequiredStrength),
-					d(so.ActivePlates),
-					fmt.Sprintf("%s (%s)", f(so.CurrentProgress), p(so.ProgressPct)),
-					f(so.CurrentThrustPerHour),
+					d(so.ActivePlates), p(so.ProgressPct), f(so.CurrentThrustPerHour),
 				})
 			}
 			printTable([]string{

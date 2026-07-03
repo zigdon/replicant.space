@@ -187,7 +187,7 @@ func filterDevices(devs []*models.Device, withoutTags, withTags []string) ([]*mo
 				continue
 			}
 		} else {
-			if skipTags["matrix"] && d.Type == "replicant_matrix" && d.Status == "stowed" {
+			if skipTags["matrix"] && strings.Contains(d.Type, "matrix") && (d.Status == "stowed" || d.Status == "idle") {
 				skipped["matrix"]++
 				continue
 			}

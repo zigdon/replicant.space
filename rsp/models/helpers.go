@@ -1,7 +1,9 @@
 package models
 
 import (
+	"cmp"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -175,9 +177,35 @@ func NewCodeAlias(input string) *CodeAlias {
 	return c
 }
 
+func CompareAliases(a, b *CodeAlias) int {
+	return cmp.Or(
+		cmp.Compare(a.Type(), b.Type()),
+		cmp.Compare(a.Num(), b.Num()),
+	)
+}
+
 type CodeAlias struct {
 	orig  string
 	alias string
+}
+
+func (a *CodeAlias) Type() string {
+	if a.alias == a.orig {
+		return ""
+	}
+	return a.alias[:strings.Index(a.alias, "-")]
+}
+
+func (a *CodeAlias) Num() int {
+	if a.alias == a.orig {
+		return 0
+	}
+	n, err := strconv.Atoi(a.alias[strings.Index(a.alias, "-")+1:])
+	if err != nil {
+		fmt.Printf("Failed to get number of %q: %v\n", a.alias, err)
+		return 0
+	}
+	return n
 }
 
 func (a *CodeAlias) UnmarshalJSON(data []byte) error {
