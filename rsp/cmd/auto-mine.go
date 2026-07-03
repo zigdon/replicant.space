@@ -352,8 +352,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	// Issue travel commands
 	var errs []error
 	fr := frs[0]
-	if err = travel(fr.Code, s.EntryPoint); err != nil {
-		errs = append(errs, err)
+	if fr.Location != s.EntryPoint {
+		if err = travel(fr.Code, s.EntryPoint); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	for _, d := range []*models.CodeAlias{amc, asc, md.Code} {
 		if err := travel(d, locName); err != nil {
@@ -365,10 +367,14 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if _, err := rest.DeviceCommand(fr.Code, "activate", nil); err != nil {
-		if !strings.Contains(err.Error(), "Relay is already active") {
-			errs = append(errs, fmt.Errorf("Error activating relay at %s: %v", s.EntryPoint, err))
+	if fr.Location == s.EntryPoint {
+		if _, err := rest.DeviceCommand(fr.Code, "activate", nil); err != nil {
+			if !strings.Contains(err.Error(), "Relay is already active") {
+				errs = append(errs, fmt.Errorf("Error activating relay at %s: %v", s.EntryPoint, err))
+			}
 		}
+	} else {
+		errs = append(errs, fmt.Errorf("FTL relay %s not at entry point %s", fr.Code.Alias(), s.EntryPoint))
 	}
 
 	if err := setDirective(amc, "deplete_smallest", nil); err != nil {
