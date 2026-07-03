@@ -9,7 +9,9 @@ import (
 
 var prefixes = map[string]string{
 	"maintenance_drone": "mtd",
-	"surge_platform": "spf",
+	"surge_platform":    "spf",
+	"mass_driver":       "mdr",
+	"service_bot":       "svb",
 }
 
 func (db *Cache) GetAliasAndType(code string) (string, string) {
@@ -96,7 +98,7 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 	log("Adding new alias %q -> %q", designation, alias)
 	if _, err := db.DB.Exec("INSERT INTO aliases (designation, type, name) VALUES (?, ?, ?)",
 		designation, deviceType, alias); err != nil {
-			return "", err
+		return "", err
 	}
 	return alias, nil
 }

@@ -1,28 +1,231 @@
 package cmd
 
 import (
+	"fmt"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
 var waitCmd = &cobra.Command{
-	Use: "wait",
+	Use:   "wait",
 	Short: "Follow all pending tasks",
-	RunE: waitPending,
+	RunE:  waitPending,
 }
 
 func init() {
-	rootCmd. AddCommand(waitCmd)
+	rootCmd.AddCommand(waitCmd)
+}
+
+type ETA struct {
+	Device         *models.Device
+	Source, Dest   string
+	Start          time.Time
+	Ends           time.Time
+	Leg, TotalLegs int
+	Note           string
+}
+
+func (e *ETA) Short() string {
+	return fmt.Sprintf("%s->%s: %s", e.Source, e.Dest, time.Until(e.Ends).Truncate(time.Second))
+}
+
+func getETA(d *models.Device) *ETA {
+	if d.Travel != nil {
+		t := d.Travel
+		var leg int
+		for i, l := range t.Route {
+			if l.Active {
+				leg = i
+				break
+			}
+		}
+		return &ETA{
+			Device:    d,
+			Source:    t.Origin,
+			Dest:      t.Destination,
+			Start:     t.Departed.Time(),
+			Ends:      t.Arrives.Time(),
+			Leg:       leg + 1,
+			TotalLegs: len(t.Route),
+		}
+	}
+	if d.Scan != nil {
+		s := d.Scan
+		return &ETA{
+			Device: d,
+			Source: d.Location,
+			Start:  s.Started.Time(),
+			Ends:   time.Now().Add(s.Eta.Duration()),
+		}
+	}
+	if d.Repair != nil {
+		r := d.Repair
+		eta := r.Started.Time().Add(
+			time.Duration(1-r.ProgressPercent/100) * time.Since(r.Started.Time()))
+		return &ETA{
+			Device: d,
+			Source: d.Location,
+			Dest:   r.TargetDeviceCode.Alias(),
+			Start:  r.Started.Time(),
+			Ends:   eta,
+			Note:   fmt.Sprintf("%.f%%", r.ProgressPercent),
+		}
+	}
+	if d.Status == "diverting" {
+		loc, err := rest.Location(d.Location)
+		if err != nil {
+			log("Error getting info for %q: %v", d.Location, err)
+			return nil
+		}
+		if loc.Object == nil {
+			log("No object found in %q", d.Location)
+			return nil
+		}
+		obj := loc.Object
+		req := obj.RequiredStrength
+		tph := obj.CurrentThrustPerHour
+		pct := obj.ProgressPct
+		impact := obj.ImpactEta.Time()
+		missing := req - req*pct/100
+		eta := time.Now().Add(time.Hour * time.Duration(missing/tph))
+		var note string
+		if eta.After(impact) {
+			note = fmt.Sprintf("!!! too late by %s", eta.Sub(impact))
+		}
+		return &ETA{
+			Device: d,
+			Source: d.Location,
+			Start:  obj.Discovered.Time(),
+			Ends:   eta,
+			Note:   note,
+		}
+	}
+	if strings.HasPrefix(d.Status, "printing") {
+		p := d.Printing
+		return &ETA{
+			Device: d,
+			Source: d.Location,
+			Start:  p.Started.Time(),
+			Ends:   p.Completes.Time(),
+			Note:   fmt.Sprintf("%s: %.0f%%", p.DeviceType, p.ProgressPercent),
+		}
+	}
+	return &ETA{
+		Device: d,
+		Note:   fmt.Sprintf("Unknown status: %s", d.Status),
+	}
 }
 
 func waitPending(cmd *cobra.Command, args []string) error {
-	devs, err := rest.Devices(nil)
-	if err != nil {
-		return err
-	}
-	for _, d := range devs {
-		log("%s: %s - %v", d.Code.Alias(), d.Status, d.Travel)
+	colFn := func(eta *ETA) []*tview.TableCell {
+		d := eta.Device
+		s := tcell.StyleDefault
+		now := time.Now()
+		if now.After(eta.Ends) {
+			s = s.Bold(true)
+		}
+		return []*tview.TableCell{
+			NewDeviceCell(false, d.Code.Alias()).SetStyle(s),
+			NewDeviceCell(false, d.Type).SetStyle(s),
+			NewDeviceCell(false, d.Status).SetStyle(s),
+			NewDeviceCell(false, eta.Source).SetStyle(s),
+			NewDeviceCell(false, eta.Dest).SetStyle(s),
+			NewDeviceCell(false, dt(time.Since(eta.Start))).SetStyle(s),
+			NewDeviceCell(false, dt(time.Until(eta.Ends))).SetStyle(s),
+			NewDeviceCell(false, fmt.Sprintf("%d/%d", eta.Leg, eta.TotalLegs)).SetStyle(s),
+			NewDeviceCell(false, eta.Note).SetStyle(s),
+		}
 	}
 
-	return nil
+	table := tview.NewTable().
+		SetSeparator(tview.Borders.Vertical)
+	logWin := tview.NewTextView()
+	layout := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(table, 0, 1, true).
+		AddItem(logWin, 10, 0, false)
+	app := tview.NewApplication().SetRoot(layout, true)
+	log := func(tmpl string, args ...any) {
+		fmt.Fprintf(logWin, time.Now().Format(time.Stamp)+" - "+tmpl+"\n", args...)
+	}
+	go func() {
+		rows := make(map[*models.CodeAlias]int)
+		for {
+			devs, err := rest.Devices(nil)
+			models.SortDevices(devs)
+			if err != nil {
+				log("Error reaading devices: %v", err)
+				return
+			}
+			boring := []string{
+				"collecting",
+				"coordinating",
+				"idle",
+				"inactive",
+				"mining",
+				"monitoring",
+				"out_of_range",
+				"paused",
+				"relaying",
+				"stowed",
+				"tracking",
+			}
+			for _, d := range devs {
+				if slices.ContainsFunc(boring, func(s string) bool {
+					return strings.HasPrefix(d.Status, s)
+				}) {
+					r := removeRow(d.Code, rows)
+					if r >= -1 {
+						table.RemoveRow(r)
+					}
+					continue
+				}
+				eta := getETA(d)
+				if eta == nil {
+					r := removeRow(d.Code, rows)
+					if r >= -1 {
+						table.RemoveRow(r)
+					}
+					continue
+				}
+				r, ok := rows[d.Code]
+				if !ok {
+					for _, v := range rows {
+						if v >= r {
+							r = v + 1
+						}
+					}
+					rows[d.Code] = r
+					table.InsertRow(r)
+				}
+				for n, c := range colFn(eta) {
+					table.SetCell(r, n, c)
+				}
+			}
+			app.Draw()
+			time.Sleep(time.Second)
+		}
+	}()
+	return app.Run()
+}
+
+func removeRow(id *models.CodeAlias, rows map[*models.CodeAlias]int) int {
+	r, ok := rows[id]
+	if !ok {
+		return -1
+	}
+	for k, v := range rows {
+		if v < r {
+			continue
+		}
+		rows[k] = v - 1
+	}
+	delete(rows, id)
+	return r
 }

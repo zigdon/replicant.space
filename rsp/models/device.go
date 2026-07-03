@@ -71,6 +71,22 @@ func (ur *UpkeepRequirement) String() string {
 	return fmt.Sprintf("%d x %s", ur.QuantityPer20pct, ur.ResourceType)
 }
 
+type Repair struct {
+	Eta              *JSONTimeDelta `json:"eta_seconds"`
+	ProgressPercent  float32        `json:"progress_percent"`
+	Started          *JSONTime      `json:"started_at"`
+	TargetDeviceCode *CodeAlias     `json:"target_device_code"`
+}
+
+func SortDevices(ds []*Device) {
+	slices.SortFunc(ds, func(a, b *Device) int {
+		return cmp.Or(
+			cmp.Compare(a.Code.Type(), b.Code.Type()),
+			cmp.Compare(a.Code.Num(), b.Code.Num()),
+		)
+	})
+}
+
 type Device struct {
 	AmiDirective         *DeviceDirective             `json:"ami_directive"`
 	AmiDirectiveStatus   string                       `json:"ami_directive_status"`
@@ -96,6 +112,7 @@ type Device struct {
 	PrintQueue           []*DevicePrintQueue          `json:"print_queue"`
 	Printing             *DevicePrint                 `json:"printing"`
 	QueueSize            int                          `json:"queue_size"`
+	Repair               *Repair                      `json:"repair"`
 	RepairPaidPct        float32                      `json:"repair_paid_pct"`
 	ReplicantCode        *CodeAlias                   `json:"replicant_code"`
 	Scan                 *DeviceScan                  `json:"scan"`

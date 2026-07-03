@@ -30,6 +30,7 @@ type Object struct {
 	ActivePlates         int       `json:"active_plates"`
 	CurrentThrustPerHour float32   `json:"current_thrust_per_hour"`
 	Designation          string    `json:"designation"`
+	Discovered           *JSONTime `json:"discovered_at"`
 	ImpactEta            *JSONTime `json:"impact_eta"`
 	ImpactLikelihood     float32   `json:"impact_likelihood"`
 	ImpactTarget         string    `json:"impact_target"`

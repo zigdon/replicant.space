@@ -202,6 +202,7 @@ type Location struct {
 	MoonsScanned        int                         `json:"moons_scanned"`
 	MoonsTotal          int                         `json:"moons_total"`
 	MoonsTotalEstimated bool                        `json:"moons_total_estimated"`
+	Object              *Object                     `json:"object"`
 	Planet              *Planet                     `json:"planet"`
 	Planets             []*Planet                   `json:"planets"`
 	PlanetsScanned      int                         `json:"planets_scanned"`

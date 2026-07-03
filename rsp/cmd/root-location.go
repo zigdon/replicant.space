@@ -95,12 +95,16 @@ var locationCmd = &cobra.Command{
 				"Position", "Distance from SOL",
 			}, [][]string{{
 				s.Designation, s.Name, res.EntryPoint, s.StellarClass,
-				d(s.MiningBonusPct)+"%", s.Position.String(),
-				f(s.DistanceFromSol)+"ly",
+				d(s.MiningBonusPct) + "%", s.Position.String(),
+				f(s.DistanceFromSol) + "ly",
 			}})
 			var pp, mp int
-			if res.PlanetsTotal > 0 { pp = res.PlanetsScanned*100 / res.PlanetsTotal }
-			if res.MoonsTotal > 0 { mp = res.MoonsScanned*100 / res.MoonsTotal }
+			if res.PlanetsTotal > 0 {
+				pp = res.PlanetsScanned * 100 / res.PlanetsTotal
+			}
+			if res.MoonsTotal > 0 {
+				mp = res.MoonsScanned * 100 / res.MoonsTotal
+			}
 			printTable([]string{
 				"System Scanned", "Planets", "Moons",
 			}, [][]string{{
@@ -161,6 +165,20 @@ var locationCmd = &cobra.Command{
 			}, [][]string{{
 				m.Designation, m.Name, m.Type, m.ParentPlanet,
 			}})
+		}
+
+		if res.Type == "object" {
+			var data [][]string
+			so := res.Object
+			data = append(data, []string{
+				so.Designation, so.Status, so.ObjectType, so.SizeClass, f(so.OrbitalDistanceAu),
+				so.ImpactTarget, t(so.ImpactEta.Time()), p(so.ImpactLikelihood), f(so.RequiredStrength),
+				d(so.ActivePlates), p(so.ProgressPct), f(so.CurrentThrustPerHour),
+			})
+			printTable([]string{
+				"Designation", "Status", "Type", "Class", "Distance AU", "Impact Target",
+				"ETA", "Likelyhood", "Required Strength", "Active Plates", "Progress",
+				"Thrust/hr"}, data)
 		}
 
 		data = [][]string{}
