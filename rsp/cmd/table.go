@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -33,7 +31,7 @@ func NewDeviceCell(selectable bool, t string) *tview.TableCell {
 var defaultTags = []string{"infrastructure", "mine", "matrix"}
 
 func runTable(cmd *cobra.Command, args []string) error {
-	table, err := getTable()
+	table, err := getDeviceTable()
 	if err != nil {
 		return err
 	}
@@ -42,7 +40,7 @@ func runTable(cmd *cobra.Command, args []string) error {
 	return tview.NewApplication().SetRoot(pages, true).Run()
 }
 
-func getTable() (*tview.Table, error) {
+func getDeviceTable() (*tview.Table, error) {
 	devs, err := rest.Devices(nil)
 	if err != nil {
 		return nil, err
@@ -55,18 +53,13 @@ func getTable() (*tview.Table, error) {
 		return models.CompareAliases(a.Code, b.Code)
 	})
 	colFn := func(d *models.Device) []*tview.TableCell {
-		status := d.Status
-		if strings.Contains(status, "repairing (") {
-			target := status[strings.Index(status, "(")+1 : strings.Index(status, ")")]
-			status = fmt.Sprintf("repairing (%s)", alias(target))
-		}
 		return []*tview.TableCell{
 			NewDeviceCell(true, d.Type),
 			NewDeviceCell(true, d.Code.Alias()),
 			NewDeviceCell(SelectableUnlessEmpty(d.ControllerDeviceCode.Alias())),
 			NewDeviceCell(SelectableUnlessEmpty(d.Location)),
 			NewDeviceCell(false, p(d.OperationalCapacity)),
-			NewDeviceCell(false, status),
+			NewDeviceCell(false, d.Status),
 			NewDeviceCell(
 				SelectableUnlessEmpty(d.StowedInDeviceCode.Alias() + d.AttachedToDeviceCode.Alias())),
 			NewDeviceCell(true, list(d.Tags)),

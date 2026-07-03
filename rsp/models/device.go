@@ -122,6 +122,18 @@ func (d *Device) Alias() {
 	}
 }
 
+func (d *Device) Fill() error {
+	if strings.Contains(d.Status, "repairing (") {
+		target := d.Status[strings.Index(d.Status, "(")+1 : strings.Index(d.Status, ")")]
+		s, err := db.Alias(target, d.Type)
+		if err != nil {
+			return err
+		}
+		d.Status = fmt.Sprintf("repairing (%s)", s)
+	}
+	return nil
+}
+
 func (d *Device) GetPosition() *Position {
 	if db == nil || d.Location == "" {
 		return nil
