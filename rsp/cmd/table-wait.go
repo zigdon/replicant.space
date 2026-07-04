@@ -100,9 +100,9 @@ func getETA(d *models.Device) *ETA {
 		impact := obj.ImpactEta.Time()
 		missing := req - req*pct/100
 		eta := now.Add(time.Second * time.Duration(3600*missing/tph))
-		var note string
+		note := fmt.Sprintf("%.0f%% diverted", pct)
 		if eta.After(impact) {
-			note = fmt.Sprintf("!!! too late by %s", eta.Sub(impact))
+			note += fmt.Sprintf("!!! too late by %s", eta.Sub(impact))
 		}
 		return &ETA{
 			Device: d,

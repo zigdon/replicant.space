@@ -17,6 +17,7 @@ var LogFh io.Writer = os.Stderr
 
 func newLogWindow() *tview.TextView {
 	lw := tview.NewTextView()
+	lw.SetBorder(true).SetTitle(" Log ")
 	lw.SetChangedFunc(func() {
 		lw.ScrollToEnd()
 	})
@@ -25,10 +26,11 @@ func newLogWindow() *tview.TextView {
 }
 
 func log(tmpl string, args ...any) {
+	date := time.Now().Format(time.DateTime) + " - "
 	if !strings.HasSuffix(tmpl, "\n") {
 		tmpl += "\n"
 	}
-	fmt.Fprintf(LogFh, tmpl, args...)
+	fmt.Fprintf(LogFh, date+tmpl, args...)
 }
 
 func die(tmpl string, args ...any) {

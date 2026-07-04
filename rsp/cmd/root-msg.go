@@ -17,50 +17,52 @@ import (
 var msgCmd = &cobra.Command{
 	Use:     "msg",
 	Aliases: []string{"msgs"},
-	Short:   "Read the current messages",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		var partial bool
-		ids, _ := cmd.Flags().GetIntSlice("ids")
-		if len(ids) > 0 {
-			partial = true
-		}
-		width, _ := cmd.Flags().GetInt("width")
-		cursor, _ := cmd.Flags().GetInt("cursor")
-		number, _ := cmd.Flags().GetInt("number")
-		latest, _ := cmd.Flags().GetBool("latest")
-		readToo, _ := cmd.Flags().GetBool("read")
-		data, err := rest.Messages(cursor, number, latest, !readToo)
-		if err != nil {
-			return fmt.Errorf("Error getting status: %v", err)
-		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
-			prettyPrint(data)
-		} else {
-			var msgs [][]string
-			for _, m := range data.Messages {
-				if !partial {
-					ids = append(ids, m.ID)
-				}
-				msgs = append(msgs, []string{
-					d(m.ID),
-					m.Type,
-					wrap(m.Title, 20),
-					wrap(m.Body, width),
-					b(m.Read),
-					t(m.Created.Time()),
-				})
-			}
-			printTable([]string{"ID", "Type", "Title", "Body", "Read", "Created"}, msgs)
+	Short:   "Interactive message browser",
+	RunE:    msgTable,
+}
 
-			if mark, _ := cmd.Flags().GetBool("mark"); partial || mark {
-				log("Marking messages read: %v", ids)
-				if err := rest.MarkRead(ids); err != nil {
-					log("Error marking messages read: %v", err)
-				}
+func msgList(cmd *cobra.Command, args []string) error {
+	var partial bool
+	ids, _ := cmd.Flags().GetIntSlice("ids")
+	if len(ids) > 0 {
+		partial = true
+	}
+	width, _ := cmd.Flags().GetInt("width")
+	cursor, _ := cmd.Flags().GetInt("cursor")
+	number, _ := cmd.Flags().GetInt("number")
+	latest, _ := cmd.Flags().GetBool("latest")
+	readToo, _ := cmd.Flags().GetBool("read")
+	data, err := rest.Messages(cursor, number, latest, !readToo)
+	if err != nil {
+		return fmt.Errorf("Error getting status: %v", err)
+	}
+	if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		prettyPrint(data)
+	} else {
+		var msgs [][]string
+		for _, m := range data.Messages {
+			if !partial {
+				ids = append(ids, m.ID)
+			}
+			msgs = append(msgs, []string{
+				d(m.ID),
+				m.Type,
+				wrap(m.Title, 20),
+				wrap(m.Body, width),
+				b(m.Read),
+				t(m.Created.Time()),
+			})
+		}
+		printTable([]string{"ID", "Type", "Title", "Body", "Read", "Created"}, msgs)
+
+		if mark, _ := cmd.Flags().GetBool("mark"); partial || mark {
+			log("Marking messages read: %v", ids)
+			if err := rest.MarkRead(ids); err != nil {
+				log("Error marking messages read: %v", err)
 			}
 		}
-		return nil
-	},
+	}
+	return nil
 }
 
 var bobCmd = &cobra.Command{
@@ -131,21 +133,14 @@ var bobCmd = &cobra.Command{
 	},
 }
 
-var msgTableCmd = &cobra.Command{
-	Use:   "table",
-	Short: "Interactive msg browser",
-	RunE:  msgTable,
+var msgListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List messages",
+	RunE:  msgList,
 }
 
 func init() {
 	rootCmd.AddCommand(msgCmd)
-	msgCmd.Flags().BoolP("mark", "m", false, "Mark messages as read")
-	msgCmd.Flags().BoolP("latest", "l", true, "Show latest messages")
-	msgCmd.Flags().BoolP("read", "r", false, "Show also read messages")
-	msgCmd.Flags().IntP("number", "n", 20, "Number of messages to show")
-	msgCmd.Flags().IntP("cursor", "C", 0, "Position to start from")
-	msgCmd.Flags().IntP("width", "w", 50, "Wrap message body to this width")
-	msgCmd.Flags().IntSlice("ids", []int{}, "Mark these messages as read")
 
 	msgCmd.AddCommand(bobCmd)
 	bobCmd.Flags().BoolP("latest", "l", true, "Show latest messages")
@@ -157,7 +152,14 @@ func init() {
 	bobCmd.Flags().Bool("replicant_location", false, "Show replicant locations")
 	bobCmd.Flags().StringSliceP("channels", "c", []string{}, "Only show messages to these channels")
 
-	msgCmd.AddCommand(msgTableCmd)
+	msgCmd.AddCommand(msgListCmd)
+	msgListCmd.Flags().BoolP("mark", "m", false, "Mark messages as read")
+	msgListCmd.Flags().BoolP("latest", "l", true, "Show latest messages")
+	msgListCmd.Flags().BoolP("read", "r", false, "Show also read messages")
+	msgListCmd.Flags().IntP("number", "n", 20, "Number of messages to show")
+	msgListCmd.Flags().IntP("cursor", "C", 0, "Position to start from")
+	msgListCmd.Flags().IntP("width", "w", 50, "Wrap message body to this width")
+	msgListCmd.Flags().IntSlice("ids", []int{}, "Mark these messages as read")
 }
 
 func loadUnreadMsgs() ([]*models.Message, error) {

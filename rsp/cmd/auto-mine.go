@@ -35,7 +35,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	missing := map[string]int{
 		"ami_mining_controller": 1,
 		"ami_survey_controller": 1,
-		"maintenance_drone":     1,
+		"service_bot":           1,
 		"mining_drone":          3,
 		"belt_surveyor":         1,
 		"ftl_relay":             1,
@@ -179,7 +179,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	} else if len(missing) > 0 {
 		var skip []string
 		for k, v := range missing {
-			if v == 0 { 
+			if v == 0 {
 				continue
 			}
 			skip = append(skip, fmt.Sprintf("%d %s", v, k))
@@ -404,7 +404,7 @@ func findPrinter(printers []*models.CodeAlias) (*models.CodeAlias, error) {
 			return nil, fmt.Errorf("can't get device info for %q: %v", p, err)
 		}
 		info[p] = i
-		log("  %s: %s", p, i.Type)
+		log("  %s: %s", p.Alias(), i.Type)
 	}
 
 	// Calculate the queue length for each printer
@@ -424,6 +424,9 @@ func findPrinter(printers []*models.CodeAlias) (*models.CodeAlias, error) {
 		tb, _ := queue[b]
 		return cmp.Compare(ta, tb)
 	})
+	for _, p := range printers {
+		log("%s: %s", p.Alias(), queue[p])
+	}
 
 	return printers[0], nil
 }

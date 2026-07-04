@@ -31,12 +31,17 @@ func NewCell(selectable bool, t string) *tview.TableCell {
 var defaultTags = []string{"infrastructure", "mine", "matrix"}
 
 func runTable(cmd *cobra.Command, args []string) error {
+	logWin := newLogWindow()
 	table, err := getDeviceTable()
+	layout := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(table, 0, 1, true).
+		AddItem(logWin, 10, 0, false)
 	if err != nil {
 		return err
 	}
 	pages := tview.NewPages().
-		AddAndSwitchToPage("devices", table, true)
+		AddAndSwitchToPage("devices", layout, true)
 	return tview.NewApplication().SetRoot(pages, true).Run()
 }
 
@@ -93,5 +98,6 @@ func getDeviceTable() (*tview.Table, error) {
 			table.SetCell(i+1, cn, col)
 		}
 	}
+	table.SetBorder(true).SetTitle(" Devices ")
 	return table, nil
 }
