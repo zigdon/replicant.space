@@ -110,7 +110,7 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	log("%d stars loaded from the cache", len(oldStars))
-	for _, id := range oldStars {
+	for _, id := range cache.Strs(oldStars) {
 		s := &models.Star{Designation: id}
 		if err := s.Get(); err != nil {
 			return err

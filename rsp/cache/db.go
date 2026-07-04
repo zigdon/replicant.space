@@ -193,15 +193,15 @@ func (db *Cache) Reset(table Tables) error {
 	return err
 }
 
-func (db *Cache) ListIDs(table Tables) ([]string, error) {
+func (db *Cache) ListIDs(table Tables) ([]any, error) {
 	log("SELECT %s FROM %s", cols[table][0], table)
 	rows, err := db.DB.Query(fmt.Sprintf("SELECT %s FROM %s", cols[table][0], table))
 	if err != nil {
 		return nil, err
 	}
-	var res []string
+	var res []any
 	for rows.Next() {
-		var id string
+		var id any
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -231,4 +231,20 @@ func (db *Cache) ClearNotifications(ids []int) error {
 	_, err := db.DB.Exec(
 		fmt.Sprintf("UPDATE %s SET read = true WHERE id in (%s)", NotificationTable, strings.Join(phs, ", ")), as...)
 	return err
+}
+
+func Strs(in []any) []string {
+	res := make([]string, len(in))
+	for i, v := range in {
+		res[i] = v.(string)
+	}
+	return res
+}
+
+func Ints(in []any) []int64 {
+	res := make([]int64, len(in))
+	for i, v := range in {
+		res[i] = v.(int64)
+	}
+	return res
 }

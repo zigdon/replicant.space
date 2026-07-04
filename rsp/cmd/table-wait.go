@@ -137,29 +137,25 @@ func waitPending(cmd *cobra.Command, args []string) error {
 			s = s.Bold(true)
 		}
 		return []*tview.TableCell{
-			NewDeviceCell(false, d.Code.Alias()).SetStyle(s),
-			NewDeviceCell(false, d.Type).SetStyle(s),
-			NewDeviceCell(false, d.Status).SetStyle(s),
-			NewDeviceCell(false, eta.Source).SetStyle(s),
-			NewDeviceCell(false, eta.Dest).SetStyle(s),
-			NewDeviceCell(false, dt(time.Until(eta.Start))).SetStyle(s),
-			NewDeviceCell(false, dt(time.Until(eta.Ends))).SetStyle(s),
-			NewDeviceCell(false, fmt.Sprintf("%d/%d", eta.Leg, eta.TotalLegs)).SetStyle(s),
-			NewDeviceCell(false, eta.Note).SetStyle(s),
+			NewCell(false, d.Code.Alias()).SetStyle(s),
+			NewCell(false, d.Type).SetStyle(s),
+			NewCell(false, d.Status).SetStyle(s),
+			NewCell(false, eta.Source).SetStyle(s),
+			NewCell(false, eta.Dest).SetStyle(s),
+			NewCell(false, dt(time.Until(eta.Start))).SetStyle(s),
+			NewCell(false, dt(time.Until(eta.Ends))).SetStyle(s),
+			NewCell(false, fmt.Sprintf("%d/%d", eta.Leg, eta.TotalLegs)).SetStyle(s),
+			NewCell(false, eta.Note).SetStyle(s),
 		}
 	}
 
 	table := tview.NewTable().
 		SetSeparator(tview.Borders.Vertical)
-	logWin := tview.NewTextView()
+	logWin := newLogWindow()
 	layout := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(table, 0, 1, true).
 		AddItem(logWin, 10, 0, false)
 	app := tview.NewApplication().SetRoot(layout, true)
-	log := func(tmpl string, args ...any) {
-		fmt.Fprintf(logWin, time.Now().Format(time.Stamp)+" - "+tmpl+"\n", args...)
-		logWin.ScrollToEnd()
-	}
 	boring := []string{
 		"collecting",
 		"coordinating",

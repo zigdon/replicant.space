@@ -3,8 +3,14 @@ package cmd
 import (
 	"fmt"
 	"slices"
+	"strings"
+	"time"
 
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -125,6 +131,12 @@ var bobCmd = &cobra.Command{
 	},
 }
 
+var msgTableCmd = &cobra.Command{
+	Use:   "table",
+	Short: "Interactive msg browser",
+	RunE:  msgTable,
+}
+
 func init() {
 	rootCmd.AddCommand(msgCmd)
 	msgCmd.Flags().BoolP("mark", "m", false, "Mark messages as read")
@@ -144,4 +156,173 @@ func init() {
 	bobCmd.Flags().Bool("replicant_ids", false, "Show replicant IDs")
 	bobCmd.Flags().Bool("replicant_location", false, "Show replicant locations")
 	bobCmd.Flags().StringSliceP("channels", "c", []string{}, "Only show messages to these channels")
+
+	msgCmd.AddCommand(msgTableCmd)
+}
+
+func loadUnreadMsgs() ([]*models.Message, error) {
+	var res []*models.Message
+	for {
+		var ids []int
+		msgs, err := rest.Messages(0, 50, false, true)
+		if err != nil {
+			return nil, err
+		}
+		if len(msgs.Messages) == 0 {
+			break
+		}
+		for _, m := range msgs.Messages {
+			ids = append(ids, m.ID)
+			res = append(res, m)
+		}
+		if err := rest.MarkRead(ids); err != nil {
+			return nil, err
+		}
+	}
+
+	return res, nil
+}
+
+func msgTable(cmd *cobra.Command, args []string) error {
+	listWin := tview.NewTable().
+		SetSelectable(true, false)
+	msgWin := tview.NewTextView()
+	onlyUnread := false
+	filterType := ""
+	var msgTypes []string
+
+	setMsgLine := func(n int, msg *models.Message) {
+		style := tcell.StyleDefault
+		if !msg.Read {
+			style = style.Bold(true).Foreground(tcell.ColorGreen)
+		}
+		listWin.SetCell(n, 0,
+			NewCell(true, dt(time.Until(msg.Created.Time()))).
+				SetStyle(style).
+				SetReference(msg))
+		listWin.SetCell(n, 1, NewCell(true, msg.Type).SetStyle(style))
+		listWin.SetCell(n, 2, NewCell(true, msg.Title).SetStyle(style))
+	}
+	getMessages := func() {
+		_, err := loadUnreadMsgs()
+		if err != nil {
+			log("Error loading new messages: %v", err)
+		}
+		msgs, err := db.ListIDs(cache.MsgTable)
+		if err != nil {
+			log("Error getting IDs: %v", err)
+		}
+
+		ids := cache.Ints(msgs)
+		slices.Sort(ids)
+		for listWin.GetRowCount() > 1 {
+			listWin.RemoveRow(1)
+		}
+
+		line := 1
+		filterCnt := 0
+		for _, id := range ids {
+			msg := &models.Message{ID: int(id)}
+			if err := msg.Get(); err != nil {
+				log("Failed to load message %d: %v", id, err)
+				continue
+			}
+			if !slices.Contains(msgTypes, msg.Type) {
+				msgTypes = append(msgTypes, msg.Type)
+			}
+			if onlyUnread && msg.Read {
+				filterCnt++
+				continue
+			}
+			if filterType != "" && msg.Type != filterType {
+				filterCnt++
+				continue
+			}
+			line++
+			setMsgLine(line, msg)
+		}
+		slices.Sort(msgTypes)
+		var descBits []string
+		if onlyUnread {
+			descBits = append(descBits, "unread")
+		}
+		if filterType != "" {
+			descBits = append(descBits, filterType)
+		}
+		desc := strings.Join(descBits, ", ")
+		if len(desc) > 0 {
+			desc += " "
+		}
+		log("Showing %d %smessages (%d filtered)", line, desc, filterCnt)
+	}
+	displayCell := func(row, col int) {
+		ref := listWin.GetCell(row, 0).GetReference()
+		if ref == nil {
+			return
+		}
+		msg := ref.(*models.Message)
+		msgWin.Clear().SetTitle(msg.Title)
+		printTablef(msgWin, []string{
+			"Created", "Type", "ID", "Title",
+		}, [][]string{{
+			t(msg.Created.Time()), msg.Type, d(msg.ID), msg.Title,
+		}})
+		printTablef(msgWin, []string{"Body"}, [][]string{{
+			wrap(msg.Body, 80)}})
+	}
+	markReadCell := func(row, col int) {
+		ref := listWin.GetCell(row, 0).GetReference()
+		if ref == nil {
+			return
+		}
+		msg := ref.(*models.Message)
+		msg.Read = !msg.Read
+		if err := msg.Cache(); err != nil {
+			log("Error saving read status: %v", err)
+			return
+		}
+		setMsgLine(row, msg)
+	}
+	listWin.SetSelectionChangedFunc(displayCell).
+		SetBorder(true)
+	titleStyle := tcell.StyleDefault.Underline(true)
+	listWin.SetSelectedFunc(markReadCell).
+		SetCell(0, 0, NewCell(false, "When").SetAlign(tview.AlignCenter).SetStyle(titleStyle)).
+		SetCell(0, 1, NewCell(false, "Type").SetAlign(tview.AlignCenter).SetStyle(titleStyle)).
+		SetCell(0, 2, NewCell(false, "Title").SetAlign(tview.AlignCenter).SetStyle(titleStyle)).
+		SetFixed(1, 0)
+
+	logWin := newLogWindow()
+	msgWin.SetBorder(true)
+	layout := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(tview.NewFlex().
+			AddItem(listWin, 0, 1, true).
+			AddItem(msgWin, 0, 2, false), 0, 1, true).
+		AddItem(logWin, 10, 0, false)
+	app := tview.NewApplication()
+	getMessages()
+	listWin.Select(listWin.GetRowCount()-1, 0)
+	inputCapture := func(ev *tcell.EventKey) *tcell.EventKey {
+		switch {
+		case ev.Rune() == 'r':
+			getMessages()
+		case ev.Rune() == 'u':
+			onlyUnread = !onlyUnread
+			getMessages()
+		case ev.Rune() == 't':
+			if len(msgTypes) == 0 || filterType == msgTypes[len(msgTypes)-1] {
+				filterType = ""
+			} else {
+				filterType = msgTypes[slices.Index(msgTypes, filterType)+1]
+			}
+			getMessages()
+		case ev.Rune() == 'q':
+			app.Stop()
+		}
+		return ev
+	}
+	app.SetInputCapture(inputCapture)
+
+	return app.SetRoot(layout, true).Run()
 }

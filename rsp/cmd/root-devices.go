@@ -230,6 +230,10 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 			target := status[strings.Index(status, "(")+1 : strings.Index(status, ")")]
 			status = fmt.Sprintf("repairing (%s)", alias(target))
 		}
+		var eta string
+		if d.Travel != nil {
+			eta = fmt.Sprintf("%.0f%% %s", d.Travel.ProgressPercent, d.Travel.Eta.String())
+		}
 		line := []string{
 			d.Type,
 			d.Code.Alias(),
@@ -237,6 +241,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 			d.Location,
 			p(d.OperationalCapacity),
 			status,
+			eta,
 			d.StowedInDeviceCode.Alias() + d.AttachedToDeviceCode.Alias(),
 			list(d.Tags),
 			d.OwnerReplicant.Alias(),
@@ -263,6 +268,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 		"Location",
 		"Ops %",
 		"Status",
+		"ETA",
 		"With",
 		"Tags",
 		"Replicant",

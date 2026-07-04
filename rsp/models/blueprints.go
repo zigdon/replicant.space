@@ -136,7 +136,7 @@ func (bs *Blueprints) Get() error {
 	if err != nil {
 		return err
 	}
-	for _, t := range all {
+	for _, t := range cache.Strs(all) {
 		bp := &Blueprint{DeviceType: t}
 		if err := bp.Get(); err != nil {
 			return err

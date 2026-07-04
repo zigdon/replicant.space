@@ -3,19 +3,32 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
 
 	lg "charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
+	"github.com/rivo/tview"
 )
+
+var LogFh io.Writer = os.Stderr
+
+func newLogWindow() *tview.TextView {
+	lw := tview.NewTextView()
+	lw.SetChangedFunc(func() {
+		lw.ScrollToEnd()
+	})
+	LogFh = lw
+	return lw
+}
 
 func log(tmpl string, args ...any) {
 	if !strings.HasSuffix(tmpl, "\n") {
 		tmpl += "\n"
 	}
-	fmt.Fprintf(os.Stderr, tmpl, args...)
+	fmt.Fprintf(LogFh, tmpl, args...)
 }
 
 func die(tmpl string, args ...any) {
@@ -126,6 +139,10 @@ func filterEmpty[T any](s []T, keep []bool) []T {
 }
 
 func printTable(headers []string, data [][]string) {
+	printTablef(os.Stdout, headers, data)
+}
+
+func printTablef(out io.Writer, headers []string, data [][]string) {
 	var cellStyles []lg.Style
 	headerStyle := lg.NewStyle().Bold(true).Align(lg.Center)
 	cellStyle := lg.NewStyle().Padding(0, 1)
@@ -174,5 +191,5 @@ func printTable(headers []string, data [][]string) {
 		}).
 		Headers(headers...).
 		Rows(data...)
-	lg.Println(t)
+	lg.Fprintln(out, t)
 }

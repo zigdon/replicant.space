@@ -24,7 +24,7 @@ func SelectableUnlessEmpty(t string) (bool, string) {
 	return len(t) != 0, t
 }
 
-func NewDeviceCell(selectable bool, t string) *tview.TableCell {
+func NewCell(selectable bool, t string) *tview.TableCell {
 	return tview.NewTableCell(t).SetSelectable(selectable)
 }
 
@@ -54,15 +54,15 @@ func getDeviceTable() (*tview.Table, error) {
 	})
 	colFn := func(d *models.Device) []*tview.TableCell {
 		return []*tview.TableCell{
-			NewDeviceCell(true, d.Type),
-			NewDeviceCell(true, d.Code.Alias()),
-			NewDeviceCell(SelectableUnlessEmpty(d.ControllerDeviceCode.Alias())),
-			NewDeviceCell(SelectableUnlessEmpty(d.Location)),
-			NewDeviceCell(false, p(d.OperationalCapacity)),
-			NewDeviceCell(false, d.Status),
-			NewDeviceCell(
+			NewCell(true, d.Type),
+			NewCell(true, d.Code.Alias()),
+			NewCell(SelectableUnlessEmpty(d.ControllerDeviceCode.Alias())),
+			NewCell(SelectableUnlessEmpty(d.Location)),
+			NewCell(false, p(d.OperationalCapacity)),
+			NewCell(false, d.Status),
+			NewCell(
 				SelectableUnlessEmpty(d.StowedInDeviceCode.Alias() + d.AttachedToDeviceCode.Alias())),
-			NewDeviceCell(true, list(d.Tags)),
+			NewCell(true, list(d.Tags)),
 		}
 	}
 
