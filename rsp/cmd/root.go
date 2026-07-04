@@ -50,7 +50,33 @@ func Execute() {
 		die(err.Error())
 	}
 	if rest.UnreadMessages > 0 {
-		log("Unread messages: %d", rest.UnreadMessages)
+		msgs, err := rest.Messages(0, rest.UnreadMessages, true, true)
+		if err != nil {
+			log("Error getting messages: %v", err)
+		} else {
+			var disc int
+			var data [][]string
+			var ids []int
+			for _, m := range msgs.Messages {
+				if m.Type == "discovery" {
+					ids = append(ids, m.ID)
+					disc++
+					continue
+				}
+				data = append(data, []string{
+					m.Created.Time().Format(time.Kitchen), d(m.ID), m.Title,
+				})
+			}
+			if disc > 0 {
+				fmt.Printf("%d discovery messages\n", disc)
+			}
+			if len(data) > 0 {
+				printTable([]string{"Time", "ID", "Title"}, data)
+			}
+			if err := rest.MarkRead(ids); err != nil {
+				log("Error marking messages as read: %v", err)
+			}
+		}
 	}
 	ns, err := models.PendingNotifications(false)
 	if len(ns) > 0 {
@@ -204,20 +230,6 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 		}
 	}
 	return cmd
-}
-
-var chainCmd = func(a, b *cobra.Command) *cobra.Command {
-	return &cobra.Command{
-		Use:   a.Use,
-		Short: a.Short,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := a.RunE(cmd, args); err != nil {
-				return err
-			}
-			log("Chaining command: %s", b.Short)
-			return b.RunE(cmd, args)
-		},
-	}
 }
 
 func aliasType(in string) (string, string) {
