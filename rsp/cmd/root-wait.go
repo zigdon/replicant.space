@@ -154,7 +154,7 @@ func waitPending(cmd *cobra.Command, args []string) error {
 	logWin := tview.NewTextView()
 	layout := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(table, 0, 1, true).
-		AddItem(logWin, 30, 0, false)
+		AddItem(logWin, 10, 0, false)
 	app := tview.NewApplication().SetRoot(layout, true)
 	log := func(tmpl string, args ...any) {
 		fmt.Fprintf(logWin, time.Now().Format(time.Stamp)+" - "+tmpl+"\n", args...)
@@ -210,7 +210,9 @@ func waitPending(cmd *cobra.Command, args []string) error {
 					return strings.HasPrefix(d.Status, s)
 				}) {
 					rows, r = removeRow(d.Code, rows)
-					if r >= -1 {
+					if r >= 0 {
+						st := table.GetCell(r, 2).Text
+						log("Removed %s: %s", d.Code.Alias(), st)
 						table.RemoveRow(r)
 					}
 					continue
@@ -218,14 +220,18 @@ func waitPending(cmd *cobra.Command, args []string) error {
 				eta := getETA(d)
 				if eta == nil {
 					rows, r = removeRow(d.Code, rows)
-					if r >= -1 {
+					if r >= 0 {
+						st := table.GetCell(r, 2).Text
+						log("Removed %s: %s", d.Code.Alias(), st)
 						table.RemoveRow(r)
 					}
 					continue
 				}
-				if time.Now().Add(time.Minute).After(eta.Ends) {
+				if time.Now().Add(-1 * time.Minute).After(eta.Ends) {
 					rows, r = removeRow(d.Code, rows)
-					if r >= -1 {
+					if r >= 0 {
+						st := table.GetCell(r, 2).Text
+						log("Removed %s: %s", d.Code.Alias(), st)
 						table.RemoveRow(r)
 					}
 					continue
@@ -239,6 +245,7 @@ func waitPending(cmd *cobra.Command, args []string) error {
 					}
 					rows[d.Code.String()] = r
 					table.InsertRow(r)
+					log("Added %s: %s", d.Code.Alias(), eta.Short())
 				}
 				for n, c := range colFn(eta) {
 					table.SetCell(r, n, c)
