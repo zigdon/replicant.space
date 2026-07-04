@@ -46,9 +46,11 @@ const (
 	AliasTable             Tables = "aliases"
 	BlueprintsTable        Tables = "blueprints"
 	BlueprintResTable      Tables = "blueprint_resources"
+	BlueprintCmpTable      Tables = "blueprint_components"
 	BlueprintDirsTable     Tables = "blueprint_directives"
 	BlueprintFeaturesTable Tables = "blueprint_features"
 	NotificationTable      Tables = "notifications"
+	MsgTable               Tables = "messages"
 )
 
 var cols = map[Tables][]string{
@@ -69,10 +71,14 @@ var cols = map[Tables][]string{
 		"type", "print_time", "attach_capacity", "cargo_capacity", "stow_capacity", "short", "description"},
 	BlueprintResTable: {
 		"blueprint_type", "type", "qty"},
+	BlueprintCmpTable: {
+		"blueprint_type", "type", "qty"},
 	BlueprintDirsTable: {
 		"blueprint_type", "directive"},
 	BlueprintFeaturesTable: {
 		"blueprint_type", "feature"},
+	MsgTable: {
+		"id", "body", "created", "read", "type", "title"},
 }
 
 type Cache struct {
@@ -134,13 +140,10 @@ func (db *Cache) Stats() string {
 }
 
 func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
-	iCol := "designation"
-	if table == BlueprintsTable {
-		iCol = "type"
-	}
+	log("SELECT %s FROM %s WHERE %s = ?", strings.Join(cols[table], ", "), table, cols[table][0])
 	row := db.DB.QueryRow(
 		fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?",
-			strings.Join(cols[table], ", "), table, iCol), key)
+			strings.Join(cols[table], ", "), table, cols[table][0]), key)
 	if row.Err() != nil {
 		return nil, row.Err()
 	}
@@ -148,13 +151,10 @@ func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
 }
 
 func (db *Cache) GetAll(table Tables, key string) (*sql.Rows, error) {
-	iCol := "designation"
-	if table == BlueprintResTable {
-		iCol = "blueprint_type"
-	}
+	log("SELECT %s FROM %s WHERE %s = ?", strings.Join(cols[table], ", "), table, cols[table][0])
 	rows, err := db.DB.Query(
 		fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?",
-			strings.Join(cols[table], ", "), table, iCol), key)
+			strings.Join(cols[table], ", "), table, cols[table][0]), key)
 	if err != nil {
 		return nil, err
 	}
@@ -194,6 +194,7 @@ func (db *Cache) Reset(table Tables) error {
 }
 
 func (db *Cache) ListIDs(table Tables) ([]string, error) {
+	log("SELECT %s FROM %s", cols[table][0], table)
 	rows, err := db.DB.Query(fmt.Sprintf("SELECT %s FROM %s", cols[table][0], table))
 	if err != nil {
 		return nil, err

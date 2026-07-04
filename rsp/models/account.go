@@ -2,7 +2,11 @@ package models
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
+	"time"
+
+	"github.com/zigdon/rsp/cache"
 )
 
 type NotifyDetails struct {
@@ -70,10 +74,56 @@ type Message struct {
 	Created *JSONTime `json:"created_at"`
 }
 
+func (m *Message) Cache() error {
+	return db.Update(cache.MsgTable, map[string]any{
+		"id":      m.ID,
+		"body":    m.Body,
+		"created": m.Created.ts.Unix(),
+		"read":    m.Read,
+		"type":    m.Type,
+		"title":   m.Title,
+	})
+}
+
+func (m *Message) Get() error {
+	if db == nil {
+		return fmt.Errorf("Not connected to cache")
+	}
+	if m.ID == 0 {
+		return fmt.Errorf("Can't load ID=0")
+	}
+	scan, err := db.Get(cache.MsgTable, fmt.Sprintf("%d", m.ID))
+	if err != nil {
+		return err
+	}
+	var sec int
+	err = scan(&m.ID, &m.Body, &sec, &m.Read, &m.Type, &m.Title)
+	m.Created = &JSONTime{ts: time.Unix(int64(sec), 0)}
+	return err
+}
+
 type Messages struct {
 	Messages    []*Message `json:"messages"`
 	NextCursor  int        `json:"next_cursor"`
 	UnreadCount int        `json:"unread_message_count"`
+}
+
+func (ms *Messages) Cache() error {
+	for _, m := range ms.Messages {
+		if err := m.Cache(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ms *Messages) Get() error {
+	for _, m := range ms.Messages {
+		if err := m.Get(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type Bob struct {
@@ -92,4 +142,3 @@ type Bobs struct {
 	Total         int    `json:"total"`
 	TotalMessages int    `json:"total_messages"`
 }
-

@@ -41,6 +41,12 @@ var blueprintsCmd = &cobra.Command{
 				}
 				resources = append(resources, fmt.Sprintf("%4d x %s", v, k))
 			}
+			for k, v := range b.Components {
+				if v == 0 {
+					continue
+				}
+				resources = append(resources, fmt.Sprintf("%4d x %s", v, k))
+			}
 			blues = append(blues, []string{
 				b.DeviceType,
 				wrap(list(b.Features), 20),

@@ -11,6 +11,7 @@ import (
 type Blueprint struct {
 	AttachCapacity   int            `json:"attach_capacity"`
 	CargoCapacity    int            `json:"cargo_capacity"`
+	Components       map[string]int `json:"components"`
 	DeviceType       string         `json:"device_type"`
 	Description      string         `json:"description"`
 	Directives       []string       `json:"directives"`
@@ -37,6 +38,16 @@ func (b *Blueprint) Cache() error {
 
 	for r, q := range b.Resources {
 		if err := db.Update(cache.BlueprintResTable, map[string]any{
+			"blueprint_type": b.DeviceType,
+			"type":           r,
+			"qty":            q,
+		}); err != nil {
+			return err
+		}
+	}
+
+	for r, q := range b.Components {
+		if err := db.Update(cache.BlueprintCmpTable, map[string]any{
 			"blueprint_type": b.DeviceType,
 			"type":           r,
 			"qty":            q,
@@ -76,6 +87,9 @@ func (b *Blueprint) Get() error {
 		b.Resources = make(map[string]int)
 	}
 	rows, err := db.GetAll(cache.BlueprintResTable, b.DeviceType)
+	if err != nil {
+		return err
+	}
 	for rows.Next() {
 		var t, r string
 		var q int
@@ -83,6 +97,21 @@ func (b *Blueprint) Get() error {
 			return err
 		}
 		b.Resources[r] = q
+	}
+	if b.Components == nil {
+		b.Components = make(map[string]int)
+	}
+	rows, err = db.GetAll(cache.BlueprintCmpTable, b.DeviceType)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var t, r string
+		var q int
+		if err := rows.Scan(&t, &r, &q); err != nil {
+			return err
+		}
+		b.Components[r] = q
 	}
 	return nil
 }

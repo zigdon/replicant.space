@@ -72,6 +72,14 @@ CREATE TABLE IF NOT EXISTS blueprint_resources(
   UNIQUE (blueprint_type, type) ON CONFLICT REPLACE
 );
 
+CREATE TABLE IF NOT EXISTS blueprint_components(
+  blueprint_type TEXT NOT NULL,
+  type TEXT,
+  qty INTEGER,
+  FOREIGN KEY(blueprint_type) REFERENCES blueprints(type),
+  UNIQUE (blueprint_type, type) ON CONFLICT REPLACE
+);
+
 CREATE TABLE IF NOT EXISTS blueprint_directives(
   blueprint_type TEXT NOT NULL,
   directive TEXT,
@@ -93,4 +101,13 @@ CREATE TABLE IF NOT EXISTS notifications(
   device TEXT,
   text TEXT,
   read INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS messages(
+  id INTEGER PRIMARY KEY,
+  body TEXT,
+  created INTEGER,
+  read INTEGER,
+  type TEXT,
+  title TEXT
 );

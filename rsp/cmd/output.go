@@ -108,12 +108,7 @@ func t(ts time.Time) string {
 	if ts.IsZero() {
 		return ""
 	}
-	var eta string
-	if ts.Before(time.Now()) {
-		eta = fmt.Sprintf("%s ago", dt(time.Since(ts)))
-	} else {
-		eta = fmt.Sprintf("in %s", dt(time.Until(ts)))
-	}
+	eta := dt(time.Until(ts))
 	return lines([]string{
 		ts.Format(time.DateTime), eta,
 	})
