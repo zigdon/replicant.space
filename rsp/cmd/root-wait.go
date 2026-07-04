@@ -37,6 +37,11 @@ func (e *ETA) Short() string {
 }
 
 func getETA(d *models.Device) *ETA {
+	now := d.Fetched()
+	if now.IsZero() {
+		log("no fetched stamp on %s", d.Code.Alias())
+		now = time.Now()
+	}
 	if d.Travel != nil {
 		t := d.Travel
 		var leg int
@@ -62,7 +67,7 @@ func getETA(d *models.Device) *ETA {
 			Device: d,
 			Source: d.Location,
 			Start:  s.Started.Time(),
-			Ends:   time.Now().Add(s.Eta.Duration()),
+			Ends:   now.Add(s.Eta.Duration()),
 		}
 	}
 	if d.Repair != nil {
@@ -94,7 +99,7 @@ func getETA(d *models.Device) *ETA {
 		pct := obj.ProgressPct
 		impact := obj.ImpactEta.Time()
 		missing := req - req*pct/100
-		eta := time.Now().Add(time.Hour * time.Duration(missing/tph))
+		eta := now.Add(time.Second * time.Duration(3600*missing/tph))
 		var note string
 		if eta.After(impact) {
 			note = fmt.Sprintf("!!! too late by %s", eta.Sub(impact))
@@ -137,7 +142,7 @@ func waitPending(cmd *cobra.Command, args []string) error {
 			NewDeviceCell(false, d.Status).SetStyle(s),
 			NewDeviceCell(false, eta.Source).SetStyle(s),
 			NewDeviceCell(false, eta.Dest).SetStyle(s),
-			NewDeviceCell(false, dt(time.Since(eta.Start))).SetStyle(s),
+			NewDeviceCell(false, dt(time.Until(eta.Start))).SetStyle(s),
 			NewDeviceCell(false, dt(time.Until(eta.Ends))).SetStyle(s),
 			NewDeviceCell(false, fmt.Sprintf("%d/%d", eta.Leg, eta.TotalLegs)).SetStyle(s),
 			NewDeviceCell(false, eta.Note).SetStyle(s),
@@ -149,13 +154,49 @@ func waitPending(cmd *cobra.Command, args []string) error {
 	logWin := tview.NewTextView()
 	layout := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(table, 0, 1, true).
-		AddItem(logWin, 10, 0, false)
+		AddItem(logWin, 30, 0, false)
 	app := tview.NewApplication().SetRoot(layout, true)
 	log := func(tmpl string, args ...any) {
 		fmt.Fprintf(logWin, time.Now().Format(time.Stamp)+" - "+tmpl+"\n", args...)
+		logWin.ScrollToEnd()
 	}
+	boring := []string{
+		"collecting",
+		"coordinating",
+		"depositing",
+		"idle",
+		"inactive",
+		"mining",
+		"monitoring",
+		"out_of_range",
+		"paused",
+		"relaying",
+		"stowed",
+		"tracking",
+	}
+	for cn, h := range []string{
+		"Code",
+		"Type",
+		"Status",
+		"Source",
+		"Destination",
+		"Started",
+		"Ends",
+		"Legs",
+		"Notes",
+	} {
+		table.SetCell(0, cn,
+			tview.NewTableCell(h).
+				SetAlign(tview.AlignCenter).
+				SetStyle(tcell.StyleDefault.Bold(true)).
+				SetSelectable(false).
+				SetExpansion(1),
+		)
+	}
+	table.SetFixed(1, 1)
 	go func() {
-		rows := make(map[*models.CodeAlias]int)
+		rows := make(map[string]int)
+		rows["_title"] = 0
 		for {
 			devs, err := rest.Devices(nil)
 			models.SortDevices(devs)
@@ -163,24 +204,12 @@ func waitPending(cmd *cobra.Command, args []string) error {
 				log("Error reaading devices: %v", err)
 				return
 			}
-			boring := []string{
-				"collecting",
-				"coordinating",
-				"idle",
-				"inactive",
-				"mining",
-				"monitoring",
-				"out_of_range",
-				"paused",
-				"relaying",
-				"stowed",
-				"tracking",
-			}
+			var r int
 			for _, d := range devs {
 				if slices.ContainsFunc(boring, func(s string) bool {
 					return strings.HasPrefix(d.Status, s)
 				}) {
-					r := removeRow(d.Code, rows)
+					rows, r = removeRow(d.Code, rows)
 					if r >= -1 {
 						table.RemoveRow(r)
 					}
@@ -188,20 +217,27 @@ func waitPending(cmd *cobra.Command, args []string) error {
 				}
 				eta := getETA(d)
 				if eta == nil {
-					r := removeRow(d.Code, rows)
+					rows, r = removeRow(d.Code, rows)
 					if r >= -1 {
 						table.RemoveRow(r)
 					}
 					continue
 				}
-				r, ok := rows[d.Code]
+				if time.Now().Add(time.Minute).After(eta.Ends) {
+					rows, r = removeRow(d.Code, rows)
+					if r >= -1 {
+						table.RemoveRow(r)
+					}
+					continue
+				}
+				r, ok := rows[d.Code.String()]
 				if !ok {
 					for _, v := range rows {
 						if v >= r {
 							r = v + 1
 						}
 					}
-					rows[d.Code] = r
+					rows[d.Code.String()] = r
 					table.InsertRow(r)
 				}
 				for n, c := range colFn(eta) {
@@ -215,10 +251,10 @@ func waitPending(cmd *cobra.Command, args []string) error {
 	return app.Run()
 }
 
-func removeRow(id *models.CodeAlias, rows map[*models.CodeAlias]int) int {
-	r, ok := rows[id]
+func removeRow(id *models.CodeAlias, rows map[string]int) (map[string]int, int) {
+	r, ok := rows[id.String()]
 	if !ok {
-		return -1
+		return rows, -1
 	}
 	for k, v := range rows {
 		if v < r {
@@ -226,6 +262,6 @@ func removeRow(id *models.CodeAlias, rows map[*models.CodeAlias]int) int {
 		}
 		rows[k] = v - 1
 	}
-	delete(rows, id)
-	return r
+	delete(rows, id.String())
+	return rows, r
 }

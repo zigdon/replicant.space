@@ -126,10 +126,15 @@ type cacheEntry struct {
 }
 
 var cachedCalls sync.Map
+var CacheTimes = make(map[string]time.Duration)
 
 func cachePOST(key string, ttl time.Duration, path string, data []byte, args ...any) ([]byte, error) {
 	if ttl == 0 {
-		ttl = time.Minute
+		def, ok := CacheTimes[key]
+		if !ok {
+			CacheTimes[key] = time.Minute
+		}
+		ttl = def
 	}
 	if key == "" {
 		key = fmt.Sprintf("POST %s:%v:%v", path, args, string(data))
@@ -152,7 +157,11 @@ func cachePOST(key string, ttl time.Duration, path string, data []byte, args ...
 
 func cacheGET(key string, ttl time.Duration, path string, args ...any) ([]byte, error) {
 	if ttl == 0 {
-		ttl = time.Minute
+		def, ok := CacheTimes[key]
+		if !ok {
+			CacheTimes[key] = time.Minute
+		}
+		ttl = def
 	}
 	if key == "" {
 		key = fmt.Sprintf("GET %s:%v", path, args)

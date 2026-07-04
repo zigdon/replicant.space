@@ -88,6 +88,8 @@ func SortDevices(ds []*Device) {
 }
 
 type Device struct {
+	fetchedAt time.Time
+
 	AmiDirective         *DeviceDirective             `json:"ami_directive"`
 	AmiDirectiveStatus   string                       `json:"ami_directive_status"`
 	AttachCapacity       int                          `json:"attach_capacity"`
@@ -139,7 +141,12 @@ func (d *Device) Alias() {
 	}
 }
 
+func (d *Device) Fetched() time.Time {
+	return d.fetchedAt
+}
+
 func (d *Device) Fill() error {
+	d.fetchedAt = time.Now()
 	if strings.Contains(d.Status, "repairing (") {
 		target := d.Status[strings.Index(d.Status, "(")+1 : strings.Index(d.Status, ")")]
 		s, err := db.Alias(target, d.Type)
@@ -264,6 +271,15 @@ type AvailableSite struct {
 type TaggedDevices struct {
 	Devices    []*Device `json:"devices"`
 	NextCursor int       `json:"next_cursor"`
+}
+
+func (td *TaggedDevices) Fill() error {
+	for _, d := range td.Devices {
+		if err := d.Fill(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type NetworkNode struct {

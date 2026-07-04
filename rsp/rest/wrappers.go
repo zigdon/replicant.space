@@ -232,7 +232,7 @@ func ReplicantTeleport(id, target *models.CodeAlias) (*models.Teleport, error) {
 
 // Devices
 func Devices(filters map[string]string) ([]*models.Device, error) {
-	ttl := 5 * time.Minute
+	ttl := 30 * time.Second
 	url := "devices"
 	var params []string
 	for k, v := range filters {
@@ -241,7 +241,6 @@ func Devices(filters map[string]string) ([]*models.Device, error) {
 	key := "DEVS " + strings.Join(params, "&")
 	if c, ok := cachedCalls.Load(key); ok {
 		ent, _ := c.(cacheEntry)
-		log("cached ts: %s", ent.ts.String())
 		if time.Since(ent.ts) < ttl {
 			return ent.val.([]*models.Device), nil
 		}

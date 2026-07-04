@@ -82,6 +82,10 @@ func v(data any) string {
 }
 
 func dt(t time.Duration) string {
+	tmpl := "in %s"
+	if t < 0 {
+		tmpl = "%s ago"
+	}
 	t = t.Abs().Round(time.Second)
 	if t > 24*time.Hour {
 		t = t.Round(time.Minute)
@@ -94,9 +98,9 @@ func dt(t time.Duration) string {
 		if t.Minutes() >= 1 {
 			bits = append(bits, fmt.Sprintf("%.0fm", t.Minutes()))
 		}
-		return strings.Join(bits, "")
+		return fmt.Sprintf(tmpl, strings.Join(bits, ""))
 	} else {
-		return t.String()
+		return fmt.Sprintf(tmpl, t.String())
 	}
 }
 
