@@ -145,12 +145,13 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Enqueue a build
 	data = [][]string{}
+	extra := make(map[string]time.Duration)
 	if noPrint, _ := cmd.Flags().GetBool("no_print"); !noPrint {
 		for devType, qty := range missing {
 			if qty <= 0 {
 				continue
 			}
-			factory, err := findPrinter(printers)
+			factory, err := findPrinter(printers, extra)
 			if err != nil {
 				return fmt.Errorf("No available factory found to queue %s: %v", devType, err)
 			}
@@ -163,18 +164,22 @@ func autoMine(cmd *cobra.Command, args []string) error {
 					cfg["controller"] = c.String()
 				}
 			}
-			log("Printing %d %q at %q...", qty, devType, factory)
+			log("Printing %d %q at %q...", qty, devType, factory.Alias())
 			for range qty {
 				res, err := rest.DeviceCommand(factory, "enqueue_print", cfg)
 				if err != nil {
 					return err
 				}
+				bp := &models.Blueprint{DeviceType: devType}
+				if err := bp.Get(); err != nil {
+					log("Couldn't find blueprint for %q: %v", devType, err)
+				} else {
+					extra[factory.String()] += bp.PrintTime.Duration()
+				}
 				data = append(data, []string{
 					factory.Alias(), devType, res.Status, d(res.QueueLength + 1),
 				})
 			}
-			// Clear the cached value so we'll get the new queue
-			clearInfo(factory)
 		}
 	} else if len(missing) > 0 {
 		var skip []string
@@ -343,11 +348,11 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if !ok {
 		return fmt.Errorf("Can't find asc")
 	}
-	mds, ok := fleet["maintenance_drone"]
-	if !ok || len(mds) == 0 {
+	sbs, ok := fleet["service_bot"]
+	if !ok || len(sbs) == 0 {
 		return fmt.Errorf("Can't find mtd")
 	}
-	md := mds[0]
+	sd := sbs[0]
 
 	// Issue travel commands
 	var errs []error
@@ -357,7 +362,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			errs = append(errs, err)
 		}
 	}
-	for _, d := range []*models.CodeAlias{amc, asc, md.Code} {
+	for _, d := range []*models.CodeAlias{amc, asc, sd.Code} {
 		if err := travel(d, locName); err != nil {
 			errs = append(errs, err)
 		}
@@ -385,14 +390,14 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		errs = append(errs, err)
 	}
 
-	if err := setDirective(md.Code, "patrol", nil); err != nil {
+	if err := setDirective(sd.Code, "service", nil); err != nil {
 		errs = append(errs, err)
 	}
 
 	return errors.Join(errs...)
 }
 
-func findPrinter(printers []*models.CodeAlias) (*models.CodeAlias, error) {
+func findPrinter(printers []*models.CodeAlias, extra map[string]time.Duration) (*models.CodeAlias, error) {
 	// Check the queue for each potential printer. If there is an idle printer,
 	// use that. Otherwise, pick the one with the shortest queue, by remaining
 	// print time.
@@ -404,7 +409,7 @@ func findPrinter(printers []*models.CodeAlias) (*models.CodeAlias, error) {
 			return nil, fmt.Errorf("can't get device info for %q: %v", p, err)
 		}
 		info[p] = i
-		log("  %s: %s", p.Alias(), i.Type)
+		log("  %s: %s (%s already queued)", p.Alias(), i.Type, extra[p.String()])
 	}
 
 	// Calculate the queue length for each printer
@@ -414,7 +419,7 @@ func findPrinter(printers []*models.CodeAlias) (*models.CodeAlias, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error getting print queue for %q: %v", p, err)
 		}
-		queue[p] = eta
+		queue[p] = eta + extra[p.String()]
 	}
 	if len(queue) == 0 {
 		return nil, fmt.Errorf("No available printer found")

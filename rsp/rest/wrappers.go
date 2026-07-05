@@ -232,7 +232,7 @@ func ReplicantTeleport(id, target *models.CodeAlias) (*models.Teleport, error) {
 
 // Devices
 func Devices(filters map[string]string) ([]*models.Device, error) {
-	ttl := 30 * time.Second
+	ttl := 10 * time.Second
 	url := "devices"
 	var params []string
 	for k, v := range filters {
