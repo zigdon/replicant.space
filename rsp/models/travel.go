@@ -1,6 +1,12 @@
 package models
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/zigdon/rsp/cache"
+)
 
 type TripLeg struct {
 	Active     bool           `json:"active"`
@@ -41,6 +47,7 @@ func (t *Trip) Short() string {
 }
 
 type JourneyLeg struct {
+	JourneyID    int
 	From         string
 	FromPosition *Position
 	To           string
@@ -50,14 +57,148 @@ type JourneyLeg struct {
 	Processed    bool
 }
 
+func (jl *JourneyLeg) Cache() error {
+	return db.Update(cache.JourneyStepsTable, map[string]any{
+		"journey_id": jl.JourneyID,
+		"src":        jl.From,
+		"dest":       jl.To,
+		"dist_src":   jl.DistFromSrc,
+		"dist_dest":  jl.DistToDest,
+	})
+}
+
+func (jl *JourneyLeg) Get() error {
+	// Implemented in parent
+	return nil
+}
+
 func (jl *JourneyLeg) String() string {
-	return fmt.Sprintf("%s->%s (%.2fly behind, %.2fly ahead)", jl.From, jl.To, jl.DistFromSrc, jl.DistToDest)
+	return fmt.Sprintf("%s->%s (%.2fly behind, %.2fly ahead)",
+		jl.From, jl.To, jl.DistFromSrc, jl.DistToDest)
 }
 
 type Journey struct {
+	ID             int
 	Source         string
 	SourcePosition *Position
 	Dest           string
 	DestPosition   *Position
 	Legs           []*JourneyLeg
+	MaxHop         float32
+	Calculated     time.Time
+}
+
+func (j *Journey) ClearCache() error {
+	// Delete any cached journeys we have for this src/dst/hop
+	rows, err := db.DB.Query(`
+		SELECT id FROM cached_journey
+		WHERE start = ? AND end = ? AND max_hop = ?
+	`, j.Source, j.Dest, j.MaxHop)
+	if err != nil {
+		return fmt.Errorf("Can't find old journeys: %v", err)
+	}
+	var ids []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("Can't find old journeys: %v", err)
+		}
+		ids = append(ids, id)
+	}
+
+	for _, id := range ids {
+		if _, err := db.DB.Exec("DELETE FROM cached_journey_steps WHERE journey_id = ?", id); err != nil {
+			return fmt.Errorf("Can't delete old steps: %v", err)
+		}
+		if _, err := db.DB.Exec("DELETE FROM cached_journey WHERE id = ?", id); err != nil {
+			return fmt.Errorf("Can't delete old journey: %v", err)
+		}
+	}
+	return nil
+}
+
+func (j *Journey) Cache() error {
+	// If we don't already have an ID see if we have a cached one.
+	if j.ID == 0 && j.Source != "" && j.Dest != "" {
+		j.Get()
+	}
+
+	if j.Calculated.IsZero() {
+		j.Calculated = time.Now()
+	}
+	if err := j.ClearCache(); err != nil {
+		return fmt.Errorf("Can't clear old journey: %v", err)
+	}
+
+	if err := db.Update(cache.JourneyTable, map[string]any{
+		"id": j.ID,
+		"start":      j.Source,
+		"end":        j.Dest,
+		"max_hop":    j.MaxHop,
+		"calculated": j.Calculated.Unix(),
+	}); err != nil {
+		return fmt.Errorf("Error caching journey: %v", err)
+	}
+
+	// Reload so we get the auto-assigned ID. Save the existing legs so we can
+	// cache them.
+	legs := make([]*JourneyLeg, len(j.Legs))
+	copy(legs, j.Legs)
+	if j.ID == 0 {
+		if err := j.Get(); err != nil {
+			return fmt.Errorf("Error reloading journey: %v", err)
+		}
+	}
+
+	var errs []error
+	for i, jl := range legs {
+		jl.JourneyID = j.ID
+		if jl.From == "" && i > 0 {
+			jl.From = legs[i-1].To
+		}
+		errs = append(errs, jl.Cache())
+	}
+
+	return errors.Join(errs...)
+}
+
+func (j *Journey) Get() error {
+	if db == nil {
+		return fmt.Errorf("Not connected to cache")
+	}
+	if j.Source == "" || j.Dest == "" {
+		return fmt.Errorf("Can't load unknown journey")
+	}
+
+	row := db.DB.QueryRow(`
+		SELECT id, start, end, max_hop, calculated
+		FROM cached_journey
+		WHERE start == ? AND end == ?
+	`, j.Source, j.Dest)
+	if err := row.Err(); err != nil {
+		return err
+	}
+	var ts int64
+	if err := row.Scan(&j.ID, &j.Source, &j.Dest, &j.MaxHop, &ts); err != nil {
+		return err
+	}
+
+	j.Calculated = time.Unix(ts, 0)
+
+	rows, err := db.DB.Query(`
+        SELECT src, dest, dist_src, dist_dest
+        FROM cached_journey_steps
+        WHERE journey_id = ?
+    `, j.ID)
+	if err != nil {
+		return err
+	}
+	j.Legs = []*JourneyLeg{}
+	for rows.Next() {
+		jl := &JourneyLeg{JourneyID: j.ID}
+		rows.Scan(&jl.From, &jl.To, &jl.DistFromSrc, &jl.DistToDest)
+		j.Legs = append(j.Legs, jl)
+	}
+
+	return nil
 }

@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS blueprint_features(
 );
 
 CREATE TABLE IF NOT EXISTS notifications(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER PRIMARY KEY,
   start INTEGER,
   end INTEGER,
   device TEXT,
@@ -110,4 +110,22 @@ CREATE TABLE IF NOT EXISTS messages(
   read INTEGER,
   type TEXT,
   title TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cached_journey(
+  id INTEGER PRIMARY KEY,
+  start TEXT NOT NULL,
+  end TEXT NOT NULL,
+  max_hop REAL,
+  calculated INTEGER,
+  UNIQUE (start, end, max_hop) ON CONFLICT REPLACE
+);
+
+CREATE TABLE IF NOT EXISTS cached_journey_steps(
+  journey_id INTEGER,
+  src TEXT NOT NULL,
+  dest TEXT NOT NULL,
+  dist_src float32,
+  dist_dest float32,
+  FOREIGN KEY(journey_id) REFERENCES cached_routes(id)
 );

@@ -33,6 +33,7 @@ var neighboursCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
+	plotCmd.Flags().BoolP("recalculate", "c", false, "Ignore any cached routes")
 	plotCmd.PersistentFlags().Bool("debug", false, "Output additional debugging data")
 
 	plotCmd.AddCommand(nearestCmd)
@@ -138,7 +139,23 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 		}
 		dPos = starDst.Position
 	}
+
 	origDist := sPos.Distance(dPos)
+	j := &models.Journey{
+		Source: src,
+		Dest:   dst,
+		MaxHop: hop,
+	}
+	recalc, _ := cmd.Flags().GetBool("recalculate")
+	if err := j.Get(); !recalc && err == nil {
+		log("Loading cached route from %s:", j.Calculated.Format(time.Stamp))
+		log("%s (%.2fly)", src, origDist)
+		for _, jl := range j.Legs {
+			log(" -> %s (%.2fly:%.2fly)", jl.To, jl.DistFromSrc, jl.DistToDest)
+		}
+		return nil
+	}
+
 	log("Total distance: %.2fly", origDist)
 	waypoints := map[string]*models.JourneyLeg{
 		src: {
@@ -229,6 +246,7 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 			// Print it
 			var lines []string
 			for {
+				j.Legs = append(j.Legs, waypoints[cur])
 				lines = append(lines, fmt.Sprintf(
 					" -> %s (%.2fly:%.2fly)", cur, waypoints[cur].DistFromSrc, waypoints[cur].DistToDest,
 				))
@@ -242,7 +260,7 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 			for _, l := range lines {
 				log(l)
 			}
-			return nil
+			return j.Cache()
 		}
 
 		if len(nextQueue) == 0 {

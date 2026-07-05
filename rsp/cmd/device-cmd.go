@@ -37,6 +37,9 @@ func init() {
 		}}, "",
 	)
 	mkDeviceCommand(
+		"compact", "Prepare a modular device for transport", "compact", nil, "",
+	)
+	mkDeviceCommand(
 		"configure", "Change device configuration", "configure",
 		[]flagDesc{{
 			name: "taxi_mode", short: 't', required: false, jsonKey: "mode",
@@ -144,6 +147,9 @@ func init() {
 			// args[0]
 			required: true, jsonKey: "destination",
 		}}, "device-travel",
+	)
+	mkDeviceCommand(
+		"unfurl", "Reassemble a modular device after transport", "unfurl", nil, "",
 	)
 
 	outputTable["device-stow"] = func(data any) ([]string, [][]string) {

@@ -71,6 +71,7 @@ func Execute() {
 				fmt.Printf("%d discovery messages\n", disc)
 			}
 			if len(data) > 0 {
+				log("Messages:")
 				printTable([]string{"Time", "ID", "Title"}, data)
 			}
 			if len(ids) > 0 {

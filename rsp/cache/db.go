@@ -51,6 +51,8 @@ const (
 	BlueprintFeaturesTable Tables = "blueprint_features"
 	NotificationTable      Tables = "notifications"
 	MsgTable               Tables = "messages"
+	JourneyTable           Tables = "cached_journey"
+	JourneyStepsTable      Tables = "cached_journey_steps"
 )
 
 var cols = map[Tables][]string{
@@ -79,6 +81,10 @@ var cols = map[Tables][]string{
 		"blueprint_type", "feature"},
 	MsgTable: {
 		"id", "body", "created", "read", "type", "title"},
+	JourneyTable: {
+		"id", "start", "end", "max_hop", "calculated"},
+	JourneyStepsTable: {
+		"journey_id", "src", "dest", "dist_src", "dist_dest"},
 }
 
 type Cache struct {
