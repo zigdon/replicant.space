@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"sort"
 )
 
@@ -75,7 +76,18 @@ func (s *Scan) Cache() error {
 	s.Star.EntryPoint = s.EntryPoint
 	s.Star.EstimatedPlanets = len(s.Planets)
 	s.Star.Explored = true
-	return s.Star.Cache()
+	var errs []error
+	errs = append(errs, s.Star.Cache())
+	if s.AsteroidBelt.Present {
+		for _, belt := range s.AsteroidBelt.Belts {
+			belt.Star = s.Star.Designation
+			errs = append(errs, belt.Cache())
+		}
+	}
+	for _, p := range s.Planets {
+		errs = append(errs, p.Cache())
+	}
+	return errors.Join(errs...)
 }
 
 func (s *Scan) Get() any {

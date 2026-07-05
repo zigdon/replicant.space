@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -132,6 +133,44 @@ type Belt struct {
 	InnerRadiusAu float32           `json:"inner_radius_au"`
 	OuterRadiusAu float32           `json:"outer_radius_au"`
 	Resources     map[string]string `json:"resources"`
+	Star          string
+}
+
+func (b *Belt) Cache() error {
+	var errs []error
+	errs = append(errs, db.Update(cache.BeltsTable, map[string]any{
+		"designation": b.Designation,
+		"star": b.Star,
+		"density": b.Density,
+	}))
+	for k, v := range b.Resources {
+		errs = append(errs, db.Update(cache.BeltResTable, map[string]any{
+			"belt": b.Designation,
+			"resource": k,
+			"density": v,
+		}))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (b *Belt) Get() error {
+	var errs []error
+	if db == nil {
+		return fmt.Errorf("Not connected to cache")
+	}
+	if b.Designation == "" {
+		return fmt.Errorf("Can't load unknown belt")
+	}
+	scan, err := db.Get(cache.BeltsTable, b.Designation)
+	if err != nil {
+		return fmt.Errorf("Error querying cache: %v", err)
+	}
+	errs = append(errs, scan(&b.Designation, &b.Star, &b.Density))
+
+	// TODO load resources from cache.
+
+	return errors.Join(errs...)
 }
 
 type Site struct {
@@ -167,14 +206,68 @@ type Planet struct {
 	SurfaceTempK        int          `json:"surface_temp_k"`
 	Tags                []string     `json:"tags"`
 	Type                string       `json:"type"`
+	Star                string
+}
+
+func (p *Planet) Cache() error {
+	return db.Update(cache.PlanetsTable, map[string]any{
+		"designation": p.Designation,
+		"star": p.Star,
+		"name": p.Name,
+		"life_stage": p.LifeStage,
+		"moons": p.MoonCount,
+		"rings": p.Rings,
+		"scanned": p.Scanned,
+	})
+}
+
+func (p *Planet) Get() error {
+	if db == nil {
+		return fmt.Errorf("Not connected to cache")
+	}
+	if p.Designation == "" {
+		return fmt.Errorf("Can't load unknown planet")
+	}
+	scan, err := db.Get(cache.PlanetsTable, p.Designation)
+	if err != nil {
+		return fmt.Errorf("Error querying cache: %v", err)
+	}
+	return scan(&p.Designation, &p.Star, &p.Name, &p.LifeStage, &p.MoonCount,
+		&p.Rings, &p.Scanned)
 }
 
 type Moon struct {
 	Designation  string `json:"designation"`
 	Name         string `json:"name"`
 	ParentPlanet string `json:"parent_planet"`
+	Star   string
 	Scanned      bool   `json:"scanned"`
 	Type         string `json:"location_type"`
+}
+
+func (m *Moon) Cache() error {
+	return db.Update(cache.MoonsTable, map[string]any{
+		"designation": m.Designation,
+		"name": m.Name,
+		"planet": m.ParentPlanet,
+		"star": m.Star,
+		"scanned": m.Scanned,
+		"type": m.Type,
+	})
+}
+
+func (m *Moon) Get() error {
+	if db == nil {
+		return fmt.Errorf("Not connected to cache")
+	}
+	if m.Designation == "" {
+		return fmt.Errorf("Can't load unknown moon")
+	}
+	scan, err := db.Get(cache.MoonsTable, m.Designation)
+	if err != nil {
+		return fmt.Errorf("Error querying cache: %v", err)
+	}
+	return scan(&m.Designation, &m.ParentPlanet, &m.Star, &m.Name, &m.Scanned, &m.Type)
 }
 
 type LocationSummary struct {

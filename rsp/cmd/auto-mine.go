@@ -95,7 +95,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	for _, d := range devs {
-		if slices.Contains(d.Tags, tag) {
+		if slices.ContainsFunc(d.Tags, func(t string) bool {
+			return strings.HasPrefix(t, "mine-")
+		}) {
 			continue
 		}
 		if _, ok := locs[d.Location]; !ok {
