@@ -61,6 +61,16 @@ func getETA(d *models.Device) *ETA {
 			TotalLegs: len(t.Route),
 		}
 	}
+	if d.Compact != nil {
+		c := d.Compact
+		return &ETA{
+			Device: d,
+			Source: d.Location,
+			Start: c.Started.Time(),
+			Ends: c.Completes.Time(),
+			Note:   fmt.Sprintf("%.f%%", c.ProgressPercent),
+		}
+	}
 	if d.Scan != nil {
 		s := d.Scan
 		return &ETA{

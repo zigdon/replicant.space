@@ -87,6 +87,13 @@ func SortDevices(ds []*Device) {
 	})
 }
 
+type Compact struct {
+	Completes       JSONTime      `json:"completes_at"`
+	Eta             JSONTimeDelta `json:"eta_seconds"`
+	ProgressPercent float32       `json:"progress_percent"`
+	Started         JSONTime      `json:"started_at"`
+}
+
 type Device struct {
 	fetchedAt time.Time
 
@@ -100,6 +107,7 @@ type Device struct {
 	Cargo                []*Inventory                 `json:"cargo"`
 	CargoCapacity        int                          `json:"cargo_capacity"`
 	Code                 *CodeAlias                   `json:"device_code"`
+	Compact              *Compact                     `json:"compact"`
 	ControlledDevices    []*ControlledDevice          `json:"controlled_devices"`
 	ControllerDeviceCode *CodeAlias                   `json:"controller_device_code"`
 	Created              *JSONTime                    `json:"created_at"`
