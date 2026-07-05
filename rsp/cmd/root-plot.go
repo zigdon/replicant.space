@@ -2,32 +2,99 @@ package cmd
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"slices"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/models"
 )
 
 var plotCmd = &cobra.Command{
 	Use:   "plot",
 	Short: "Plan a multi-hop trip",
-	RunE: plotTrip,
+	RunE:  plotTrip,
+}
+
+var nearestCmd = &cobra.Command{
+	Use:   "nearest",
+	Short: "Find the nearest star to an arbitrary position",
+	RunE:  nearestStar,
+}
+
+var neighboursCmd = &cobra.Command{
+	Use:   "neighbours",
+	Short: "List the nearest stars in a radius",
+	RunE:  neighbourStars,
 }
 
 func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
-	plotCmd.MarkFlagRequired("source")
-	plotCmd.MarkFlagRequired("destination")
+	plotCmd.PersistentFlags().Bool("debug", false, "Output additional debugging data")
+
+	plotCmd.AddCommand(nearestCmd)
+	plotCmd.AddCommand(neighboursCmd)
+
+	neighboursCmd.Flags().Float32P("radius", "r", 7.5, "Radius for search")
 }
 
-func plotTrip(cmd *cobra.Command, args []string) error {
-	db, err := cache.Connect(false)
+func neighbourStars(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Missing required args: plot neighbours <star>")
+	}
+	r, _ := cmd.Flags().GetFloat32("radius")
+	src := &models.Star{Designation: args[0]}
+	if err := src.Get(); err != nil {
+		return err
+	}
+	rows, err := db.DB.Query(
+		`SELECT designation, position_x, position_y, position_z,
+		    sqrt(
+				power(position_x-?,2) +
+				power(position_y-?,2) +
+				power(position_z-?,2)) AS dist
+		FROM stars
+		WHERE dist <= ?
+		ORDER BY dist
+		`, src.Position.X, src.Position.Y, src.Position.Z, r)
 	if err != nil {
 		return err
 	}
+
+	var data [][]string
+	var errs []error
+	for rows.Next() {
+		var n string
+		var x, y, z, d float32
+		errs = append(errs, rows.Scan(&n, &x, &y, &z, &d))
+		data = append(data, []string{
+			n, models.NewPosition(x, y, z).String(), f(d),
+		})
+	}
+	printTable([]string{"Designation", "Position", "Distance"}, data)
+	return nil
+}
+
+func nearestStar(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Missing required args: plot nearest x,y,z")
+	}
+	pos, err := models.ParsePosition(args[0])
+	if err != nil {
+		return err
+	}
+	nearest, dist, err := FindNearestStar(pos)
+	if err != nil {
+		return fmt.Errorf("Can't find nearest star: %v", err)
+	}
+	log("Nearest star: %s (%.2fly away)", nearest.Designation, dist)
+	return nil
+}
+
+func plotTrip(cmd *cobra.Command, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("Missing required args: plot <source> <dest>")
 	}
@@ -49,63 +116,102 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 	if err := starSrc.Get(); err != nil {
 		return err
 	}
-	starDst := &models.Star{Designation: dst}
-	if err := starDst.Get(); err != nil {
-		return err
+	sPos := starSrc.Position
+
+	var dPos *models.Position
+	if strings.Contains(dst, ",") {
+		pos, err := models.ParsePosition(dst)
+		if err != nil {
+			return err
+		}
+		log("Plotting to arbitrary position %s", pos)
+		nearest, dist, err := FindNearestStar(pos)
+		if err != nil {
+			return fmt.Errorf("Can't find nearest star: %v", err)
+		}
+		log("Nearest star: %s (%.2fly away)", nearest.Designation, dist)
+		dPos = nearest.Position
+	} else {
+		starDst := &models.Star{Designation: dst}
+		if err := starDst.Get(); err != nil {
+			return err
+		}
+		dPos = starDst.Position
 	}
-	
-	sPos := models.NewPosition(
-		starSrc.Position.X, starSrc.Position.Y, starSrc.Position.Z)
-	dPos := models.NewPosition(
-		starDst.Position.X, starDst.Position.Y, starDst.Position.Z)
-	dist := sPos.Distance(dPos)
+	origDist := sPos.Distance(dPos)
+	log("Total distance: %.2fly", origDist)
 	waypoints := map[string]*models.JourneyLeg{
 		src: {
-			To: src,
+			To:         src,
 			ToPosition: sPos,
-			DistToDest: dist,
+			DistToDest: origDist,
 		},
 	}
 
 	queue := []string{src}
+	debug := func(tmpl string, args ...any) {
+		if d, _ := cmd.Flags().GetBool("debug"); !d {
+			return
+		}
+		log(tmpl, args...)
+	}
+	var best *models.JourneyLeg
+	ts := time.Now()
+	var cnt int
 	for {
 		// Sort by distance travelled + left to go
 		slices.SortFunc(queue, func(a, b string) int {
 			return cmp.Compare(
-				waypoints[a].DistFromSrc + waypoints[a].DistToDest,
-				waypoints[b].DistFromSrc + waypoints[b].DistToDest)
+				waypoints[a].DistFromSrc+waypoints[a].DistToDest,
+				waypoints[b].DistFromSrc+waypoints[b].DistToDest)
 		})
-		//fmt.Printf("starting iteration over queue: %v\n", queue)
+		debug("starting iteration over queue: %v", queue)
 		var nextQueue []string
 		for _, s := range queue {
-			//fmt.Printf("=== %s\n", s)
-			// Get possible next steps
-			stars, err := TripStepCandidate(db, s, dst, hop)
-			if err != nil {
-				return err
+			cnt++
+			if time.Since(ts) > time.Second {
+				log("... Examined %d stars, current best %v", cnt, best)
+				ts = time.Now()
 			}
+
+			debug("=== %s", s)
+			// Get possible next steps
+			qStar := &models.Star{Designation: s}
+			if err := qStar.Get(); err != nil {
+				return fmt.Errorf("Can't get star %q: %v", s, err)
+			}
+			stars, err := TripStepCandidate(s, qStar.Position, dPos, hop)
+			if err != nil {
+				return fmt.Errorf("No candidates found from %v to %v: %v", s, dst, err)
+			}
+			debug("%d candidates found", len(stars))
 			for _, next := range stars {
+				if best == nil || next.DistToDest < best.DistToDest {
+					best = next
+				}
+				debug("  - %v", next)
 				next.DistFromSrc += waypoints[s].DistFromSrc
+				debug("      total distance from src: %.2f", next.DistFromSrc)
 				ex, ok := waypoints[next.To]
 				if !ok {
 					// New waypoint, add it to the queue and move on
 					waypoints[next.To] = next
 					nextQueue = append(nextQueue, next.To)
-					//fmt.Printf("  New waypoint: %s -> %s (behind: %.2f, ahead: %.2f)\n",
-					//	next.From, next.To, next.DistFromSrc, next.DistToDest)
+					debug("      New waypoint: %s -> %s (behind: %.2f, ahead: %.2f)",
+						next.From, next.To, next.DistFromSrc, next.DistToDest)
 					continue
 				}
-				// Existing waypoint, if it's a shorter path to get there,
-				// update it.
+				// Existing waypoint, if it's a shorter path to get there, update it.
 				if ex.DistFromSrc > next.DistFromSrc {
-					// fmt.Printf("  Shorter path to %q, from %q (%.2f) rather than %q (%.2f)\n",
-					//	next.To, next.From, next.DistFromSrc, ex.From, ex.DistFromSrc)
+					debug("      Shorter path to %q, from %q (%.2f) rather than %q (%.2f)",
+						next.To, next.From, next.DistFromSrc, ex.From, ex.DistFromSrc)
 					ex.DistFromSrc = next.DistFromSrc
 					ex.From = next.From
 					ex.FromPosition = next.FromPosition
 					waypoints[next.To] = ex
 					continue
 				}
+				debug("      Discarding longer leg")
 			}
 		}
 
@@ -126,35 +232,30 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 				lines = append(lines, fmt.Sprintf(
 					" -> %s (%.2fly:%.2fly)", cur, waypoints[cur].DistFromSrc, waypoints[cur].DistToDest,
 				))
-				if cur == src { break }
+				if cur == src {
+					break
+				}
 				cur = waypoints[cur].From
 			}
 			slices.Reverse(lines)
-			fmt.Printf("%s (%.2fly)\n", src, dist)
+			log("%s (%.2fly)", src, origDist)
 			for _, l := range lines {
-				fmt.Println(l)
+				log(l)
 			}
 			return nil
 		}
 
-		if len(nextQueue) == 0 { break }
+		if len(nextQueue) == 0 {
+			break
+		}
 		queue = nextQueue
 	}
+	log("Failed to find route, closest is %v", best)
 
 	return nil
 }
 
-func TripStepCandidate(db *cache.Cache, srcStar, dstStar string, radius float32) ([]*models.JourneyLeg, error) {
-	// Get source coords
-	src := &models.Star{Designation: srcStar}
-	if err := src.Get(); err != nil {
-		return nil, err
-	}
-	// Get dest coords
-	dst := &models.Star{Designation: dstStar}
-	if err := dst.Get(); err != nil {
-		return nil, err
-	}
+func TripStepCandidate(start string, src, dst *models.Position, radius float32) ([]*models.JourneyLeg, error) {
 	rows, err := db.DB.Query(
 		`SELECT designation,
 			position_x,
@@ -169,12 +270,12 @@ func TripStepCandidate(db *cache.Cache, srcStar, dstStar string, radius float32)
 				power(position_y-?,2) +
 				power(position_z-?,2)) AS from_dst
 		FROM stars WHERE from_src <= ? AND from_src > 0.001`,
-		src.Position.X,
-		src.Position.Y,
-		src.Position.Z,
-		dst.Position.X,
-		dst.Position.Y,
-		dst.Position.Z,
+		src.X,
+		src.Y,
+		src.Z,
+		dst.X,
+		dst.Y,
+		dst.Z,
 		radius,
 	)
 	if err != nil {
@@ -182,24 +283,48 @@ func TripStepCandidate(db *cache.Cache, srcStar, dstStar string, radius float32)
 	}
 
 	var res []*models.JourneyLeg
+	var errs []error
 	for rows.Next() {
 		var desg string
 		var x, y, z, fSrc, fDst float32
-		rows.Scan(&desg, &x, &y, &z, &fSrc, &fDst)
+		errs = append(errs, rows.Scan(&desg, &x, &y, &z, &fSrc, &fDst))
 		res = append(res, &models.JourneyLeg{
-				From: src.Designation,
-				FromPosition: models.NewPosition(
-					src.Position.X,
-					src.Position.Y,
-					src.Position.Z),
-				To: desg,
-				ToPosition: models.NewPosition(x, y, z),
-				DistFromSrc: fSrc,
-				DistToDest: fDst,
-			},
+			From: start,
+			FromPosition: models.NewPosition(
+				src.X,
+				src.Y,
+				src.Z),
+			To:          desg,
+			ToPosition:  models.NewPosition(x, y, z),
+			DistFromSrc: fSrc,
+			DistToDest:  fDst,
+		},
 		)
 	}
 
-	return res, nil
+	return res, errors.Join(errs...)
 }
 
+func FindNearestStar(pos *models.Position) (*models.Star, float32, error) {
+	row := db.DB.QueryRow(
+		`SELECT designation, position_x, position_y, position_z,
+		    sqrt(
+				power(position_x-?,2) +
+				power(position_y-?,2) +
+				power(position_z-?,2)) AS dist
+		FROM stars ORDER BY dist ASC LIMIT 1`,
+		pos.X, pos.Y, pos.Z,
+	)
+	if row.Err() != nil {
+		return nil, 0, row.Err()
+	}
+	var dsg string
+	var x, y, z, dist float32
+	err := row.Scan(
+		&dsg, &x, &y, &z, &dist,
+	)
+	return &models.Star{
+		Designation: dsg,
+		Position:    models.NewPosition(x, y, z),
+	}, dist, err
+}

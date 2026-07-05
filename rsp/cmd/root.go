@@ -73,8 +73,10 @@ func Execute() {
 			if len(data) > 0 {
 				printTable([]string{"Time", "ID", "Title"}, data)
 			}
-			if err := rest.MarkRead(ids); err != nil {
-				log("Error marking messages as read: %v", err)
+			if len(ids) > 0 {
+				if err := rest.MarkRead(ids); err != nil {
+					log("Error marking messages as read: %v", err)
+				}
 			}
 		}
 	}

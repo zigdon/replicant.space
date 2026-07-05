@@ -50,6 +50,10 @@ type JourneyLeg struct {
 	Processed    bool
 }
 
+func (jl *JourneyLeg) String() string {
+	return fmt.Sprintf("%s->%s (%.2fly behind, %.2fly ahead)", jl.From, jl.To, jl.DistFromSrc, jl.DistToDest)
+}
+
 type Journey struct {
 	Source         string
 	SourcePosition *Position

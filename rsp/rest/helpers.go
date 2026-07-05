@@ -39,12 +39,7 @@ func GetPrintQueueETA(dev *models.Device) (time.Duration, error) {
 	}
 	var res time.Duration
 	if dev.Printing != nil {
-		cur := dev.Printing.DeviceType
-		if l, ok := printTime[cur]; ok {
-			res += l
-		} else {
-			return 0, fmt.Errorf("can't find print time for %q", cur)
-		}
+		res += dev.Printing.Eta.Duration()
 	}
 	for _, q := range dev.PrintQueue {
 		if l, ok := printTime[q.Type]; ok {
