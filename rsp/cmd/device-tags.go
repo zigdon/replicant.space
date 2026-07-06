@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -99,10 +101,62 @@ var findTagsCmd = &cobra.Command{
 	},
 }
 
+var listTagsCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all defined tags",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		devs, err := rest.Devices(nil)
+		if err != nil {
+			return err
+		}
+		tags := make(map[string]map[string]int)
+		var types []string
+		var tagNames []string
+		for _, d := range devs {
+			ts := d.Tags
+			if len(ts) == 0 {
+				continue
+			}
+			if !slices.Contains(types, d.Type) {
+				types = append(types, d.Type)
+			}
+			for _, t := range ts {
+				if tags[t] == nil {
+					tagNames = append(tagNames, t)
+					tags[t] = make(map[string]int)
+				}
+				tags[t][d.Type]++
+			}
+		}
+		slices.Sort(types)
+		slices.Sort(tagNames)
+		var data [][]string
+		for _, tag := range tagNames {
+			ds := tags[tag]
+			line := []string{tag}
+			for _, t := range types {
+				if ds[t] > 0 {
+					line = append(line, d(ds[t]))
+				} else {
+					line = append(line, "")
+				}
+			}
+			data = append(data, line)
+		}
+		ts := []string{"Tag"}
+		for _, t := range types {
+			ts = append(ts, cache.AliasType(t))
+		}
+		printTable(ts, data)
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(findTagsCmd)
 
 	deviceCmd.AddCommand(tagCmd)
 	tagCmd.AddCommand(addTagCmd)
 	tagCmd.AddCommand(delTagCmd)
+	tagCmd.AddCommand(listTagsCmd)
 }

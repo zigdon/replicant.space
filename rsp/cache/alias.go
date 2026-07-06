@@ -6,12 +6,11 @@ import (
 )
 
 // Aliases
-
 var prefixes = map[string]string{
 	"maintenance_drone": "mtd",
-	"surge_platform":    "spf",
 	"mass_driver":       "mdr",
 	"service_bot":       "svb",
+	"surge_platform":    "spf",
 }
 
 func (db *Cache) GetAliasAndType(code string) (string, string) {
@@ -53,6 +52,27 @@ func (db *Cache) HasAlias(designation string) string {
 	return ""
 }
 
+func AliasType(t string) string {
+	log("Getting prefix for %q", t)
+	prefix, ok := prefixes[t]
+	if !ok {
+		log("Creating a prefix for %q", t)
+		// No preset, make one up
+		for w := range strings.SplitSeq(t, "_") {
+			prefix = fmt.Sprintf("%s%c", prefix, w[0])
+		}
+		// Check it's not a dup
+		for k, v := range prefixes {
+			if v == prefix {
+				log("Prefix conflict for new device type %q: %q is already %q", t, prefix, k)
+				return t
+			}
+		}
+		prefixes[t] = prefix
+	}
+	return prefix
+}
+
 func (db *Cache) Alias(designation, deviceType string) (string, error) {
 	// This is already an alias, return unchanged
 	if strings.Contains(designation, "-") || designation == "" {
@@ -78,13 +98,7 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 
 	// No alias found, figure out the prefix
 	// If we have one preset, use that
-	prefix, ok := prefixes[deviceType]
-	if !ok {
-		// No preset, make one up
-		for w := range strings.SplitSeq(deviceType, "_") {
-			prefix = fmt.Sprintf("%s%c", prefix, w[0])
-		}
-	}
+	prefix := AliasType(deviceType)
 
 	// Find how many of these prefixes we already have
 	row = db.DB.QueryRow("SELECT COUNT(*) FROM aliases WHERE type = ?", deviceType)

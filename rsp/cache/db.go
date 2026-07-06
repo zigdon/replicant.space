@@ -70,7 +70,7 @@ var cols = map[Tables][]string{
 	AliasTable: {
 		"designation", "type", "name"},
 	BlueprintsTable: {
-		"type", "print_time", "attach_capacity", "cargo_capacity", "stow_capacity", "short", "description"},
+		"type", "print_time", "attach_capacity", "cargo_capacity", "stow_capacity", "short", "description", "alias"},
 	BlueprintResTable: {
 		"blueprint_type", "type", "qty"},
 	BlueprintCmpTable: {
@@ -122,7 +122,22 @@ func Connect(create bool) (*Cache, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Cache{sdb}, nil
+	db := &Cache{sdb}
+
+	// Preload aliases
+	rows, err := db.DB.Query(`SELECT type, alias FROM blueprints`)
+	if err != nil {
+		return db, fmt.Errorf("Couldn't preload aliases: %v", err)
+	}
+	prefixes = make(map[string]string)
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return db, err
+		}
+		prefixes[k] = v
+	}
+	return db, nil
 }
 
 func (db *Cache) UpdateSchema() error {

@@ -61,7 +61,8 @@ CREATE TABLE IF NOT EXISTS blueprints (
   cargo_capacity INTEGER,
   stow_capacity INTEGER,
   short TEXT,
-  description TEXT
+  description TEXT,
+  alias TEXT
 );
 
 CREATE TABLE IF NOT EXISTS blueprint_resources(
