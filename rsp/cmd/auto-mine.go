@@ -381,7 +381,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 		}
 	} else {
-		errs = append(errs, fmt.Errorf("FTL relay %s not at entry point %s", fr.Code.Alias(), s.EntryPoint))
+		log("Waiting for FTL relay %s to reach entry point %s", fr.Code.Alias(), s.EntryPoint)
 	}
 
 	if err := setDirective(amc, "deplete_smallest", nil); err != nil {

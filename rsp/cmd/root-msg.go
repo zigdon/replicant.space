@@ -193,6 +193,7 @@ func msgTable(cmd *cobra.Command, args []string) error {
 	filterType := ""
 	var msgTypes []string
 
+	app := tview.NewApplication()
 	setMsgLine := func(n int, msg *models.Message) {
 		style := tcell.StyleDefault
 		if !msg.Read {
@@ -285,6 +286,29 @@ func msgTable(cmd *cobra.Command, args []string) error {
 		}
 		setMsgLine(row, msg)
 	}
+	markReadAll := func() {
+		if filterType == "" {
+			log("Marking all messages as read")
+		} else {
+			log("Marking all %s messages as read", filterType)
+		}
+		for row := 1; row < listWin.GetRowCount(); row++ {
+			ref := listWin.GetCell(row, 0).GetReference()
+			if ref == nil {
+				continue
+			}
+			msg := ref.(*models.Message)
+			if filterType != "" && msg.Type != filterType {
+				continue
+			}
+			msg.Read = true
+			if err := msg.Cache(); err != nil {
+				log("Error saving read status: %v", err)
+				return
+			}
+			setMsgLine(row, msg)
+		}
+	}
 	listWin.SetSelectionChangedFunc(displayCell).
 		SetBorder(true)
 	titleStyle := tcell.StyleDefault.Underline(true)
@@ -302,11 +326,12 @@ func msgTable(cmd *cobra.Command, args []string) error {
 			AddItem(listWin, 0, 1, true).
 			AddItem(msgWin, 0, 2, false), 0, 1, true).
 		AddItem(logWin, 10, 0, false)
-	app := tview.NewApplication()
 	getMessages()
 	listWin.Select(listWin.GetRowCount()-1, 0)
 	inputCapture := func(ev *tcell.EventKey) *tcell.EventKey {
 		switch {
+		case ev.Rune() == 'a':
+			markReadAll()
 		case ev.Rune() == 'r':
 			getMessages()
 		case ev.Rune() == 'u':

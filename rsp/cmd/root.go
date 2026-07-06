@@ -32,8 +32,9 @@ var rootCmd = &cobra.Command{
 	Short: "Simple cli for interacting with replicant.space",
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
+// Execute adds all child commands to the root command and sets flags
+// appropriately.  This is called by main.main(). It only needs to happen once
+// to the rootCmd.
 func Execute() {
 	// Connect to the database
 	var err error
@@ -49,46 +50,49 @@ func Execute() {
 	if err != nil {
 		die(err.Error())
 	}
-	if rest.UnreadMessages > 0 {
-		msgs, err := rest.Messages(0, rest.UnreadMessages, true, true)
-		if err != nil {
-			log("Error getting messages: %v", err)
-		} else {
-			var disc int
-			var data [][]string
-			var ids []int
-			for _, m := range msgs.Messages {
-				if m.Type == "discovery" {
-					ids = append(ids, m.ID)
-					disc++
-					continue
+	if msg, _ := rootCmd.Flags().GetBool("msg"); msg {
+		if rest.UnreadMessages > 0 {
+			msgs, err := rest.Messages(0, rest.UnreadMessages, true, true)
+			if err != nil {
+				log("Error getting messages: %v", err)
+			} else {
+				var disc int
+				var data [][]string
+				var ids []int
+				for _, m := range msgs.Messages {
+					if m.Type == "discovery" {
+						ids = append(ids, m.ID)
+						disc++
+						continue
+					}
+					data = append(data, []string{
+						m.Created.Time().Format(time.Kitchen), d(m.ID), m.Title,
+					})
 				}
-				data = append(data, []string{
-					m.Created.Time().Format(time.Kitchen), d(m.ID), m.Title,
-				})
-			}
-			if disc > 0 {
-				fmt.Printf("%d discovery messages\n", disc)
-			}
-			if len(data) > 0 {
-				log("Messages:")
-				printTable([]string{"Time", "ID", "Title"}, data)
-			}
-			if len(ids) > 0 {
-				if err := rest.MarkRead(ids); err != nil {
-					log("Error marking messages as read: %v", err)
+				if disc > 0 {
+					fmt.Printf("%d discovery messages\n", disc)
+				}
+				if len(data) > 0 {
+					log("Messages:")
+					printTable([]string{"Time", "ID", "Title"}, data)
+				}
+				if len(ids) > 0 {
+					if err := rest.MarkRead(ids); err != nil {
+						log("Error marking messages as read: %v", err)
+					}
 				}
 			}
 		}
-	}
-	ns, err := models.PendingNotifications(false)
-	if len(ns) > 0 {
-		for _, n := range ns {
-			if n.Device != "" {
-				log("%s: %s -- %s", n.End.Round(time.Second).String(),
-					alias(n.Device), n.Text)
-			} else {
-				log("%s: %s", n.End.Round(time.Second).String(), n.Text)
+		var ns []*models.Notification
+		ns, err = models.PendingNotifications(false)
+		if len(ns) > 0 {
+			for _, n := range ns {
+				if n.Device != "" {
+					log("%s: %s -- %s", n.End.Round(time.Second).String(),
+						alias(n.Device), n.Text)
+				} else {
+					log("%s: %s", n.End.Round(time.Second).String(), n.Text)
+				}
 			}
 		}
 	}
@@ -99,6 +103,7 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().Bool("raw", false, "emit the json returned")
+	rootCmd.PersistentFlags().Bool("msg", true, "show unread message information")
 	rootCmd.AddCommand(tui.TUI)
 }
 
