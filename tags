@@ -1037,6 +1037,7 @@ getETA	rsp/cmd/table-wait.go	/^func getETA(d *models.Device) *ETA {$/;"	f	packag
 getInfo	rsp/cmd/root-auto.go	/^func getInfo(d *models.CodeAlias) (*models.Device, error) {$/;"	f	package:cmd	typeref:typename:(*models.Device, error)
 getRID	rsp/cmd/root-replicant.go	/^func getRID(cmd *cobra.Command) (*models.CodeAlias, error) {$/;"	f	package:cmd	typeref:typename:(*models.CodeAlias, error)
 has_life	rsp/cache/schema.sql	/^  has_life INTEGER not NULL,$/;"	E	table:stars
+humanize	rsp/cmd/output.go	/^func humanize(in string) string {$/;"	f	package:cmd	typeref:typename:string
 id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY,$/;"	E	table:cached_journey
 id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY,$/;"	E	table:messages
 id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY,$/;"	E	table:notifications

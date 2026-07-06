@@ -362,6 +362,28 @@ func DeviceNetwork(id *models.CodeAlias) (*models.Network, error) {
 	return n, err
 }
 
+func Prospect(id *models.CodeAlias, dir *models.Position) (map[string]any, error) {
+	cfg := map[string]any{
+		"command": "prospect",
+	}
+	if dir != nil {
+		cfg["direction"] = []float32{dir.X, dir.Y, dir.Z}
+	}
+	cfgData, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	res, err := Post("devices/%s", cfgData, id.String())
+	if err != nil {
+		return nil, err
+	}
+	generic := make(map[string]any)
+	if err := json.Unmarshal(res, &generic); err != nil {
+		return nil, err
+	}
+	return generic, nil
+}
+
 func GetType(code string) (string, error) {
 	if code == "" {
 		return "", fmt.Errorf("can't get type of blank")

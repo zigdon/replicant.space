@@ -54,12 +54,27 @@ func b(n bool) string {
 	return "False"
 }
 
+func humanize(in string) string {
+	var out string
+	d := strings.Index(in, ".")
+	if d >= 0 {
+		out = in[d:]
+		in = in[:d]
+	}
+	for len(in) > 3 {
+		out = "," + in[len(in)-3:] + out
+		in = in[:len(in)-3]
+	}
+	out = in + out
+	return out
+}
+
 func f(n float32) string {
-	return fmt.Sprintf("%.2f", n)
+	return humanize(fmt.Sprintf("%.2f", n))
 }
 
 func d(n int) string {
-	return fmt.Sprintf("%d", n)
+	return humanize(fmt.Sprintf("%d", n))
 }
 
 func list(s []string) string {

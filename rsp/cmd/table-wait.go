@@ -215,11 +215,13 @@ func waitPending(cmd *cobra.Command, args []string) error {
 		rows["_title"] = 0
 		for {
 			devs, err := rest.Devices(nil)
-			models.SortDevices(devs)
 			if err != nil {
-				log("Error reaading devices: %v", err)
-				return
+				log("Error reading devices: %v", err)
+				app.Draw()
+				time.Sleep(time.Second)
+				continue
 			}
+			models.SortDevices(devs)
 			var r int
 			for _, d := range devs {
 				if slices.ContainsFunc(boring, func(s string) bool {

@@ -45,7 +45,7 @@ func ParsePosition(coords string) (*Position, error) {
 	return p, nil
 }
 
-func (p Position) Distance(to *Position) float32 {
+func (p *Position) Distance(to *Position) float32 {
 	if to == nil {
 		return 0
 	}
@@ -55,8 +55,18 @@ func (p Position) Distance(to *Position) float32 {
 			math.Pow(float64(p.Z-to.Z), 2)))
 }
 
-func (p Position) String() string {
+func (p *Position) String() string {
 	return fmt.Sprintf("[%.2f/%.2f/%.2f]", p.X, p.Y, p.Z)
+}
+
+func (p *Position) Reverse() {
+	p.X *= -1
+	p.Y *= -1
+	p.Z *= -1
+}
+
+func (p *Position) Delta(pb *Position) *Position {
+	return NewPosition(p.X-pb.X, p.Y-pb.Y, p.Z-pb.Z)
 }
 
 type Star struct {
@@ -140,14 +150,14 @@ func (b *Belt) Cache() error {
 	var errs []error
 	errs = append(errs, db.Update(cache.BeltsTable, map[string]any{
 		"designation": b.Designation,
-		"star": b.Star,
-		"density": b.Density,
+		"star":        b.Star,
+		"density":     b.Density,
 	}))
 	for k, v := range b.Resources {
 		errs = append(errs, db.Update(cache.BeltResTable, map[string]any{
-			"belt": b.Designation,
+			"belt":     b.Designation,
 			"resource": k,
-			"density": v,
+			"density":  v,
 		}))
 	}
 
@@ -212,12 +222,12 @@ type Planet struct {
 func (p *Planet) Cache() error {
 	return db.Update(cache.PlanetsTable, map[string]any{
 		"designation": p.Designation,
-		"star": p.Star,
-		"name": p.Name,
-		"life_stage": p.LifeStage,
-		"moons": p.MoonCount,
-		"rings": p.Rings,
-		"scanned": p.Scanned,
+		"star":        p.Star,
+		"name":        p.Name,
+		"life_stage":  p.LifeStage,
+		"moons":       p.MoonCount,
+		"rings":       p.Rings,
+		"scanned":     p.Scanned,
 	})
 }
 
@@ -240,7 +250,7 @@ type Moon struct {
 	Designation  string `json:"designation"`
 	Name         string `json:"name"`
 	ParentPlanet string `json:"parent_planet"`
-	Star   string
+	Star         string
 	Scanned      bool   `json:"scanned"`
 	Type         string `json:"location_type"`
 }
@@ -248,11 +258,11 @@ type Moon struct {
 func (m *Moon) Cache() error {
 	return db.Update(cache.MoonsTable, map[string]any{
 		"designation": m.Designation,
-		"name": m.Name,
-		"planet": m.ParentPlanet,
-		"star": m.Star,
-		"scanned": m.Scanned,
-		"type": m.Type,
+		"name":        m.Name,
+		"planet":      m.ParentPlanet,
+		"star":        m.Star,
+		"scanned":     m.Scanned,
+		"type":        m.Type,
 	})
 }
 

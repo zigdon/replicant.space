@@ -152,6 +152,7 @@ func init() {
 		"unfurl", "Reassemble a modular device after transport", "unfurl", nil, "",
 	)
 
+	// Output tables
 	outputTable["device-stow"] = func(data any) ([]string, [][]string) {
 		resp, ok := data.(*models.CommandResp)
 		if !ok {
