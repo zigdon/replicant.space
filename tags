@@ -745,6 +745,7 @@ Status	rsp/models/replicant.go	/^	Status           string         `json:"status"
 Status	rsp/models/scan.go	/^	Status               string    `json:"status"`$/;"	m	struct:models.Object	typeref:typename:string
 Status	rsp/models/travel.go	/^	Status          string         `json:"status"`$/;"	m	struct:models.Trip	typeref:typename:string
 StellarClass	rsp/models/location.go	/^	StellarClass    string    `json:"stellar_class"`$/;"	m	struct:models.Star	typeref:typename:string
+Step	rsp/models/travel.go	/^	Step         int$/;"	m	struct:models.JourneyLeg	typeref:typename:int
 StowCapacity	rsp/models/blueprints.go	/^	StowCapacity     int            `json:"stow_capacity"`$/;"	m	struct:models.Blueprint	typeref:typename:int
 StowCapacity	rsp/models/device.go	/^	StowCapacity         int                          `json:"stow_capacity"`$/;"	m	struct:models.Device	typeref:typename:int
 StowUsed	rsp/models/device.go	/^	StowUsed             int                          `json:"stow_used"`$/;"	m	struct:models.Device	typeref:typename:int
@@ -846,6 +847,7 @@ Type	rsp/models/replicant.go	/^func (r *Replicant) Type() string {$/;"	f	struct:
 Type	rsp/models/travel.go	/^	Type            string         `json:"type"`$/;"	m	struct:models.Trip	typeref:typename:string
 Type	rsp/models/travel.go	/^	Type       string         `json:"type"`$/;"	m	struct:models.TripLeg	typeref:typename:string
 Type	rsp/tui/cache.go	/^	Type() string$/;"	n	interface:tui.cachable	typeref:typename:string
+Unfurl	rsp/models/device.go	/^	Unfurl               *Compact                     `json:"unfurl"`$/;"	m	struct:models.Device	typeref:typename:*Compact
 UnmarshalJSON	rsp/models/helpers.go	/^func (a *CodeAlias) UnmarshalJSON(data []byte) error {$/;"	f	struct:models.CodeAlias	typeref:typename:error
 UnmarshalJSON	rsp/models/helpers.go	/^func (jt *JSONTime) UnmarshalJSON(data []byte) error {$/;"	f	struct:models.JSONTime	typeref:typename:error
 UnmarshalJSON	rsp/models/helpers.go	/^func (jtd *JSONTimeDelta) UnmarshalJSON(data []byte) error {$/;"	f	struct:models.JSONTimeDelta	typeref:typename:error
@@ -1035,9 +1037,9 @@ getETA	rsp/cmd/table-wait.go	/^func getETA(d *models.Device) *ETA {$/;"	f	packag
 getInfo	rsp/cmd/root-auto.go	/^func getInfo(d *models.CodeAlias) (*models.Device, error) {$/;"	f	package:cmd	typeref:typename:(*models.Device, error)
 getRID	rsp/cmd/root-replicant.go	/^func getRID(cmd *cobra.Command) (*models.CodeAlias, error) {$/;"	f	package:cmd	typeref:typename:(*models.CodeAlias, error)
 has_life	rsp/cache/schema.sql	/^  has_life INTEGER not NULL,$/;"	E	table:stars
-id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY AUTOINCREMENT,$/;"	E	table:cached_journey
-id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY AUTOINCREMENT,$/;"	E	table:notifications
+id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY,$/;"	E	table:cached_journey
 id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY,$/;"	E	table:messages
+id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY,$/;"	E	table:notifications
 infoCmd	rsp/cmd/device-info.go	/^var infoCmd = &cobra.Command{$/;"	v	package:cmd
 infos	rsp/cmd/root-auto.go	/^var infos = make(map[*models.CodeAlias]*models.Device)$/;"	v	package:cmd
 init	rsp/cmd/cache.go	/^func init() {$/;"	f	package:cmd
@@ -1199,6 +1201,7 @@ starsCmd	rsp/cmd/replicant-stars.go	/^var starsCmd = &cobra.Command{$/;"	v	packa
 start	rsp/cache/schema.sql	/^  start INTEGER,$/;"	E	table:notifications
 start	rsp/cache/schema.sql	/^  start TEXT NOT NULL,$/;"	E	table:cached_journey
 statsCmd	rsp/cmd/cache.go	/^var statsCmd = &cobra.Command{$/;"	v	package:cmd
+step	rsp/cache/schema.sql	/^  step INTEGER,$/;"	E	table:cached_journey_steps
 stow_capacity	rsp/cache/schema.sql	/^  stow_capacity INTEGER,$/;"	E	table:blueprints
 surveyCmd	rsp/cmd/device-directive.go	/^var surveyCmd = &cobra.Command{$/;"	v	package:cmd
 t	rsp/cmd/output.go	/^func t(ts time.Time) string {$/;"	f	package:cmd	typeref:typename:string

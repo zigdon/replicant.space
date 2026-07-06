@@ -1,8 +1,10 @@
 package models
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/zigdon/rsp/cache"
@@ -55,6 +57,7 @@ type JourneyLeg struct {
 	DistFromSrc  float32
 	DistToDest   float32
 	Processed    bool
+	Step         int
 }
 
 func (jl *JourneyLeg) Cache() error {
@@ -64,6 +67,7 @@ func (jl *JourneyLeg) Cache() error {
 		"dest":       jl.To,
 		"dist_src":   jl.DistFromSrc,
 		"dist_dest":  jl.DistToDest,
+		"step":       jl.Step,
 	})
 }
 
@@ -131,7 +135,7 @@ func (j *Journey) Cache() error {
 	}
 
 	if err := db.Update(cache.JourneyTable, map[string]any{
-		"id": j.ID,
+		"id":         j.ID,
 		"start":      j.Source,
 		"end":        j.Dest,
 		"max_hop":    j.MaxHop,
@@ -186,19 +190,23 @@ func (j *Journey) Get() error {
 	j.Calculated = time.Unix(ts, 0)
 
 	rows, err := db.DB.Query(`
-        SELECT src, dest, dist_src, dist_dest
+        SELECT src, dest, dist_src, dist_dest, step
         FROM cached_journey_steps
         WHERE journey_id = ?
     `, j.ID)
 	if err != nil {
 		return err
 	}
-	j.Legs = []*JourneyLeg{}
+	var legs []*JourneyLeg
 	for rows.Next() {
 		jl := &JourneyLeg{JourneyID: j.ID}
-		rows.Scan(&jl.From, &jl.To, &jl.DistFromSrc, &jl.DistToDest)
-		j.Legs = append(j.Legs, jl)
+		rows.Scan(&jl.From, &jl.To, &jl.DistFromSrc, &jl.DistToDest, &jl.Step)
+		legs = append(legs, jl)
 	}
+	slices.SortFunc(legs, func(a, b *JourneyLeg) int {
+		return cmp.Compare(a.Step, b.Step)
+	})
+	j.Legs = legs
 
 	return nil
 }

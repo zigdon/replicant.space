@@ -136,6 +136,7 @@ type Device struct {
 	TaxiMode             string                       `json:"taxi_mode"`
 	Travel               *Trip                        `json:"travel"`
 	Type                 string                       `json:"device_type"`
+	Unfurl               *Compact                     `json:"unfurl"`
 	UpkeepRequirements   []*UpkeepRequirement         `json:"upkeep_requirements"`
 	WaitingFor           map[string]*MissingResources `json:"waiting_for"`
 	WelcomeMessage       string                       `json:"welcome_message"`

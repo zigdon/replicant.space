@@ -208,6 +208,7 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 				}
 				debug("  - %v", next)
 				next.DistFromSrc += waypoints[s].DistFromSrc
+				next.Step = waypoints[s].Step + 1
 				debug("      total distance from src: %.2f", next.DistFromSrc)
 				ex, ok := waypoints[next.To]
 				if !ok {
@@ -225,6 +226,7 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 					ex.DistFromSrc = next.DistFromSrc
 					ex.From = next.From
 					ex.FromPosition = next.FromPosition
+					ex.Step = next.Step
 					waypoints[next.To] = ex
 					continue
 				}

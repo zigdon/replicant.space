@@ -133,6 +133,12 @@ var networkCmd = &cobra.Command{
 			return cmp.Compare(a[1], b[1])
 		})
 		slices.SortFunc(networks, func(a, b *models.Network) int {
+			if len(a.Connections) == 0 {
+				return -1
+			}
+			if len(b.Connections) == 0 {
+				return 1
+			}
 			return cmp.Compare(a.Connections[0].Star, b.Connections[0].Star)
 		})
 		var data [][]string

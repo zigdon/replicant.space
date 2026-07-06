@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS cached_journey_steps(
   journey_id INTEGER,
   src TEXT NOT NULL,
   dest TEXT NOT NULL,
+  step INTEGER,
   dist_src float32,
   dist_dest float32,
   FOREIGN KEY(journey_id) REFERENCES cached_routes(id)
