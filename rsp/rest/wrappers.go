@@ -362,7 +362,7 @@ func DeviceNetwork(id *models.CodeAlias) (*models.Network, error) {
 	return n, err
 }
 
-func Prospect(id *models.CodeAlias, dir *models.Position) (map[string]any, error) {
+func Prospect(id *models.CodeAlias, dir *models.Position) (*models.Prospect, error) {
 	cfg := map[string]any{
 		"command": "prospect",
 	}
@@ -377,11 +377,7 @@ func Prospect(id *models.CodeAlias, dir *models.Position) (map[string]any, error
 	if err != nil {
 		return nil, err
 	}
-	generic := make(map[string]any)
-	if err := json.Unmarshal(res, &generic); err != nil {
-		return nil, err
-	}
-	return generic, nil
+	return models.Parse[models.Prospect](res)
 }
 
 func GetType(code string) (string, error) {

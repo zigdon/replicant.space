@@ -357,3 +357,14 @@ type DeviceLogs struct {
 	Events     []*DeviceEvent `json:"events"`
 	NextCursor int            `json:"next_cursor"`
 }
+
+type Prospect struct {
+	Error  string `json:"error"`
+	Detail struct {
+		expected           float32
+		neighbours         int
+		outward_neighbours int
+		outward_ratio      float32
+		ratio              float32
+	} `json:"detail"`
+}
