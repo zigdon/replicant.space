@@ -30,6 +30,12 @@ var neighboursCmd = &cobra.Command{
 	RunE:  neighbourStars,
 }
 
+var vectorStarsCmd = &cobra.Command{
+	Use:   "sector",
+	Short: "List the stars in a specific vector of the galaxy",
+	RunE:  vectorStars,
+}
+
 func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
@@ -37,9 +43,97 @@ func init() {
 	plotCmd.PersistentFlags().Bool("debug", false, "Output additional debugging data")
 
 	plotCmd.AddCommand(nearestCmd)
-	plotCmd.AddCommand(neighboursCmd)
 
+	plotCmd.AddCommand(neighboursCmd)
 	neighboursCmd.Flags().Float32P("radius", "r", 7.5, "Radius for search")
+
+	plotCmd.AddCommand(vectorStarsCmd)
+	vectorStarsCmd.Flags().StringP("source", "s", "SOL", "Vector source, STAR or x,y,z")
+	vectorStarsCmd.Flags().IntP("cone", "c", 1, "Radius of the cone, as a percentage of each vector element")
+	vectorStarsCmd.Flags().IntP("margin", "m", 5, "Depth of the sector, as a percentage of the distance from origin")
+}
+
+func getPosFromString(dst string) (*models.Position, error) {
+	if strings.Contains(dst, ",") {
+		return models.ParsePosition(dst)
+	} else {
+		starDst := &models.Star{Designation: dst}
+		if err := starDst.Get(); err != nil {
+			return nil, err
+		}
+		return starDst.Position, nil
+	}
+}
+
+func vectorStars(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Missing required args: plot vector <star or location>")
+	}
+
+	src, _ := cmd.Flags().GetString("source")
+	cone, _ := cmd.Flags().GetInt("cone")
+	margin, _ := cmd.Flags().GetInt("margin")
+
+	dPos, err := getPosFromString(args[0])
+	if err != nil {
+		return err
+	}
+	dist := dPos.Distance(models.NewPosition(0, 0, 0))
+	minLY := dist * (1 - float32(margin)/100)
+	maxLY := dist * (1 + float32(margin)/100)
+	deg := float32(cone) / 100
+	sPos, err := getPosFromString(src)
+	if err != nil {
+		return err
+	}
+
+	log("Finding stars in the direction of %s within a %d%% cone from %s, range %.2fly-%.2fly",
+		dPos.String(), cone, sPos.String(), minLY, maxLY,
+	)
+
+	rows, err := db.DB.Query(`
+		SELECT designation, position_x, position_y, position_z, 
+		    sqrt(
+				power(position_x-?,2) +
+				power(position_y-?,2) +
+				power(position_z-?,2)) AS dist_src,
+		    sqrt(
+				power(position_x-?,2) +
+				power(position_y-?,2) +
+				power(position_z-?,2)) AS dist_dst
+		FROM stars
+		WHERE dist_src BETWEEN ? AND ? AND
+			position_x BETWEEN ? AND ? AND
+			position_y BETWEEN ? AND ? AND
+			position_z BETWEEN ? AND ?`,
+		sPos.X, sPos.Y, sPos.Z,
+		dPos.X, dPos.Y, dPos.Z,
+		minLY, maxLY,
+		slices.Min([]float32{dPos.X * (1 - deg), dPos.X * (1 + deg)}),
+		slices.Max([]float32{dPos.X * (1 - deg), dPos.X * (1 + deg)}),
+		slices.Min([]float32{dPos.Y * (1 - deg), dPos.Y * (1 + deg)}),
+		slices.Max([]float32{dPos.Y * (1 - deg), dPos.Y * (1 + deg)}),
+		slices.Min([]float32{dPos.Z * (1 - deg), dPos.Z * (1 + deg)}),
+		slices.Max([]float32{dPos.Z * (1 - deg), dPos.Z * (1 + deg)}),
+	)
+	if err != nil {
+		return err
+	}
+	var data [][]string
+	for rows.Next() {
+		var dsg string
+		var dstS, dstD, x, y, z float32
+		if err := rows.Scan(&dsg, &x, &y, &z, &dstS, &dstD); err != nil {
+			return err
+		}
+		data = append(data, []string{
+			dsg, models.NewPosition(x, y, z).String(), f(dstS), f(dstD),
+		})
+	}
+
+	printTable([]string{"Designation", "Position", "LY from origin", "LY from destination"}, data)
+
+	return nil
 }
 
 func neighbourStars(cmd *cobra.Command, args []string) error {

@@ -121,6 +121,7 @@ type Device struct {
 	OwnerReplicant       *CodeAlias                   `json:"owner_replicant_code"`
 	PrintQueue           []*DevicePrintQueue          `json:"print_queue"`
 	Printing             *DevicePrint                 `json:"printing"`
+	Prospect             *Prospect                    `json:"prospect"`
 	QueueSize            int                          `json:"queue_size"`
 	Repair               *Repair                      `json:"repair"`
 	RepairPaidPct        float32                      `json:"repair_paid_pct"`
@@ -358,13 +359,19 @@ type DeviceLogs struct {
 	NextCursor int            `json:"next_cursor"`
 }
 
+type ProspectDetail struct {
+	Expected          float32 `json:"expected"`
+	Neighbours        int     `json:"neighbours"`
+	OutwardNeighbours int     `json:"outward_neighbours"`
+	OutwardRatio      float32 `json:"outward_ratio"`
+	Ratio             float32 `json:"ratio"`
+}
+
 type Prospect struct {
-	Error  string `json:"error"`
-	Detail struct {
-		expected           float32
-		neighbours         int
-		outward_neighbours int
-		outward_ratio      float32
-		ratio              float32
-	} `json:"detail"`
+	Completes       JSONTime        `json:"completes_at"`
+	Detail          *ProspectDetail `json:"detail"`
+	Error           string          `json:"error"`
+	Eta             JSONTimeDelta   `json:"eta_seconds"`
+	ProgressPercent float32         `json:"progress_percent"`
+	Started         JSONTime        `json:"started_at"`
 }

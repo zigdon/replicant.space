@@ -68,7 +68,7 @@
 !_TAG_PARSER_VERSION!Sh	0.0	/current.age/
 !_TAG_PARSER_VERSION!Yaml	0.0	/current.age/
 !_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
-!_TAG_PROC_CWD	/home/zigdon/Projects/replicant.space/	//
+!_TAG_PROC_CWD	/home/zigdon/Replicant/	//
 !_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
@@ -188,6 +188,7 @@ CompleteEvent	rsp/rest/wrappers.go	/^func CompleteEvent(eid string) (*models.Eve
 Completes	rsp/models/blueprints.go	/^	Completes         *JSONTime      `json:"completes_at"`$/;"	m	struct:models.PrintResp	typeref:typename:*JSONTime
 Completes	rsp/models/device.go	/^	Completes            *JSONTime           `json:"completes_at"`$/;"	m	struct:models.CommandResp	typeref:typename:*JSONTime
 Completes	rsp/models/device.go	/^	Completes       *JSONTime      `json:"completes_at"`$/;"	m	struct:models.DevicePrint	typeref:typename:*JSONTime
+Completes	rsp/models/device.go	/^	Completes       JSONTime        `json:"completes_at"`$/;"	m	struct:models.Prospect	typeref:typename:JSONTime
 Completes	rsp/models/device.go	/^	Completes       JSONTime      `json:"completes_at"`$/;"	m	struct:models.Compact	typeref:typename:JSONTime
 Completes	rsp/models/replicant.go	/^	Completes        *JSONTime      `json:"completes_at"`$/;"	m	struct:models.Teleport	typeref:typename:*JSONTime
 CompletionAchievement	rsp/models/events.go	/^	CompletionAchievement string         `json:"completion_achievement"`$/;"	m	struct:models.EventReward	typeref:typename:string
@@ -265,7 +266,7 @@ DestinationStar	rsp/models/replicant.go	/^	DestinationStar  string         `json
 DestinationType	rsp/models/device.go	/^	DestinationType      string              `json:"destination_type"`$/;"	m	struct:models.CommandResp	typeref:typename:string
 DestinationType	rsp/models/replicant.go	/^	DestinationType string         `json:"destination_type"`$/;"	m	struct:models.Travel	typeref:typename:string
 Detached	rsp/models/device.go	/^	Detached             []*StowedDevice     `json:"detached"`$/;"	m	struct:models.CommandResp	typeref:typename:[]*StowedDevice
-Detail	rsp/models/device.go	/^	Detail struct {$/;"	m	struct:models.Prospect	typeref:typename:struct { expected float32; neighbours int; outward_neighbours int; outward_ratio float32; ratio float32; }
+Detail	rsp/models/device.go	/^	Detail          *ProspectDetail `json:"detail"`$/;"	m	struct:models.Prospect	typeref:typename:*ProspectDetail
 Details	rsp/models/replicant.go	/^func (r *Replicant) Details() []*tview.TreeNode {$/;"	f	struct:models.Replicant	typeref:typename:[]*tview.TreeNode
 Device	rsp/cmd/table-wait.go	/^	Device         *models.Device$/;"	m	struct:cmd.ETA	typeref:typename:*models.Device
 Device	rsp/models/device.go	/^type Device struct {$/;"	s	package:models
@@ -329,8 +330,8 @@ EntryPoint	rsp/models/location.go	/^	EntryPoint            string  `json:"entry_
 EntryPoint	rsp/models/location.go	/^	EntryPoint          string                      `json:"entry_point"`$/;"	m	struct:models.Location	typeref:typename:string
 EntryPoint	rsp/models/scan.go	/^	EntryPoint     string `json:"entry_point"`$/;"	m	struct:models.Scan	typeref:typename:string
 Equal	rsp/models/device.go	/^func (n *Network) Equal(n2 *Network) bool {$/;"	f	struct:models.Network	typeref:typename:bool
+Error	rsp/models/device.go	/^	Error           string          `json:"error"`$/;"	m	struct:models.Prospect	typeref:typename:string
 Error	rsp/models/device.go	/^	Error       string         `json:"error"`$/;"	m	struct:models.Network	typeref:typename:string
-Error	rsp/models/device.go	/^	Error  string `json:"error"`$/;"	m	struct:models.Prospect	typeref:typename:string
 Error	rsp/models/events.go	/^	Error            string           `json:"error"`$/;"	m	struct:models.Event	typeref:typename:string
 Error	rsp/models/replicant.go	/^	Error            string         `json:"error"`$/;"	m	struct:models.Teleport	typeref:typename:string
 Error	rsp/models/trades.go	/^	Error              string   `json:"error"`$/;"	m	struct:models.Shop	typeref:typename:string
@@ -341,6 +342,7 @@ Eta	rsp/models/device.go	/^	Eta                  *JSONTimeDelta      `json:"eta_
 Eta	rsp/models/device.go	/^	Eta              *JSONTimeDelta `json:"eta_seconds"`$/;"	m	struct:models.Repair	typeref:typename:*JSONTimeDelta
 Eta	rsp/models/device.go	/^	Eta             *JSONTimeDelta `json:"eta_seconds"`$/;"	m	struct:models.DevicePrint	typeref:typename:*JSONTimeDelta
 Eta	rsp/models/device.go	/^	Eta             *JSONTimeDelta `json:"eta_seconds"`$/;"	m	struct:models.DeviceScan	typeref:typename:*JSONTimeDelta
+Eta	rsp/models/device.go	/^	Eta             JSONTimeDelta   `json:"eta_seconds"`$/;"	m	struct:models.Prospect	typeref:typename:JSONTimeDelta
 Eta	rsp/models/device.go	/^	Eta             JSONTimeDelta `json:"eta_seconds"`$/;"	m	struct:models.Compact	typeref:typename:JSONTimeDelta
 Eta	rsp/models/replicant.go	/^	Eta             *JSONTimeDelta `json:"eta_seconds"`$/;"	m	struct:models.Travel	typeref:typename:*JSONTimeDelta
 Eta	rsp/models/travel.go	/^	Eta             *JSONTimeDelta `json:"eta_seconds"`$/;"	m	struct:models.Trip	typeref:typename:*JSONTimeDelta
@@ -358,6 +360,7 @@ Events	rsp/models/events.go	/^	Events     []*Event `json:"events"`$/;"	m	struct:
 Events	rsp/models/events.go	/^type Events struct {$/;"	s	package:models
 Events	rsp/rest/wrappers.go	/^func Events() (*models.Events, error) {$/;"	f	package:rest	typeref:typename:(*models.Events, error)
 Execute	rsp/cmd/root.go	/^func Execute() {$/;"	f	package:cmd
+Expected	rsp/models/device.go	/^	Expected          float32 `json:"expected"`$/;"	m	struct:models.ProspectDetail	typeref:typename:float32
 ExperiencePoints	rsp/models/replicant.go	/^	ExperiencePoints    int                          `json:"experience_points"`$/;"	m	struct:models.Replicant	typeref:typename:int
 ExperiencePointsTotal	rsp/models/account.go	/^	ExperiencePointsTotal int                   `json:"experience_points_total"`$/;"	m	struct:models.Account	typeref:typename:int
 Explored	rsp/models/location.go	/^	Explored              bool    `json:"explored"`$/;"	m	struct:models.Star	typeref:typename:bool
@@ -520,6 +523,7 @@ Name	rsp/models/scan.go	/^	Name               string   `json:"name"`$/;"	m	struc
 Name	rsp/models/scan.go	/^	Name       string    `json:"name"`$/;"	m	struct:models.ScanReplicant	typeref:typename:string
 Name	rsp/models/trades.go	/^	Name         string `json:"name"`$/;"	m	struct:models.Trade	typeref:typename:string
 Need	rsp/models/replicant.go	/^	Need int `json:"need"`$/;"	m	struct:models.MissingResources	typeref:typename:int
+Neighbours	rsp/models/device.go	/^	Neighbours        int     `json:"neighbours"`$/;"	m	struct:models.ProspectDetail	typeref:typename:int
 Network	rsp/models/device.go	/^type Network struct {$/;"	s	package:models
 NetworkNode	rsp/models/device.go	/^type NetworkNode struct {$/;"	s	package:models
 NewCell	rsp/cmd/table.go	/^func NewCell(selectable bool, t string) *tview.TableCell {$/;"	f	package:cmd	typeref:typename:*tview.TableCell
@@ -560,6 +564,8 @@ OriginName	rsp/models/replicant.go	/^	OriginName      string         `json:"orig
 OriginName	rsp/models/travel.go	/^	OriginName      string         `json:"origin_name"`$/;"	m	struct:models.Trip	typeref:typename:string
 OuterRadiusAu	rsp/models/location.go	/^	OuterRadiusAu float32           `json:"outer_radius_au"`$/;"	m	struct:models.Belt	typeref:typename:float32
 OuterSystem	rsp/models/scan.go	/^	OuterSystem    struct {$/;"	m	struct:models.Scan	typeref:typename:struct { Kuiper *Destination `json:"kuiper"`; Oort *Destination `json:"oort"`; }
+OutwardNeighbours	rsp/models/device.go	/^	OutwardNeighbours int     `json:"outward_neighbours"`$/;"	m	struct:models.ProspectDetail	typeref:typename:int
+OutwardRatio	rsp/models/device.go	/^	OutwardRatio      float32 `json:"outward_ratio"`$/;"	m	struct:models.ProspectDetail	typeref:typename:float32
 OwnedDevices	rsp/models/replicant.go	/^type OwnedDevices struct {$/;"	s	package:models
 OwnerName	rsp/models/trades.go	/^	OwnerName          string   `json:"owner_name"`$/;"	m	struct:models.Shop	typeref:typename:string
 OwnerReplicant	rsp/models/device.go	/^	OwnerReplicant       *CodeAlias                   `json:"owner_replicant_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
@@ -601,6 +607,7 @@ Progress	rsp/models/events.go	/^	Progress         *EventProgress   `json:"progre
 ProgressPct	rsp/models/scan.go	/^	ProgressPct          float32   `json:"progress_pct"`$/;"	m	struct:models.Object	typeref:typename:float32
 ProgressPercent	rsp/models/device.go	/^	ProgressPercent      float32             `json:"progress_percent"`$/;"	m	struct:models.CommandResp	typeref:typename:float32
 ProgressPercent	rsp/models/device.go	/^	ProgressPercent  float32        `json:"progress_percent"`$/;"	m	struct:models.Repair	typeref:typename:float32
+ProgressPercent	rsp/models/device.go	/^	ProgressPercent float32         `json:"progress_percent"`$/;"	m	struct:models.Prospect	typeref:typename:float32
 ProgressPercent	rsp/models/device.go	/^	ProgressPercent float32        `json:"progress_percent"`$/;"	m	struct:models.DevicePrint	typeref:typename:float32
 ProgressPercent	rsp/models/device.go	/^	ProgressPercent float32        `json:"progress_percent"`$/;"	m	struct:models.DeviceScan	typeref:typename:float32
 ProgressPercent	rsp/models/device.go	/^	ProgressPercent float32       `json:"progress_percent"`$/;"	m	struct:models.Compact	typeref:typename:float32
@@ -609,8 +616,10 @@ ProgressPercent	rsp/models/travel.go	/^	ProgressPercent float32        `json:"pr
 ProgressTime	rsp/models/helpers.go	/^func ProgressTime(width int, start, end time.Time) string {$/;"	f	package:models	typeref:typename:string
 Project	rsp/models/replicant.go	/^	Project             string                       `json:"project"`$/;"	m	struct:models.Replicant	typeref:typename:string
 Pronouns	rsp/models/replicant.go	/^	Pronouns            string                       `json:"pronouns"`$/;"	m	struct:models.Replicant	typeref:typename:string
+Prospect	rsp/models/device.go	/^	Prospect             *Prospect                    `json:"prospect"`$/;"	m	struct:models.Device	typeref:typename:*Prospect
 Prospect	rsp/models/device.go	/^type Prospect struct {$/;"	s	package:models
 Prospect	rsp/rest/wrappers.go	/^func Prospect(id *models.CodeAlias, dir *models.Position) (*models.Prospect, error) {$/;"	f	package:rest	typeref:typename:(*models.Prospect, error)
+ProspectDetail	rsp/models/device.go	/^type ProspectDetail struct {$/;"	s	package:models
 Quantity	rsp/models/device.go	/^	Quantity     float32 `json:"quantity"`$/;"	m	struct:models.Inventory	typeref:typename:float32
 QuantityPer20pct	rsp/models/device.go	/^	QuantityPer20pct int    `json:"quantity_per_20pct"`$/;"	m	struct:models.UpkeepRequirement	typeref:typename:int
 Queue	rsp/models/blueprints.go	/^	Queue       []string `json:"queue"`$/;"	m	struct:models.Queued	typeref:typename:[]string
@@ -622,6 +631,7 @@ QueueSize	rsp/models/device.go	/^	QueueSize            int                      
 Queued	rsp/models/blueprints.go	/^type Queued struct {$/;"	s	package:models
 RadiusEarth	rsp/models/location.go	/^	RadiusEarth         float32      `json:"radius_earth"`$/;"	m	struct:models.Planet	typeref:typename:float32
 RangeLy	rsp/models/device.go	/^	RangeLy     float32        `json:"range_ly"`$/;"	m	struct:models.Network	typeref:typename:float32
+Ratio	rsp/models/device.go	/^	Ratio             float32 `json:"ratio"`$/;"	m	struct:models.ProspectDetail	typeref:typename:float32
 Read	rsp/models/account.go	/^	Read    bool      `json:"is_read"`$/;"	m	struct:models.Message	typeref:typename:bool
 Read	rsp/models/events.go	/^	Read   bool$/;"	m	struct:models.Notification	typeref:typename:bool
 ReadCfg	rsp/cfg/config.go	/^func ReadCfg() (*Config, error) {$/;"	f	package:cfg	typeref:typename:(*Config, error)
@@ -735,6 +745,7 @@ Started	rsp/models/device.go	/^	Started              *JSONTime           `json:"
 Started	rsp/models/device.go	/^	Started          *JSONTime      `json:"started_at"`$/;"	m	struct:models.Repair	typeref:typename:*JSONTime
 Started	rsp/models/device.go	/^	Started         *JSONTime      `json:"started_at"`$/;"	m	struct:models.DevicePrint	typeref:typename:*JSONTime
 Started	rsp/models/device.go	/^	Started         *JSONTime      `json:"started_at"`$/;"	m	struct:models.DeviceScan	typeref:typename:*JSONTime
+Started	rsp/models/device.go	/^	Started         JSONTime        `json:"started_at"`$/;"	m	struct:models.Prospect	typeref:typename:JSONTime
 Started	rsp/models/device.go	/^	Started         JSONTime      `json:"started_at"`$/;"	m	struct:models.Compact	typeref:typename:JSONTime
 Started	rsp/models/replicant.go	/^	Started          *JSONTime      `json:"started_at"`$/;"	m	struct:models.Teleport	typeref:typename:*JSONTime
 Stats	rsp/cache/db.go	/^func (db *Cache) Stats() string {$/;"	f	struct:cache.Cache	typeref:typename:string

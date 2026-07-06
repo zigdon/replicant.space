@@ -81,6 +81,16 @@ func getETA(d *models.Device) *ETA {
 			Note:   fmt.Sprintf("%.f%%", c.ProgressPercent),
 		}
 	}
+	if d.Prospect != nil {
+		p := d.Prospect
+		return &ETA{
+			Device: d,
+			Source: d.Location,
+			Start:  p.Started.Time(),
+			Ends:   p.Completes.Time(),
+			Note:   fmt.Sprintf("%.f%%", p.ProgressPercent),
+		}
+	}
 	if d.Scan != nil {
 		s := d.Scan
 		return &ETA{
