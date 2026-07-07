@@ -30,6 +30,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	star := locName[:strings.Index(locName, "-")]
 
 	// Define the desired fleet shape
 	missing := map[string]int{
@@ -103,7 +104,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		// Special case for relays - if there's one working in the system, we
 		// don't need another.
 		t := d.Type
-		if t == "ftl_relay" && d.Location == locName && missing[t] > 0 {
+		if t == "ftl_relay" && strings.HasPrefix(d.Location, star) && missing[t] > 0 {
 			log("Found a relay already in system: %q", d.Code.Alias())
 			missing[t] = 0
 			fleet[t] = append(fleet[t], d)
@@ -351,7 +352,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	// amc: gather_smallest
 	// asc: search belt
 	// mtd: patrol
-	star := locName[:strings.Index(locName, "-")]
 	s, err := rest.Location(star)
 
 	// Find the devices
