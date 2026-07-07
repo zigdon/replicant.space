@@ -49,6 +49,7 @@ var blueprintsCmd = &cobra.Command{
 			}
 			blues = append(blues, []string{
 				b.DeviceType,
+				db.AliasType(b.DeviceType),
 				wrap(list(b.Features), 20),
 				b.PrintTime.String(),
 				strings.Join(resources, "\n"),
@@ -61,7 +62,7 @@ var blueprintsCmd = &cobra.Command{
 			})
 		}
 		printTable(
-			[]string{"Type", "Features", "Print Time", "Resources", "Stats", "Description"}, blues,
+			[]string{"Type", "Alias", "Features", "Print Time", "Resources", "Stats", "Description"}, blues,
 		)
 		return nil
 	},

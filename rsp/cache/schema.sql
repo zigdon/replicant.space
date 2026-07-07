@@ -54,6 +54,11 @@ CREATE TABLE IF NOT EXISTS aliases (
   name TEXT UNIQUE
 );
 
+CREATE TABLE IF NOT EXISTS alias_types (
+  type TEXT PRIMARY KEY,
+  prefix TEXT UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS blueprints (
   type TEXT PRIMARY KEY,
   print_time REAL,
@@ -61,8 +66,7 @@ CREATE TABLE IF NOT EXISTS blueprints (
   cargo_capacity INTEGER,
   stow_capacity INTEGER,
   short TEXT,
-  description TEXT,
-  alias TEXT
+  description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS blueprint_resources(

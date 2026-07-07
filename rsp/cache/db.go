@@ -44,6 +44,7 @@ const (
 	BeltsTable             Tables = "belts"
 	BeltResTable           Tables = "belt_resources"
 	AliasTable             Tables = "aliases"
+	AliasTypesTable        Tables = "alias_types"
 	BlueprintsTable        Tables = "blueprints"
 	BlueprintResTable      Tables = "blueprint_resources"
 	BlueprintCmpTable      Tables = "blueprint_components"
@@ -69,8 +70,10 @@ var cols = map[Tables][]string{
 		"belt", "resource", "density"},
 	AliasTable: {
 		"designation", "type", "name"},
+	AliasTypesTable: {
+		"type", "prefix"},
 	BlueprintsTable: {
-		"type", "print_time", "attach_capacity", "cargo_capacity", "stow_capacity", "short", "description", "alias"},
+		"type", "print_time", "attach_capacity", "cargo_capacity", "stow_capacity", "short", "description"},
 	BlueprintResTable: {
 		"blueprint_type", "type", "qty"},
 	BlueprintCmpTable: {
@@ -125,7 +128,7 @@ func Connect(create bool) (*Cache, error) {
 	db := &Cache{sdb}
 
 	// Preload aliases
-	rows, err := db.DB.Query(`SELECT type, alias FROM blueprints`)
+	rows, err := db.DB.Query(`SELECT type, prefix FROM alias_types`)
 	if err != nil {
 		log("Couldn't preload aliases: %v", err)
 		return db, nil

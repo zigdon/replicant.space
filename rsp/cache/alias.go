@@ -52,7 +52,7 @@ func (db *Cache) HasAlias(designation string) string {
 	return ""
 }
 
-func AliasType(t string) string {
+func (db *Cache) AliasType(t string) string {
 	log("Getting prefix for %q", t)
 	prefix, ok := prefixes[t]
 	if !ok {
@@ -69,6 +69,12 @@ func AliasType(t string) string {
 			}
 		}
 		prefixes[t] = prefix
+		_, err := db.DB.Exec(
+			"INSERT INTO alias_types (type, prefix) VALUES (?,?)",
+			t, prefix)
+		if err != nil {
+			log("Error inserting new alias prefix %q:%q: %v", t, prefix)
+		}
 	}
 	return prefix
 }
@@ -98,7 +104,7 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 
 	// No alias found, figure out the prefix
 	// If we have one preset, use that
-	prefix := AliasType(deviceType)
+	prefix := db.AliasType(deviceType)
 
 	// Find how many of these prefixes we already have
 	row = db.DB.QueryRow("SELECT COUNT(*) FROM aliases WHERE type = ?", deviceType)
@@ -109,8 +115,9 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 
 	// Save the new prefix
 	alias = fmt.Sprintf("%s-%d", prefix, cnt+1)
-	log("Adding new alias %q -> %q", designation, alias)
-	if _, err := db.DB.Exec("INSERT INTO aliases (designation, type, name) VALUES (?, ?, ?)",
+	log("Adding new alias %q (%q) -> %q", designation, deviceType, alias)
+	if _, err := db.DB.Exec(
+		"INSERT INTO aliases (designation, type, name) VALUES (?, ?, ?)",
 		designation, deviceType, alias); err != nil {
 		return "", err
 	}

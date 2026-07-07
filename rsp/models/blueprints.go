@@ -21,21 +21,9 @@ type Blueprint struct {
 	ShortDescription string         `json:"short_description"`
 	StowCapacity     int            `json:"stow_capacity"`
 	Strength         float32        `json:"strength"`
-	Alias            string
 }
 
 func (b *Blueprint) Cache() error {
-	// See if there was already a defined alias for this blueprint.
-	if row := db.DB.QueryRow(`SELECT alias FROM blueprints WHERE type = ?`, b.DeviceType); row.Err() == nil {
-		row.Scan(&b.Alias)
-	}
-
-	if b.Alias == "" || b.Alias == b.DeviceType {
-		newAlias := cache.AliasType(b.DeviceType)
-		if newAlias != b.DeviceType {
-			b.Alias = newAlias
-		}
-	}
 	if err := db.Update(cache.BlueprintsTable, map[string]any{
 		"type":            b.DeviceType,
 		"print_time":      b.PrintTime.seconds,
@@ -44,7 +32,6 @@ func (b *Blueprint) Cache() error {
 		"stow_capacity":   b.StowCapacity,
 		"short":           b.ShortDescription,
 		"description":     b.Description,
-		"alias":           b.Alias,
 	}); err != nil {
 		return err
 	}
@@ -86,7 +73,7 @@ func (b *Blueprint) Get() error {
 	var pt float32
 	err = scan(
 		&b.DeviceType, &pt, &b.AttachCapacity, &b.CargoCapacity, &b.StowCapacity,
-		&b.ShortDescription, &b.Description, &b.Alias)
+		&b.ShortDescription, &b.Description)
 	if err != nil {
 		return err
 	}

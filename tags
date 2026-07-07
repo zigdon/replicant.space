@@ -95,11 +95,11 @@ AddTag	rsp/rest/wrappers.go	/^	AddTag  TagOp = "add_tags"$/;"	c	package:rest	typ
 AdoptedDevices	rsp/models/device.go	/^	AdoptedDevices       []*StowedDevice     `json:"adopted"`$/;"	m	struct:models.CommandResp	typeref:typename:[]*StowedDevice
 AgeMy	rsp/models/location.go	/^	AgeMy                 float32 `json:"age_my"`$/;"	m	struct:models.Star	typeref:typename:float32
 Alias	rsp/cache/alias.go	/^func (db *Cache) Alias(designation, deviceType string) (string, error) {$/;"	f	unknown:cache.Cache	typeref:typename:(string, error)
-Alias	rsp/models/blueprints.go	/^	Alias            string$/;"	m	struct:models.Blueprint	typeref:typename:string
 Alias	rsp/models/device.go	/^func (d *Device) Alias() {$/;"	f	struct:models.Device
 Alias	rsp/models/helpers.go	/^func (a *CodeAlias) Alias() string {$/;"	f	struct:models.CodeAlias	typeref:typename:string
 AliasTable	rsp/cache/db.go	/^	AliasTable             Tables = "aliases"$/;"	c	package:cache	typeref:type:Tables
-AliasType	rsp/cache/alias.go	/^func AliasType(t string) string {$/;"	f	package:cache	typeref:typename:string
+AliasType	rsp/cache/alias.go	/^func (db *Cache) AliasType(t string) string {$/;"	f	unknown:cache.Cache	typeref:typename:string
+AliasTypesTable	rsp/cache/db.go	/^	AliasTypesTable        Tables = "alias_types"$/;"	c	package:cache	typeref:type:Tables
 AmiDirective	rsp/models/device.go	/^	AmiDirective         *DeviceDirective             `json:"ami_directive"`$/;"	m	struct:models.Device	typeref:typename:*DeviceDirective
 AmiDirective	rsp/models/device.go	/^	AmiDirective         *DeviceDirective    `json:"ami_directive"`$/;"	m	struct:models.CommandResp	typeref:typename:*DeviceDirective
 AmiDirectiveStatus	rsp/models/device.go	/^	AmiDirectiveStatus   string                       `json:"ami_directive_status"`$/;"	m	struct:models.Device	typeref:typename:string
@@ -896,10 +896,10 @@ Y	rsp/models/location.go	/^	Y float32 `json:"y"`$/;"	m	struct:models.Position	ty
 Z	rsp/models/location.go	/^	Z float32 `json:"z"`$/;"	m	struct:models.Position	typeref:typename:float32
 accountCmd	rsp/cmd/root-me.go	/^var accountCmd = &cobra.Command{$/;"	v	package:cmd
 addTagCmd	rsp/cmd/device-tags.go	/^var addTagCmd = &cobra.Command{$/;"	v	package:cmd
-alias	rsp/cache/schema.sql	/^  alias TEXT$/;"	E	table:blueprints
 alias	rsp/cmd/root.go	/^func alias(in string) string {$/;"	f	package:cmd	typeref:typename:string
 alias	rsp/models/helpers.go	/^	alias string$/;"	m	struct:models.CodeAlias	typeref:typename:string
 aliasType	rsp/cmd/root.go	/^func aliasType(in string) (string, string) {$/;"	f	package:cmd	typeref:typename:(string, string)
+alias_types	rsp/cache/schema.sql	/^CREATE TABLE IF NOT EXISTS alias_types ($/;"	t
 aliases	rsp/cache/schema.sql	/^CREATE TABLE IF NOT EXISTS aliases ($/;"	t
 allShopCmd	rsp/cmd/replicant-shop.go	/^var allShopCmd = &cobra.Command{$/;"	v	package:cmd
 app	rsp/tui/root.go	/^var app *tview.Application$/;"	v	package:tui	typeref:typename:*tview.Application
@@ -1002,7 +1002,7 @@ deliveryCmd	rsp/cmd/device-directive.go	/^var deliveryCmd = &cobra.Command{$/;"	
 density	rsp/cache/schema.sql	/^  density TEXT,$/;"	E	table:belt_resources
 density	rsp/cache/schema.sql	/^  density TEXT,$/;"	E	table:belts
 desc	rsp/cmd/root.go	/^	desc     string$/;"	m	struct:cmd.flagDesc	typeref:typename:string
-description	rsp/cache/schema.sql	/^  description TEXT,$/;"	E	table:blueprints
+description	rsp/cache/schema.sql	/^  description TEXT$/;"	E	table:blueprints
 designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:aliases
 designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:belts
 designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:moons
@@ -1173,6 +1173,7 @@ plotTrip	rsp/cmd/root-plot.go	/^func plotTrip(cmd *cobra.Command, args []string)
 position_x	rsp/cache/schema.sql	/^  position_x REAL,$/;"	E	table:stars
 position_y	rsp/cache/schema.sql	/^  position_y REAL,$/;"	E	table:stars
 position_z	rsp/cache/schema.sql	/^  position_z REAL$/;"	E	table:stars
+prefix	rsp/cache/schema.sql	/^  prefix TEXT UNIQUE$/;"	E	table:alias_types
 prefixes	rsp/cache/alias.go	/^var prefixes = map[string]string{$/;"	v	package:cache
 prettyPrint	rsp/cmd/output.go	/^func prettyPrint(i any) {$/;"	f	package:cmd
 printCmd	rsp/cmd/replicant-print.go	/^var printCmd = &cobra.Command{$/;"	v	package:cmd
@@ -1250,6 +1251,7 @@ tui	rsp/tui/cache.go	/^package tui$/;"	p
 tui	rsp/tui/events.go	/^package tui$/;"	p
 tui	rsp/tui/root.go	/^package tui$/;"	p
 type	rsp/cache/schema.sql	/^  type INTEGER,$/;"	E	table:planets
+type	rsp/cache/schema.sql	/^  type TEXT PRIMARY KEY,$/;"	E	table:alias_types
 type	rsp/cache/schema.sql	/^  type TEXT PRIMARY KEY,$/;"	E	table:blueprints
 type	rsp/cache/schema.sql	/^  type TEXT,$/;"	E	table:aliases
 type	rsp/cache/schema.sql	/^  type TEXT,$/;"	E	table:blueprint_components

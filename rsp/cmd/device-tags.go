@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/spf13/cobra"
-	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -145,7 +144,7 @@ var listTagsCmd = &cobra.Command{
 		}
 		ts := []string{"Tag"}
 		for _, t := range types {
-			ts = append(ts, cache.AliasType(t))
+			ts = append(ts, db.AliasType(t))
 		}
 		printTable(ts, data)
 		return nil
