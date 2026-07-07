@@ -34,8 +34,6 @@ func (b *Blueprint) Cache() error {
 		newAlias := cache.AliasType(b.DeviceType)
 		if newAlias != b.DeviceType {
 			b.Alias = newAlias
-		} else {
-			return fmt.Errorf("No alias generated for %q\n", b.DeviceType)
 		}
 	}
 	if err := db.Update(cache.BlueprintsTable, map[string]any{

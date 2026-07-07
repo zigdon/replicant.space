@@ -44,6 +44,7 @@ func init() {
 	autoMineCmd.Flags().BoolP("dry_run", "n", false, "Only plan, don't actually queue prints")
 	autoMineCmd.Flags().String("fleet", "afc-1", "Fleet controller to use for transportation")
 	autoMineCmd.Flags().Bool("no_print", false, "Skip printing missing resources")
+	autoMineCmd.Flags().StringSlice("skip", []string{}, "Remove these devices from the plan")
 
 	autoCmd.AddCommand(autoFerryCmd)
 	autoFerryCmd.Flags().String("home", "MENKUNT-BELT-1", "Destination for ferrying")

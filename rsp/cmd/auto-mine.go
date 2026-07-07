@@ -40,6 +40,11 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		"belt_surveyor":         1,
 		"ftl_relay":             1,
 	}
+	skip, _ := cmd.Flags().GetStringSlice("skip")
+	for _, sk := range skip {
+		log("Skipping %q", sk)
+		delete(missing, sk)
+	}
 	type statLine struct {
 		found, idle, extra int
 	}

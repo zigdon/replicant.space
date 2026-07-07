@@ -44,6 +44,7 @@ type DevicePrintQueue struct {
 	Controller string            `json:"Controller"`
 	Type       string            `json:"device_type"`
 	Notify     map[string]string `json:"notify"`
+	Tags       []string          `json:"tags"`
 }
 
 type Inventory struct {

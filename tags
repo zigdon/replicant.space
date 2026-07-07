@@ -794,6 +794,7 @@ Tables	rsp/cache/db.go	/^type Tables string$/;"	t	package:cache	typeref:typename
 TagOp	rsp/rest/wrappers.go	/^type TagOp string$/;"	t	package:rest	typeref:typename:string
 TaggedDevices	rsp/models/device.go	/^type TaggedDevices struct {$/;"	s	package:models
 Tags	rsp/models/device.go	/^	Tags                 []string                     `json:"tags"`$/;"	m	struct:models.Device	typeref:typename:[]string
+Tags	rsp/models/device.go	/^	Tags       []string          `json:"tags"`$/;"	m	struct:models.DevicePrintQueue	typeref:typename:[]string
 Tags	rsp/models/location.go	/^	Tags                []string     `json:"tags"`$/;"	m	struct:models.Planet	typeref:typename:[]string
 Target	rsp/models/device.go	/^	Target          string         `json:"target"`$/;"	m	struct:models.DeviceScan	typeref:typename:string
 TargetDeviceCode	rsp/models/device.go	/^	TargetDeviceCode *CodeAlias     `json:"target_device_code"`$/;"	m	struct:models.Repair	typeref:typename:*CodeAlias
