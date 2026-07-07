@@ -159,28 +159,25 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	extra := make(map[string]time.Duration)
 	if noPrint, _ := cmd.Flags().GetBool("no_print"); !noPrint {
 		for devType, qty := range missing {
-			if qty <= 0 {
-				continue
-			}
-			factory, err := findPrinter(printers, extra)
-			if err != nil {
-				return fmt.Errorf("No available factory found to queue %s: %v", devType, err)
-			}
-			cfg := map[string]any{
-				"device_type": devType,
-				"tags":        []string{tag},
-			}
-			if t, ok := strings.CutSuffix(devType, "_drone"); ok {
-				if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
-					cfg["controller"] = c.String()
+			for qty > 0 {
+				factory, err := findPrinter(printers, extra)
+				if err != nil {
+					return fmt.Errorf("No available factory found to queue %s: %v", devType, err)
 				}
-			} else if devType == "belt_surveyor" {
-				if c, ok := amis["ami_survey_controller"]; ok {
-					cfg["controller"] = c.String()
+				cfg := map[string]any{
+					"device_type": devType,
+					"tags":        []string{tag},
 				}
-			}
-			log("Printing %d %q at %q...", qty, devType, factory.Alias())
-			for range qty {
+				if t, ok := strings.CutSuffix(devType, "_drone"); ok {
+					if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
+						cfg["controller"] = c.String()
+					}
+				} else if devType == "belt_surveyor" {
+					if c, ok := amis["ami_survey_controller"]; ok {
+						cfg["controller"] = c.String()
+					}
+				}
+				log("Printing %q at %q...", devType, factory.Alias())
 				res, err := rest.DeviceCommand(factory, "enqueue_print", cfg)
 				if err != nil {
 					return err
@@ -194,7 +191,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				data = append(data, []string{
 					factory.Alias(), devType, res.Status, d(res.QueueLength + 1),
 				})
+				qty -= 1
 			}
+
 		}
 	} else if len(missing) > 0 {
 		var skip []string
