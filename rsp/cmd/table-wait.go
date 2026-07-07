@@ -24,12 +24,11 @@ func init() {
 }
 
 type ETA struct {
-	Device         *models.Device
-	Source, Dest   string
-	Start          time.Time
-	Ends           time.Time
-	Leg, TotalLegs int
-	Note           string
+	Device       *models.Device
+	Source, Dest string
+	Start        time.Time
+	Ends         time.Time
+	Note         string
 }
 
 func (e *ETA) Short() string {
@@ -44,21 +43,12 @@ func getETA(d *models.Device) *ETA {
 	}
 	if d.Travel != nil {
 		t := d.Travel
-		var leg int
-		for i, l := range t.Route {
-			if l.Active {
-				leg = i
-				break
-			}
-		}
 		return &ETA{
-			Device:    d,
-			Source:    t.Origin,
-			Dest:      t.Destination,
-			Start:     t.Departed.Time(),
-			Ends:      t.Arrives.Time(),
-			Leg:       leg + 1,
-			TotalLegs: len(t.Route),
+			Device: d,
+			Source: t.Origin,
+			Dest:   t.Destination,
+			Start:  t.Departed.Time(),
+			Ends:   t.Arrives.Time(),
 		}
 	}
 	if d.Unfurl != nil {
@@ -174,7 +164,6 @@ func waitPending(cmd *cobra.Command, args []string) error {
 			NewCell(false, eta.Dest).SetStyle(s),
 			NewCell(false, dt(time.Until(eta.Start))).SetStyle(s),
 			NewCell(false, dt(time.Until(eta.Ends))).SetStyle(s),
-			NewCell(false, fmt.Sprintf("%d/%d", eta.Leg, eta.TotalLegs)).SetStyle(s),
 			NewCell(false, eta.Note).SetStyle(s),
 		}
 	}
@@ -208,7 +197,6 @@ func waitPending(cmd *cobra.Command, args []string) error {
 		"Destination",
 		"Started",
 		"Ends",
-		"Legs",
 		"Notes",
 	} {
 		table.SetCell(0, cn,
