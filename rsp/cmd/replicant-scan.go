@@ -80,6 +80,21 @@ var scanCmd = &cobra.Command{
 			}, planets)
 		}
 
+		var outer [][]string
+		if scan.OuterSystem.Oort != nil {
+			outer = append(outer,
+				[]string{scan.OuterSystem.Oort.Designation,
+					f(scan.OuterSystem.Oort.DistanceAu)})
+		}
+		if scan.OuterSystem.Kuiper != nil {
+			outer = append(outer,
+				[]string{scan.OuterSystem.Kuiper.Designation,
+					f(scan.OuterSystem.Kuiper.DistanceAu)})
+		}
+		if len(outer) > 0 {
+			printTable([]string{"Outer system", "Distance AU"}, outer)
+		}
+
 		if len(scan.ActiveLocationEvents) > 0 {
 			var events [][]string
 			for _, e := range scan.ActiveLocationEvents {
