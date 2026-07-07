@@ -95,6 +95,16 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	for _, d := range devs {
+		// Special case for relays - if there's one working in the system, we
+		// don't need another.
+		t := d.Type
+		if t == "ftl_relay" && d.Location == locName && missing[t] > 0 {
+			log("Found a relay already in system: %q", d.Code.Alias())
+			missing[t] = 0
+			fleet[t] = append(fleet[t], d)
+			continue
+		}
+
 		if slices.ContainsFunc(d.Tags, func(t string) bool {
 			return strings.HasPrefix(t, "mine-")
 		}) {
@@ -109,7 +119,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if d.ControllerDeviceCode != nil {
 			continue
 		}
-		t := d.Type
 		if m := missing[t]; m > 0 {
 			stats[t].idle += 1
 			missing[t] -= 1
