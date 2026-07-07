@@ -19,18 +19,9 @@ import (
 func autoRelay(cmd *cobra.Command, args []string) error {
 	locName, _ := cmd.Flags().GetString("location")
 	home, _ := cmd.Flags().GetString("home")
-	ds, err := rest.Devices(nil)
-	var devs []*models.Device
+	devs, err := getFTLRelays(locName)
 	if err != nil {
 		return err
-	}
-	for _, d := range ds {
-		if d.Type != "ftl_relay" {
-			continue
-		}
-		if strings.Contains(d.Location, locName) {
-			devs = append(devs, d)
-		}
 	}
 	if len(devs) == 0 {
 		return missingRelay(locName)
@@ -38,6 +29,10 @@ func autoRelay(cmd *cobra.Command, args []string) error {
 	var valid bool
 	var extras []string
 	for _, d := range devs {
+		if valid { // We already found a valid network
+			extras = append(extras, d.Code.Alias())
+			continue
+		}
 		net, err := rest.DeviceNetwork(d.Code)
 		if err != nil {
 			return err
@@ -49,7 +44,7 @@ func autoRelay(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if valid {
-			break
+			continue
 		}
 		extras = append(extras, d.Code.Alias())
 	}
@@ -71,4 +66,22 @@ func missingRelay(loc string) error {
 func returnExtraRelays(devs []*models.Device) error {
 	log("Return/recycle %d extra relays", len(devs))
 	return nil
+}
+
+func getFTLRelays(loc string) ([]*models.Device, error) {
+	ds, err := rest.Devices(nil)
+	var devs []*models.Device
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range ds {
+		if d.Type != "ftl_relay" {
+			continue
+		}
+		if strings.Contains(d.Location, loc) {
+			devs = append(devs, d)
+		}
+	}
+
+	return devs, nil
 }
