@@ -130,4 +130,5 @@ CREATE TABLE IF NOT EXISTS cached_journey_steps(
   dist_src float32,
   dist_dest float32,
   FOREIGN KEY(journey_id) REFERENCES cached_routes(id)
+  UNIQUE (journey_id, step) ON CONFLICT REPLACE
 );
