@@ -95,9 +95,11 @@ AddTag	rsp/rest/wrappers.go	/^	AddTag  TagOp = "add_tags"$/;"	c	package:rest	typ
 AdoptedDevices	rsp/models/device.go	/^	AdoptedDevices       []*StowedDevice     `json:"adopted"`$/;"	m	struct:models.CommandResp	typeref:typename:[]*StowedDevice
 AgeMy	rsp/models/location.go	/^	AgeMy                 float32 `json:"age_my"`$/;"	m	struct:models.Star	typeref:typename:float32
 Alias	rsp/cache/alias.go	/^func (db *Cache) Alias(designation, deviceType string) (string, error) {$/;"	f	unknown:cache.Cache	typeref:typename:(string, error)
+Alias	rsp/models/blueprints.go	/^	Alias            string$/;"	m	struct:models.Blueprint	typeref:typename:string
 Alias	rsp/models/device.go	/^func (d *Device) Alias() {$/;"	f	struct:models.Device
 Alias	rsp/models/helpers.go	/^func (a *CodeAlias) Alias() string {$/;"	f	struct:models.CodeAlias	typeref:typename:string
 AliasTable	rsp/cache/db.go	/^	AliasTable             Tables = "aliases"$/;"	c	package:cache	typeref:type:Tables
+AliasType	rsp/cache/alias.go	/^func AliasType(t string) string {$/;"	f	package:cache	typeref:typename:string
 AmiDirective	rsp/models/device.go	/^	AmiDirective         *DeviceDirective             `json:"ami_directive"`$/;"	m	struct:models.Device	typeref:typename:*DeviceDirective
 AmiDirective	rsp/models/device.go	/^	AmiDirective         *DeviceDirective    `json:"ami_directive"`$/;"	m	struct:models.CommandResp	typeref:typename:*DeviceDirective
 AmiDirectiveStatus	rsp/models/device.go	/^	AmiDirectiveStatus   string                       `json:"ami_directive_status"`$/;"	m	struct:models.Device	typeref:typename:string
@@ -441,7 +443,6 @@ JourneyLeg	rsp/models/travel.go	/^type JourneyLeg struct {$/;"	s	package:models
 JourneyStepsTable	rsp/cache/db.go	/^	JourneyStepsTable      Tables = "cached_journey_steps"$/;"	c	package:cache	typeref:type:Tables
 JourneyTable	rsp/cache/db.go	/^	JourneyTable           Tables = "cached_journey"$/;"	c	package:cache	typeref:type:Tables
 LastActive	rsp/models/scan.go	/^	LastActive *JSONTime `json:"last_active"`$/;"	m	struct:models.ScanReplicant	typeref:typename:*JSONTime
-Leg	rsp/cmd/table-wait.go	/^	Leg, TotalLegs int$/;"	m	struct:cmd.ETA	typeref:typename:int
 Leg	rsp/models/travel.go	/^	Leg        int            `json:"leg"`$/;"	m	struct:models.TripLeg	typeref:typename:int
 Legs	rsp/models/travel.go	/^	Legs           []*JourneyLeg$/;"	m	struct:models.Journey	typeref:typename:[]*JourneyLeg
 LifeDetected	rsp/models/scan.go	/^	LifeDetected   bool   `json:"life_detected"`$/;"	m	struct:models.Scan	typeref:typename:bool
@@ -822,7 +823,6 @@ Total	rsp/models/account.go	/^	Total         int    `json:"total"`$/;"	m	struct:
 Total	rsp/models/location.go	/^	Total             int       `json:"total"`$/;"	m	struct:models.Census	typeref:typename:int
 TotalDistanceLy	rsp/models/device.go	/^	TotalDistanceLy      float32             `json:"total_distance_ly"`$/;"	m	struct:models.CommandResp	typeref:typename:float32
 TotalDistanceLy	rsp/models/replicant.go	/^	TotalDistanceLy float32        `json:"total_distance_ly"`$/;"	m	struct:models.Travel	typeref:typename:float32
-TotalLegs	rsp/cmd/table-wait.go	/^	Leg, TotalLegs int$/;"	m	struct:cmd.ETA	typeref:typename:int
 TotalMessages	rsp/models/account.go	/^	TotalMessages int    `json:"total_messages"`$/;"	m	struct:models.Bobs	typeref:typename:int
 TotalPages	rsp/models/location.go	/^	TotalPages        int       `json:"total_pages"`$/;"	m	struct:models.Census	typeref:typename:int
 TotalStars	rsp/models/location.go	/^	TotalStars        int       `json:"total_stars"`$/;"	m	struct:models.Census	typeref:typename:int
@@ -895,6 +895,7 @@ Y	rsp/models/location.go	/^	Y float32 `json:"y"`$/;"	m	struct:models.Position	ty
 Z	rsp/models/location.go	/^	Z float32 `json:"z"`$/;"	m	struct:models.Position	typeref:typename:float32
 accountCmd	rsp/cmd/root-me.go	/^var accountCmd = &cobra.Command{$/;"	v	package:cmd
 addTagCmd	rsp/cmd/device-tags.go	/^var addTagCmd = &cobra.Command{$/;"	v	package:cmd
+alias	rsp/cache/schema.sql	/^  alias TEXT$/;"	E	table:blueprints
 alias	rsp/cmd/root.go	/^func alias(in string) string {$/;"	f	package:cmd	typeref:typename:string
 alias	rsp/models/helpers.go	/^	alias string$/;"	m	struct:models.CodeAlias	typeref:typename:string
 aliasType	rsp/cmd/root.go	/^func aliasType(in string) (string, string) {$/;"	f	package:cmd	typeref:typename:(string, string)
@@ -1000,7 +1001,7 @@ deliveryCmd	rsp/cmd/device-directive.go	/^var deliveryCmd = &cobra.Command{$/;"	
 density	rsp/cache/schema.sql	/^  density TEXT,$/;"	E	table:belt_resources
 density	rsp/cache/schema.sql	/^  density TEXT,$/;"	E	table:belts
 desc	rsp/cmd/root.go	/^	desc     string$/;"	m	struct:cmd.flagDesc	typeref:typename:string
-description	rsp/cache/schema.sql	/^  description TEXT$/;"	E	table:blueprints
+description	rsp/cache/schema.sql	/^  description TEXT,$/;"	E	table:blueprints
 designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:aliases
 designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:belts
 designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:moons
@@ -1052,7 +1053,9 @@ get	bin/r.sh	/^function get {$/;"	f
 getAll	rsp/tui/cache.go	/^func (c *cache) getAll(t string) []cachable {$/;"	f	struct:tui.cache	typeref:typename:[]cachable
 getDeviceTable	rsp/cmd/table.go	/^func getDeviceTable() (*tview.Table, error) {$/;"	f	package:cmd	typeref:typename:(*tview.Table, error)
 getETA	rsp/cmd/table-wait.go	/^func getETA(d *models.Device) *ETA {$/;"	f	package:cmd	typeref:typename:*ETA
+getFTLRelays	rsp/cmd/auto-relay.go	/^func getFTLRelays(loc string) ([]*models.Device, error) {$/;"	f	package:cmd	typeref:typename:([]*models.Device, error)
 getInfo	rsp/cmd/root-auto.go	/^func getInfo(d *models.CodeAlias) (*models.Device, error) {$/;"	f	package:cmd	typeref:typename:(*models.Device, error)
+getPosFromString	rsp/cmd/root-plot.go	/^func getPosFromString(dst string) (*models.Position, error) {$/;"	f	package:cmd	typeref:typename:(*models.Position, error)
 getRID	rsp/cmd/root-replicant.go	/^func getRID(cmd *cobra.Command) (*models.CodeAlias, error) {$/;"	f	package:cmd	typeref:typename:(*models.CodeAlias, error)
 has_life	rsp/cache/schema.sql	/^  has_life INTEGER not NULL,$/;"	E	table:stars
 humanize	rsp/cmd/output.go	/^func humanize(in string) string {$/;"	f	package:cmd	typeref:typename:string
@@ -1107,6 +1110,7 @@ lg	rsp/cmd/root-location.go	/^	lg "charm.land\/lipgloss\/v2"$/;"	P	package:charm
 life_stage	rsp/cache/schema.sql	/^  life_stage TEXT,$/;"	E	table:planets
 lines	rsp/cmd/output.go	/^func lines(s []string) string {$/;"	f	package:cmd	typeref:typename:string
 list	rsp/cmd/output.go	/^func list(s []string) string {$/;"	f	package:cmd	typeref:typename:string
+listTagsCmd	rsp/cmd/device-tags.go	/^var listTagsCmd = &cobra.Command{$/;"	v	package:cmd
 loadUnreadMsgs	rsp/cmd/root-msg.go	/^func loadUnreadMsgs() ([]*models.Message, error) {$/;"	f	package:cmd	typeref:typename:([]*models.Message, error)
 locationCmd	rsp/cmd/root-location.go	/^var locationCmd = &cobra.Command{$/;"	v	package:cmd
 log	rsp/cache/db.go	/^func log(tmpl string, args ...any) {$/;"	f	package:cache
@@ -1258,6 +1262,8 @@ updateSchemaCmd	rsp/cmd/cache.go	/^var updateSchemaCmd = &cobra.Command{$/;"	v	p
 v	rsp/cmd/output.go	/^func v(data any) string {$/;"	f	package:cmd	typeref:typename:string
 val	rsp/rest/api.go	/^	val any$/;"	m	struct:rest.cacheEntry	typeref:typename:any
 value	rsp/cmd/root.go	/^	value    any$/;"	m	struct:cmd.flagDesc	typeref:typename:any
+vectorStars	rsp/cmd/root-plot.go	/^func vectorStars(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
+vectorStarsCmd	rsp/cmd/root-plot.go	/^var vectorStarsCmd = &cobra.Command{$/;"	v	package:cmd
 waitCmd	rsp/cmd/table-wait.go	/^var waitCmd = &cobra.Command{$/;"	v	package:cmd
 waitPending	rsp/cmd/table-wait.go	/^func waitPending(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 wrap	rsp/cmd/output.go	/^func wrap(t string, w int) string {$/;"	f	package:cmd	typeref:typename:string

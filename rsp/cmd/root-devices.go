@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -232,13 +233,22 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 	for _, d := range devs {
 		loc := d.GetPosition()
 		status := d.Status
+		var eta string
 		if strings.Contains(status, "repairing (") {
 			target := status[strings.Index(status, "(")+1 : strings.Index(status, ")")]
 			status = fmt.Sprintf("repairing (%s)", alias(target))
-		}
-		var eta string
-		if d.Travel != nil {
+			eta = fmt.Sprintf("%.0f%% %s", d.Repair.ProgressPercent, d.Repair.Eta.String())
+		} else if d.Travel != nil {
 			eta = fmt.Sprintf("%.0f%% %s", d.Travel.ProgressPercent, d.Travel.Eta.String())
+		} else if d.Prospect != nil {
+			eta = fmt.Sprintf("%.0f%% %s",
+				d.Prospect.ProgressPercent, time.Until(d.Prospect.Completes.Time()).Truncate(time.Second))
+		} else if d.Scan != nil {
+			eta = fmt.Sprintf("%.0f%% %s",
+				d.Scan.ProgressPercent, d.Scan.Eta.Duration().Truncate(time.Second))
+		} else if d.Printing != nil {
+			eta = fmt.Sprintf("%.0f%% %s",
+				d.Printing.ProgressPercent, d.Printing.Eta.Duration().Truncate(time.Second))
 		}
 		line := []string{
 			d.Type,

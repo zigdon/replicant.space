@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -51,24 +52,35 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	start := time.Now()
-	resp, err := client.Do(&http.Request{
-		Method: method,
-		URL:    url,
-		Header: map[string][]string{
-			"Authorization": {"Bearer " + cfg.APIKey},
-			"Content-Type":  {"application/json"},
-		},
-		Body: io.NopCloser(bytes.NewReader(data)),
-	})
-	end := time.Now()
-	log("%s %q -> %d (%s):\n%s", method, url, resp.StatusCode, end.Sub(start).Round(10*time.Millisecond), string(data))
-	if err != nil {
-		log("err: %v", err)
-		return nil, err
-	}
-	if resp.StatusCode == 404 {
-		panic("404")
+	backoff := 50 * time.Millisecond
+	var resp *http.Response
+	for {
+		start := time.Now()
+		resp, err = client.Do(&http.Request{
+			Method: method,
+			URL:    url,
+			Header: map[string][]string{
+				"Authorization": {"Bearer " + cfg.APIKey},
+				"Content-Type":  {"application/json"},
+			},
+			Body: io.NopCloser(bytes.NewReader(data)),
+		})
+		end := time.Now()
+		log("%s %q -> %d (%s):\n%s", method, url, resp.StatusCode, end.Sub(start).Round(10*time.Millisecond), string(data))
+		if err != nil {
+			log("err: %v", err)
+			return nil, err
+		}
+		if resp.StatusCode == 404 {
+			panic("404")
+		}
+		if resp.StatusCode == 429 {
+			log("Too many requests, backing off for %s", backoff)
+			time.Sleep(backoff)
+			backoff = slices.Min([]time.Duration{backoff * 2, time.Minute})
+			continue
+		}
+		break
 	}
 
 	body, err := io.ReadAll(resp.Body)

@@ -165,6 +165,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
 					cfg["controller"] = c.String()
 				}
+			} else if devType == "belt_surveyor" {
+				if c, ok := amis["ami_survey_controller"]; ok {
+					cfg["controller"] = c.String()
+				}
 			}
 			log("Printing %d %q at %q...", qty, devType, factory.Alias())
 			for range qty {
