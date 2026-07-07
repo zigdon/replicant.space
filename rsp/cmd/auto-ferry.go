@@ -50,12 +50,23 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Skip locations that have autofactories (for now)
+	afs, err := rest.Devices(map[string]string{"device_type": "autofactory"})
+	if err != nil {
+		return err
+	}
+	skip := make(map[string]bool)
+	for _, af := range afs {
+		log("Found autofactory %q in %q", af.Code.Alias(), af.Location)
+		skip[af.Location] = true
+	}
+
 	var dests []string
 	var cnts sync.Map
 	home, _ := cmd.Flags().GetString("home")
 	var wg sync.WaitGroup
 	for l := range locs.Locations {
-		if l == home {
+		if l == home || skip[l] {
 			continue
 		}
 		wg.Go(func() {
