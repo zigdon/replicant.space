@@ -127,7 +127,8 @@ func Connect(create bool) (*Cache, error) {
 	// Preload aliases
 	rows, err := db.DB.Query(`SELECT type, alias FROM blueprints`)
 	if err != nil {
-		return db, fmt.Errorf("Couldn't preload aliases: %v", err)
+		log("Couldn't preload aliases: %v", err)
+		return db, nil
 	}
 	prefixes = make(map[string]string)
 	for rows.Next() {

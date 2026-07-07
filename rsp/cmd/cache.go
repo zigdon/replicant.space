@@ -98,27 +98,29 @@ func resetUniverse(cmd *cobra.Command, args []string) error {
 }
 
 func reloadStars(cmd *cobra.Command, args []string) error {
-	db, err := cache.Connect(false)
-	if err != nil {
-		return err
-	}
-
 	// Get the current list of stars.
 	seen := make(map[string]*models.Star)
-	oldStars, err := db.ListIDs(cache.StarsTable)
+	rows, err := db.DB.Query(`
+		SELECT designation, name, explored, position_x, position_y, position_z
+		FROM stars`)
 	if err != nil {
 		return err
 	}
-	log("%d stars loaded from the cache", len(oldStars))
-	for _, id := range cache.Strs(oldStars) {
-		s := &models.Star{Designation: id}
-		if err := s.Get(); err != nil {
+	old := 0
+	for rows.Next() {
+		old++
+		s := new(models.Star)
+		var x, y, z float32
+		err := rows.Scan(&s.Designation, &s.Name, &s.Explored, &x, &y, &z)
+		if err != nil {
 			return err
 		}
-		seen[id] = s
+		s.Position = models.NewPosition(x, y, z)
+		seen[s.Designation] = s
 	}
+	log("Loaded %d stars from cache", old)
 
-	// Get a replicant ID
+	// Get a replicant ID, doesn't matter which
 	id, err := rest.ReplicantID(1)
 	if err != nil {
 		return err
@@ -127,6 +129,29 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 	// Get page 1, and also how many pages there are
 	page := 0
 	var added, updated []*models.Star
+	updatedStar := func(a, b *models.Star) bool {
+		if a.Designation != b.Designation {
+			log("Comparing different stars %q and %q", a.Designation, b.Designation)
+			return true
+		}
+		if a.Name != b.Name {
+			log("%q: name updated: %q -> %q", a.Designation, a.Name, b.Name)
+			return true
+		}
+		if a.Explored != b.Explored {
+			log("%q: explore updated: %v -> %v", a.Designation, a.Explored, b.Explored)
+			return true
+		}
+		if a.EstimatedPlanets != b.EstimatedPlanets {
+			log("%q: est planets updated: %d -> %d", a.Designation, a.EstimatedPlanets, b.EstimatedPlanets)
+			return true
+		}
+		if a.HasLife != b.HasLife {
+			log("%q: has life updated: %v -> %v", a.Designation, a.HasLife, b.HasLife)
+			return true
+		}
+		return false
+	}
 	unchanged := 0
 	for {
 		census, err := rest.ReplicantCensus(id, 50, page)
@@ -135,7 +160,7 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 		}
 		for _, star := range census.Stars {
 			if old, ok := seen[star.Designation]; ok {
-				if old == star {
+				if !updatedStar(old, star) {
 					unchanged++
 					continue
 				}
@@ -154,7 +179,7 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 		if page > census.TotalPages {
 			break
 		}
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(150 * time.Millisecond)
 	}
 	log(
 		"Fetch done: %d total stars, %d added, %d updated, %d unchanged",
