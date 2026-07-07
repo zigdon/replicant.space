@@ -22,6 +22,7 @@ type flagDesc struct {
 	jsonKey  string
 	mapFlag  bool
 	intFlag  bool
+	valueFn  func(*models.CodeAlias, any) any
 }
 
 var db *cache.Cache
@@ -132,6 +133,7 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 		Short: short,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, _ := cmd.Flags().GetString("device")
+			ca := models.NewCodeAlias(id)
 			data := make(map[string]any)
 			var argsFlag flagDesc
 			var reps = 1
@@ -146,8 +148,14 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 				var val any
 				if f.slice {
 					val, _ = cmd.Flags().GetStringSlice(f.name)
+					if f.valueFn != nil {
+						val = f.valueFn(ca, val).([]string)
+					}
 				} else if f.intFlag {
 					val, _ = cmd.Flags().GetInt(f.name)
+					if f.valueFn != nil {
+						val = f.valueFn(ca, val).(int)
+					}
 				} else if f.mapFlag {
 					ms, _ := cmd.Flags().GetStringSlice(f.name)
 					if len(ms) == 0 {
@@ -159,8 +167,14 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 						dataMap[bits[0]] = bits[1]
 					}
 					val = dataMap
+					if f.valueFn != nil {
+						val = f.valueFn(ca, val).(map[string]string)
+					}
 				} else {
 					val, _ = cmd.Flags().GetString(f.name)
+					if f.valueFn != nil {
+						val = f.valueFn(ca, val).(string)
+					}
 				}
 				if f.name == "repeat" {
 					if val.(int) > 0 {
@@ -184,7 +198,7 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 			var repData [][]string
 			var repHeaders []string
 			for range reps {
-				resp, err := rest.DeviceCommand(models.NewCodeAlias(id), command, data)
+				resp, err := rest.DeviceCommand(ca, command, data)
 				if err != nil {
 					return fmt.Errorf("Error sending %q to %q: %v", command, id, err)
 				}
@@ -233,7 +247,7 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 				cmd.Flags().String(f.name, val, f.desc)
 			}
 		}
-		if f.required {
+		if f.required && f.valueFn == nil {
 			cmd.MarkFlagRequired(f.name)
 		}
 	}

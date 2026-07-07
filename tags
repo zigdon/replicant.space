@@ -1262,6 +1262,7 @@ updateSchemaCmd	rsp/cmd/cache.go	/^var updateSchemaCmd = &cobra.Command{$/;"	v	p
 v	rsp/cmd/output.go	/^func v(data any) string {$/;"	f	package:cmd	typeref:typename:string
 val	rsp/rest/api.go	/^	val any$/;"	m	struct:rest.cacheEntry	typeref:typename:any
 value	rsp/cmd/root.go	/^	value    any$/;"	m	struct:cmd.flagDesc	typeref:typename:any
+valueFn	rsp/cmd/root.go	/^	valueFn  func(*models.CodeAlias, any) any$/;"	m	struct:cmd.flagDesc	typeref:typename:func(*models.CodeAlias, any) any
 vectorStars	rsp/cmd/root-plot.go	/^func vectorStars(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 vectorStarsCmd	rsp/cmd/root-plot.go	/^var vectorStarsCmd = &cobra.Command{$/;"	v	package:cmd
 waitCmd	rsp/cmd/table-wait.go	/^var waitCmd = &cobra.Command{$/;"	v	package:cmd
