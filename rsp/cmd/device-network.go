@@ -28,14 +28,19 @@ var deviceNetworkCmd = &cobra.Command{
 		)
 		var nodes [][]string
 		for _, n := range res.Connections {
+			s := &models.Star{Designation: n.Star}
+			if err := s.Get(); err != nil {
+				log("Unknown star %q", n.Star)
+			}
 			nodes = append(nodes, []string{
 				n.Star, n.DeviceCode.Alias(), f(n.DistanceLy),
+				s.Position.String(),
 			})
 		}
 		slices.SortFunc(nodes, func(a, b []string) int {
 			return cmp.Compare(a[0], b[0])
 		})
-		printTable([]string{"Star", "Device", "Distance LY"}, nodes)
+		printTable([]string{"Star", "Device", "Distance LY", "Position"}, nodes)
 		return nil
 	},
 }
