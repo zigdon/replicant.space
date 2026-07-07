@@ -189,7 +189,7 @@ func msgTable(cmd *cobra.Command, args []string) error {
 	listWin := tview.NewTable().
 		SetSelectable(true, false)
 	msgWin := tview.NewTextView()
-	onlyUnread := false
+	onlyUnread := true
 	filterType := ""
 	var msgTypes []string
 
@@ -256,7 +256,7 @@ func msgTable(cmd *cobra.Command, args []string) error {
 		if len(desc) > 0 {
 			desc += " "
 		}
-		log("Showing %d %smessages (%d filtered)", line, desc, filterCnt)
+		log("Showing %d %smessages (%d filtered)", line-1, desc, filterCnt)
 	}
 	displayCell := func(row, col int) {
 		ref := listWin.GetCell(row, 0).GetReference()
@@ -347,7 +347,11 @@ func msgTable(cmd *cobra.Command, args []string) error {
 		case ev.Rune() == 'q':
 			app.Stop()
 		}
-		return ev
+		// Only allow keystroke handling if we actually have messages to view.
+		if listWin.GetRowCount() > 1 {
+			return ev
+		}
+		return nil
 	}
 	app.SetInputCapture(inputCapture)
 
