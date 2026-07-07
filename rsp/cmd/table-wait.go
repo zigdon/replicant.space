@@ -157,19 +157,20 @@ func waitPending(cmd *cobra.Command, args []string) error {
 			s = s.Bold(true)
 		}
 		return []*tview.TableCell{
-			NewCell(false, d.Code.Alias()).SetStyle(s),
-			NewCell(false, d.Type).SetStyle(s),
-			NewCell(false, d.Status).SetStyle(s),
-			NewCell(false, eta.Source).SetStyle(s),
-			NewCell(false, eta.Dest).SetStyle(s),
-			NewCell(false, dt(time.Until(eta.Start))).SetStyle(s),
-			NewCell(false, dt(time.Until(eta.Ends))).SetStyle(s),
-			NewCell(false, eta.Note).SetStyle(s),
+			NewCell(true, d.Code.Alias()).SetStyle(s),
+			NewCell(true, d.Type).SetStyle(s),
+			NewCell(true, d.Status).SetStyle(s),
+			NewCell(true, eta.Source).SetStyle(s),
+			NewCell(true, eta.Dest).SetStyle(s),
+			NewCell(true, dt(time.Until(eta.Start))).SetStyle(s),
+			NewCell(true, dt(time.Until(eta.Ends))).SetStyle(s),
+			NewCell(true, eta.Note).SetStyle(s),
 		}
 	}
 
 	table := tview.NewTable().
-		SetSeparator(tview.Borders.Vertical)
+		SetSeparator(tview.Borders.Vertical).
+		SetSelectable(true, false)
 	logWin := newLogWindow()
 	layout := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(table, 0, 1, true).
@@ -271,6 +272,14 @@ func waitPending(cmd *cobra.Command, args []string) error {
 			time.Sleep(time.Second)
 		}
 	}()
+	inputCapture := func(ev *tcell.EventKey) *tcell.EventKey {
+		switch {
+		case ev.Rune() == 'q':
+			app.Stop()
+		}
+		return ev
+	}
+	app.SetInputCapture(inputCapture)
 	return app.Run()
 }
 
