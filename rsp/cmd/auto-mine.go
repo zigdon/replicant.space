@@ -273,9 +273,22 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	// Figure out where we have devices that are not at our destination
 	var dest string
 	var needPicked []string
-	for _, ds := range fleet {
+	for ty, ds := range fleet {
+		if ty == "ftl_beacon" {
+			if len(ds) == 0 {
+				continue
+			}
+			d := ds[0]
+			dStar := locName[:strings.Index(d.Location, "-")]
+			if star != dStar {
+				needPicked = append(needPicked, d.Code.Alias())
+			}
+
+			continue
+		}
 		for _, d := range ds {
-			if d.Location == loc.Location {
+			dStar := locName[:strings.Index(d.Location, "-")]
+			if dStar == star {
 				continue
 			}
 			if dest != "" && d.Location != dest {

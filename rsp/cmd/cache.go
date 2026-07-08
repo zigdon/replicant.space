@@ -101,7 +101,7 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 	// Get the current list of stars.
 	seen := make(map[string]*models.Star)
 	rows, err := db.DB.Query(`
-		SELECT designation, name, explored, position_x, position_y, position_z
+		SELECT designation, name, explored, est_planets, has_life, position_x, position_y, position_z
 		FROM stars`)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 		old++
 		s := new(models.Star)
 		var x, y, z float32
-		err := rows.Scan(&s.Designation, &s.Name, &s.Explored, &x, &y, &z)
+		err := rows.Scan(&s.Designation, &s.Name, &s.Explored, &s.EstimatedPlanets, &s.HasLife, &x, &y, &z)
 		if err != nil {
 			return err
 		}

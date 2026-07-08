@@ -243,6 +243,12 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 		} else if d.Prospect != nil {
 			eta = fmt.Sprintf("%.0f%% %s",
 				d.Prospect.ProgressPercent, time.Until(d.Prospect.Completes.Time()).Truncate(time.Second))
+		} else if d.Compact != nil {
+			eta = fmt.Sprintf("%.0f%% %s",
+				d.Compact.ProgressPercent, time.Until(d.Compact.Completes.Time()).Truncate(time.Second))
+		} else if d.Unfurl != nil {
+			eta = fmt.Sprintf("%.0f%% %s",
+				d.Unfurl.ProgressPercent, time.Until(d.Unfurl.Completes.Time()).Truncate(time.Second))
 		} else if d.Scan != nil {
 			eta = fmt.Sprintf("%.0f%% %s",
 				d.Scan.ProgressPercent, d.Scan.Eta.Duration().Truncate(time.Second))
