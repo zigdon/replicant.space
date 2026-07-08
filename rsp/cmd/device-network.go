@@ -3,6 +3,7 @@ package cmd
 import (
 	"cmp"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -14,7 +15,8 @@ var deviceNetworkCmd = &cobra.Command{
 	Short: "Show devices networked together",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
-		res, err := rest.DeviceNetwork(models.NewCodeAlias(id))
+		ca := models.NewCodeAlias(id)
+		res, err := rest.DeviceNetwork(ca)
 		if err != nil {
 			return err
 		}
@@ -26,6 +28,21 @@ var deviceNetworkCmd = &cobra.Command{
 			[]string{"Status", "Range LY"},
 			[][]string{{res.Status, f(res.RangeLy)}},
 		)
+		ref, _ := cmd.Flags().GetString("reference")
+		var star *models.Star
+		if ref == "" {
+			di, err := getInfo(ca)
+			if err != nil {
+				return err
+			}
+			starName, _, _ := strings.Cut(di.Location, "-")
+			star = &models.Star{Designation: starName}
+		} else {
+			star = &models.Star{Designation: ref}
+		}
+		if err := star.Get(); err != nil {
+			return err
+		}
 		var nodes [][]string
 		for _, n := range res.Connections {
 			s := &models.Star{Designation: n.Star}
@@ -33,7 +50,7 @@ var deviceNetworkCmd = &cobra.Command{
 				log("Unknown star %q", n.Star)
 			}
 			nodes = append(nodes, []string{
-				n.Star, n.DeviceCode.Alias(), f(n.DistanceLy),
+				n.Star, n.DeviceCode.Alias(), f(s.Position.Distance(star.Position)),
 				s.Position.String(),
 			})
 		}
@@ -47,4 +64,5 @@ var deviceNetworkCmd = &cobra.Command{
 
 func init() {
 	deviceCmd.AddCommand(deviceNetworkCmd)
+	deviceNetworkCmd.Flags().StringP("reference", "r", "", "If set, show distances from this reference rather than the device")
 }

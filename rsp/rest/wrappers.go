@@ -453,7 +453,7 @@ func Location(id string) (*models.Location, error) {
 }
 
 func Blueprints() (*models.Blueprints, error) {
-	res, err := Get("blueprints")
+	res, err := cacheGET("", 30*time.Minute, "blueprints")
 	if err != nil {
 		return nil, err
 	}

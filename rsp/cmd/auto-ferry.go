@@ -50,8 +50,12 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Skip locations that have autofactories (for now)
+	// Skip locations that have autofactories and not system-hubs
 	afs, err := rest.Devices(map[string]string{"device_type": "autofactory"})
+	if err != nil {
+		return err
+	}
+	shs, err := rest.Devices(map[string]string{"device_type": "system_hub"})
 	if err != nil {
 		return err
 	}
@@ -59,6 +63,10 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 	for _, af := range afs {
 		log("Found autofactory %q in %q", af.Code.Alias(), af.Location)
 		skip[af.Location] = true
+	}
+	for _, sh := range shs {
+		log("Found system hub %q in %q", sh.Code.Alias(), sh.Location)
+		skip[sh.Location] = false
 	}
 
 	var dests []string

@@ -16,15 +16,21 @@ import (
 // If there's a returned time, it is saved on the device in ts:<seconds>
 
 type Machine interface {
-	UpdateState(*models.Device) error
+	Start(*models.Device) error
+	UpdateState() error
 	Process() (*time.Time, error)
 	GetState() (string, error)
 	SaveState(string) error
 }
 
+func Start[T Machine](d *models.Device) (*T, error) {
+	m := new(T)
+	return m, (*m).Start(d)
+}
+
 func getTags(dev *models.Device) map[string]string {
 	res := make(map[string]string)
-	tags  := dev.Tags
+	tags := dev.Tags
 	for _, t := range tags {
 		k, v, ok := strings.Cut(t, ":")
 		if !ok {
@@ -42,19 +48,24 @@ func getTags(dev *models.Device) map[string]string {
 // - Compacting: wait
 // - Compacted (state:teardown): attach to platform, find next system, ship to it
 //   - Nearest system to destination that doesn't have an obv (or one in transit)
+//
 // - Travelling: wait
 // - Compacted (state:setup): detach from platform, unfurl
 // - Unfurling: wait
 // - Idle (state:setup): Start prospecting
-type ProspectMachine struct{
-	dev *models.Device
+type ProspectMachine struct {
+	dev   *models.Device
 	state string
-	tag string
+	tag   string
 }
 
-func (pm *ProspectMachine) UpdateState(dev *models.Device) error {
-	pm.dev = dev
-	status := dev.Status
+func (pm *ProspectMachine) Start(d *models.Device) error {
+	pm.dev = d
+	return pm.UpdateState()
+}
+
+func (pm *ProspectMachine) UpdateState() error {
+	status := pm.dev.Status
 	if slices.Contains([]string{"compacting", "travelling", "unfurling", "prospecting"}, status) {
 		pm.state = status
 		pm.tag = ""
@@ -64,7 +75,7 @@ func (pm *ProspectMachine) UpdateState(dev *models.Device) error {
 		pm.tag = ""
 		return nil
 	}
-	tags := getTags(dev)
+	tags := getTags(pm.dev)
 	if s, ok := tags["state"]; ok {
 		pm.tag = s
 		return nil

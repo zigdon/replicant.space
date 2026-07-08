@@ -31,6 +31,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	star := locName[:strings.Index(locName, "-")]
+	log("Destination system: %s", star)
 
 	// Define the desired fleet shape
 	missing := map[string]int{
@@ -162,14 +163,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 	printTable([]string{"Device", "Target", "Found", "Repurposed", "Missing", "Extra", "Members"}, data)
 
-	if dr, _ := cmd.Flags().GetBool("dry_run"); dr {
-		return nil
-	}
+	dryRun, _ := cmd.Flags().GetBool("dry_run")
 
 	// Enqueue a build
 	data = [][]string{}
 	extra := make(map[string]time.Duration)
-	if noPrint, _ := cmd.Flags().GetBool("no_print"); !noPrint {
+	if noPrint, _ := cmd.Flags().GetBool("no_print"); !dryRun && !noPrint {
 		for devType, qty := range missing {
 			for qty > 0 {
 				factory, err := findPrinter(printers, extra)
@@ -228,141 +227,163 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	log("Fleet ready to ship")
-
-	// If there isn't an assigned afc, we're done
-	afcStr, _ := cmd.Flags().GetString("fleet")
-	if afcStr == "" {
-		log("No assigned AFC, fleet still needs to be transported")
-		return nil
-	}
-	afc := models.NewCodeAlias(afcStr)
-
-	// If the afc is at the destination, unattach all the things
-	afcInfo, err := getInfo(afc)
-	if err != nil {
-		return err
-	}
-	platforms := afcInfo.ControlledDevices
-	for _, p := range platforms {
-		info, err := getInfo(p.Code)
-		if err != nil {
-			return err
-		}
-		var devs []string
-		for _, d := range info.AttachedDevices {
-			devs = append(devs, d.Code.Alias())
-		}
-		if len(devs) == 0 {
-			continue
-		}
-		log("Detaching %v from %s", devs, info.Code.Alias())
-		_, err = rest.DeviceCommand(info.Code, "detach", map[string]any{"targets": devs})
-		if err != nil {
-			return err
-		}
-	}
-
-	// Use larger platforms before smaller ones
-	slices.SortFunc(platforms, func(a, b *models.ControlledDevice) int {
-		ca, _ := getInfo(a.Code)
-		cb, _ := getInfo(b.Code)
-		return cmp.Compare(cb.AttachCapacity, ca.AttachCapacity)
-	})
-
-	// Figure out where we have devices that are not at our destination
+	// Check if the fleet needs transport
 	var dest string
 	var needPicked []string
 	for ty, ds := range fleet {
-		if ty == "ftl_beacon" {
+		if ty == "ftl_relay" {
 			if len(ds) == 0 {
+				log("No FTL relays to transport")
 				continue
 			}
 			d := ds[0]
 			dStar := locName[:strings.Index(d.Location, "-")]
 			if star != dStar {
 				needPicked = append(needPicked, d.Code.Alias())
+				dest = d.Location
 			}
 
 			continue
 		}
 		for _, d := range ds {
-			dStar := locName[:strings.Index(d.Location, "-")]
+			dStar := d.Location[:strings.Index(d.Location, "-")]
 			if dStar == star {
+				log("%s is at destination star %q: %s", d.Code.Alias(), star, d.Location)
 				continue
 			}
 			if dest != "" && d.Location != dest {
+				log("%s is not at the pickup location %q: %s", d.Code.Alias(), dest, d.Location)
 				continue
 			}
 			if d.Status != "idle" && d.Status != "inactive" {
+				log("%s is not ready to pickup", d.Code.Alias())
 				continue
 			}
 			needPicked = append(needPicked, d.Code.Alias())
+			log("%s needs pickup at %q", d.Code.Alias(), d.Location)
 			if dest == "" {
 				dest = d.Location
 			}
 		}
 	}
-	if dest != "" {
-		log("Need to transport %v", needPicked)
 
-		i, err := getInfo(afc)
+	// If there isn't an assigned afc, we're done
+	afcStr, _ := cmd.Flags().GetString("fleet")
+	var afcInfo *models.Device
+	var afc *models.CodeAlias
+	if afcStr != "" {
+		afc = models.NewCodeAlias(afcStr)
+		afcInfo, err = getInfo(afc)
 		if err != nil {
 			return err
 		}
-		if i.Location != dest {
-			log("Sending %s to %s", afc.Alias(), dest)
-			res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": dest})
-			if err != nil {
-				if !strings.Contains(err.Error(), "Already at destination") {
+	}
+	if dest != "" {
+		if afcStr == "" {
+			log("No assigned AFC, will not ship ")
+			return nil
+		}
+		log("Need to transport %v", needPicked)
+
+		if !dryRun {
+			// Detach anything connected to the afc, if it isn't in motion
+			platforms := afcInfo.ControlledDevices
+			for _, p := range platforms {
+				info, err := getInfo(p.Code)
+				if err != nil {
 					return err
 				}
+				var devs []string
+				for _, d := range info.AttachedDevices {
+					devs = append(devs, d.Code.Alias())
+				}
+				if len(devs) == 0 {
+					continue
+				}
+				log("Detaching %v from %s", devs, info.Code.Alias())
+				_, err = rest.DeviceCommand(info.Code, "detach", map[string]any{"targets": devs})
+				if err != nil {
+					return err
+				}
+			}
+
+			// Use larger platforms before smaller ones
+			slices.SortFunc(platforms, func(a, b *models.ControlledDevice) int {
+				ca, _ := getInfo(a.Code)
+				cb, _ := getInfo(b.Code)
+				return cmp.Compare(cb.AttachCapacity, ca.AttachCapacity)
+			})
+
+			i, err := getInfo(afc)
+			if err != nil {
+				return err
+			}
+			if i.Location != dest {
+				log("Sending %s to %s", afc.Alias(), dest)
+				res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": dest})
+				if err != nil {
+					if !strings.Contains(err.Error(), "Already at destination") {
+						return err
+					}
+				}
+				log("Fleet in transit, eta %s", res.TotalTime.String())
+				return nil
+			}
+			var needAssemble bool
+			for _, d := range i.ControlledDevices {
+				di, err := getInfo(d.Code)
+				if err != nil {
+					return err
+				}
+				if di.Location != dest {
+					needAssemble = true
+					break
+				}
+			}
+			if needAssemble {
+				log("Aseembling fleet at %s", dest)
+				_, err = rest.DeviceCommand(afc, "assemble", nil)
+				return err
+			}
+
+			// Attach any devices that need to ship
+			for _, p := range platforms {
+				info, err := getInfo(p.Code)
+				if err != nil {
+					return err
+				}
+				cap := min(info.AttachCapacity-len(info.AttachedDevices), len(needPicked))
+				if cap > 0 {
+					log("Attaching %v to %s", needPicked[0:cap], p.Code.Alias())
+					_, err := rest.DeviceCommand(p.Code, "attach", map[string]any{
+						"targets": needPicked[0:cap],
+					})
+					if err != nil {
+						return err
+					}
+					needPicked = needPicked[cap:]
+				}
+			}
+
+			// Ship em
+			res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": locName})
+			if err != nil {
+				return err
 			}
 			log("Fleet in transit, eta %s", res.TotalTime.String())
 			return nil
 		}
-		var needAssemble bool
-		for _, d := range i.ControlledDevices {
-			di, err := getInfo(d.Code)
-			if err != nil {
-				return err
-			}
-			if di.Location != dest {
-				needAssemble = true
-				break
-			}
-		}
-		if needAssemble {
-			log("Aseembling fleet at %s", dest)
-			_, err = rest.DeviceCommand(afc, "assemble", nil)
-			return err
-		}
-
-		// Attach any devices that need to ship
-		for _, p := range platforms {
-			info, err := getInfo(p.Code)
-			if err != nil {
-				return err
-			}
-			cap := min(info.AttachCapacity-len(info.AttachedDevices), len(needPicked))
-			if cap > 0 {
-				log("Attaching %v to %s", needPicked[0:cap], p.Code.Alias())
-				_, err := rest.DeviceCommand(p.Code, "attach", map[string]any{
-					"targets": needPicked[0:cap],
-				})
-				if err != nil {
-					return err
-				}
-				needPicked = needPicked[cap:]
-			}
-		}
-
-		// Ship em
-		res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": locName})
+	} else if afcInfo.Location == locName && !dryRun {
+		// If the fleet is at the destination, send it home
+		home, _ := cmd.Flags().GetString("home")
+		res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": home})
 		if err != nil {
 			return err
 		}
-		log("Fleet in transit, eta %s", res.TotalTime.String())
+		log("Fleet returning to %q, eta %s", home, res.TotalTime.String())
+	}
+
+	if dryRun {
 		return nil
 	}
 
