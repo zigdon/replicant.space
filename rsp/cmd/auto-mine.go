@@ -86,6 +86,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			log("ami found: %s -> %s", t, d.Code.String())
 		}
 		if m := missing[t]; m <= 0 {
+			if t == "maintenance_drone" && missing["service_bot"] > 0 {
+				missing["service_bot"]--
+				stats["service_bot"].idle++
+				fleet["service_bot"] = append(fleet["service_bot"], d)
+				continue
+			}
 			stats[t].extra += 1
 			log("Found a spare tagged %s: %s", t, d.Code.String())
 			continue
