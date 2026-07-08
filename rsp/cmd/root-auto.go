@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -54,23 +55,19 @@ func init() {
 	autoRelayCmd.Flags().String("home", "MENKUNT", "Home system")
 }
 
-var infos = make(map[*models.CodeAlias]*models.Device)
+var infos sync.Map
 
 func getInfo(d *models.CodeAlias) (*models.Device, error) {
-	i, ok := infos[d]
+	i, ok := infos.Load(d)
 	if ok {
-		return i, nil
+		return i.(*models.Device), nil
 	}
 	i, err := rest.DeviceInfo(d)
 	if err != nil {
 		return nil, err
 	}
-	infos[d] = i
-	return i, nil
-}
-
-func clearInfo(d *models.CodeAlias) {
-	delete(infos, d)
+	infos.Store(d, i)
+	return i.(*models.Device), nil
 }
 
 func travel(id *models.CodeAlias, location string) error {
