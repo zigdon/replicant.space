@@ -278,6 +278,38 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
+	detachAll := func(afc *models.CodeAlias) error {
+		afcInfo, err := getInfo(afc)
+		if err != nil {
+			return err
+		}
+		platforms := afcInfo.ControlledDevices
+		for _, p := range platforms {
+			info, err := getInfo(p.Code)
+			if err != nil {
+				return err
+			}
+			if len(info.AttachedDevices) == 0 {
+				continue
+			}
+			if info.Status != "idle" {
+				return fmt.Errorf("%s not idle: %s", info.Code.Alias(), info.Status)
+			}
+			var devs []string
+			for _, d := range info.AttachedDevices {
+				devs = append(devs, d.Code.Alias())
+			}
+			if len(devs) == 0 {
+				continue
+			}
+			log("Detaching %v from %s", devs, info.Code.Alias())
+			_, err = rest.DeviceCommand(info.Code, "detach", map[string]any{"targets": devs})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	if dest != "" {
 		if afcStr == "" {
 			log("No assigned AFC, will not ship ")
@@ -287,27 +319,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 		if !dryRun {
 			// Detach anything connected to the afc, if it isn't in motion
-			platforms := afcInfo.ControlledDevices
-			for _, p := range platforms {
-				info, err := getInfo(p.Code)
-				if err != nil {
-					return err
-				}
-				var devs []string
-				for _, d := range info.AttachedDevices {
-					devs = append(devs, d.Code.Alias())
-				}
-				if len(devs) == 0 {
-					continue
-				}
-				log("Detaching %v from %s", devs, info.Code.Alias())
-				_, err = rest.DeviceCommand(info.Code, "detach", map[string]any{"targets": devs})
-				if err != nil {
-					return err
-				}
+			if err := detachAll(afc); err != nil {
+				return err
 			}
 
 			// Use larger platforms before smaller ones
+			platforms := afcInfo.ControlledDevices
 			slices.SortFunc(platforms, func(a, b *models.ControlledDevice) int {
 				ca, _ := getInfo(a.Code)
 				cb, _ := getInfo(b.Code)
@@ -373,16 +390,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			log("Fleet in transit, eta %s", res.TotalTime.String())
 			return nil
 		}
-	} else if afcInfo.Location == locName && !dryRun {
-		// If the fleet is at the destination, send it home
-		home, _ := cmd.Flags().GetString("home")
-		res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": home})
-		if err != nil {
-			return err
-		}
-		log("Fleet returning to %q, eta %s", home, res.TotalTime.String())
 	}
-
 	if dryRun {
 		return nil
 	}
@@ -415,6 +423,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Issue travel commands
 	var errs []error
+	if err := detachAll(afc); err != nil {
+		return err
+	}
 	fr := frs[0]
 	if fr.Location != s.EntryPoint {
 		if err = travel(fr.Code, s.EntryPoint); err != nil {
@@ -451,6 +462,17 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	if err := setDirective(sd.Code, "service", nil); err != nil {
 		errs = append(errs, err)
+	}
+
+	afcInfo, err = getInfo(afc)
+	if afcInfo.Location == locName && len(afcInfo.AttachedDevices) == 0 {
+		// If the fleet is at the destination, send it home
+		home, _ := cmd.Flags().GetString("home")
+		res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": home})
+		if err != nil {
+			return err
+		}
+		log("Fleet returning to %q, eta %s", home, res.TotalTime.String())
 	}
 
 	return errors.Join(errs...)
