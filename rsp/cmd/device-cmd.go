@@ -9,62 +9,62 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
-var mkDeviceCommand = func(name, short, command string, flags []flagDesc, output string) *cobra.Command {
-	return mkCommand(deviceCmd, name, short, command, flags, output)
+func mkDeviceCommand[T any](name, short, command string, flags []flagDesc, output string) *cobra.Command {
+	return mkCommand[T](deviceCmd, name, short, command, flags, output)
 }
 
 func init() {
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"activate", "Activate device (e.g. ftl relay)", "activate", nil, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"adopt", "Add devices to a controller's fleet", "adopt",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "List of devices to adopt",
 			required: true, slice: true, jsonKey: "devices",
 		}}, "device-adopt",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"attach", "Attach a device (passenger)", "attach",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "Device to attach",
 			required: true, jsonKey: "targets", slice: true,
 		}}, "device-attach",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"collect", "Pick up resources at the current location", "collect_resources",
 		[]flagDesc{{
 			name: "resources", short: 'r', required: true,
 			jsonKey: "resources", mapFlag: true,
 		}}, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"compact", "Prepare a modular device for transport", "compact", nil, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"configure", "Change device configuration", "configure",
 		[]flagDesc{{
 			name: "taxi_mode", short: 't', required: false, jsonKey: "mode",
 		}}, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"deactivate", "Deactivate device (e.g. ftl relay)", "deactivate", nil, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"deploy", "Deploy a device", "deploy", nil, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"deposit", "Drop resources at the current location", "deposit_resources",
 		[]flagDesc{{
 			name: "resources", short: 'r', required: false,
 			jsonKey: "resources", mapFlag: true,
 		}}, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"decommission", "Send to the nearest autofactory for deconsturction", "decommission",
 		nil, "device-decommission",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"detach", "Detach a device (passenger)", "detach",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "Device to detach",
@@ -87,7 +87,7 @@ func init() {
 			},
 		}}, "device-attach",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"mine", "Instruct a drone to start mining", "start_mining",
 		[]flagDesc{{
 			name: "resource", short: 'r', desc: "Resource to mine",
@@ -98,16 +98,16 @@ func init() {
 				desc: "Specific location to mine", jsonKey: "location",
 			}}, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"owner", "Change owner of a device", "change_owner",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "New owner code",
 		}}, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"clear_queue", "Clear print queue", "clear_queue", nil, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"print", "Queue a print job", "enqueue_print",
 		[]flagDesc{{
 			// args[0]
@@ -124,42 +124,42 @@ func init() {
 			desc: "Enqueue multiple copies",
 		}}, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"recall", "Instruct a device to come home and stow itself", "recall", nil, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"release", "Return devices back to direct control", "release",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "List of devices to release",
 			required: true, slice: true, jsonKey: "devices",
 		}}, "device-adopt",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"replicate", "Now there are two wubs", "replicate",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "Replicant to replicate", required: true,
 		}}, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"retarget", "Change what resource a drone mines", "retarget",
 		[]flagDesc{{
 			name: "resource", short: 'r', desc: "Resource to mine",
 			required: true, jsonKey: "resource_type",
 		}}, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"scan", "Initiate a scan of the current location", "scan", nil, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"search", "Initiate a search", "search", nil, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"stow", "Place a device in the hold of another device", "stow",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "Device to stow in",
 		}}, "device-stow",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"travel", "Instruct a device to relocate", "travel",
 		[]flagDesc{{
 			// args[0]
@@ -168,7 +168,7 @@ func init() {
 			name: "dry_run", boolFlag: true, jsonKey: "dry_run",
 		}}, "device-travel",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"unfurl", "Reassemble a modular device after transport", "unfurl", nil, "",
 	)
 
@@ -214,7 +214,9 @@ func init() {
 		} else {
 			cda, ok := data.(*models.CommandDetachAll)
 			if !ok {
-				return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp or CommandDetachAll", data)}}
+				return []string{"Type error"}, [][]string{{
+					fmt.Sprintf(
+						"Can't convert %v to CommandResp or CommandDetachAll", data)}}
 			}
 			rs = cda.Detached
 		}

@@ -125,7 +125,7 @@ var outputTable = map[string]func(data any) ([]string, [][]string){
 	},
 }
 
-var mkCommand = func(parent *cobra.Command, name, short, command string, flags []flagDesc, output string) *cobra.Command {
+func mkCommand[T any](parent *cobra.Command, name, short, command string, flags []flagDesc, output string) *cobra.Command {
 	if output == "" {
 		output = "default"
 	}
@@ -204,7 +204,7 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 			var repData [][]string
 			var repHeaders []string
 			for range reps {
-				resp, err := rest.DeviceCommand(ca, command, data)
+				resp, err := rest.DeviceCommand[T](ca, command, data)
 				if err != nil {
 					return fmt.Errorf("Error sending %q to %q: %v", command, id, err)
 				}

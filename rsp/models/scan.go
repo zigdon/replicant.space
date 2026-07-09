@@ -72,6 +72,17 @@ type Scan struct {
 	SystemTags    []string         `json:"system_tags"`
 }
 
+func (s *Scan) Fill() error {
+	for _, p := range s.Planets {
+		p.Star = s.Star.Designation
+	}
+	for _, b := range s.AsteroidBelt.Belts {
+		b.Star = s.Star.Designation
+	}
+
+	return nil
+}
+
 func (s *Scan) Cache() error {
 	s.Star.EntryPoint = s.EntryPoint
 	s.Star.EstimatedPlanets = len(s.Planets)

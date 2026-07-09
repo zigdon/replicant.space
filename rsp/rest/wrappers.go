@@ -271,7 +271,7 @@ func Devices(filters map[string]string) ([]*models.Device, error) {
 	return devs, nil
 }
 
-func DeviceCommand(id *models.CodeAlias, command string, args map[string]any) (*models.CommandResp, error) {
+func DeviceCommand[T any](id *models.CodeAlias, command string, args map[string]any) (*T, error) {
 	if command == "" || id == nil {
 		return nil, fmt.Errorf("id and command are required")
 	}
@@ -297,7 +297,7 @@ func DeviceCommand(id *models.CodeAlias, command string, args map[string]any) (*
 	if err != nil {
 		return nil, err
 	}
-	return models.Parse[models.CommandResp](resp)
+	return models.Parse[T](resp)
 }
 
 func DeviceLogs(id *models.CodeAlias, latest bool, page, limit int) (*models.DeviceLogs, error) {

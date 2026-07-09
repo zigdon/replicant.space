@@ -17,15 +17,15 @@ import (
 // If there's a returned time, it is saved on the device in ts:<seconds>
 
 type Machine interface {
-	Start(*models.Device) error
+	Start(*models.Device, bool) error
 	UpdateState() error
 	Process() (*time.Time, error)
 	SaveState(string) error
 }
 
-func Start[T Machine](d *models.Device) (*T, error) {
+func Start[T Machine](d *models.Device, dryRun bool) (*T, error) {
 	m := new(T)
-	return m, (*m).Start(d)
+	return m, (*m).Start(d, dryRun)
 }
 
 func getTags(dev *models.Device) map[string]string {
@@ -58,15 +58,17 @@ func log(tmpl string, args ...any) {
 // unfurling   | unfurling   | setup    | wait
 // starting    | idle        | setup    | prospect
 type ProspectMachine struct {
-	dev   *models.Device
-	state string
-	tag   string
-	dest  *models.Position
-	plat  *models.Device
-	db    *cache.Cache
+	dev    *models.Device
+	state  string
+	tag    string
+	dest   *models.Position
+	plat   *models.Device
+	db     *cache.Cache
+	dryRun bool
 }
 
-func (pm *ProspectMachine) Start(d *models.Device) error {
+func (pm *ProspectMachine) Start(d *models.Device, dryRun bool) error {
+	pm.dryRun = dryRun
 	pm.dev = d
 	dest := getTags(pm.dev)["prospect"]
 	if dest == "" {
@@ -88,16 +90,23 @@ func (pm *ProspectMachine) Start(d *models.Device) error {
 	return pm.UpdateState()
 }
 
+func (pm *ProspectMachine) deviceCmd(id *models.CodeAlias, cmd string, args map[string]any) (*models.CommandResp, error) {
+	if pm.dryRun {
+		log("Would issue [%q, %v] to %q", cmd, args, id.Alias())
+	}
+	return rest.DeviceCommand(id, cmd, args)
+}
+
 func (pm *ProspectMachine) goCmd(cmd string, args map[string]any) (*models.CommandResp, error) {
-	return rest.DeviceCommand(pm.dev.Code, cmd, args)
+	return pm.deviceCmd(pm.dev.Code, cmd, args)
 }
 
 func (pm *ProspectMachine) platform(cmd string, arg string) (*models.CommandResp, error) {
 	switch cmd {
 	case "travel":
-		return rest.DeviceCommand(pm.plat.Code, "travel", map[string]any{"destination": arg})
+		return pm.deviceCmd(pm.plat.Code, "travel", map[string]any{"destination": arg})
 	case "attach", "detach":
-		return rest.DeviceCommand(pm.plat.Code, cmd, map[string]any{"device": arg})
+		return pm.deviceCmd(pm.plat.Code, cmd, map[string]any{"device": arg})
 	}
 
 	return nil, fmt.Errorf("Unknown platform command %q", cmd)
@@ -223,6 +232,10 @@ func (pm *ProspectMachine) Process() (*time.Time, error) {
 
 func (pm *ProspectMachine) SaveState(state string) error {
 	if state == pm.tag {
+		return nil
+	}
+	if pm.dryRun {
+		log("Would update tags on %q: -%s +%s", pm.dev.Code.Alias(), pm.tag, state)
 		return nil
 	}
 	_, err := rest.UpdateTags(pm.dev.Code, rest.DelTag, []string{fmt.Sprintf("state:%s", pm.tag)})

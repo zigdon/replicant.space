@@ -77,7 +77,7 @@ func travel(id *models.CodeAlias, location string) error {
 		return fmt.Errorf("Can't get %s info: %v", id.Alias(), err)
 	}
 	if info.Location != location {
-		res, err := rest.DeviceCommand(id, "travel", map[string]any{
+		res, err := rest.DeviceCommand[models.CommandResp](id, "travel", map[string]any{
 			"destination": location,
 		})
 		if err != nil {
@@ -89,14 +89,14 @@ func travel(id *models.CodeAlias, location string) error {
 }
 
 func setDirective(id *models.CodeAlias, directive string, cfg map[string]any) error {
-	if _, err := rest.DeviceCommand(id, "set_directive", map[string]any{
+	if _, err := rest.DeviceCommand[models.CommandResp](id, "set_directive", map[string]any{
 		"directive":     directive,
 		"configuration": cfg,
 	}); err != nil {
 		return fmt.Errorf("Can't set %s directive: %v", id.Alias(), err)
 	}
 	if directive != "patrol" {
-		if _, err := rest.DeviceCommand(id, "launch", nil); err != nil {
+		if _, err := rest.DeviceCommand[models.CommandResp](id, "launch", nil); err != nil {
 			return fmt.Errorf("Can't launching %s: %v", id.Alias(), err)
 		}
 	}

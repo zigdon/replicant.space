@@ -46,7 +46,7 @@ var deliveryCmd = &cobra.Command{
 			},
 		}
 
-		res, err := rest.DeviceCommand(models.NewCodeAlias(id), "set_directive", cfg)
+		res, err := rest.DeviceCommand[models.CommandResp](models.NewCodeAlias(id), "set_directive", cfg)
 		if err != nil {
 			return fmt.Errorf("Can't set directive: %v", err)
 		}
@@ -87,7 +87,7 @@ var surveyCmd = &cobra.Command{
 			},
 		}
 
-		res, err := rest.DeviceCommand(models.NewCodeAlias(id), "set_directive", cfg)
+		res, err := rest.DeviceCommand[models.CommandResp](models.NewCodeAlias(id), "set_directive", cfg)
 		if err != nil {
 			return fmt.Errorf("Can't set directive: %v", err)
 		}
@@ -108,16 +108,16 @@ var surveyCmd = &cobra.Command{
 }
 
 func init() {
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"assemble", "Bring the fleet home to the controller's current location without ending the directive", "assemble", nil, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"clear_directive", "Drop the current directive entirely", "clear_directive", nil, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"launch", "Deploy the fleet and start executing the current directive", "launch", nil, "device-launch",
 	)
-	directiveCmd := mkDeviceCommand(
+	directiveCmd := mkDeviceCommand[models.CommandResp](
 		"directive", "Update the automation policy for a device", "set_directive",
 		[]flagDesc{
 			{
@@ -128,10 +128,10 @@ func init() {
 				jsonKey: "configuration", mapFlag: true,
 			}}, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"resume", "pick up a stopped directive from where it left off", "resume_directive", nil, "",
 	)
-	mkDeviceCommand(
+	mkDeviceCommand[models.CommandResp](
 		"withdraw", "Recall the fleet and pause execution", "withdraw", nil, "",
 	)
 

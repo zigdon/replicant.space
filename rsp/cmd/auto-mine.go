@@ -206,7 +206,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 					}
 				}
 				log("Printing %q at %q...", devType, factory.Alias())
-				res, err := rest.DeviceCommand(factory, "enqueue_print", cfg)
+				res, err := rest.DeviceCommand[models.CommandResp](factory, "enqueue_print", cfg)
 				if err != nil {
 					return err
 				}
@@ -320,7 +320,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			log("Detaching %v from %s", devs, info.Code.Alias())
-			_, err = rest.DeviceCommand(info.Code, "detach", map[string]any{"targets": devs})
+			_, err = rest.DeviceCommand[models.CommandResp](info.Code, "detach", map[string]any{"targets": devs})
 			if err != nil {
 				return err
 			}
@@ -354,7 +354,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 			if i.Location != dest {
 				log("Sending %s to %s", afc.Alias(), dest)
-				res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": dest})
+				res, err := rest.DeviceCommand[models.CommandResp](afc, "travel", map[string]any{"destination": dest})
 				if err != nil {
 					if !strings.Contains(err.Error(), "Already at destination") {
 						return err
@@ -376,7 +376,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 			if needAssemble {
 				log("Aseembling fleet at %s", dest)
-				_, err = rest.DeviceCommand(afc, "assemble", nil)
+				_, err = rest.DeviceCommand[models.CommandResp](afc, "assemble", nil)
 				return err
 			}
 
@@ -389,7 +389,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				cap := min(info.AttachCapacity-len(info.AttachedDevices), len(needPicked))
 				if cap > 0 {
 					log("Attaching %v to %s", needPicked[0:cap], p.Code.Alias())
-					_, err := rest.DeviceCommand(p.Code, "attach", map[string]any{
+					_, err := rest.DeviceCommand[models.CommandResp](p.Code, "attach", map[string]any{
 						"targets": needPicked[0:cap],
 					})
 					if err != nil {
@@ -400,7 +400,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 
 			// Ship em
-			res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": locName})
+			res, err := rest.DeviceCommand[models.CommandResp](afc, "travel", map[string]any{"destination": locName})
 			if err != nil {
 				return err
 			}
@@ -460,7 +460,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	if fr.Location == s.EntryPoint {
-		if _, err := rest.DeviceCommand(fr.Code, "activate", nil); err != nil {
+		if _, err := rest.DeviceCommand[models.CommandResp](fr.Code, "activate", nil); err != nil {
 			if !strings.Contains(err.Error(), "Relay is already active") {
 				errs = append(errs, fmt.Errorf("Error activating relay at %s: %v", s.EntryPoint, err))
 			}
@@ -485,7 +485,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if afcInfo.Location == locName && len(afcInfo.AttachedDevices) == 0 {
 		// If the fleet is at the destination, send it home
 		home, _ := cmd.Flags().GetString("home")
-		res, err := rest.DeviceCommand(afc, "travel", map[string]any{"destination": home})
+		res, err := rest.DeviceCommand[models.CommandResp](afc, "travel", map[string]any{"destination": home})
 		if err != nil {
 			return err
 		}

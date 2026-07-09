@@ -16,7 +16,7 @@ var deviceTravelCmd = &cobra.Command{
 			return fmt.Errorf("Destination is required for travel, pass as arg")
 		}
 		id, _ := cmd.Flags().GetString("device")
-		resp, err := rest.DeviceCommand(models.NewCodeAlias(id), "travel", map[string]any{
+		resp, err := rest.DeviceCommand[models.CommandResp](models.NewCodeAlias(id), "travel", map[string]any{
 			"destination": args[0],
 		})
 		if err != nil {
