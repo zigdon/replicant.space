@@ -942,6 +942,7 @@ blueprints	rsp/cache/schema.sql	/^CREATE TABLE IF NOT EXISTS blueprints ($/;"	t
 blueprintsCmd	rsp/cmd/root-blueprints.go	/^var blueprintsCmd = &cobra.Command{$/;"	v	package:cmd
 bobCmd	rsp/cmd/root-msg.go	/^var bobCmd = &cobra.Command{$/;"	v	package:cmd
 body	rsp/cache/schema.sql	/^  body TEXT,$/;"	E	table:messages
+boolFlag	rsp/cmd/root.go	/^	boolFlag bool$/;"	m	struct:cmd.flagDesc	typeref:typename:bool
 c	rsp/tui/cache.go	/^	c map[string]cachable$/;"	m	struct:tui.cache	typeref:typename:map[string]cachable
 c	rsp/tui/root.go	/^var c = newCache()$/;"	v	package:tui
 cachable	rsp/tui/cache.go	/^type cachable interface {$/;"	i	package:tui

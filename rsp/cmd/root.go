@@ -22,6 +22,7 @@ type flagDesc struct {
 	jsonKey  string
 	mapFlag  bool
 	intFlag  bool
+	boolFlag bool
 	valueFn  func(*models.CodeAlias, any) any
 }
 
@@ -170,6 +171,11 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 					if f.valueFn != nil {
 						val = f.valueFn(ca, val).(map[string]string)
 					}
+				} else if f.boolFlag {
+					val, _ = cmd.Flags().GetBool(f.name)
+					if f.valueFn != nil {
+						val = f.valueFn(ca, val).(bool)
+					}
 				} else {
 					val, _ = cmd.Flags().GetString(f.name)
 					if f.valueFn != nil {
@@ -238,6 +244,13 @@ var mkCommand = func(parent *cobra.Command, name, short, command string, flags [
 				cmd.Flags().IntP(f.name, string(f.short), val, f.desc)
 			} else {
 				cmd.Flags().Int(f.name, val, f.desc)
+			}
+		} else if f.boolFlag {
+			val, _ := f.value.(bool)
+			if f.short != 0 {
+				cmd.Flags().BoolP(f.name, string(f.short), val, f.desc)
+			} else {
+				cmd.Flags().Bool(f.name, val, f.desc)
 			}
 		} else {
 			val, _ := f.value.(string)

@@ -43,20 +43,33 @@ var deviceNetworkCmd = &cobra.Command{
 		if err := star.Get(); err != nil {
 			return err
 		}
-		var nodes [][]string
 		for _, n := range res.Connections {
 			s := &models.Star{Designation: n.Star}
 			if err := s.Get(); err != nil {
-				log("Unknown star %q", n.Star)
+				return err
 			}
+			n.DistanceLy = s.Position.Distance(star.Position)
+		}
+		if ref != "" {
+			slices.SortFunc(res.Connections, func(a, b *models.NetworkNode) int {
+				return cmp.Compare(a.DistanceLy, b.DistanceLy)
+			})
+		}
+
+		var nodes [][]string
+		for _, n := range res.Connections {
+			s := &models.Star{Designation: n.Star}
+			s.Get()
 			nodes = append(nodes, []string{
 				n.Star, n.DeviceCode.Alias(), f(s.Position.Distance(star.Position)),
 				s.Position.String(),
 			})
 		}
-		slices.SortFunc(nodes, func(a, b []string) int {
-			return cmp.Compare(a[0], b[0])
-		})
+		if ref == "" {
+			slices.SortFunc(nodes, func(a, b []string) int {
+				return cmp.Compare(a[0], b[0])
+			})
+		}
 		printTable([]string{"Star", "Device", "Distance LY", "Position"}, nodes)
 		return nil
 	},

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -82,7 +83,7 @@ func init() {
 				for _, p := range dev.AttachedDevices {
 					res = append(res, p.Code.Alias())
 				}
-				return res
+				return strings.Join(res, ",")
 			},
 		}}, "device-attach",
 	)
@@ -163,6 +164,8 @@ func init() {
 		[]flagDesc{{
 			// args[0]
 			required: true, jsonKey: "destination",
+		}, {
+			name: "dry_run", boolFlag: true, jsonKey: "dry_run",
 		}}, "device-travel",
 	)
 	mkDeviceCommand(
