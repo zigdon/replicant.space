@@ -229,7 +229,19 @@ func filterDevices(devs []*models.Device, withoutTags, withTags []string) ([]*mo
 
 func printDeviceList(devs []*models.Device, reference *models.Position) {
 	var data [][]string
+	mkKey := func(d *models.Device, eta string) string {
+		return strings.Join([]string{
+			d.Type,
+			d.ControllerDeviceCode.Alias(),
+			d.Location,
+			d.Status,
+			eta,
+			d.StowedInDeviceCode.Alias() + d.AttachedToDeviceCode.Alias(),
+			list(d.Tags),
+		}, "|")
+	}
 
+	dups := make(map[string][]*models.Device)
 	for _, d := range devs {
 		loc := d.GetPosition()
 		status := d.Status
@@ -256,6 +268,13 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 			eta = fmt.Sprintf("%.0f%% %s",
 				d.Printing.ProgressPercent, d.Printing.Eta.Duration().Truncate(time.Second))
 		}
+		key := mkKey(d, eta)
+		if _, ok := dups[key]; ok {
+			dups[key] = append(dups[key], d)
+			continue
+		} else {
+			dups[key] = []*models.Device{d}
+		}
 		line := []string{
 			d.Type,
 			d.Code.Alias(),
@@ -267,6 +286,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 			d.StowedInDeviceCode.Alias() + d.AttachedToDeviceCode.Alias(),
 			list(d.Tags),
 			d.OwnerReplicant.Alias(),
+			key,
 		}
 		if reference != nil {
 			if loc != nil {
@@ -276,6 +296,14 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 			}
 		}
 		data = append(data, line)
+	}
+	for _, l := range data {
+		dp := len(dups[l[10]])
+		if dp > 1 {
+			l[10] = d(dp)
+		} else {
+			l[10] = ""
+		}
 	}
 	slices.SortFunc(data, func(a, b []string) int {
 		return cmp.Or(
@@ -294,6 +322,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 		"With",
 		"Tags",
 		"Replicant",
+		"Duplicates",
 	}
 	if reference != nil {
 		headers = append(headers, "Distance")
