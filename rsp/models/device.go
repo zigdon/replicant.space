@@ -192,6 +192,13 @@ type ControllerStatus struct {
 	RecallResult          string `json:"recall_result"`
 }
 
+type CommandDetachAll struct {
+	CarrierCode *CodeAlias `json:"carrier_code"`
+	Count       int        `json:"count"`
+	Detached    []string   `json:"detached"`
+	Status      string     `json:"status"`
+}
+
 type CommandResp struct {
 	AdoptedDevices       []*StowedDevice     `json:"adopted"`
 	AmiDirective         *DeviceDirective    `json:"ami_directive"`

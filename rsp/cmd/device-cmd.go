@@ -200,20 +200,28 @@ func init() {
 		}}
 	}
 	outputTable["device-attach"] = func(data any) ([]string, [][]string) {
+		// The response is _either_ CommandResp (if we provided a list of
+		// targets) or CommandDetachAll when targets = null. I have Opinions.
 		resp, ok := data.(*models.CommandResp)
-		if !ok {
-			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
-		}
 		var as, rs []string
-		for _, d := range resp.Attached {
-			as = append(as, d.Code.Alias())
-		}
-		for _, d := range resp.Detached {
-			rs = append(rs, d.Code.Alias())
+		if ok {
+			for _, d := range resp.Attached {
+				as = append(as, d.Code.Alias())
+			}
+			for _, d := range resp.Detached {
+				rs = append(rs, d.Code.Alias())
+			}
+		} else {
+			cda, ok := data.(*models.CommandDetachAll)
+			if !ok {
+				return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp or CommandDetachAll", data)}}
+			}
+			rs = cda.Detached
 		}
 		return []string{"Controller", "Status", "Attached", "Detached"}, [][]string{{
 			resp.ControllerCode.Alias(), resp.Status, list(as), list(rs),
 		}}
+
 	}
 	outputTable["device-decommission"] = func(data any) ([]string, [][]string) {
 		resp, ok := data.(*models.CommandResp)

@@ -59,6 +59,23 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	locs := make(map[string]bool)
 	printerStrs, _ := cmd.Flags().GetStringSlice("factory")
 	var printers []*models.CodeAlias
+	if len(printerStrs) == 0 {
+		// Just get all the home factories
+		home, _ := cmd.Flags().GetString("home")
+		facts, err := rest.Devices(map[string]string{
+			"location":    home,
+			"device_type": "autofactory",
+		})
+		if err != nil {
+			return err
+		}
+		for _, f := range facts {
+			if f.Status == "compacted" {
+				continue
+			}
+			printerStrs = append(printerStrs, f.Code.Alias())
+		}
+	}
 	for _, f := range printerStrs {
 		dev, err := getInfo(models.NewCodeAlias(f))
 		if err != nil {
@@ -67,7 +84,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		locs[dev.Location] = true
 		printers = append(printers, dev.Code)
 	}
-	log("Printers found: %v", locs)
+	log("Printers found: %v", printers)
 
 	// Get the existing or idle fleet
 	fleet := make(map[string][]*models.Device)

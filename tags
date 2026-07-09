@@ -167,6 +167,7 @@ Cargo	rsp/models/replicant.go	/^	Cargo               []*Inventory               
 CargoCapacity	rsp/models/blueprints.go	/^	CargoCapacity    int            `json:"cargo_capacity"`$/;"	m	struct:models.Blueprint	typeref:typename:int
 CargoCapacity	rsp/models/device.go	/^	CargoCapacity        int                          `json:"cargo_capacity"`$/;"	m	struct:models.Device	typeref:typename:int
 CarrierCode	rsp/models/device.go	/^	CarrierCode          *CodeAlias          `json:"carrier_code"`$/;"	m	struct:models.CommandResp	typeref:typename:*CodeAlias
+CarrierCode	rsp/models/device.go	/^	CarrierCode *CodeAlias `json:"carrier_code"`$/;"	m	struct:models.CommandDetachAll	typeref:typename:*CodeAlias
 Category	rsp/models/events.go	/^	Category         string           `json:"category"`$/;"	m	struct:models.Event	typeref:typename:string
 Census	rsp/models/location.go	/^type Census struct {$/;"	s	package:models
 Channel	rsp/models/account.go	/^	Channel       string    `json:"channel"`$/;"	m	struct:models.Bob	typeref:typename:string
@@ -182,6 +183,7 @@ Code	rsp/models/scan.go	/^	Code string `json:"replicant_code"`$/;"	m	struct:mode
 Code	rsp/models/trades.go	/^	Code     string    `json:"trade_code"`$/;"	m	struct:models.Trade	typeref:typename:string
 CodeAlias	rsp/models/helpers.go	/^type CodeAlias struct {$/;"	s	package:models
 Color	rsp/models/location.go	/^	Color                 string  `json:"color"`$/;"	m	struct:models.Star	typeref:typename:string
+CommandDetachAll	rsp/models/device.go	/^type CommandDetachAll struct {$/;"	s	package:models
 CommandResp	rsp/models/device.go	/^type CommandResp struct {$/;"	s	package:models
 Compact	rsp/models/device.go	/^	Compact              *Compact                     `json:"compact"`$/;"	m	struct:models.Device	typeref:typename:*Compact
 Compact	rsp/models/device.go	/^type Compact struct {$/;"	s	package:models
@@ -209,6 +211,7 @@ ControllerCode	rsp/models/device.go	/^	ControllerCode       *CodeAlias          
 ControllerCode	rsp/models/trades.go	/^	ControllerCode     string   `json:"controller_code"`$/;"	m	struct:models.Shop	typeref:typename:string
 ControllerDeviceCode	rsp/models/device.go	/^	ControllerDeviceCode *CodeAlias                   `json:"controller_device_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
 ControllerStatus	rsp/models/device.go	/^type ControllerStatus struct {$/;"	s	package:models
+Count	rsp/models/device.go	/^	Count       int        `json:"count"`$/;"	m	struct:models.CommandDetachAll	typeref:typename:int
 Count	rsp/models/events.go	/^	Count      int    `json:"count"`$/;"	m	struct:models.EventDevice	typeref:typename:int
 Created	rsp/models/account.go	/^	Created               *JSONTime             `json:"created_at"`$/;"	m	struct:models.Account	typeref:typename:*JSONTime
 Created	rsp/models/account.go	/^	Created *JSONTime `json:"created_at"`$/;"	m	struct:models.Message	typeref:typename:*JSONTime
@@ -268,6 +271,7 @@ DestinationStar	rsp/models/replicant.go	/^	DestinationStar  string         `json
 DestinationType	rsp/models/device.go	/^	DestinationType      string              `json:"destination_type"`$/;"	m	struct:models.CommandResp	typeref:typename:string
 DestinationType	rsp/models/replicant.go	/^	DestinationType string         `json:"destination_type"`$/;"	m	struct:models.Travel	typeref:typename:string
 Detached	rsp/models/device.go	/^	Detached             []*StowedDevice     `json:"detached"`$/;"	m	struct:models.CommandResp	typeref:typename:[]*StowedDevice
+Detached	rsp/models/device.go	/^	Detached    []string   `json:"detached"`$/;"	m	struct:models.CommandDetachAll	typeref:typename:[]string
 Detail	rsp/models/device.go	/^	Detail          *ProspectDetail `json:"detail"`$/;"	m	struct:models.Prospect	typeref:typename:*ProspectDetail
 Details	rsp/models/replicant.go	/^func (r *Replicant) Details() []*tview.TreeNode {$/;"	f	struct:models.Replicant	typeref:typename:[]*tview.TreeNode
 Device	rsp/cmd/table-wait.go	/^	Device       *models.Device$/;"	m	struct:cmd.ETA	typeref:typename:*models.Device
@@ -765,6 +769,7 @@ Status	rsp/models/blueprints.go	/^	Status      string   `json:"status"`$/;"	m	st
 Status	rsp/models/device.go	/^	Status               string                       `json:"status"`$/;"	m	struct:models.Device	typeref:typename:string
 Status	rsp/models/device.go	/^	Status               string              `json:"status"`$/;"	m	struct:models.CommandResp	typeref:typename:string
 Status	rsp/models/device.go	/^	Status      string         `json:"status"`$/;"	m	struct:models.Network	typeref:typename:string
+Status	rsp/models/device.go	/^	Status      string     `json:"status"`$/;"	m	struct:models.CommandDetachAll	typeref:typename:string
 Status	rsp/models/device.go	/^	Status   string     `json:"status"`$/;"	m	struct:models.ControlledDevice	typeref:typename:string
 Status	rsp/models/events.go	/^	Status           string           `json:"status"`$/;"	m	struct:models.Event	typeref:typename:string
 Status	rsp/models/replicant.go	/^	Status              string                       `json:"status"`$/;"	m	struct:models.Replicant	typeref:typename:string
