@@ -181,11 +181,11 @@ func nearestStar(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	nearest, dist, err := FindNearestStar(pos)
+	nearest, dist, err := db.FindNearestStar(pos.X, pos.Y, pos.Z)
 	if err != nil {
 		return fmt.Errorf("Can't find nearest star: %v", err)
 	}
-	log("Nearest star: %s (%.2fly away)", nearest.Designation, dist)
+	log("Nearest star: %s (%.2fly away)", nearest, dist)
 	return nil
 }
 
@@ -220,12 +220,16 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		log("Plotting to arbitrary position %s", pos)
-		nearest, dist, err := FindNearestStar(pos)
+		nearest, dist, err := db.FindNearestStar(pos.X, pos.Y, pos.Z)
 		if err != nil {
 			return fmt.Errorf("Can't find nearest star: %v", err)
 		}
-		log("Nearest star: %s (%.2fly away)", nearest.Designation, dist)
-		dPos = nearest.Position
+		log("Nearest star: %s (%.2fly away)", nearest, dist)
+		nStar := &models.Star{Designation: nearest}
+		if err := nStar.Get(); err != nil {
+			return err
+		}
+		dPos = nStar.Position
 	} else {
 		starDst := &models.Star{Designation: dst}
 		if err := starDst.Get(); err != nil {
@@ -417,28 +421,4 @@ func TripStepCandidate(start string, src, dst *models.Position, radius float32) 
 	}
 
 	return res, errors.Join(errs...)
-}
-
-func FindNearestStar(pos *models.Position) (*models.Star, float32, error) {
-	row := db.DB.QueryRow(
-		`SELECT designation, position_x, position_y, position_z,
-		    sqrt(
-				power(position_x-?,2) +
-				power(position_y-?,2) +
-				power(position_z-?,2)) AS dist
-		FROM stars ORDER BY dist ASC LIMIT 1`,
-		pos.X, pos.Y, pos.Z,
-	)
-	if row.Err() != nil {
-		return nil, 0, row.Err()
-	}
-	var dsg string
-	var x, y, z, dist float32
-	err := row.Scan(
-		&dsg, &x, &y, &z, &dist,
-	)
-	return &models.Star{
-		Designation: dsg,
-		Position:    models.NewPosition(x, y, z),
-	}, dist, err
 }

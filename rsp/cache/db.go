@@ -273,3 +273,24 @@ func Ints(in []any) []int64 {
 	}
 	return res
 }
+
+func (db *Cache) FindNearestStar(x, y, z float32) (string, float32, error) {
+	row := db.DB.QueryRow(
+		`SELECT designation, position_x, position_y, position_z,
+		    sqrt(
+				power(position_x-?,2) +
+				power(position_y-?,2) +
+				power(position_z-?,2)) AS dist
+		FROM stars ORDER BY dist ASC LIMIT 1`,
+		x, y, z,
+	)
+	if row.Err() != nil {
+		return "", 0, row.Err()
+	}
+	var dsg string
+	var dist float32
+	err := row.Scan(
+		&dsg, &x, &y, &z, &dist,
+	)
+	return dsg, dist, err
+}
