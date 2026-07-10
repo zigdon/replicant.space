@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -40,7 +41,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		"service_bot":           1,
 		"mining_drone":          3,
 		"belt_surveyor":         1,
-		"ftl_relay":             1,
 	}
 	skip, _ := cmd.Flags().GetStringSlice("skip")
 	for _, sk := range skip {
@@ -185,8 +185,23 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry_run")
 
 	// Enqueue a build
-	data = [][]string{}
+	buildTimes := make(map[string]time.Duration)
+	for t := range missing {
+		row, err := db.GetVal(cache.BlueprintsTable, "print_time", t)
+		if err != nil {
+			return fmt.Errorf("Can't get cached blueprint for %q: %v", t, err)
+		}
+		var secs float32
+		row(&secs)
+		bt, err := time.ParseDuration(fmt.Sprintf("%.0fs", secs))
+		if err != nil {
+			return err
+		}
+		buildTimes[t] = bt
+	}
+
 	extra := make(map[string]time.Duration)
+	data = [][]string{}
 	if noPrint, _ := cmd.Flags().GetBool("no_print"); !dryRun && !noPrint {
 		for devType, qty := range missing {
 			for qty > 0 {
@@ -212,12 +227,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				if err != nil {
 					return err
 				}
-				bp := &models.Blueprint{DeviceType: devType}
-				if err := bp.Get(); err != nil {
-					log("Couldn't find blueprint for %q: %v", devType, err)
-				} else {
-					extra[factory.String()] += bp.PrintTime.Duration()
-				}
+				extra[factory.String()] += buildTimes[devType]
 				data = append(data, []string{
 					factory.Alias(), devType, res.Status, d(res.QueueLength + 1),
 				})

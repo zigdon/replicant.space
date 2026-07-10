@@ -175,6 +175,16 @@ func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
 	return row.Scan, nil
 }
 
+func (db *Cache) GetVal(table Tables, col, key string) (func(...any) error, error) {
+	log("SELECT %s FROM %s WHERE %s = ?", col, table, cols[table][0])
+	row := db.DB.QueryRow(
+		fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?", col, table, cols[table][0]), key)
+	if row.Err() != nil {
+		return nil, row.Err()
+	}
+	return row.Scan, nil
+}
+
 func (db *Cache) GetAll(table Tables, key string) (*sql.Rows, error) {
 	log("SELECT %s FROM %s WHERE %s = ?", strings.Join(cols[table], ", "), table, cols[table][0])
 	rows, err := db.DB.Query(
