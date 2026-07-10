@@ -19,11 +19,7 @@ type Machine interface {
 	UpdateState() error
 	Process() (*time.Time, error)
 	SaveState(string) error
-}
-
-func Start[T Machine](d *models.Device, dryRun bool) (*T, error) {
-	m := new(T)
-	return m, (*m).Start(d, dryRun)
+	Status() string
 }
 
 func getTags(dev *models.Device) map[string]string {

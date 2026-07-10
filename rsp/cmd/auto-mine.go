@@ -365,6 +365,11 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			if i.Location != dest {
+				if afcInfo.Travel != nil {
+					log("%s already in transit to %q, ETA %s",
+						afc.Alias(), afcInfo.Travel.Destination, afcInfo.Travel.Arrives.String())
+					return nil
+				}
 				log("Sending %s to %s", afc.Alias(), dest)
 				res, err := rest.DeviceCommand[models.CommandResp](afc, "travel", map[string]any{"destination": dest})
 				if err != nil {

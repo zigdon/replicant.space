@@ -21,9 +21,14 @@ func NewPosition(x, y, z float32) *Position {
 }
 
 func ParsePosition(coords string) (*Position, error) {
-	cs := strings.Split(coords, ",")
+	var cs []string
+	if strings.Contains(coords, ",") {
+		cs = strings.Split(coords, ",")
+	} else if strings.Contains(coords, ".") {
+		cs = strings.Split(coords, ".")
+	}
 	if len(cs) != 3 {
-		return nil, fmt.Errorf("Destination must be specified as x,y,z")
+		return nil, fmt.Errorf("Destination must be specified as x,y,z, got %q", coords)
 	}
 	x, err := strconv.Atoi(cs[0])
 	if err != nil {

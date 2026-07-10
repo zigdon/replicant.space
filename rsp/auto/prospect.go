@@ -2,6 +2,7 @@ package auto
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/zigdon/rsp/cache"
@@ -30,6 +31,29 @@ type ProspectMachine struct {
 	dryRun bool
 }
 
+func (pm *ProspectMachine) Status() string {
+	var res []string
+	res = append(res, fmt.Sprintf("Machine state: %s, tag: %s, dry_run: %v",
+		pm.state, pm.tag, pm.dryRun))
+	if pm.dest != nil {
+		res = append(res, fmt.Sprintf("  dest: %s", pm.dest.String()))
+	} else {
+		res = append(res, "  dest: nil")
+	}
+	if pm.plat != nil {
+		res = append(res, fmt.Sprintf("Platform %s: %s @ %s", pm.plat.Code.Alias(), pm.plat.Status, pm.plat.Location))
+	} else {
+		res = append(res, "  platform: nil")
+	}
+	if pm.dev != nil {
+		res = append(res, fmt.Sprintf("Device %s: %s @ %s", pm.dev.Code.Alias(), pm.dev.Status, pm.dev.Location))
+	} else {
+		res = append(res, "  device: nil")
+	}
+
+	return strings.Join(res, "\n")
+}
+
 func (pm *ProspectMachine) Start(d *models.Device, dryRun bool) error {
 	pm.dryRun = dryRun
 	pm.dev = d
@@ -56,6 +80,7 @@ func (pm *ProspectMachine) Start(d *models.Device, dryRun bool) error {
 func (pm *ProspectMachine) deviceCmd(id *models.CodeAlias, cmd string, args map[string]any) (*models.CommandResp, error) {
 	if pm.dryRun {
 		log("Would issue [%q, %v] to %q", cmd, args, id.Alias())
+		return &models.CommandResp{}, nil
 	}
 	return rest.DeviceCommand[models.CommandResp](id, cmd, args)
 }
@@ -122,7 +147,7 @@ func (pm *ProspectMachine) UpdateState() error {
 	return nil
 }
 
-func (pm *ProspectMachine) Process() (*time.Time, error) {
+func (pm *ProspectMachine) Process() (time.Time, error) {
 	var nextTag string
 	var eta time.Time
 	switch pm.state {
@@ -132,7 +157,7 @@ func (pm *ProspectMachine) Process() (*time.Time, error) {
 	case "finished":
 		res, err := pm.goCmd("compact", nil)
 		if err != nil {
-			return nil, err
+			return eta, err
 		}
 		eta = res.Completes.Time()
 		// TODO: Add new stars to the cache
@@ -140,37 +165,41 @@ func (pm *ProspectMachine) Process() (*time.Time, error) {
 		eta = pm.dev.Compact.Completes.Time()
 		res, err := pm.platform("travel", pm.dev.Location)
 		if err != nil {
-			return nil, err
+			return eta, err
 		}
 		if res.Arrives.Time().After(eta) {
 			eta = res.Arrives.Time()
 		}
 	case "leaving":
 		nextTag = "setup"
-		_, err := pm.platform("attach", pm.dev.Code.Alias())
-		if err != nil {
-			return nil, err
+		if pm.dev.AttachedToDeviceCode == nil {
+			_, err := pm.platform("attach", pm.dev.Code.Alias())
+			if err != nil {
+				return eta, err
+			}
 		}
 		next, err := pm.nextDest()
 		if err != nil {
-			return nil, err
+			return eta, err
 		}
 		res, err := pm.platform("travel", next)
 		if err != nil {
-			return nil, err
+			return eta, err
 		}
 		eta = res.Arrives.Time()
 	case "travelling":
 		nextTag = "setup"
 		eta = pm.dev.Travel.Arrives.Time()
 	case "setup":
-		_, err := pm.platform("detach", pm.dev.Code.Alias())
-		if err != nil {
-			return nil, err
+		if pm.dev.AttachedToDeviceCode != nil {
+			_, err := pm.platform("detach", pm.dev.Code.Alias())
+			if err != nil {
+				return eta, err
+			}
 		}
 		res, err := pm.goCmd("unfurl", nil)
 		if err != nil {
-			return nil, err
+			return eta, err
 		}
 		eta = res.Completes.Time()
 	case "unfurling":
@@ -180,17 +209,17 @@ func (pm *ProspectMachine) Process() (*time.Time, error) {
 		delta := pm.dest.Delta(pm.dev.GetPosition())
 		_, err := pm.goCmd("prospect", map[string]any{"direction": []float32{delta.X, delta.Y, delta.Z}})
 		if err != nil {
-			return nil, err
+			return eta, err
 		}
 		dev, err := rest.DeviceInfo(pm.dev.Code)
 		if err != nil {
-			return nil, err
+			return eta, err
 		}
 		eta = dev.Prospect.Completes.Time()
 	default:
-		return nil, fmt.Errorf("Unknown state: %q", pm.state)
+		return eta, fmt.Errorf("Unknown state: %q", pm.state)
 	}
-	return &eta, pm.SaveState(nextTag)
+	return eta, pm.SaveState(nextTag)
 }
 
 func (pm *ProspectMachine) SaveState(state string) error {
