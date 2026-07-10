@@ -40,6 +40,10 @@ func fillDuration(secs float32, dest *time.Duration) error {
 	return nil
 }
 
+func log(tmpl string, args ...any) {
+	fmt.Printf(time.Now().Format(time.Stamp)+" - "+tmpl+"\n", args...)
+}
+
 type Cachable interface {
 	Cache() error
 	Get() error

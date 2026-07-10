@@ -285,7 +285,7 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 		for _, s := range queue {
 			cnt++
 			if time.Since(ts) > time.Second {
-				log("... Examined %d stars, current best %v", cnt, best)
+				log("... Examined %d stars, %d in the queue, current best %v", cnt, len(queue), best)
 				ts = time.Now()
 			}
 

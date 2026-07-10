@@ -93,38 +93,31 @@ type Journey struct {
 }
 
 func (j *Journey) ClearCache() error {
-	// Delete any cached journeys we have for this src/dst/hop
-	rows, err := db.DB.Query(`
-		SELECT id FROM cached_journey
-		WHERE start = ? AND end = ? AND max_hop = ?
-	`, j.Source, j.Dest, j.MaxHop)
-	if err != nil {
-		return fmt.Errorf("Can't find old journeys: %v", err)
+	if _, err := db.DB.Exec("DELETE FROM cached_journey_steps WHERE journey_id = ?", j.ID); err != nil {
+		return fmt.Errorf("Can't delete old steps: %v", err)
 	}
-	var ids []int
-	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err != nil {
-			return fmt.Errorf("Can't find old journeys: %v", err)
-		}
-		ids = append(ids, id)
-	}
-
-	for _, id := range ids {
-		if _, err := db.DB.Exec("DELETE FROM cached_journey_steps WHERE journey_id = ?", id); err != nil {
-			return fmt.Errorf("Can't delete old steps: %v", err)
-		}
-		if _, err := db.DB.Exec("DELETE FROM cached_journey WHERE id = ?", id); err != nil {
-			return fmt.Errorf("Can't delete old journey: %v", err)
-		}
+	if _, err := db.DB.Exec("DELETE FROM cached_journey WHERE id = ?", j.ID); err != nil {
+		return fmt.Errorf("Can't delete old journey: %v", err)
 	}
 	return nil
 }
 
 func (j *Journey) Cache() error {
-	// If we don't already have an ID see if we have a cached one.
-	if j.ID == 0 && j.Source != "" && j.Dest != "" {
-		j.Get()
+	// See if we already have an id for this journey
+	row := db.DB.QueryRow(`SELECT id FROM cached_journey WHERE start = ? AND end = ?`, j.Source, j.Dest)
+	if row.Err() == nil {
+		if err := row.Scan(&j.ID); err == nil {
+			log("Loaded existing ID: %d", j.ID)
+		} else {
+			// Find the next ID
+			row := db.DB.QueryRow(`SELECT max(id)+1 from cached_journey`)
+			if row.Err() != nil {
+				return row.Err()
+			}
+			if err := row.Scan(&j.ID); err == nil {
+				log("Setting new ID: %d", j.ID)
+			}
+		}
 	}
 
 	if j.Calculated.IsZero() {
