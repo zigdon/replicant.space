@@ -56,11 +56,11 @@ var infoCmd = &cobra.Command{
 			grace = d(dev.GracePeriodRemaining)
 		}
 		printTable([]string{
-			"Created", "Deployed", "Grace", "Repairs", "System Active",
+			"Created", "Deployed", "Grace", "Repairs", "System Active", "Stowed In",
 			"Upkeep Requirements", "Taxi Mode", "Commands", "Tags", "Features"},
 			[][]string{{
 				t(dev.Created.Time()), t(dev.Deployed.Time()), grace,
-				p(dev.RepairPaidPct), v(dev.SystemStatus), lines(upkeep),
+				p(dev.RepairPaidPct), v(dev.SystemStatus), dev.StowedInDeviceCode.Alias(), lines(upkeep),
 				dev.TaxiMode, lines(dev.AvailableCommands), lines(dev.Tags), lines(dev.Features)}})
 		if len(dev.AvailableDirectives) > 0 {
 			var cfg map[string]any

@@ -66,10 +66,11 @@ var deviceListCmd = &cobra.Command{
 		ignore, _ := cmd.Flags().GetBool("ignore_tags")
 		only, _ := cmd.Flags().GetStringSlice("only_tags")
 		filterTags, _ := cmd.Flags().GetStringSlice("filter_tags")
+		merge, _ := cmd.Flags().GetBool("merge")
 		if !ignore {
 			devs, skipped = filterDevices(devs, filterTags, only)
 		}
-		printDeviceList(devs, origin)
+		printDeviceList(devs, origin, merge)
 		var stats []string
 		for k, v := range skipped {
 			if v == 0 {
@@ -172,6 +173,7 @@ func init() {
 	deviceListCmd.Flags().StringSliceP("filter_tags", "f", []string{"infrastructure", "mine", "matrix"}, "Filter results with these tags")
 	deviceListCmd.Flags().StringSliceP("only_tags", "t", []string{}, "Show only results with these tags")
 	deviceListCmd.Flags().StringP("distance", "d", "", "Show distance from this object's star")
+	deviceListCmd.Flags().Bool("merge", true, "If set, group duplicate devices")
 
 	rootCmd.AddCommand(networkCmd)
 }
@@ -240,7 +242,7 @@ func filterDevices(devs []*models.Device, withoutTags, withTags []string) ([]*mo
 	return ret, skipped
 }
 
-func printDeviceList(devs []*models.Device, reference *models.Position) {
+func printDeviceList(devs []*models.Device, reference *models.Position, merge bool) {
 	var data [][]string
 	mkKey := func(d *models.Device, eta string) string {
 		return strings.Join([]string{
@@ -282,7 +284,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position) {
 				d.Printing.ProgressPercent, d.Printing.Eta.Duration().Truncate(time.Second))
 		}
 		key := mkKey(d, eta)
-		if _, ok := dups[key]; ok {
+		if _, ok := dups[key]; merge && ok {
 			dups[key] = append(dups[key], d)
 			continue
 		} else {

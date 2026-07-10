@@ -8,7 +8,6 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
-// printCmd represents the print command
 var printCmd = &cobra.Command{
 	Use:   "print",
 	Short: "Manage print jobs",

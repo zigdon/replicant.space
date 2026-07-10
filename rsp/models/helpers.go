@@ -212,6 +212,13 @@ func (a *CodeAlias) Num() int {
 	return n
 }
 
+func (a *CodeAlias) MarshalJSON() ([]byte, error) {
+	if a == nil {
+		return []byte{}, nil
+	}
+	return json.Marshal(fmt.Sprintf("%s (%s)", a.alias, a.orig))
+}
+
 func (a *CodeAlias) UnmarshalJSON(data []byte) error {
 	var code string
 	if err := json.Unmarshal(data, &code); err != nil {

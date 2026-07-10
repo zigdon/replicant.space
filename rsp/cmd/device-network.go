@@ -52,7 +52,7 @@ var deviceNetworkCmd = &cobra.Command{
 		}
 		if ref != "" {
 			slices.SortFunc(res.Connections, func(a, b *models.NetworkNode) int {
-				return cmp.Compare(a.DistanceLy, b.DistanceLy)
+				return cmp.Compare(b.DistanceLy, a.DistanceLy)
 			})
 		}
 

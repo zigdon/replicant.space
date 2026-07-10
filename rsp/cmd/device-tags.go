@@ -40,6 +40,7 @@ var addTagCmd = &cobra.Command{
 
 var delTagCmd = &cobra.Command{
 	Use:   "del",
+	Aliases: []string{"remove"},
 	Short: "Remove a tag from a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
