@@ -46,6 +46,32 @@ var travelCmd = &cobra.Command{
 	},
 }
 
+var stopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "Stop whatever you're doing",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		rID, err := getRID(cmd)
+		if err != nil {
+			return fmt.Errorf("Replicant not found: %v", err)
+		}
+		rep, err := rest.Replicant(rID)
+		if err != nil {
+			return err
+		}
+		v := rep.HostedDeviceCode
+		if v == nil {
+			return fmt.Errorf("Can't find vessel for %s", rep.Code.Alias())
+		}
+		res, err := rest.DeviceCommand[models.CommandResp](v, "deactivate", nil)
+		if err != nil {
+			return err
+		}
+		prettyPrint(res)
+
+		return nil
+	},
+}
+
 var teleportCmd = &cobra.Command{
 	Use:   "teleport",
 	Short: "Teleport to an empty matrix",
@@ -71,6 +97,7 @@ var teleportCmd = &cobra.Command{
 
 func init() {
 	replicantCmd.AddCommand(travelCmd)
+	replicantCmd.AddCommand(stopCmd)
 
 	replicantCmd.AddCommand(teleportCmd)
 	teleportCmd.Flags().StringP("target", "t", "", "Matrix id to teleport to")

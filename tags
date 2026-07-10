@@ -1246,6 +1246,7 @@ start	rsp/cache/schema.sql	/^  start TEXT NOT NULL,$/;"	E	table:cached_journey
 state	rsp/auto/prospect.go	/^	state  string$/;"	m	struct:auto.ProspectMachine	typeref:typename:string
 statsCmd	rsp/cmd/cache.go	/^var statsCmd = &cobra.Command{$/;"	v	package:cmd
 step	rsp/cache/schema.sql	/^  step INTEGER,$/;"	E	table:cached_journey_steps
+stopCmd	rsp/cmd/replicant-travel.go	/^var stopCmd = &cobra.Command{$/;"	v	package:cmd
 stow_capacity	rsp/cache/schema.sql	/^  stow_capacity INTEGER,$/;"	E	table:blueprints
 surveyCmd	rsp/cmd/device-directive.go	/^var surveyCmd = &cobra.Command{$/;"	v	package:cmd
 t	rsp/cmd/output.go	/^func t(ts time.Time) string {$/;"	f	package:cmd	typeref:typename:string
