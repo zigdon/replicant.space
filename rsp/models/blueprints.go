@@ -132,15 +132,69 @@ func (bs *Blueprints) Get() error {
 	if db == nil {
 		return fmt.Errorf("Not connected to cache")
 	}
-	all, err := db.ListIDs(cache.BlueprintsTable)
-	if err != nil {
+	bpm := make(map[string]*Blueprint)
+	if rows, err := db.DB.Query(`
+		SELECT type, print_time, attach_capacity, cargo_capacity, stow_capacity, short, description
+		FROM blueprints
+	`); err != nil {
 		return err
-	}
-	for _, t := range cache.Strs(all) {
-		bp := &Blueprint{DeviceType: t}
-		if err := bp.Get(); err != nil {
-			return err
+	} else {
+		for rows.Next() {
+			bp := &Blueprint{
+				PrintTime:  new(JSONTimeDelta),
+				Resources:  make(map[string]int),
+				Components: make(map[string]int),
+			}
+			var pt float32
+			rows.Scan(
+				&bp.DeviceType, &pt, &bp.AttachCapacity, &bp.CargoCapacity, &bp.StowCapacity,
+				&bp.ShortDescription, &bp.Description,
+			)
+			if err := fillDuration(pt, &bp.PrintTime.td); err != nil {
+				return err
+			}
+			bpm[bp.DeviceType] = bp
 		}
+	}
+	if rows, err := db.DB.Query(`SELECT blueprint_type, type, qty FROM blueprint_resources`); err != nil {
+		return err
+	} else {
+		for rows.Next() {
+			var bt, t string
+			var q int
+			rows.Scan(&bt, &t, &q)
+			bpm[bt].Resources[t] = q
+		}
+	}
+	if rows, err := db.DB.Query(`SELECT blueprint_type, type, qty FROM blueprint_components`); err != nil {
+		return err
+	} else {
+		for rows.Next() {
+			var bt, t string
+			var q int
+			rows.Scan(&bt, &t, &q)
+			bpm[bt].Components[t] = q
+		}
+	}
+	if rows, err := db.DB.Query(`SELECT blueprint_type, feature FROM blueprint_features`); err != nil {
+		return err
+	} else {
+		for rows.Next() {
+			var bt, f string
+			rows.Scan(&bt, &f)
+			bpm[bt].Features = append(bpm[bt].Features, f)
+		}
+	}
+	if rows, err := db.DB.Query(`SELECT blueprint_type, directive FROM blueprint_directives`); err != nil {
+		return err
+	} else {
+		for rows.Next() {
+			var bt, d string
+			rows.Scan(&bt, &d)
+			bpm[bt].Directives = append(bpm[bt].Directives, d)
+		}
+	}
+	for _, bp := range bpm {
 		bs.Blueprints = append(bs.Blueprints, bp)
 	}
 	return nil

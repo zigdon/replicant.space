@@ -76,6 +76,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			printerStrs = append(printerStrs, f.Code.Alias())
 		}
 	}
+	var pAliases []string
 	for _, f := range printerStrs {
 		dev, err := getInfo(models.NewCodeAlias(f))
 		if err != nil {
@@ -83,8 +84,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		}
 		locs[dev.Location] = true
 		printers = append(printers, dev.Code)
+		pAliases = append(pAliases, dev.Code.Alias())
 	}
-	log("Printers found: %v", printers)
+	log("Printers found: %v", pAliases)
 
 	// Get the existing or idle fleet
 	fleet := make(map[string][]*models.Device)
@@ -101,7 +103,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		stats[t].found += 1
 		if strings.Contains(t, "ami") {
 			amis[t] = d.Code
-			log("ami found: %s -> %s", t, d.Code.String())
+			log("ami found: %s -> %s", t, d.Code.Alias())
 		}
 		if m := missing[t]; m <= 0 {
 			if t == "maintenance_drone" && missing["service_bot"] > 0 {
@@ -111,7 +113,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			stats[t].extra += 1
-			log("Found a spare tagged %s: %s", t, d.Code.String())
+			log("Found a spare tagged %s: %s", t, d.Code.Alias())
 			continue
 		}
 
