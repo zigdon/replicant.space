@@ -100,6 +100,13 @@ type Star struct {
 }
 
 func (s *Star) Cache() error {
+	cur := &Star{Designation: s.Designation}
+	if err := cur.Get(); err == nil {
+		if cur.EstimatedPlanets > 0 && cur.EstimatedPlanets != s.EstimatedPlanets {
+			s.EstimatedPlanets = cur.EstimatedPlanets
+		}
+		s.Explored = cur.Explored || s.Explored
+	}
 	return db.Update(cache.StarsTable, map[string]any{
 		"designation": s.Designation,
 		"entry_point": s.EntryPoint,

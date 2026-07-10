@@ -55,10 +55,26 @@ var starsCmd = &cobra.Command{
 						continue
 					}
 				}
+
+				// See if we have actual scans in the cache.
+				var hasCache string
+				row := db.DB.QueryRow(`SELECT COUNT(designation) FROM planets WHERE star = ?`, s.Designation)
+				if row.Err() == nil {
+					var planets int
+					row.Scan(&planets)
+					if planets > 0 {
+						hasCache = "*"
+						if planets != s.EstimatedPlanets {
+							hasCache = fmt.Sprintf("* (%d)", s.EstimatedPlanets)
+							s.EstimatedPlanets = planets
+						}
+					}
+				}
+
 				data := []string{
 					s.Designation,
 					s.EntryPoint,
-					d(s.EstimatedPlanets),
+					d(s.EstimatedPlanets)+hasCache,
 					f(s.DistanceFromReplicant),
 					d(s.EstimatedTravelTime),
 					s.SpectralType,

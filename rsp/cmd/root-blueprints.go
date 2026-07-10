@@ -15,7 +15,7 @@ var blueprintsCmd = &cobra.Command{
 	Use:   "blueprints",
 	Short: "List owne blueprints",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		res, err := rest.Blueprints()
+		res, err := rest.Blueprints(true)
 		if err != nil {
 			return fmt.Errorf("Failed to get blueprints: %v", err)
 		}

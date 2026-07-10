@@ -452,7 +452,14 @@ func Location(id string) (*models.Location, error) {
 	return models.Parse[models.Location](res)
 }
 
-func Blueprints() (*models.Blueprints, error) {
+func Blueprints(refresh bool) (*models.Blueprints, error) {
+	if !refresh && db != nil {
+		bps := &models.Blueprints{}
+		if err := bps.Get(); err != nil {
+			return nil, err
+		}
+		return bps, nil
+	}
 	res, err := cacheGET("", 30*time.Minute, "blueprints")
 	if err != nil {
 		return nil, err
