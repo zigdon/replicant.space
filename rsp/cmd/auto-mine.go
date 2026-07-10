@@ -434,7 +434,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	// Find the devices
 	frs, ok := fleet["ftl_relay"]
 	if !ok || len(frs) == 0 {
-		return fmt.Errorf("Can't find ftl relay")
+		log("Skipping ftl relay")
 	}
 	amc, ok := amis["ami_mining_controller"]
 	if !ok {
@@ -455,10 +455,13 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if err := detachAll(afc); err != nil {
 		return err
 	}
-	fr := frs[0]
-	if fr.Location != s.EntryPoint {
-		if err = travel(fr.Code, s.EntryPoint); err != nil {
-			errs = append(errs, err)
+	var fr *models.Device
+	if len(frs) > 0 {
+		fr = frs[0]
+		if fr.Location != s.EntryPoint {
+			if err = travel(fr.Code, s.EntryPoint); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 	for _, d := range []*models.CodeAlias{amc, asc, sd.Code} {
@@ -471,14 +474,16 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if fr.Location == s.EntryPoint {
-		if _, err := rest.DeviceCommand[models.CommandResp](fr.Code, "activate", nil); err != nil {
-			if !strings.Contains(err.Error(), "Relay is already active") {
-				errs = append(errs, fmt.Errorf("Error activating relay at %s: %v", s.EntryPoint, err))
+	if fr != nil {
+		if fr.Location == s.EntryPoint {
+			if _, err := rest.DeviceCommand[models.CommandResp](fr.Code, "activate", nil); err != nil {
+				if !strings.Contains(err.Error(), "Relay is already active") {
+					errs = append(errs, fmt.Errorf("Error activating relay at %s: %v", s.EntryPoint, err))
+				}
 			}
+		} else {
+			log("Waiting for FTL relay %s to reach entry point %s", fr.Code.Alias(), s.EntryPoint)
 		}
-	} else {
-		log("Waiting for FTL relay %s to reach entry point %s", fr.Code.Alias(), s.EntryPoint)
 	}
 
 	if err := setDirective(amc, "deplete_smallest", nil); err != nil {
