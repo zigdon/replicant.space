@@ -1,19 +1,13 @@
 package rest
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/zigdon/rsp/models"
 )
-
-func durationFromSeconds(s float32) time.Duration {
-	d, err := time.ParseDuration(fmt.Sprintf("%.2fs", s))
-	if err != nil {
-		log("Error parsing duration %v: %v", s, err)
-	}
-	return d
-}
 
 func fill[T []E, E models.Fillable](s []E) error {
 	for _, e := range s {
@@ -50,4 +44,43 @@ func GetPrintQueueETA(dev *models.Device) (time.Duration, error) {
 	}
 
 	return res, nil
+}
+
+func FindPrinter(printers []*models.CodeAlias, extra map[string]time.Duration) (*models.CodeAlias, error) {
+	// Check the queue for each potential printer. If there is an idle printer,
+	// use that. Otherwise, pick the one with the shortest queue, by remaining
+	// print time.
+	info := make(map[*models.CodeAlias]*models.Device)
+	log("Printers:")
+	for _, p := range printers {
+		i, err := DeviceInfo(p)
+		if err != nil {
+			return nil, fmt.Errorf("can't get device info for %q: %v", p, err)
+		}
+		info[p] = i
+		log("  %s: %s (%s already queued)", p.Alias(), i.Type, extra[p.String()])
+	}
+
+	// Calculate the queue length for each printer
+	queue := make(map[*models.CodeAlias]time.Duration)
+	for _, p := range printers {
+		eta, err := GetPrintQueueETA(info[p])
+		if err != nil {
+			return nil, fmt.Errorf("error getting print queue for %q: %v", p, err)
+		}
+		queue[p] = eta + extra[p.String()]
+	}
+	if len(queue) == 0 {
+		return nil, fmt.Errorf("No available printer found")
+	}
+	slices.SortFunc(printers, func(a, b *models.CodeAlias) int {
+		ta, _ := queue[a]
+		tb, _ := queue[b]
+		return cmp.Compare(ta, tb)
+	})
+	for _, p := range printers {
+		log("%s: %s", p.Alias(), queue[p])
+	}
+
+	return printers[0], nil
 }

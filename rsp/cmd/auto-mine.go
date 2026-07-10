@@ -188,7 +188,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if noPrint, _ := cmd.Flags().GetBool("no_print"); !dryRun && !noPrint {
 		for devType, qty := range missing {
 			for qty > 0 {
-				factory, err := findPrinter(printers, extra)
+				factory, err := rest.FindPrinter(printers, extra)
 				if err != nil {
 					return fmt.Errorf("No available factory found to queue %s: %v", devType, err)
 				}
@@ -493,43 +493,4 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	return errors.Join(errs...)
-}
-
-func findPrinter(printers []*models.CodeAlias, extra map[string]time.Duration) (*models.CodeAlias, error) {
-	// Check the queue for each potential printer. If there is an idle printer,
-	// use that. Otherwise, pick the one with the shortest queue, by remaining
-	// print time.
-	info := make(map[*models.CodeAlias]*models.Device)
-	log("Printers:")
-	for _, p := range printers {
-		i, err := getInfo(p)
-		if err != nil {
-			return nil, fmt.Errorf("can't get device info for %q: %v", p, err)
-		}
-		info[p] = i
-		log("  %s: %s (%s already queued)", p.Alias(), i.Type, extra[p.String()])
-	}
-
-	// Calculate the queue length for each printer
-	queue := make(map[*models.CodeAlias]time.Duration)
-	for _, p := range printers {
-		eta, err := rest.GetPrintQueueETA(info[p])
-		if err != nil {
-			return nil, fmt.Errorf("error getting print queue for %q: %v", p, err)
-		}
-		queue[p] = eta + extra[p.String()]
-	}
-	if len(queue) == 0 {
-		return nil, fmt.Errorf("No available printer found")
-	}
-	slices.SortFunc(printers, func(a, b *models.CodeAlias) int {
-		ta, _ := queue[a]
-		tb, _ := queue[b]
-		return cmp.Compare(ta, tb)
-	})
-	for _, p := range printers {
-		log("%s: %s", p.Alias(), queue[p])
-	}
-
-	return printers[0], nil
 }
