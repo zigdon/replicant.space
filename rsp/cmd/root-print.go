@@ -13,13 +13,13 @@ import (
 
 var rootPrintCmd = &cobra.Command{
 	Use:   "print",
-	Short: "ueue a print job at an autofactory",
+	Short: "Queue a print job at an autofactory",
 	RunE:  rootPrint,
 }
 
 func init() {
 	rootCmd.AddCommand(rootPrintCmd)
-	rootPrintCmd.Flags().StringP("home", "h", "MENKUNT-BELT-1", "Where can autofactories be found")
+	rootPrintCmd.Flags().String("home", "MENKUNT-BELT-1", "Where can autofactories be found")
 	rootPrintCmd.Flags().IntP("repeat", "r", 1, "How many copies should be printed")
 }
 
@@ -31,6 +31,7 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	if err := bp.Get(); err != nil {
 		return fmt.Errorf("Can load blueprint for %s: %v", args[0], err)
 	}
+	log("Print time, per copy: %s", bp.PrintTime.Duration())
 
 	home, _ := cmd.Flags().GetString("home")
 	factories, err := rest.Devices(map[string]string{"location": home, "device_type": "autofactory"})
@@ -49,10 +50,10 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	copies, _ := cmd.Flags().GetInt("repeat")
 	controller, _ := cmd.Flags().GetString("controller")
 	onComplete, _ := cmd.Flags().GetString("on_complete")
-	ueue := make(map[string]time.Duration)
+	queue := make(map[string]time.Duration)
 	added := make(map[string]int)
 	for ; copies > 0; copies-- {
-		p, err := rest.FindPrinter(printers, ueue)
+		p, err := rest.FindPrinter(printers, queue)
 		if err != nil {
 			return err
 		}
@@ -65,12 +66,12 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		if onComplete != "" {
 			cfg["oncomplete"] = onComplete
 		}
-		_, err = rest.DeviceCommand[models.CommandResp](p, "print", cfg)
+		_, err = rest.DeviceCommand[models.CommandResp](p, "enqueue_print", cfg)
 		if err != nil {
 			return err
 		}
 		added[p.Alias()]++
-		ueue[p.String()] += bp.PrintTime.Duration()
+		queue[p.String()] += bp.PrintTime.Duration()
 	}
 	slices.SortFunc(printers, func(a, b *models.CodeAlias) int {
 		return cmp.Compare(a.Num(), b.Num())

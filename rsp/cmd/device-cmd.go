@@ -2,11 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
-	"github.com/zigdon/rsp/rest"
 )
 
 func mkDeviceCommand[T any](name, short, command string, flags []flagDesc, output string) *cobra.Command {
@@ -28,7 +26,7 @@ func init() {
 		"attach", "Attach a device (passenger)", "attach",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "Device to attach",
-			required: true, jsonKey: "targets", slice: true,
+			required: true, jsonKey: "targets", slice: true, rangeFlag: true,
 		}}, "device-attach",
 	)
 	mkDeviceCommand[models.CommandResp](
@@ -68,23 +66,7 @@ func init() {
 		"detach", "Detach a device (passenger)", "detach",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "Device to detach",
-			required: true, jsonKey: "targets", slice: true,
-			valueFn: func(d *models.CodeAlias, v any) any {
-				if v != nil {
-					return v
-				}
-				// Get attached devices
-				dev, err := rest.DeviceInfo(d)
-				var res []string
-				if err != nil {
-					log("Failed to get %s passengers: %v", d.Alias(), err)
-					return res
-				}
-				for _, p := range dev.AttachedDevices {
-					res = append(res, p.Code.Alias())
-				}
-				return strings.Join(res, ",")
-			},
+			jsonKey: "targets", slice: true, rangeFlag: true,
 		}}, "device-attach",
 	)
 	mkDeviceCommand[models.CommandResp](

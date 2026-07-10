@@ -2,12 +2,28 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
+
+type flagDesc struct {
+	name      string
+	short     rune
+	value     any
+	desc      string
+	required  bool
+	slice     bool
+	jsonKey   string
+	mapFlag   bool
+	intFlag   bool
+	boolFlag  bool
+	rangeFlag bool
+	valueFn   func(*models.CodeAlias, any) any
+}
 
 func mkCommand[T any](parent *cobra.Command, name, short, command string, flags []flagDesc, output string) *cobra.Command {
 	if output == "" {
@@ -72,6 +88,9 @@ func mkCommand[T any](parent *cobra.Command, name, short, command string, flags 
 						log("Repeating %d times\n", reps)
 					}
 					continue
+				}
+				if f.rangeFlag {
+					val = explode(val)
 				}
 				if f.required {
 					data[f.jsonKey] = val
@@ -190,4 +209,48 @@ func unalias(in string) string {
 		return in
 	}
 	return db.Dealias(in)
+}
+
+func explode[T any](v T) []string {
+	var res []string
+	var in []string
+	if s, ok := any(v).(string); ok {
+		in = []string{s}
+	} else if s, ok := any(v).([]string); ok {
+		in = s
+	} else {
+		panic(fmt.Errorf("Invalid type %v", v))
+	}
+	for len(in) > 0 {
+		s := in[0]
+		if len(in) > 1 {
+			in = in[1:]
+		} else {
+			in = []string{}
+		}
+		if spl := strings.Split(s, ","); len(spl) > 1 {
+			in = append(in, spl...)
+			continue
+		}
+		if parts := strings.Split(s, "-"); len(parts) == 3 {
+			start, err := strconv.Atoi(parts[1])
+			if err != nil {
+				panic(err)
+			}
+			end, err := strconv.Atoi(parts[2])
+			if err != nil {
+				panic(err)
+			}
+			if start >= end {
+				panic(fmt.Errorf("invalid range: %d >= %d", start, end))
+			}
+			for i := start; i <= end; i++ {
+				in = append(in, fmt.Sprintf("%s-%d", parts[0], i))
+			}
+			continue
+		}
+		res = append(res, s)
+	}
+
+	return res
 }

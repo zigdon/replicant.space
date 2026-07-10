@@ -7,7 +7,7 @@ import (
 var testCmd = &cobra.Command{
 	Use: "test",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		log(humanize(args[0]))
+		log("%v", explode(args[0]))
 		return nil
 	},
 }

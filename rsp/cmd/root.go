@@ -10,20 +10,6 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
-type flagDesc struct {
-	name     string
-	short    rune
-	value    any
-	desc     string
-	required bool
-	slice    bool
-	jsonKey  string
-	mapFlag  bool
-	intFlag  bool
-	boolFlag bool
-	valueFn  func(*models.CodeAlias, any) any
-}
-
 var db *cache.Cache
 
 // rootCmd represents the base command when called without any subcommands
