@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -23,6 +24,7 @@ var blueprintsCmd = &cobra.Command{
 			return nil
 		}
 		var blues [][]string
+		var errs []error
 		for _, b := range res.Blueprints {
 			if filter, _ := cmd.Flags().GetString("filter"); filter != "" {
 				if !strings.Contains(b.DeviceType, filter) {
@@ -47,9 +49,13 @@ var blueprintsCmd = &cobra.Command{
 				}
 				resources = append(resources, fmt.Sprintf("%4d x %s", v, k))
 			}
+			a, err := db.AliasType(b.DeviceType)
+			if err != nil {
+				errs = append(errs, err)
+			}
 			blues = append(blues, []string{
 				b.DeviceType,
-				db.AliasType(b.DeviceType),
+				a,
 				wrap(list(b.Features), 20),
 				b.PrintTime.String(),
 				strings.Join(resources, "\n"),
@@ -64,7 +70,7 @@ var blueprintsCmd = &cobra.Command{
 		printTable(
 			[]string{"Type", "Alias", "Features", "Print Time", "Resources", "Stats", "Description"}, blues,
 		)
-		return nil
+		return errors.Join(errs...)
 	},
 }
 

@@ -52,7 +52,32 @@ func (db *Cache) HasAlias(designation string) string {
 	return ""
 }
 
-func (db *Cache) AliasType(t string) string {
+func (db *Cache) GetPrefixForType(t string) string {
+	row := db.DB.QueryRow(`SELECT prefix FROM alias_types WHERE type = ?`, t)
+	var a string
+	if err := row.Scan(&a); err != nil {
+		log("%v", err)
+	}
+	return a
+}
+
+func (db *Cache) GetTypeForPrefix(a string) string {
+	row := db.DB.QueryRow(`SELECT type FROM alias_types WHERE prefix = ?`, a)
+	var t string
+	if err := row.Scan(&t); err != nil {
+		log("%v", err)
+	}
+	return t
+}
+
+func (db *Cache) AddAliasType(prefix, t string) error {
+	_, err := db.DB.Exec(
+		"INSERT INTO alias_types (type, prefix) VALUES (?,?)",
+		t, prefix)
+	return err
+}
+
+func (db *Cache) AliasType(t string) (string, error) {
 	log("Getting prefix for %q", t)
 	prefix, ok := prefixes[t]
 	if !ok {
@@ -64,19 +89,15 @@ func (db *Cache) AliasType(t string) string {
 		// Check it's not a dup
 		for k, v := range prefixes {
 			if v == prefix {
-				log("Prefix conflict for new device type %q: %q is already %q", t, prefix, k)
-				return t
+				return t, fmt.Errorf("Prefix conflict for new device type %q: %q is already %q", t, prefix, k)
 			}
 		}
 		prefixes[t] = prefix
-		_, err := db.DB.Exec(
-			"INSERT INTO alias_types (type, prefix) VALUES (?,?)",
-			t, prefix)
-		if err != nil {
+		if err := db.AddAliasType(prefix, t); err != nil {
 			log("Error inserting new alias prefix %q:%q: %v", t, prefix)
 		}
 	}
-	return prefix
+	return prefix, nil
 }
 
 func (db *Cache) Alias(designation, deviceType string) (string, error) {
@@ -104,7 +125,10 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 
 	// No alias found, figure out the prefix
 	// If we have one preset, use that
-	prefix := db.AliasType(deviceType)
+	prefix, err := db.AliasType(deviceType)
+	if err != nil {
+		return prefix, err
+	}
 
 	// Find how many of these prefixes we already have
 	row = db.DB.QueryRow("SELECT COUNT(*) FROM aliases WHERE type = ?", deviceType)

@@ -203,8 +203,11 @@ func filterDevices(devs []*models.Device, withoutTags, withTags []string) ([]*mo
 				if loc == "" {
 					return false
 				}
-				return s == fmt.Sprintf("mine-%s", loc) ||
-					strings.Contains(s, "-"+loc[:strings.Index(loc, "-")]+"-")
+				if s == fmt.Sprintf("mine-%s", loc) {
+					return true
+				}
+				idx := strings.Index(loc, "-")
+				return idx > 0 && strings.Contains(s, "-"+loc[:idx]+"-")
 			}) {
 				skipped["mines"]++
 				continue
