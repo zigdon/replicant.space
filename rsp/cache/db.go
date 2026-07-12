@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -303,4 +305,64 @@ func (db *Cache) FindNearestStar(x, y, z float32) (string, float32, error) {
 		&dsg, &x, &y, &z, &dist,
 	)
 	return dsg, dist, err
+}
+
+func (db *Cache) GetSector(x, y, z float32, cone, margin int) ([]string, error) {
+	dist := float32(math.Sqrt(float64(x*x + y*y + z*z)))
+	log("dist=%v, margin=%v", dist, margin)
+	minLY := dist * float32(100-margin) / 100
+	maxLY := dist * float32(100+margin) / 100
+	deg := float32(cone) / 100
+	log(`
+		SELECT designation,
+		    sqrt(
+				power(position_x,2) +
+				power(position_y,2) +
+				power(position_z,2)) AS dist_src
+		FROM stars
+		WHERE dist_src BETWEEN %.2f AND %.2f AND
+			position_x BETWEEN %.2f AND %.2f AND
+			position_y BETWEEN %.2f AND %.2f AND
+			position_z BETWEEN %.2f AND %.2f`,
+		minLY, maxLY,
+		slices.Min([]float32{x * (1 - deg), x * (1 + deg)}),
+		slices.Max([]float32{x * (1 - deg), x * (1 + deg)}),
+		slices.Min([]float32{y * (1 - deg), y * (1 + deg)}),
+		slices.Max([]float32{y * (1 - deg), y * (1 + deg)}),
+		slices.Min([]float32{z * (1 - deg), z * (1 + deg)}),
+		slices.Max([]float32{z * (1 - deg), z * (1 + deg)}),
+	)
+	rows, err := db.DB.Query(`
+		SELECT designation,
+		    sqrt(
+				power(position_x,2) +
+				power(position_y,2) +
+				power(position_z,2)) AS dist_src
+		FROM stars
+		WHERE dist_src BETWEEN ? AND ? AND
+			position_x BETWEEN ? AND ? AND
+			position_y BETWEEN ? AND ? AND
+			position_z BETWEEN ? AND ?`,
+		minLY, maxLY,
+		slices.Min([]float32{x * (1 - deg), x * (1 + deg)}),
+		slices.Max([]float32{x * (1 - deg), x * (1 + deg)}),
+		slices.Min([]float32{y * (1 - deg), y * (1 + deg)}),
+		slices.Max([]float32{y * (1 - deg), y * (1 + deg)}),
+		slices.Min([]float32{z * (1 - deg), z * (1 + deg)}),
+		slices.Max([]float32{z * (1 - deg), z * (1 + deg)}),
+	)
+	if err != nil {
+		return []string{}, err
+	}
+	var res []string
+	for rows.Next() {
+		var dsg string
+		var f float32
+		if err := rows.Scan(&dsg, &f); err != nil {
+			return res, err
+		}
+		res = append(res, dsg)
+	}
+
+	return res, nil
 }

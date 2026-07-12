@@ -26,6 +26,12 @@ var autoFerryCmd = &cobra.Command{
 	RunE:  autoFerry,
 }
 
+var autoProspectCmd = &cobra.Command{
+	Use:   "prospect",
+	Short: "Continue prospecting towards predetermined goals",
+	RunE:  autoProspect,
+}
+
 var autoRelayCmd = &cobra.Command{
 	Use:   "relay",
 	Short: "Set up relay network",
@@ -54,6 +60,10 @@ func init() {
 
 	autoCmd.AddCommand(autoRelayCmd)
 	autoRelayCmd.Flags().String("home", "MENKUNT", "Home system")
+
+	autoCmd.AddCommand(autoProspectCmd)
+	autoRelayCmd.Flags().StringSliceP("device", "d", []string{}, "Devices to use, leave blank for all")
+	autoRelayCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
 }
 
 var infos sync.Map
@@ -102,4 +112,11 @@ func setDirective(id *models.CodeAlias, directive string, cfg map[string]any) er
 	}
 	log("Set directive on %s: %s", id.Alias(), directive)
 	return nil
+}
+
+func adopt(cnt *models.CodeAlias, minions []*models.CodeAlias) error {
+	_, err := rest.DeviceCommand[models.CommandResp](cnt, "adopt", map[string]any{
+		"devices": minions,
+	})
+	return err
 }

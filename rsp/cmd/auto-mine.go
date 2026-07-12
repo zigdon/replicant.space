@@ -494,10 +494,20 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if err := setDirective(amc, "deplete_smallest", nil); err != nil {
 		errs = append(errs, err)
 	}
+	var mds []*models.CodeAlias
+	for _, d := range fleet["mining_drone"] {
+		mds = append(mds, d.Code)
+	}
+	errs = append(errs, adopt(amc, mds))
 
 	if err := setDirective(asc, "belt_search", nil); err != nil {
 		errs = append(errs, err)
 	}
+	var sds []*models.CodeAlias
+	for _, d := range fleet["service_bot"] {
+		sds = append(sds, d.Code)
+	}
+	errs = append(errs, adopt(asc, sds))
 
 	if err := setDirective(sd.Code, "service", nil); err != nil {
 		errs = append(errs, err)

@@ -54,7 +54,7 @@ func init() {
 }
 
 func getPosFromString(dst string) (*models.Position, error) {
-	if strings.Contains(dst, ",") {
+	if strings.Contains(dst, ",") || strings.Contains(dst, ".") {
 		return models.ParsePosition(dst)
 	} else {
 		starDst := &models.Star{Designation: dst}
@@ -70,7 +70,6 @@ func vectorStars(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Missing required args: plot vector <star or location>")
 	}
 
-	src, _ := cmd.Flags().GetString("source")
 	cone, _ := cmd.Flags().GetInt("cone")
 	margin, _ := cmd.Flags().GetInt("margin")
 
@@ -78,56 +77,23 @@ func vectorStars(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	dist := dPos.Distance(models.NewPosition(0, 0, 0))
-	minLY := dist * (1 - float32(margin)/100)
-	maxLY := dist * (1 + float32(margin)/100)
-	deg := float32(cone) / 100
-	sPos, err := getPosFromString(src)
-	if err != nil {
-		return err
-	}
 
-	log("Finding stars in the direction of %s within a %d%% cone from %s, range %.2fly-%.2fly",
-		dPos.String(), cone, sPos.String(), minLY, maxLY,
+	log("Finding stars in the direction of %s within a %d%% cone, %d%% margin",
+		dPos.String(), cone, margin,
 	)
 
-	rows, err := db.DB.Query(`
-		SELECT designation, position_x, position_y, position_z, 
-		    sqrt(
-				power(position_x-?,2) +
-				power(position_y-?,2) +
-				power(position_z-?,2)) AS dist_src,
-		    sqrt(
-				power(position_x-?,2) +
-				power(position_y-?,2) +
-				power(position_z-?,2)) AS dist_dst
-		FROM stars
-		WHERE dist_src BETWEEN ? AND ? AND
-			position_x BETWEEN ? AND ? AND
-			position_y BETWEEN ? AND ? AND
-			position_z BETWEEN ? AND ?`,
-		sPos.X, sPos.Y, sPos.Z,
-		dPos.X, dPos.Y, dPos.Z,
-		minLY, maxLY,
-		slices.Min([]float32{dPos.X * (1 - deg), dPos.X * (1 + deg)}),
-		slices.Max([]float32{dPos.X * (1 - deg), dPos.X * (1 + deg)}),
-		slices.Min([]float32{dPos.Y * (1 - deg), dPos.Y * (1 + deg)}),
-		slices.Max([]float32{dPos.Y * (1 - deg), dPos.Y * (1 + deg)}),
-		slices.Min([]float32{dPos.Z * (1 - deg), dPos.Z * (1 + deg)}),
-		slices.Max([]float32{dPos.Z * (1 - deg), dPos.Z * (1 + deg)}),
-	)
+	res, err := db.GetSector(dPos.X, dPos.Y, dPos.Z, cone, margin)
 	if err != nil {
 		return err
 	}
 	var data [][]string
-	for rows.Next() {
-		var dsg string
-		var dstS, dstD, x, y, z float32
-		if err := rows.Scan(&dsg, &x, &y, &z, &dstS, &dstD); err != nil {
+	for _, s := range res {
+		st := &models.Star{Designation: s}
+		if err := st.Get(); err != nil {
 			return err
 		}
 		data = append(data, []string{
-			dsg, models.NewPosition(x, y, z).String(), f(dstS), f(dstD),
+			s, st.Position.String(), f(st.DistanceFromSol), f(dPos.Distance(st.Position)),
 		})
 	}
 
