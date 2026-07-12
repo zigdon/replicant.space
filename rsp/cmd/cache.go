@@ -208,7 +208,7 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 		if page > census.TotalPages {
 			break
 		}
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 	}
 	log(
 		"Fetch done: %d total stars, %d added, %d updated, %d unchanged",

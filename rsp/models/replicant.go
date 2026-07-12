@@ -77,6 +77,7 @@ type Travel struct {
 }
 
 func (t *Travel) Notification() *Notification {
+	log("setting replicant travel notification")
 	return &Notification{
 		Start:  t.Departed.ts,
 		End:    t.Arrives.ts,

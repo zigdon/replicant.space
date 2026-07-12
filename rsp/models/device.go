@@ -166,6 +166,9 @@ func (d *Device) Fill() error {
 		}
 		d.Status = fmt.Sprintf("repairing (%s)", s)
 	}
+	if d.Travel != nil {
+		d.Travel.Device = d.Code
+	}
 	return nil
 }
 

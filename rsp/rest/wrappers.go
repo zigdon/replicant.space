@@ -212,6 +212,8 @@ func ReplicantTravel(id *models.CodeAlias, dest string) (*models.Trip, error) {
 	if err == nil && m.Error != "" {
 		err = fmt.Errorf("Travel error: %v", m.Error)
 	}
+	m.Device = id
+	m.Notification()
 	return m, err
 }
 

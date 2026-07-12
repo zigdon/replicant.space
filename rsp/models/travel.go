@@ -38,8 +38,22 @@ type Trip struct {
 	Status          string         `json:"status"`
 	TotalTime       *JSONTimeDelta `json:"total_time_seconds"`
 	Type            string         `json:"type"`
+
+	Device *CodeAlias
 }
 
+func (t *Trip) Notification() *Notification {
+	d := "Unknown device"
+	if t.Device != nil {
+		d = t.Device.Alias()
+	}
+	return &Notification{
+		Start:  t.Departed.ts,
+		End:    t.Arrives.ts,
+		Device: d,
+		Text:   fmt.Sprintf("Arrived at %s", t.Destination),
+	}
+}
 func (t *Trip) Short() string {
 	if t == nil {
 		return ""

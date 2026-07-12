@@ -70,6 +70,10 @@ var deviceListCmd = &cobra.Command{
 		if !ignore {
 			devs, skipped = filterDevices(devs, filterTags, only)
 		}
+		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+			prettyPrint(devs)
+			return nil
+		}
 		printDeviceList(devs, origin, merge)
 		var stats []string
 		for k, v := range skipped {
