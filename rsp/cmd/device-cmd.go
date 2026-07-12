@@ -19,7 +19,7 @@ func init() {
 		"adopt", "Add devices to a controller's fleet", "adopt",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "List of devices to adopt",
-			required: true, slice: true, jsonKey: "devices",
+			required: true, slice: true, jsonKey: "devices", rangeFlag: true,
 		}}, "device-adopt",
 	)
 	mkDeviceCommand[models.CommandResp](
@@ -113,7 +113,7 @@ func init() {
 		"release", "Return devices back to direct control", "release",
 		[]flagDesc{{
 			name: "target", short: 't', desc: "List of devices to release",
-			required: true, slice: true, jsonKey: "devices",
+			required: true, slice: true, jsonKey: "devices", rangeFlag: true,
 		}}, "device-adopt",
 	)
 	mkDeviceCommand[models.CommandResp](
