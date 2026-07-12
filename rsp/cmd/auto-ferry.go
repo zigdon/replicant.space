@@ -39,7 +39,7 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 		for _, i := range loc.Inventory {
 			total += i.Quantity
 		}
-		if total > 100 {
+		if total > 1000 {
 			return fmt.Errorf("Existing ferry command still has inventory to pick up at %q", cur)
 		}
 	}
