@@ -115,6 +115,11 @@ func setDirective(id *models.CodeAlias, directive string, cfg map[string]any) er
 }
 
 func adopt(cnt *models.CodeAlias, minions []*models.CodeAlias) error {
+	log("Adopting %v into %q", minions, cnt)
+	var ids []string
+	for _, m := range minions {
+		ids = append(ids, m.String())
+	}
 	_, err := rest.DeviceCommand[models.CommandResp](cnt, "adopt", map[string]any{
 		"devices": minions,
 	})
