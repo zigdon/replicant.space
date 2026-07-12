@@ -1,7 +1,9 @@
 package auto
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -108,10 +110,76 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 		}
 		pm.db = db
 	}
-	next, dist, err := pm.db.FindNearestStar(pm.dest.X, pm.dest.Y, pm.dest.Z)
+	origin := models.NewPosition(0,0,0)
+	nearest, dist, err := pm.db.FindNearestStar(pm.dest.X, pm.dest.Y, pm.dest.Z)
 	if err != nil {
 		return "", err
 	}
+	skip := make(map[string]bool)
+	next := nearest
+	stars := make(map[string]*models.Star)
+	stars[nearest] = &models.Star{Designation: nearest}
+	if err := stars[nearest].Get(); err != nil {
+		return "", err
+	}
+	for {
+		// Check if there's aleady an observatory there, or on the way.
+		obvs, err := rest.Devices(map[string]string{
+			"device_type": "galactic_observatory",
+		})
+		if err != nil {
+			return "", fmt.Errorf("Can't get GO list: %v", err)
+		}
+		for _, o := range obvs {
+			if o.Location == next || (o.Travel != nil && o.Travel.Destination == next) {
+				if o.Travel == nil {
+					log("%s is already at %s", o.Code.Alias(), next)
+				} else {
+					log("%s is on the way to %s", o.Code.Alias(), next)
+				}
+				skip[next] = true
+				break
+			}
+		}
+
+		if !skip[next] {
+			break
+		}
+
+		// If not there, pick a star in the same sector
+		nPos := stars[next].Position
+		sector, err := pm.db.GetSector(nPos.X, nPos.Y, nPos.Z, 10, 5)
+		if err != nil {
+			return "", err
+		}
+
+		// Sort the stars in the sector by distance, furthest away first
+		dists := make(map[string]float32)
+		for _, s := range sector {
+			if skip[s] {
+				continue
+			}
+			stars[s] = &models.Star{Designation: s}
+			if err := stars[s].Get(); err != nil {
+				return "", err
+			}
+			dists[s] = stars[s].Position.Distance(origin)
+		}
+		slices.SortFunc(sector, func(a, b string) int {
+			return cmp.Compare(dists[b], dists[a])
+		})
+
+		// Pick the next star we haven't skipped yet
+		for _, s := range sector {
+			if skip[s] || dists[s] == 0 {
+				continue
+			}
+			return "", fmt.Errorf("Not implemented")
+		}
+		return "", fmt.Errorf("Not implemented")
+
+	}
+
 	log("Next star: %q, %.2f LY away from %s", next, dist, pm.dest)
 	return next, nil
 }
