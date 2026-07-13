@@ -105,9 +105,14 @@ var infoCmd = &cobra.Command{
 			}
 			printTable([]string{"Type", "Progress", "ETA", "Tags", "Started", "Ends"}, data)
 		}
-		if len(dev.WaitingFor) > 0 {
+		if len(dev.WaitingFor.Components) > 0 || len(dev.WaitingFor.Resources) > 0 {
 			var w [][]string
-			for k, v := range dev.WaitingFor {
+			for k, v := range dev.WaitingFor.Resources {
+				w = append(w, []string{
+					k, d(v.Have), d(v.Need),
+				})
+			}
+			for k, v := range dev.WaitingFor.Components {
 				w = append(w, []string{
 					k, d(v.Have), d(v.Need),
 				})

@@ -84,9 +84,14 @@ var replicantInfoCmd = &cobra.Command{
 				"Type", "Notify device", "Notify email", "Notify webhook",
 			}, q)
 		}
-		if len(repl.WaitingFor) > 0 {
+		if len(repl.WaitingFor.Components) > 0 || len(repl.WaitingFor.Resources) > 0 {
 			var w [][]string
-			for k, v := range repl.WaitingFor {
+			for k, v := range repl.WaitingFor.Resources {
+				w = append(w, []string{
+					k, d(v.Have), d(v.Need),
+				})
+			}
+			for k, v := range repl.WaitingFor.Components {
 				w = append(w, []string{
 					k, d(v.Have), d(v.Need),
 				})

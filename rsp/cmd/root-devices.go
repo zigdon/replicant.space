@@ -36,6 +36,12 @@ var deviceListCmd = &cobra.Command{
 				return fmt.Errorf("Unknown filter %s", a)
 			}
 		}
+		if f, ok := filter["device_type"]; ok {
+			// Accept prefixes for types
+			if t := db.GetTypeForPrefix(f); t != "" {
+				filter["device_type"] = t
+			}
+		}
 		devs, err := rest.Devices(filter)
 		if err != nil {
 			return err

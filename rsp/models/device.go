@@ -140,7 +140,10 @@ type Device struct {
 	Type                 string                       `json:"device_type"`
 	Unfurl               *Compact                     `json:"unfurl"`
 	UpkeepRequirements   []*UpkeepRequirement         `json:"upkeep_requirements"`
-	WaitingFor           map[string]*MissingResources `json:"waiting_for"`
+	WaitingFor          struct {
+		Components map[string]*MissingResources  `json:"components"`
+		Resources map[string]*MissingResources  `json:"resources"`
+	}`json:"waiting_for"`
 	WelcomeMessage       string                       `json:"welcome_message"`
 }
 

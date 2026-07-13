@@ -113,7 +113,10 @@ type Replicant struct {
 	StowedDevices       []*Device                    `json:"stowed_devices"`
 	Teleport            *Teleport                    `json:"teleport"`
 	Travel              *Travel                      `json:"travel"`
-	WaitingFor          map[string]*MissingResources `json:"waiting_for"`
+	WaitingFor          struct {
+		Components map[string]*MissingResources  `json:"components"`
+		Resources map[string]*MissingResources  `json:"resources"`
+	}`json:"waiting_for"`
 
 	UpdateFn func(*CodeAlias) (*Replicant, error)
 }
