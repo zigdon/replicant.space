@@ -101,7 +101,7 @@ var infoCmd = &cobra.Command{
 			print := dev.Printing
 			data := [][]string{{
 				print.DeviceType, p(print.ProgressPercent),
-				print.Eta.String(), "", t(print.Started.Time()), t(print.Completes.Time()),
+				print.Eta.String(), list(print.Tags), t(print.Started.Time()), t(print.Completes.Time()),
 			}}
 			est := print.Completes.Time()
 			for _, q := range dev.PrintQueue {

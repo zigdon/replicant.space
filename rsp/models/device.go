@@ -15,6 +15,7 @@ type DevicePrint struct {
 	Eta             *JSONTimeDelta `json:"eta_seconds"`
 	ProgressPercent float32        `json:"progress_percent"`
 	Started         *JSONTime      `json:"started_at"`
+	Tags            []string       `json:"tags"`
 }
 
 type ControlledDevice struct {

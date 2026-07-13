@@ -22,6 +22,11 @@ func autoProspect(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
+		pas, err := rest.Devices(map[string]string{"device_type": "parallax_array"})
+		if err != nil {
+			return err
+		}
+		devs = append(devs, pas...)
 	} else {
 		for _, d := range devIDs {
 			i, err := getInfo(models.NewCodeAlias(d))

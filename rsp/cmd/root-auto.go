@@ -42,7 +42,7 @@ func init() {
 	rootCmd.AddCommand(autoCmd)
 
 	autoCmd.PersistentFlags().Bool("dry_run", true, "When set, only describe what will be done")
-	autoCmd.PersistentFlags().String("owner", "zigdon-2", "Replicant responsible for printing new devices")
+	autoCmd.PersistentFlags().String("owner", "zigdon-4", "Replicant responsible for printing new devices")
 
 	autoCmd.AddCommand(autoMineCmd)
 	autoMineCmd.Flags().StringP("location", "l", "", "Belt location to mine")
@@ -61,8 +61,8 @@ func init() {
 	autoRelayCmd.Flags().String("home", "MENKUNT", "Home system")
 
 	autoCmd.AddCommand(autoProspectCmd)
-	autoRelayCmd.Flags().StringSliceP("device", "d", []string{}, "Devices to use, leave blank for all")
-	autoRelayCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
+	autoProspectCmd.Flags().StringSliceP("device", "d", []string{}, "Devices to use, leave blank for all")
+	autoProspectCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
 }
 
 var infos sync.Map

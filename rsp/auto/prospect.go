@@ -217,7 +217,7 @@ func (pm *ProspectMachine) UpdateState() error {
 	case status == "idle" && pm.tag == "setup":
 		pm.state = "starting"
 	default:
-		return fmt.Errorf("Invalid state: status=%q, tag=%q", status, pm.tag)
+		return fmt.Errorf("Invalid state (%s): status=%q, tag=%q", pm.dev.Code.Alias(), status, pm.tag)
 	}
 	return nil
 }
@@ -235,7 +235,9 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		eta = res.Completes.Time()
-		// TODO: Add new stars to the cache
+		if err := rest.ReloadStars(); err != nil {
+			return eta, err
+		}
 	case "compacting":
 		eta = pm.dev.Compact.Completes.Time()
 		res, err := pm.platform("travel", pm.dev.Location)
@@ -290,7 +292,9 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		if err != nil {
 			return eta, err
 		}
-		eta = dev.Prospect.Completes.Time()
+		if dev.Prospect != nil {
+			eta = dev.Prospect.Completes.Time()
+		}
 	default:
 		return eta, fmt.Errorf("Unknown state: %q", pm.state)
 	}
