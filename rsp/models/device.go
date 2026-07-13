@@ -2,6 +2,7 @@ package models
 
 import (
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -26,6 +27,27 @@ type ControlledDevice struct {
 type StowedDevice struct {
 	Code *CodeAlias `json:"device_code"`
 	Type string     `json:"device_type"`
+}
+
+type StowedDevices struct {
+	Devices []*StowedDevice
+}
+
+func (sd *StowedDevices) UnmarshalJSON(data []byte) error {
+	// First try to parse it as the list of structs
+	if err := json.Unmarshal(data, &sd.Devices); err == nil {
+		return nil
+	}
+	// Failing that, try just a list of strings
+	var ids []string
+	sd.Devices = make([]*StowedDevice, 0)
+	if err := json.Unmarshal(data, &ids); err != nil {
+		return err
+	}
+	for _, id := range ids {
+		sd.Devices = append(sd.Devices, &StowedDevice{Code: NewCodeAlias(id)})
+	}
+	return nil
 }
 
 type DeviceDirective struct {
@@ -98,53 +120,57 @@ type Compact struct {
 type Device struct {
 	fetchedAt time.Time
 
-	AmiDirective         *DeviceDirective             `json:"ami_directive"`
-	AmiDirectiveStatus   string                       `json:"ami_directive_status"`
-	AttachCapacity       int                          `json:"attach_capacity"`
-	AttachedDevices      []*Device                    `json:"attached_devices"`
-	AttachedToDeviceCode *CodeAlias                   `json:"attached_to_device_code"`
-	AvailableCommands    []string                     `json:"available_commands"`
-	AvailableDirectives  []string                     `json:"available_directives"`
-	Cargo                []*Inventory                 `json:"cargo"`
-	CargoCapacity        int                          `json:"cargo_capacity"`
-	Code                 *CodeAlias                   `json:"device_code"`
-	Compact              *Compact                     `json:"compact"`
-	ControlledDevices    []*ControlledDevice          `json:"controlled_devices"`
-	ControllerDeviceCode *CodeAlias                   `json:"controller_device_code"`
-	Created              *JSONTime                    `json:"created_at"`
-	Deployed             *JSONTime                    `json:"deployed_at"`
-	Features             []string                     `json:"features"`
-	GracePeriodRemaining int                          `json:"grace_period_remaining"`
-	InControlRange       bool                         `json:"in_control_range"`
-	Location             string                       `json:"location"`
-	LocationName         string                       `json:"location_name"`
-	OperationalCapacity  float32                      `json:"operational_capacity"`
-	OwnerReplicant       *CodeAlias                   `json:"owner_replicant_code"`
-	PrintQueue           []*DevicePrintQueue          `json:"print_queue"`
-	Printing             *DevicePrint                 `json:"printing"`
-	Prospect             *Prospect                    `json:"prospect"`
-	QueueSize            int                          `json:"queue_size"`
-	Repair               *Repair                      `json:"repair"`
-	RepairPaidPct        float32                      `json:"repair_paid_pct"`
-	ReplicantCode        *CodeAlias                   `json:"replicant_code"`
-	Scan                 *DeviceScan                  `json:"scan"`
-	Status               string                       `json:"status"`
-	StowCapacity         int                          `json:"stow_capacity"`
-	StowUsed             int                          `json:"stow_used"`
-	StowedDevices        []*StowedDevice              `json:"stowed_devices"`
-	StowedInDeviceCode   *CodeAlias                   `json:"stowed_in_device_code"`
-	SystemStatus         *SystemStatus                `json:"system_status"`
-	Tags                 []string                     `json:"tags"`
-	TaxiMode             string                       `json:"taxi_mode"`
-	Travel               *Trip                        `json:"travel"`
-	Type                 string                       `json:"device_type"`
-	Unfurl               *Compact                     `json:"unfurl"`
-	UpkeepRequirements   []*UpkeepRequirement         `json:"upkeep_requirements"`
-	WaitingFor          struct {
-		Components map[string]*MissingResources  `json:"components"`
-		Resources map[string]*MissingResources  `json:"resources"`
-	}`json:"waiting_for"`
-	WelcomeMessage       string                       `json:"welcome_message"`
+	AmiDirective         *DeviceDirective    `json:"ami_directive"`
+	AmiDirectiveStatus   string              `json:"ami_directive_status"`
+	AttachCapacity       int                 `json:"attach_capacity"`
+	AttachedDevices      []*Device           `json:"attached_devices"`
+	AttachedToDeviceCode *CodeAlias          `json:"attached_to_device_code"`
+	AvailableCommands    []string            `json:"available_commands"`
+	AvailableDirectives  []string            `json:"available_directives"`
+	Cargo                []*Inventory        `json:"cargo"`
+	CargoCapacity        int                 `json:"cargo_capacity"`
+	Code                 *CodeAlias          `json:"device_code"`
+	Compact              *Compact            `json:"compact"`
+	ControlledDevices    []*ControlledDevice `json:"controlled_devices"`
+	ControllerDeviceCode *CodeAlias          `json:"controller_device_code"`
+	Created              *JSONTime           `json:"created_at"`
+	Deployed             *JSONTime           `json:"deployed_at"`
+	Features             []string            `json:"features"`
+	GracePeriodRemaining int                 `json:"grace_period_remaining"`
+	InControlRange       bool                `json:"in_control_range"`
+	Location             string              `json:"location"`
+	LocationName         string              `json:"location_name"`
+	OperationalCapacity  float32             `json:"operational_capacity"`
+	Owner                *struct {
+		Name string     `json:"name"`
+		Code *CodeAlias `json:"replicant_code"`
+	} `json:"owner"`
+	OwnerReplicant     *CodeAlias           `json:"owner_replicant_code"`
+	PrintQueue         []*DevicePrintQueue  `json:"print_queue"`
+	Printing           *DevicePrint         `json:"printing"`
+	Prospect           *Prospect            `json:"prospect"`
+	QueueSize          int                  `json:"queue_size"`
+	Repair             *Repair              `json:"repair"`
+	RepairPaidPct      float32              `json:"repair_paid_pct"`
+	ReplicantCode      *CodeAlias           `json:"replicant_code"`
+	Scan               *DeviceScan          `json:"scan"`
+	Status             string               `json:"status"`
+	StowCapacity       int                  `json:"stow_capacity"`
+	StowUsed           int                  `json:"stow_used"`
+	StowedDevices      *StowedDevices       `json:"stowed_devices"`
+	StowedInDeviceCode *CodeAlias           `json:"stowed_in_device_code"`
+	SystemStatus       *SystemStatus        `json:"system_status"`
+	Tags               []string             `json:"tags"`
+	TaxiMode           string               `json:"taxi_mode"`
+	Travel             *Trip                `json:"travel"`
+	Type               string               `json:"device_type"`
+	Unfurl             *Compact             `json:"unfurl"`
+	UpkeepRequirements []*UpkeepRequirement `json:"upkeep_requirements"`
+	WaitingFor         struct {
+		Components map[string]*MissingResources `json:"components"`
+		Resources  map[string]*MissingResources `json:"resources"`
+	} `json:"waiting_for"`
+	WelcomeMessage string `json:"welcome_message"`
 }
 
 func (d *Device) Alias() {
@@ -198,20 +224,13 @@ type ControllerStatus struct {
 	RecallResult          string `json:"recall_result"`
 }
 
-type CommandDetachAll struct {
-	CarrierCode *CodeAlias `json:"carrier_code"`
-	Count       int        `json:"count"`
-	Detached    []string   `json:"detached"`
-	Status      string     `json:"status"`
-}
-
 type CommandResp struct {
-	AdoptedDevices       []*StowedDevice     `json:"adopted"`
+	AdoptedDevices       *StowedDevices      `json:"adopted"`
 	AmiDirective         *DeviceDirective    `json:"ami_directive"`
 	AmiDirectiveStatus   string              `json:"ami_directive_status"`
 	Arrives              *JSONTime           `json:"arrives_at"`
 	AssignedDevices      map[string][]string `json:"assigned_devices"`
-	Attached             []*StowedDevice     `json:"attached"`
+	Attached             *StowedDevices      `json:"attached"`
 	AttachedDevices      []string            `json:"attached_devices"`
 	AvailableSites       []*AvailableSite    `json:"available_sites"`
 	Belt                 string              `json:"belt"`
@@ -224,7 +243,7 @@ type CommandResp struct {
 	Destination          string              `json:"destination"`
 	DestinationName      string              `json:"destination_name"`
 	DestinationType      string              `json:"destination_type"`
-	Detached             []*StowedDevice     `json:"detached"`
+	Detached             *StowedDevices      `json:"detached"`
 	DeviceCode           *CodeAlias          `json:"device_code"`
 	Eta                  *JSONTimeDelta      `json:"eta_seconds"`
 	FinalDestination     string              `json:"final_destination"`
@@ -236,7 +255,7 @@ type CommandResp struct {
 	ProgressPercent      float32             `json:"progress_percent"`
 	Queue                []*DevicePrintQueue `json:"queue"`
 	QueueLength          int                 `json:"queue_length"`
-	Released             []*StowedDevice     `json:"released"`
+	Released             *StowedDevices      `json:"released"`
 	ResourcesRecovered   map[string]int      `json:"resources_recovered"`
 	Route                []*TripLeg          `json:"route"`
 	Scanned              bool                `json:"scanned"`

@@ -55,10 +55,18 @@ var infoCmd = &cobra.Command{
 		if dev.GracePeriodRemaining > 0 {
 			grace = d(dev.GracePeriodRemaining)
 		}
+		var owner string
+		if dev.Owner != nil {
+			owner = lines([]string{
+				dev.Owner.Name, dev.Owner.Code.String(),
+			})
+		}
 		printTable([]string{
+			"Owner",
 			"Created", "Deployed", "Grace", "Repairs", "System Active", "Stowed In",
 			"Upkeep Requirements", "Taxi Mode", "Commands", "Tags", "Features"},
 			[][]string{{
+				owner,
 				t(dev.Created.Time()), t(dev.Deployed.Time()), grace,
 				p(dev.RepairPaidPct), v(dev.SystemStatus), dev.StowedInDeviceCode.Alias(), lines(upkeep),
 				dev.TaxiMode, lines(dev.AvailableCommands), lines(dev.Tags), lines(dev.Features)}})
@@ -163,11 +171,11 @@ var infoCmd = &cobra.Command{
 			}
 			printTable([]string{"Type", "Alias", "Code"}, ds)
 		}
-		if len(dev.StowedDevices) > 0 {
+		if dev.StowedDevices != nil && len(dev.StowedDevices.Devices) > 0 {
 			fmt.Printf("Stowed devices (%d/%d):\n",
-				len(dev.StowedDevices), dev.StowCapacity)
+				len(dev.StowedDevices.Devices), dev.StowCapacity)
 			var ds [][]string
-			for _, d := range dev.StowedDevices {
+			for _, d := range dev.StowedDevices.Devices {
 				ds = append(ds, []string{d.Type, d.Code.Alias(), d.Code.String()})
 			}
 			printTable([]string{"Type", "Alias", "Code"}, ds)

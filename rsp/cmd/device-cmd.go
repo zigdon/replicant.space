@@ -171,10 +171,10 @@ func init() {
 			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
 		}
 		var as, rs []string
-		for _, d := range resp.AdoptedDevices {
+		for _, d := range resp.AdoptedDevices.Devices {
 			as = append(as, d.Code.Alias())
 		}
-		for _, d := range resp.Released {
+		for _, d := range resp.Released.Devices {
 			rs = append(rs, d.Code.Alias())
 		}
 		return []string{"Controller", "Status", "Adopted", "Released"}, [][]string{{
@@ -185,22 +185,19 @@ func init() {
 		// The response is _either_ CommandResp (if we provided a list of
 		// targets) or CommandDetachAll when targets = null. I have Opinions.
 		resp, ok := data.(*models.CommandResp)
+		if !ok {
+			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+		}
 		var as, rs []string
-		if ok {
-			for _, d := range resp.Attached {
+		if resp.Attached != nil {
+			for _, d := range resp.Attached.Devices {
 				as = append(as, d.Code.Alias())
 			}
-			for _, d := range resp.Detached {
+		}
+		if resp.Detached != nil {
+			for _, d := range resp.Detached.Devices {
 				rs = append(rs, d.Code.Alias())
 			}
-		} else {
-			cda, ok := data.(*models.CommandDetachAll)
-			if !ok {
-				return []string{"Type error"}, [][]string{{
-					fmt.Sprintf(
-						"Can't convert %v to CommandResp or CommandDetachAll", data)}}
-			}
-			rs = cda.Detached
 		}
 		return []string{"Controller", "Status", "Attached", "Detached"}, [][]string{{
 			resp.ControllerCode.Alias(), resp.Status, list(as), list(rs),
