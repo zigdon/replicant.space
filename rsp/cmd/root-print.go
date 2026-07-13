@@ -91,7 +91,8 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		var q, eta []string
-		if dev, err := getInfo(p); err == nil {
+		if dev, err := rest.DeviceInfo(p); err == nil {
+			log("%s:\nPrinting: %+v\nQueue: %+v", p.Alias(), dev.Printing, dev.PrintQueue)
 			if dev.Printing != nil {
 				q = append(q, dev.Printing.DeviceType)
 				eta = append(eta, dev.Printing.Eta.String())
