@@ -170,14 +170,21 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 		})
 
 		// Pick the next star we haven't skipped yet
+		found := false
 		for _, s := range sector {
 			if skip[s] || dists[s] == 0 {
 				continue
 			}
-			return "", fmt.Errorf("Not implemented")
+			log("Next star in the sector: %s (%.2fly)", s, dists[s])
+			next = s
+			dist = dists[s]
+			found = true
+			break
 		}
-		return "", fmt.Errorf("Not implemented")
 
+		if !found {
+			return "", fmt.Errorf("Next star unknown")
+		}
 	}
 
 	log("Next star: %q, %.2f LY away from %s", next, dist, pm.dest)
