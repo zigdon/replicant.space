@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"slices"
@@ -56,12 +55,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get printer locations
+	home, _ := cmd.Flags().GetString("home")
 	locs := make(map[string]bool)
 	printerStrs, _ := cmd.Flags().GetStringSlice("factory")
 	var printers []*models.CodeAlias
 	if len(printerStrs) == 0 {
 		// Just get all the home factories
-		home, _ := cmd.Flags().GetString("home")
 		facts, err := rest.Devices(map[string]string{
 			"location":    home,
 			"device_type": "autofactory",
@@ -296,132 +295,92 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// If there isn't an assigned afc, we're done
-	afcStr, _ := cmd.Flags().GetString("fleet")
-	var afcInfo *models.Device
-	var afc *models.CodeAlias
-	if afcStr != "" {
-		afc = models.NewCodeAlias(afcStr)
-		afcInfo, err = getInfo(afc)
+	// Find an available fleet carrier. If none available, send the nearest one home.
+	allMFs, err := rest.Devices(map[string]string{"device_type": "mobile_fleet"})
+	if err != nil {
+		return err
+	}
+	if len(allMFs) == 0 {
+		return fmt.Errorf("No fleet carriers found")
+	}
+	// Skip fleets that are not home, or have attached devices
+	var carrier *models.Device
+	for _, mf := range allMFs {
+		if mf.Location != home {
+			continue
+		}
+		if len(mf.AttachedDevices) > 0 {
+			continue
+		}
+		carrier = mf
+		break
+	}
+	if carrier == nil {
+		return fmt.Errorf("No available fleet found")
+	}
+	detachAll := func(ca *models.CodeAlias) error {
+		info, err := getInfo(ca)
 		if err != nil {
 			return err
 		}
-	}
-	detachAll := func(afc *models.CodeAlias) error {
-		afcInfo, err := getInfo(afc)
-		if err != nil {
-			return err
-		}
-		platforms := afcInfo.ControlledDevices
-		for _, p := range platforms {
-			info, err := getInfo(p.Code)
-			if err != nil {
-				return err
-			}
-			if len(info.AttachedDevices) == 0 {
-				continue
-			}
-			if info.Status != "idle" {
-				return fmt.Errorf("%s not idle: %s", info.Code.Alias(), info.Status)
-			}
-			var devs []string
-			for _, d := range info.AttachedDevices {
-				devs = append(devs, d.Code.Alias())
-			}
-			if len(devs) == 0 {
-				continue
-			}
-			log("Detaching %v from %s", devs, info.Code.Alias())
-			_, err = rest.DeviceCommand[models.CommandResp](info.Code, "detach", map[string]any{"targets": devs})
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if dest != "" {
-		if afcStr == "" {
-			log("No assigned AFC, will not ship ")
+		if len(info.AttachedDevices) == 0 {
 			return nil
 		}
+		if info.Status != "idle" {
+			return fmt.Errorf("%s not idle: %s", info.Code.Alias(), info.Status)
+		}
+		var devs []string
+		for _, d := range info.AttachedDevices {
+			devs = append(devs, d.Code.Alias())
+		}
+		if len(devs) == 0 {
+			return nil
+		}
+		log("Detaching %v from %s", devs, info.Code.Alias())
+		_, err = rest.DeviceCommand[models.CommandResp](info.Code, "detach", map[string]any{"targets": devs})
+		return err
+	}
+	if dest != "" {
 		log("Need to transport %v", needPicked)
 
 		if !dryRun {
-			// Detach anything connected to the afc, if it isn't in motion
-			if err := detachAll(afc); err != nil {
+			// Detach anything connected to the carrier, if it isn't in motion
+			if err := detachAll(carrier.Code); err != nil {
 				return err
 			}
 
-			// Use larger platforms before smaller ones
-			platforms := afcInfo.ControlledDevices
-			slices.SortFunc(platforms, func(a, b *models.ControlledDevice) int {
-				ca, _ := getInfo(a.Code)
-				cb, _ := getInfo(b.Code)
-				return cmp.Compare(cb.AttachCapacity, ca.AttachCapacity)
-			})
-
-			i, err := getInfo(afc)
-			if err != nil {
-				return err
-			}
-			if i.Location != dest {
-				if afcInfo.Travel != nil {
+			if carrier.Location != dest {
+				if carrier.Travel != nil {
 					log("%s already in transit to %q, ETA %s",
-						afc.Alias(), afcInfo.Travel.Destination, afcInfo.Travel.Arrives.String())
+						carrier.Code.Alias(), carrier.Travel.Destination, carrier.Travel.Arrives.String())
 					return nil
 				}
-				log("Sending %s to %s", afc.Alias(), dest)
-				res, err := rest.DeviceCommand[models.CommandResp](afc, "travel", map[string]any{"destination": dest})
+				log("Sending %s to %s", carrier.Code.Alias(), dest)
+				res, err := rest.DeviceCommand[models.CommandResp](carrier.Code, "travel", map[string]any{"destination": dest})
 				if err != nil {
 					if !strings.Contains(err.Error(), "Already at destination") {
 						return err
 					}
 				}
-				log("Fleet in transit, eta %s", res.TotalTime.String())
+				log("Carrier in transit, eta %s", res.TotalTime.String())
 				return nil
-			}
-			var needAssemble bool
-			for _, d := range i.ControlledDevices {
-				di, err := getInfo(d.Code)
-				if err != nil {
-					return err
-				}
-				if di.Location != dest {
-					needAssemble = true
-					break
-				}
-			}
-			if needAssemble {
-				log("Aseembling fleet at %s", dest)
-				_, err = rest.DeviceCommand[models.CommandResp](afc, "assemble", nil)
-				return err
 			}
 
 			// Attach any devices that need to ship
-			for _, p := range platforms {
-				info, err := getInfo(p.Code)
-				if err != nil {
-					return err
-				}
-				cap := min(info.AttachCapacity-len(info.AttachedDevices), len(needPicked))
-				if cap > 0 {
-					log("Attaching %v to %s", needPicked[0:cap], p.Code.Alias())
-					_, err := rest.DeviceCommand[models.CommandResp](p.Code, "attach", map[string]any{
-						"targets": needPicked[0:cap],
-					})
-					if err != nil {
-						return err
-					}
-					needPicked = needPicked[cap:]
-				}
-			}
-
-			// Ship em
-			res, err := rest.DeviceCommand[models.CommandResp](afc, "travel", map[string]any{"destination": locName})
+			log("Attaching %v to %s", needPicked, carrier.Code.Alias())
+			_, err := rest.DeviceCommand[models.CommandResp](carrier.Code, "attach", map[string]any{
+				"targets": needPicked,
+			})
 			if err != nil {
 				return err
 			}
-			log("Fleet in transit, eta %s", res.TotalTime.String())
+
+			// Ship em
+			res, err := rest.DeviceCommand[models.CommandResp](carrier.Code, "travel", map[string]any{"destination": locName})
+			if err != nil {
+				return err
+			}
+			log("Carrier in transit, eta %s", res.TotalTime.String())
 			return nil
 		}
 	}
@@ -457,7 +416,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Issue travel commands
 	var errs []error
-	if err := detachAll(afc); err != nil {
+	if err := detachAll(carrier.Code); err != nil {
 		return err
 	}
 	var fr *models.Device
@@ -513,11 +472,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		errs = append(errs, err)
 	}
 
-	afcInfo, err = getInfo(afc)
-	if afcInfo.Location == locName && len(afcInfo.AttachedDevices) == 0 {
+	if carrier.Location == locName && len(carrier.AttachedDevices) == 0 {
 		// If the fleet is at the destination, send it home
-		home, _ := cmd.Flags().GetString("home")
-		res, err := rest.DeviceCommand[models.CommandResp](afc, "travel", map[string]any{"destination": home})
+		res, err := rest.DeviceCommand[models.CommandResp](carrier.Code, "travel", map[string]any{"destination": home})
 		if err != nil {
 			return err
 		}

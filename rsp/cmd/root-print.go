@@ -91,8 +91,7 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		var q, eta []string
-		if dev, err := rest.DeviceInfo(p); err == nil {
-			log("%s:\nPrinting: %+v\nQueue: %+v", p.Alias(), dev.Printing, dev.PrintQueue)
+		if dev, err := getInfo(p); err == nil {
 			if dev.Printing != nil {
 				q = append(q, dev.Printing.DeviceType)
 				eta = append(eta, dev.Printing.Eta.String())
@@ -100,6 +99,10 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 			for _, pq := range dev.PrintQueue {
 				q = append(q, pq.Type)
 				eta = append(eta, getBP(pq.Type).PrintTime.String())
+			}
+			for i := 0; i < added[p.Alias()]; i++ {
+				q = append(q, bp.DeviceType)
+				eta = append(eta, bp.PrintTime.String())
 			}
 		}
 		data = append(data, []string{p.Alias(), d(added[p.Alias()]), lines(q), lines(eta)})
