@@ -96,6 +96,7 @@ var starsCmd = &cobra.Command{
 					"position_x":  s.Position.X,
 					"position_y":  s.Position.Y,
 					"position_z":  s.Position.Z,
+					"has_hub":     false,
 				}); err != nil {
 					log("Error updating cache for %q: %v", s.Designation, err)
 				}
