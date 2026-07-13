@@ -216,7 +216,7 @@ func (a *CodeAlias) MarshalJSON() ([]byte, error) {
 	if a == nil {
 		return []byte{}, nil
 	}
-	return json.Marshal(fmt.Sprintf("%s (%s)", a.alias, a.orig))
+	return json.Marshal(a.orig)
 }
 
 func (a *CodeAlias) UnmarshalJSON(data []byte) error {

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
@@ -130,7 +129,8 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 	// Get the current list of stars.
 	seen := make(map[string]*models.Star)
 	rows, err := db.DB.Query(`
-		SELECT designation, name, explored, est_planets, has_life, position_x, position_y, position_z
+		SELECT designation, name, est_planets, has_life,
+			position_x, position_y, position_z, has_hub, entry_point
 		FROM stars`)
 	if err != nil {
 		return err
@@ -140,7 +140,8 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 		old++
 		s := new(models.Star)
 		var x, y, z float32
-		err := rows.Scan(&s.Designation, &s.Name, &s.Explored, &s.EstimatedPlanets, &s.HasLife, &x, &y, &z)
+		err := rows.Scan(&s.Designation, &s.Name, &s.EstimatedPlanets, &s.HasLife,
+			&x, &y, &z, &s.HasHub, &s.EntryPoint)
 		if err != nil {
 			return err
 		}
@@ -149,14 +150,6 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 	}
 	log("Loaded %d stars from cache", old)
 
-	// Get a replicant ID, doesn't matter which
-	id, err := rest.ReplicantID(1)
-	if err != nil {
-		return err
-	}
-
-	// Get page 1, and also how many pages there are
-	page := 0
 	var added, updated []*models.Star
 	updatedStar := func(a, b *models.Star) bool {
 		if a.Designation != b.Designation {
@@ -182,37 +175,34 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 		return false
 	}
 	unchanged := 0
-	for {
-		census, err := rest.ReplicantCensus(id, 50, page)
-		if err != nil {
-			return err
-		}
-		for _, star := range census.Stars {
-			if old, ok := seen[star.Designation]; ok {
-				if !updatedStar(old, star) {
-					unchanged++
-					continue
-				}
-				updated = append(updated, star)
-			} else {
-				added = append(added, star)
+	accounted := make(map[string]bool)
+	catalog, err := rest.StarCatalog()
+	if err != nil {
+		return err
+	}
+	for _, star := range catalog.Stars {
+		accounted[star.Designation] = true
+		if old, ok := seen[star.Designation]; ok {
+			if !updatedStar(old, star) {
+				unchanged++
+				continue
 			}
-			seen[star.Designation] = star
-
+			updated = append(updated, star)
+		} else {
+			added = append(added, star)
 		}
-		log(
-			"Page %d/%d: %d total stars, %d added, %d updated, %d unchanged",
-			page, census.TotalPages, census.TotalStars, len(added),
-			len(updated), unchanged)
-		page++
-		if page > census.TotalPages {
-			break
+		seen[star.Designation] = star
+	}
+	var missing []string
+	for star := range accounted {
+		if _, ok := seen[star]; ok {
+			continue
 		}
-		time.Sleep(200 * time.Millisecond)
+		missing = append(missing, star)
 	}
 	log(
-		"Fetch done: %d total stars, %d added, %d updated, %d unchanged",
-		len(added)+len(updated)+unchanged, len(added), len(updated), unchanged)
+		"Fetch done: %d total stars, %d added, %d updated, %d unchanged, %d removed",
+		len(added)+len(updated)+unchanged, len(added), len(updated), unchanged, len(missing))
 	for _, s := range append(added, updated...) {
 		if err := s.Cache(); err != nil {
 			return err

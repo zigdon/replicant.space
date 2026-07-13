@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -33,7 +34,7 @@ var deviceNetworkCmd = &cobra.Command{
 		if ref == "" {
 			di, err := getInfo(ca)
 			if err != nil {
-				return err
+				return fmt.Errorf("Can't get info for %q: %v", ca.Alias(), err)
 			}
 			starName, _, _ := strings.Cut(di.Location, "-")
 			star = &models.Star{Designation: starName}
@@ -41,7 +42,7 @@ var deviceNetworkCmd = &cobra.Command{
 			star = &models.Star{Designation: ref}
 		}
 		if err := star.Get(); err != nil {
-			return err
+			return fmt.Errorf("Can't get cached star %q: %v", star.Designation, err)
 		}
 		for _, n := range res.Connections {
 			s := &models.Star{Designation: n.Star}

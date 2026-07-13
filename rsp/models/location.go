@@ -74,6 +74,12 @@ func (p *Position) Delta(pb *Position) *Position {
 	return NewPosition(p.X-pb.X, p.Y-pb.Y, p.Z-pb.Z)
 }
 
+type StarCatalog struct {
+	Total        int       `json:"total"`
+	Generated_at *JSONTime `json:"generated_at"`
+	Stars        []*Star   `json:"stars"`
+}
+
 type Star struct {
 	AgeMy                 float32 `json:"age_my"`
 	Color                 string  `json:"color"`
@@ -88,6 +94,7 @@ type Star struct {
 		InnerAu float32 `json:"inner_au"`
 		OuterAu float32 `json:"outer_au"`
 	} `json:"habitable_zone"`
+	HasHub          bool      `json:"has_hub"`
 	HasLife         bool      `json:"has_life"`
 	LuminositySolar float32   `json:"luminositysolar"`
 	MassSolar       float32   `json:"mass_solar"`
@@ -113,6 +120,7 @@ func (s *Star) Cache() error {
 		"est_planets": s.EstimatedPlanets,
 		"explored":    s.Explored,
 		"has_life":    s.HasLife,
+		"has_hub":     s.HasHub,
 		"name":        s.Name,
 		"position_x":  s.Position.X,
 		"position_y":  s.Position.Y,

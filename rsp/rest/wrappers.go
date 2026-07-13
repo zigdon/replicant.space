@@ -121,6 +121,14 @@ func CompleteEvent(eid string) (*models.Event, error) {
 	return ev, err
 }
 
+func StarCatalog() (*models.StarCatalog, error) {
+	res, err := cacheGET("", 5*time.Minute, "stars")
+	if err != nil {
+		return nil, err
+	}
+	return models.Parse[models.StarCatalog](res)
+}
+
 // Replicants
 func ReplicantID(id int) (*models.CodeAlias, error) {
 	account, err := Account()

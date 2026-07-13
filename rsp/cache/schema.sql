@@ -8,7 +8,9 @@ CREATE TABLE IF NOT EXISTS stars (
   has_life INTEGER not NULL,
   position_x REAL,
   position_y REAL,
-  position_z REAL
+  position_z REAL,
+  has_hub INTEGER
+  entry_point TEXT
 );
 
 CREATE TABLE IF NOT EXISTS planets (
