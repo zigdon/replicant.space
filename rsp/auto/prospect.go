@@ -14,9 +14,9 @@ import (
 
 // States:
 // Name        | Status      | Tag      | Action
-// ------------------------------------------------------------
+// ----------------------------------------------------------------------
 // prospecting | prospecting |          | wait
-// finished    | idle        | teardown | compact, update stars
+// finished    | idle        | teardown | read log, compact, update stars
 // compacting  | compacting  | teardown | fetch platform, wait
 // leaving     | compacted   | teardown | attach, travel
 // travelling  | travelling  |          | wait
@@ -109,6 +109,9 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 			return "", err
 		}
 		pm.db = db
+	}
+	if err := rest.ReloadStars(); err != nil {
+		return "", err
 	}
 	origin := models.NewPosition(0,0,0)
 	nearest, dist, err := pm.db.FindNearestStar(pm.dest.X, pm.dest.Y, pm.dest.Z)
@@ -235,9 +238,6 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		eta = res.Completes.Time()
-		if err := rest.ReloadStars(); err != nil {
-			return eta, err
-		}
 	case "compacting":
 		eta = pm.dev.Compact.Completes.Time()
 		res, err := pm.platform("travel", pm.dev.Location)

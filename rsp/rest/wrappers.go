@@ -613,3 +613,59 @@ func ReloadStars() error {
 	log("Updated done.")
 	return nil
 }
+
+func ProspectLogs(id *models.CodeAlias) error {
+	logs, err := DeviceLogs(id, true, 0, 100)
+	if err != nil {
+		return err
+	}
+	var added []string
+	for _, l := range logs.Events {
+		if l.EventType != "prospect_complete" {
+			continue
+		}
+		log("Prospect log: %s", l.Message)
+		data, ok := l.Payload["stars"]
+		if !ok {
+			log("No stars in payload: %+v", l.Payload)
+			continue
+		}
+		sList, ok := data.([]any)
+		if !ok {
+			log("Can't parse payload: %+v", data)
+			continue
+		}
+
+		// {
+        //  "coordinates": {
+        //    "x": 101.3734,
+        //    "y": -137.8722,
+        //    "z": -86.3028
+        //  },
+        //  "designation": "QUADORANS"
+        // }
+
+		for _, s := range sList {
+			m, ok := s.(map[string]any)
+			if !ok {
+				log("Can't map: %+v", s)
+				continue
+			}
+			star := &models.Star{Designation: m["designation"].(string)}
+			coords := m["coordinates"].(map[string]any)
+			star.Position = models.NewPosition(
+				float32(coords["x"].(float64)),
+				float32(coords["y"].(float64)),
+				float32(coords["z"].(float64)),
+			)
+			if err := star.Cache(); err != nil {
+				log("Error saving %s: %v", star.Designation, err)
+			}
+			added = append(added, star.Designation)
+		}
+
+		log("%d new stars added: %v", len(added), added)
+	}
+
+	return nil
+}
