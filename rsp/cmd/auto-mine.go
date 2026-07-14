@@ -294,25 +294,26 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		for _, d := range ds {
+			log("Checking %s: %s....", d.Code.Alias(), d.Location)
 			if d.Location == "" {
-				log("%s is in transit: %s (%.2f%%)", d.Code.Alias(), d.Status, d.Travel.ProgressPercent)
+				log("... in transit: %s (%.2f%%)", d.Status, d.Travel.ProgressPercent)
 				continue
 			}
 			dStar := d.Location[:strings.Index(d.Location, "-")]
 			if dStar == star {
-				log("%s is at destination star %q: %s", d.Code.Alias(), star, d.Location)
+				log("... at destination star %q: %s", star, d.Location)
 				continue
 			}
 			if dest != "" && d.Location != dest {
-				log("%s is not at the pickup location %q: %s", d.Code.Alias(), dest, d.Location)
+				log("... not at the pickup location %q: %s", dest, d.Location)
 				continue
 			}
 			if d.Status != "idle" && d.Status != "inactive" {
-				log("%s is not ready to pickup", d.Code.Alias())
+				log("... not ready to pickup")
 				continue
 			}
 			needPicked = append(needPicked, d.Code.Alias())
-			log("%s needs pickup at %q", d.Code.Alias(), d.Location)
+			log("... needs pickup at %q", d.Location)
 			if dest == "" {
 				dest = d.Location
 			}
@@ -487,7 +488,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		errs = append(errs, err)
 	}
 	var sds []*models.CodeAlias
-	for _, d := range fleet["service_bot"] {
+	for _, d := range fleet["belt_surveyor"] {
 		sds = append(sds, d.Code)
 	}
 	errs = append(errs, adopt(asc, sds))

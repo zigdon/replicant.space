@@ -14,11 +14,11 @@ import (
 
 // States:
 // Name        | Status      | Tag      | Action
-// ----------------------------------------------------------------------
+// -------------------------------------------------------------------
 // prospecting | prospecting |          | wait
-// finished    | idle        | teardown | read log, compact, update stars
+// finished    | idle        | teardown | read log, compact
 // compacting  | compacting  | teardown | fetch platform, wait
-// leaving     | compacted   | teardown | attach, travel
+// leaving     | compacted   | teardown | update stars, attach, travel
 // travelling  | travelling  |          | wait
 // setup       | compacted   | setup    | detach, unfurl
 // unfurling   | unfurling   | setup    | wait
@@ -84,6 +84,7 @@ func (pm *ProspectMachine) deviceCmd(id *models.CodeAlias, cmd string, args map[
 		log("Would issue [%q, %v] to %q", cmd, args, id.Alias())
 		return &models.CommandResp{}, nil
 	}
+	log("Issuing [%q, %v] to %q", cmd, args, id.Alias())
 	return rest.DeviceCommand[models.CommandResp](id, cmd, args)
 }
 
@@ -238,6 +239,9 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		eta = res.Completes.Time()
+		if err = rest.ProspectLogs(pm.dev.Code); err != nil {
+			log("Error getting new stars: %v")
+		}
 	case "compacting":
 		eta = pm.dev.Compact.Completes.Time()
 		res, err := pm.platform("travel", pm.dev.Location)
@@ -309,6 +313,7 @@ func (pm *ProspectMachine) SaveState(state string) error {
 		log("Would update tags on %q: -%s +%s", pm.dev.Code.Alias(), pm.tag, state)
 		return nil
 	}
+	log("Updating tags on %q: -%s +%s", pm.dev.Code.Alias(), pm.tag, state)
 	_, err := rest.UpdateTags(pm.dev.Code, rest.DelTag, []string{fmt.Sprintf("state:%s", pm.tag)})
 	if err != nil {
 		return err
