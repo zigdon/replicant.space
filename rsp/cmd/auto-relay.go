@@ -27,10 +27,10 @@ func autoRelay(cmd *cobra.Command, args []string) error {
 		return missingRelay(locName)
 	}
 	var valid bool
-	var extras []string
+	var extras []*models.Device
 	for _, d := range devs {
-		if valid { // We already found a valid network
-			extras = append(extras, d.Code.Alias())
+		if valid { // We already found a relay on the home network, just clean up extras
+			extras = append(extras, d)
 			continue
 		}
 		net, err := rest.DeviceNetwork(d.Code)
@@ -46,15 +46,25 @@ func autoRelay(cmd *cobra.Command, args []string) error {
 		if valid {
 			continue
 		}
-		extras = append(extras, d.Code.Alias())
+		extras = append(extras, d)
 	}
 	if !valid {
 		log("None of the relays at %s are in the home network", locName)
+		return activateRelay(locName, devs[0])
 	}
-	if len(devs) > 1 {
-		log("Found %d extra relays: %s", len(extras), strings.Join(extras, ", "))
+	if len(extras) > 0 {
+		var es []string
+		for _, e := range extras {
+			es = append(es, e.Code.Alias())
+		}
+		log("Found %d extra relays: %s", len(extras), strings.Join(es, ", "))
 		return returnExtraRelays(devs)
 	}
+	return nil
+}
+
+func activateRelay(loc string, d *models.Device) error {
+	log("Position and activate a relay (%s) in %s", d.Code.Alias(), loc)
 	return nil
 }
 
