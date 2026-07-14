@@ -201,6 +201,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	extra := make(map[string]time.Duration)
 	data = [][]string{}
+	var done time.Time
 	if noPrint, _ := cmd.Flags().GetBool("no_print"); !dryRun && !noPrint {
 		for devType, qty := range missing {
 			for qty > 0 {
@@ -231,6 +232,14 @@ func autoMine(cmd *cobra.Command, args []string) error {
 					factory.Alias(), devType, res.Status, d(res.QueueLength + 1),
 				})
 				qty -= 1
+				if fi, err := getInfo(factory); err == nil {
+					if eta, err := rest.GetPrintQueueETA(fi); err == nil {
+						qt := time.Now().Add(eta).Add(extra[factory.String()])
+						if qt.After(done) {
+							done = qt
+						}
+					}
+				}
 			}
 
 		}
@@ -245,6 +254,17 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if len(skip) > 0 {
 			log("Skipping printing missing devices: %s", list(skip))
 		}
+	}
+
+	if !done.IsZero() {
+		log("Print queue ETA: %s", done.Format(time.Stamp))
+		n := &models.Notification{
+			Start: time.Now(),
+			End: done,
+			Device: "Mining fleet",
+			Text: fmt.Sprintf("Fleet ready for %q", locName),
+		}
+		n.Save()
 	}
 
 	if len(data) > 0 {
@@ -274,6 +294,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		for _, d := range ds {
+			if d.Location == "" {
+				log("%s is in transit: %s (%.2f%%)", d.Code.Alias(), d.Status, d.Travel.ProgressPercent)
+				continue
+			}
 			dStar := d.Location[:strings.Index(d.Location, "-")]
 			if dStar == star {
 				log("%s is at destination star %q: %s", d.Code.Alias(), star, d.Location)
