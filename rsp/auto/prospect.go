@@ -111,10 +111,11 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 		}
 		pm.db = db
 	}
-	if err := rest.ReloadStars(); err != nil {
+	if out, err := rest.ReloadStars(); err != nil {
+		log(out)
 		return "", err
 	}
-	origin := models.NewPosition(0,0,0)
+	origin := models.NewPosition(0, 0, 0)
 	nearest, dist, err := pm.db.FindNearestStar(pm.dest.X, pm.dest.Y, pm.dest.Z)
 	if err != nil {
 		return "", err
@@ -227,8 +228,11 @@ func (pm *ProspectMachine) UpdateState() error {
 }
 
 func (pm *ProspectMachine) Process() (time.Time, error) {
-	var nextTag string
 	var eta time.Time
+	if err := pm.UpdateState(); err != nil {
+		return eta, err
+	}
+	var nextTag string
 	switch pm.state {
 	case "prospecting":
 		nextTag = "teardown"

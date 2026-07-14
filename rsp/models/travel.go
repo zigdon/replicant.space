@@ -47,6 +47,9 @@ func (t *Trip) Notification() *Notification {
 	if t.Device != nil {
 		d = t.Device.Alias()
 	}
+	if t.Departed == nil || t.Arrives == nil {
+		return nil
+	}
 	return &Notification{
 		Start:  t.Departed.ts,
 		End:    t.Arrives.ts,

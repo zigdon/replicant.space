@@ -125,5 +125,10 @@ func resetUniverse(cmd *cobra.Command, args []string) error {
 }
 
 func reloadStars(cmd *cobra.Command, args []string) error {
-	return rest.ReloadStars()
+	out, err := rest.ReloadStars()
+	if err != nil {
+		return err
+	}
+	log(out)
+	return nil
 }

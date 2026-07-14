@@ -9,6 +9,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,6 +77,11 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 		}
 		if resp.StatusCode == 429 {
 			log("Too many requests, backing off for %s", backoff)
+			for k, v := range resp.Header {
+				if strings.HasPrefix(k, "X-Ratelimit-") {
+					log("  %s: %s", k, v)
+				}
+			}
 			time.Sleep(backoff)
 			backoff = slices.Min([]time.Duration{backoff * 2, time.Minute})
 			continue

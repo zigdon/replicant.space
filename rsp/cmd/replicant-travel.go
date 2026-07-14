@@ -19,8 +19,9 @@ var travelCmd = &cobra.Command{
 		if len(args) == 0 || args[0] == "" {
 			return fmt.Errorf("A destination is required")
 		}
+		dryRun, _ := cmd.Flags().GetBool("dry_run")
 		dest := args[0]
-		res, err := rest.ReplicantTravel(rID, dest)
+		res, err := rest.ReplicantTravel(rID, dest, dryRun)
 		if err != nil {
 			return fmt.Errorf("Error starting trip: %v", err)
 		}
@@ -97,6 +98,7 @@ var teleportCmd = &cobra.Command{
 
 func init() {
 	replicantCmd.AddCommand(travelCmd)
+	travelCmd.Flags().BoolP("dry_run", "n", false, "Only preview the route")
 	replicantCmd.AddCommand(stopCmd)
 
 	replicantCmd.AddCommand(teleportCmd)

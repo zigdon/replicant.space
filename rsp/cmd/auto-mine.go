@@ -30,7 +30,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	star := locName[:strings.Index(locName, "-")]
+	star, _, ok := strings.Cut(locName, "-")
+	if !ok {
+		return fmt.Errorf("Can't figure out the star from %q", locName)
+	}
 	log("Destination system: %s", star)
 
 	// Define the desired fleet shape
@@ -259,10 +262,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if !done.IsZero() {
 		log("Print queue ETA: %s", done.Format(time.Stamp))
 		n := &models.Notification{
-			Start: time.Now(),
-			End: done,
+			Start:  time.Now(),
+			End:    done,
 			Device: "Mining fleet",
-			Text: fmt.Sprintf("Fleet ready for %q", locName),
+			Text:   fmt.Sprintf("Fleet ready for %q", locName),
 		}
 		n.Save()
 	}
@@ -285,8 +288,8 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			d := ds[0]
-			dStar := locName[:strings.Index(d.Location, "-")]
-			if star != dStar {
+			dStar, _, ok := strings.Cut(d.Location, "-")
+			if ok && star != dStar {
 				needPicked = append(needPicked, d.Code.Alias())
 				dest = d.Location
 			}
@@ -299,8 +302,8 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				log("... in transit: %s (%.2f%%)", d.Status, d.Travel.ProgressPercent)
 				continue
 			}
-			dStar := d.Location[:strings.Index(d.Location, "-")]
-			if dStar == star {
+			dStar, _, ok := strings.Cut(d.Location, "-")
+			if ok && dStar == star {
 				log("... at destination star %q: %s", star, d.Location)
 				continue
 			}
@@ -328,22 +331,13 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if len(allMFs) == 0 {
 		return fmt.Errorf("No fleet carriers found")
 	}
-	// Skip fleets that are not home, or have attached devices
 	var carrier *models.Device
-	for _, mf := range allMFs {
-		if mf.Location != home {
-			continue
-		}
-		if len(mf.AttachedDevices) > 0 {
-			continue
-		}
-		carrier = mf
-		break
-	}
-	if carrier == nil {
-		return fmt.Errorf("No available fleet found")
-	}
+	detached := make(map[*models.CodeAlias]bool)
 	detachAll := func(ca *models.CodeAlias) error {
+		if detached[ca] {
+			return nil
+		}
+		detached[ca] = true
 		info, err := getInfo(ca)
 		if err != nil {
 			return err
@@ -367,7 +361,20 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 	if dest != "" {
 		log("Need to transport %v", needPicked)
-
+		// Skip fleets that are not home, or have attached devices
+		for _, mf := range allMFs {
+			if mf.Location != home {
+				continue
+			}
+			if len(mf.AttachedDevices) > 0 {
+				continue
+			}
+			carrier = mf
+			break
+		}
+		if carrier == nil {
+			return fmt.Errorf("No available fleet found")
+		}
 		if !dryRun {
 			// Detach anything connected to the carrier, if it isn't in motion
 			if err := detachAll(carrier.Code); err != nil {
@@ -408,6 +415,22 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			log("Carrier in transit, eta %s", res.TotalTime.String())
 			return nil
 		}
+	} else {
+		// If there's a fleet idling at the destination, send it home
+		for _, mf := range allMFs {
+			if mf.Location != star {
+				continue
+			}
+			if len(mf.AttachedDevices) > 0 {
+				continue
+			}
+			res, err := rest.DeviceCommand[models.CommandResp](mf.Code, "travel", map[string]any{"destination": home})
+			if err != nil {
+				log("Error sending %q home: %v", mf.Code, err)
+				continue
+			}
+			log("Shipping %q home: ETA %s", mf.Code, res.Eta.String())
+		}
 	}
 	if dryRun {
 		return nil
@@ -441,9 +464,36 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Issue travel commands
 	var errs []error
-	if err := detachAll(carrier.Code); err != nil {
-		return err
+	carriers := make(map[*models.CodeAlias]*models.Device)
+	if carrier != nil {
+		carriers[carrier.Code] = carrier
 	}
+	for _, ds := range fleet {
+		for _, d := range ds {
+			if d.AttachedToDeviceCode != nil {
+				i, err := getInfo(d.AttachedToDeviceCode)
+				if err != nil {
+					errs = append(errs, err)
+					continue
+				}
+				carriers[d.AttachedToDeviceCode] = i
+			}
+		}
+	}
+	for _, c := range carriers {
+		if err := detachAll(c.Code); err != nil {
+			return err
+		}
+		if c.Location == locName && len(c.AttachedDevices) == 0 {
+			// If the fleet is at the destination, send it home
+			res, err := rest.DeviceCommand[models.CommandResp](c.Code, "travel", map[string]any{"destination": home})
+			if err != nil {
+				return err
+			}
+			log("Fleet returning to %q, eta %s", home, res.TotalTime.String())
+		}
+	}
+
 	var fr *models.Device
 	if len(frs) > 0 {
 		fr = frs[0]
@@ -480,30 +530,39 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 	var mds []*models.CodeAlias
 	for _, d := range fleet["mining_drone"] {
-		mds = append(mds, d.Code)
+		if d.ControllerDeviceCode == nil {
+			mds = append(mds, d.Code)
+			continue
+		}
+		if d.ControllerDeviceCode.String() != amc.String() {
+			errs = append(errs,
+				fmt.Errorf("%s is assigned to the wrong controller %s", d.Code.Alias(), d.ControllerDeviceCode.Alias()))
+		}
 	}
-	errs = append(errs, adopt(amc, mds))
+	if len(mds) > 0 {
+		errs = append(errs, adopt(amc, mds))
+	}
 
 	if err := setDirective(asc, "belt_search", nil); err != nil {
 		errs = append(errs, err)
 	}
 	var sds []*models.CodeAlias
 	for _, d := range fleet["belt_surveyor"] {
-		sds = append(sds, d.Code)
+		if d.ControllerDeviceCode == nil {
+			sds = append(sds, d.Code)
+			continue
+		}
+		if d.ControllerDeviceCode.String() != asc.String() {
+			errs = append(errs,
+				fmt.Errorf("%s is assigned to the wrong controller %s", d.Code.Alias(), d.ControllerDeviceCode.Alias()))
+		}
 	}
-	errs = append(errs, adopt(asc, sds))
+	if len(sds) > 0 {
+		errs = append(errs, adopt(asc, sds))
+	}
 
 	if err := setDirective(sd.Code, "service", nil); err != nil {
 		errs = append(errs, err)
-	}
-
-	if carrier.Location == locName && len(carrier.AttachedDevices) == 0 {
-		// If the fleet is at the destination, send it home
-		res, err := rest.DeviceCommand[models.CommandResp](carrier.Code, "travel", map[string]any{"destination": home})
-		if err != nil {
-			return err
-		}
-		log("Fleet returning to %q, eta %s", home, res.TotalTime.String())
 	}
 
 	return errors.Join(errs...)

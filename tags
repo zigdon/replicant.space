@@ -68,7 +68,7 @@
 !_TAG_PARSER_VERSION!Sh	0.0	/current.age/
 !_TAG_PARSER_VERSION!Yaml	0.0	/current.age/
 !_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
-!_TAG_PROC_CWD	/home/zigdon/Replicant/	//
+!_TAG_PROC_CWD	/home/zigdon/Projects/replicant.space/	//
 !_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
@@ -94,7 +94,7 @@ ActivePlates	rsp/models/scan.go	/^	ActivePlates         int       `json:"active_
 AddAliasType	rsp/cache/alias.go	/^func (db *Cache) AddAliasType(prefix, t string) error {$/;"	f	unknown:cache.Cache	typeref:typename:error
 AddEvent	rsp/auto/state.go	/^func (eq *EventQueue) AddEvent(name, desc string, when time.Time, callback func() error) {$/;"	f	struct:auto.EventQueue
 AddTag	rsp/rest/wrappers.go	/^	AddTag  TagOp = "add_tags"$/;"	c	package:rest	typeref:type:TagOp
-AdoptedDevices	rsp/models/device.go	/^	AdoptedDevices       []*StowedDevice     `json:"adopted"`$/;"	m	struct:models.CommandResp	typeref:typename:[]*StowedDevice
+AdoptedDevices	rsp/models/device.go	/^	AdoptedDevices       *StowedDevices      `json:"adopted"`$/;"	m	struct:models.CommandResp	typeref:typename:*StowedDevices
 AgeMy	rsp/models/location.go	/^	AgeMy                 float32 `json:"age_my"`$/;"	m	struct:models.Star	typeref:typename:float32
 Alias	rsp/cache/alias.go	/^func (db *Cache) Alias(designation, deviceType string) (string, error) {$/;"	f	unknown:cache.Cache	typeref:typename:(string, error)
 Alias	rsp/models/device.go	/^func (d *Device) Alias() {$/;"	f	struct:models.Device
@@ -102,10 +102,10 @@ Alias	rsp/models/helpers.go	/^func (a *CodeAlias) Alias() string {$/;"	f	struct:
 AliasTable	rsp/cache/db.go	/^	AliasTable             Tables = "aliases"$/;"	c	package:cache	typeref:type:Tables
 AliasType	rsp/cache/alias.go	/^func (db *Cache) AliasType(t string) (string, error) {$/;"	f	unknown:cache.Cache	typeref:typename:(string, error)
 AliasTypesTable	rsp/cache/db.go	/^	AliasTypesTable        Tables = "alias_types"$/;"	c	package:cache	typeref:type:Tables
-AmiDirective	rsp/models/device.go	/^	AmiDirective         *DeviceDirective             `json:"ami_directive"`$/;"	m	struct:models.Device	typeref:typename:*DeviceDirective
 AmiDirective	rsp/models/device.go	/^	AmiDirective         *DeviceDirective    `json:"ami_directive"`$/;"	m	struct:models.CommandResp	typeref:typename:*DeviceDirective
-AmiDirectiveStatus	rsp/models/device.go	/^	AmiDirectiveStatus   string                       `json:"ami_directive_status"`$/;"	m	struct:models.Device	typeref:typename:string
+AmiDirective	rsp/models/device.go	/^	AmiDirective         *DeviceDirective    `json:"ami_directive"`$/;"	m	struct:models.Device	typeref:typename:*DeviceDirective
 AmiDirectiveStatus	rsp/models/device.go	/^	AmiDirectiveStatus   string              `json:"ami_directive_status"`$/;"	m	struct:models.CommandResp	typeref:typename:string
+AmiDirectiveStatus	rsp/models/device.go	/^	AmiDirectiveStatus   string              `json:"ami_directive_status"`$/;"	m	struct:models.Device	typeref:typename:string
 ArgFn	rsp/models/helpers.go	/^	ArgFn   func() []any$/;"	m	struct:models.UpdateFn	typeref:typename:func() []any
 Arrives	rsp/models/device.go	/^	Arrives              *JSONTime           `json:"arrives_at"`$/;"	m	struct:models.CommandResp	typeref:typename:*JSONTime
 Arrives	rsp/models/replicant.go	/^	Arrives         *JSONTime      `json:"arrives_at"`$/;"	m	struct:models.Travel	typeref:typename:*JSONTime
@@ -115,14 +115,14 @@ AsteroidBelt	rsp/models/location.go	/^	AsteroidBelt struct {$/;"	m	struct:models
 AsteroidBelt	rsp/models/scan.go	/^	AsteroidBelt         struct {$/;"	m	struct:models.Scan	typeref:typename:struct { Belts []*Belt `json:"belts"`; Present bool `json:"present"`; }
 Atmosphere	rsp/models/location.go	/^	Atmosphere          string       `json:"atmosphere"`$/;"	m	struct:models.Planet	typeref:typename:string
 AttachCapacity	rsp/models/blueprints.go	/^	AttachCapacity   int            `json:"attach_capacity"`$/;"	m	struct:models.Blueprint	typeref:typename:int
-AttachCapacity	rsp/models/device.go	/^	AttachCapacity       int                          `json:"attach_capacity"`$/;"	m	struct:models.Device	typeref:typename:int
-Attached	rsp/models/device.go	/^	Attached             []*StowedDevice     `json:"attached"`$/;"	m	struct:models.CommandResp	typeref:typename:[]*StowedDevice
-AttachedDevices	rsp/models/device.go	/^	AttachedDevices      []*Device                    `json:"attached_devices"`$/;"	m	struct:models.Device	typeref:typename:[]*Device
+AttachCapacity	rsp/models/device.go	/^	AttachCapacity       int                 `json:"attach_capacity"`$/;"	m	struct:models.Device	typeref:typename:int
+Attached	rsp/models/device.go	/^	Attached             *StowedDevices      `json:"attached"`$/;"	m	struct:models.CommandResp	typeref:typename:*StowedDevices
+AttachedDevices	rsp/models/device.go	/^	AttachedDevices      []*Device           `json:"attached_devices"`$/;"	m	struct:models.Device	typeref:typename:[]*Device
 AttachedDevices	rsp/models/device.go	/^	AttachedDevices      []string            `json:"attached_devices"`$/;"	m	struct:models.CommandResp	typeref:typename:[]string
 AttachedDevices	rsp/models/replicant.go	/^	AttachedDevices     []string                     `json:"attached_devices"`$/;"	m	struct:models.Replicant	typeref:typename:[]string
-AttachedToDeviceCode	rsp/models/device.go	/^	AttachedToDeviceCode *CodeAlias                   `json:"attached_to_device_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
-AvailableCommands	rsp/models/device.go	/^	AvailableCommands    []string                     `json:"available_commands"`$/;"	m	struct:models.Device	typeref:typename:[]string
-AvailableDirectives	rsp/models/device.go	/^	AvailableDirectives  []string                     `json:"available_directives"`$/;"	m	struct:models.Device	typeref:typename:[]string
+AttachedToDeviceCode	rsp/models/device.go	/^	AttachedToDeviceCode *CodeAlias          `json:"attached_to_device_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
+AvailableCommands	rsp/models/device.go	/^	AvailableCommands    []string            `json:"available_commands"`$/;"	m	struct:models.Device	typeref:typename:[]string
+AvailableDirectives	rsp/models/device.go	/^	AvailableDirectives  []string            `json:"available_directives"`$/;"	m	struct:models.Device	typeref:typename:[]string
 AvailableSite	rsp/models/device.go	/^type AvailableSite struct {$/;"	s	package:models
 AvailableSites	rsp/models/device.go	/^	AvailableSites       []*AvailableSite    `json:"available_sites"`$/;"	m	struct:models.CommandResp	typeref:typename:[]*AvailableSite
 AxialTiltDeg	rsp/models/location.go	/^	AxialTiltDeg        float32      `json:"axial_tilt_deg"`$/;"	m	struct:models.Planet	typeref:typename:float32
@@ -164,12 +164,11 @@ Cache	rsp/models/travel.go	/^func (j *Journey) Cache() error {$/;"	f	struct:mode
 Cache	rsp/models/travel.go	/^func (jl *JourneyLeg) Cache() error {$/;"	f	struct:models.JourneyLeg	typeref:typename:error
 CacheTimes	rsp/rest/api.go	/^var CacheTimes sync.Map$/;"	v	package:rest	typeref:typename:sync.Map
 Calculated	rsp/models/travel.go	/^	Calculated     time.Time$/;"	m	struct:models.Journey	typeref:typename:time.Time
-Cargo	rsp/models/device.go	/^	Cargo                []*Inventory                 `json:"cargo"`$/;"	m	struct:models.Device	typeref:typename:[]*Inventory
+Cargo	rsp/models/device.go	/^	Cargo                []*Inventory        `json:"cargo"`$/;"	m	struct:models.Device	typeref:typename:[]*Inventory
 Cargo	rsp/models/replicant.go	/^	Cargo               []*Inventory                 `json:"cargo"`$/;"	m	struct:models.Replicant	typeref:typename:[]*Inventory
 CargoCapacity	rsp/models/blueprints.go	/^	CargoCapacity    int            `json:"cargo_capacity"`$/;"	m	struct:models.Blueprint	typeref:typename:int
-CargoCapacity	rsp/models/device.go	/^	CargoCapacity        int                          `json:"cargo_capacity"`$/;"	m	struct:models.Device	typeref:typename:int
+CargoCapacity	rsp/models/device.go	/^	CargoCapacity        int                 `json:"cargo_capacity"`$/;"	m	struct:models.Device	typeref:typename:int
 CarrierCode	rsp/models/device.go	/^	CarrierCode          *CodeAlias          `json:"carrier_code"`$/;"	m	struct:models.CommandResp	typeref:typename:*CodeAlias
-CarrierCode	rsp/models/device.go	/^	CarrierCode *CodeAlias `json:"carrier_code"`$/;"	m	struct:models.CommandDetachAll	typeref:typename:*CodeAlias
 Category	rsp/models/events.go	/^	Category         string           `json:"category"`$/;"	m	struct:models.Event	typeref:typename:string
 Census	rsp/models/location.go	/^type Census struct {$/;"	s	package:models
 Channel	rsp/models/account.go	/^	Channel       string    `json:"channel"`$/;"	m	struct:models.Bob	typeref:typename:string
@@ -177,7 +176,7 @@ ChildFn	rsp/models/helpers.go	/^	ChildFn func() []string$/;"	m	struct:models.Upd
 CivilisationPoints	rsp/models/events.go	/^	CivilisationPoints    int            `json:"civilisation_points"`$/;"	m	struct:models.EventReward	typeref:typename:int
 ClearCache	rsp/models/travel.go	/^func (j *Journey) ClearCache() error {$/;"	f	struct:models.Journey	typeref:typename:error
 ClearNotifications	rsp/cache/db.go	/^func (db *Cache) ClearNotifications(ids []int) error {$/;"	f	struct:cache.Cache	typeref:typename:error
-Code	rsp/models/device.go	/^	Code                 *CodeAlias                   `json:"device_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
+Code	rsp/models/device.go	/^	Code                 *CodeAlias          `json:"device_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
 Code	rsp/models/device.go	/^	Code     *CodeAlias `json:"device_code"`$/;"	m	struct:models.ControlledDevice	typeref:typename:*CodeAlias
 Code	rsp/models/device.go	/^	Code *CodeAlias `json:"device_code"`$/;"	m	struct:models.StowedDevice	typeref:typename:*CodeAlias
 Code	rsp/models/replicant.go	/^	Code                *CodeAlias                   `json:"replicant_code"`$/;"	m	struct:models.Replicant	typeref:typename:*CodeAlias
@@ -185,9 +184,8 @@ Code	rsp/models/scan.go	/^	Code string `json:"replicant_code"`$/;"	m	struct:mode
 Code	rsp/models/trades.go	/^	Code     string    `json:"trade_code"`$/;"	m	struct:models.Trade	typeref:typename:string
 CodeAlias	rsp/models/helpers.go	/^type CodeAlias struct {$/;"	s	package:models
 Color	rsp/models/location.go	/^	Color                 string  `json:"color"`$/;"	m	struct:models.Star	typeref:typename:string
-CommandDetachAll	rsp/models/device.go	/^type CommandDetachAll struct {$/;"	s	package:models
 CommandResp	rsp/models/device.go	/^type CommandResp struct {$/;"	s	package:models
-Compact	rsp/models/device.go	/^	Compact              *Compact                     `json:"compact"`$/;"	m	struct:models.Device	typeref:typename:*Compact
+Compact	rsp/models/device.go	/^	Compact              *Compact            `json:"compact"`$/;"	m	struct:models.Device	typeref:typename:*Compact
 Compact	rsp/models/device.go	/^type Compact struct {$/;"	s	package:models
 CompareAliases	rsp/models/helpers.go	/^func CompareAliases(a, b *CodeAlias) int {$/;"	f	package:models	typeref:typename:int
 CompleteEvent	rsp/rest/wrappers.go	/^func CompleteEvent(eid string) (*models.Event, error) {$/;"	f	package:rest	typeref:typename:(*models.Event, error)
@@ -206,18 +204,17 @@ ConnectDB	rsp/models/helpers.go	/^func ConnectDB(cdb *cache.Cache) {$/;"	f	packa
 ConnectDB	rsp/rest/wrappers.go	/^func ConnectDB(cdb *cache.Cache) {$/;"	f	package:rest
 Connections	rsp/models/device.go	/^	Connections []*NetworkNode `json:"connections"`$/;"	m	struct:models.Network	typeref:typename:[]*NetworkNode
 ControlledDevice	rsp/models/device.go	/^type ControlledDevice struct {$/;"	s	package:models
-ControlledDevices	rsp/models/device.go	/^	ControlledDevices    []*ControlledDevice          `json:"controlled_devices"`$/;"	m	struct:models.Device	typeref:typename:[]*ControlledDevice
+ControlledDevices	rsp/models/device.go	/^	ControlledDevices    []*ControlledDevice `json:"controlled_devices"`$/;"	m	struct:models.Device	typeref:typename:[]*ControlledDevice
 Controller	rsp/models/device.go	/^	Controller           *ControllerStatus   `json:"controller"`$/;"	m	struct:models.CommandResp	typeref:typename:*ControllerStatus
 Controller	rsp/models/device.go	/^	Controller string            `json:"Controller"`$/;"	m	struct:models.DevicePrintQueue	typeref:typename:string
 ControllerCode	rsp/models/device.go	/^	ControllerCode       *CodeAlias          `json:"controller_code"`$/;"	m	struct:models.CommandResp	typeref:typename:*CodeAlias
 ControllerCode	rsp/models/trades.go	/^	ControllerCode     string   `json:"controller_code"`$/;"	m	struct:models.Shop	typeref:typename:string
-ControllerDeviceCode	rsp/models/device.go	/^	ControllerDeviceCode *CodeAlias                   `json:"controller_device_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
+ControllerDeviceCode	rsp/models/device.go	/^	ControllerDeviceCode *CodeAlias          `json:"controller_device_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
 ControllerStatus	rsp/models/device.go	/^type ControllerStatus struct {$/;"	s	package:models
-Count	rsp/models/device.go	/^	Count       int        `json:"count"`$/;"	m	struct:models.CommandDetachAll	typeref:typename:int
 Count	rsp/models/events.go	/^	Count      int    `json:"count"`$/;"	m	struct:models.EventDevice	typeref:typename:int
 Created	rsp/models/account.go	/^	Created               *JSONTime             `json:"created_at"`$/;"	m	struct:models.Account	typeref:typename:*JSONTime
 Created	rsp/models/account.go	/^	Created *JSONTime `json:"created_at"`$/;"	m	struct:models.Message	typeref:typename:*JSONTime
-Created	rsp/models/device.go	/^	Created              *JSONTime                    `json:"created_at"`$/;"	m	struct:models.Device	typeref:typename:*JSONTime
+Created	rsp/models/device.go	/^	Created              *JSONTime           `json:"created_at"`$/;"	m	struct:models.Device	typeref:typename:*JSONTime
 Created	rsp/models/device.go	/^	Created    *JSONTime      `json:"created_at"`$/;"	m	struct:models.DeviceEvent	typeref:typename:*JSONTime
 Created	rsp/models/replicant.go	/^	Created             *JSONTime                    `json:"created_at"`$/;"	m	struct:models.Replicant	typeref:typename:*JSONTime
 Created	rsp/models/replicant.go	/^	Created    *JSONTime      `json:"created_at"`$/;"	m	struct:models.ReplicantEvent	typeref:typename:*JSONTime
@@ -243,7 +240,7 @@ Departed	rsp/models/device.go	/^	Departed             *JSONTime           `json:
 Departed	rsp/models/replicant.go	/^	Departed        *JSONTime      `json:"departed_at"`$/;"	m	struct:models.Travel	typeref:typename:*JSONTime
 Departed	rsp/models/travel.go	/^	Departed        *JSONTime      `json:"departed_at"`$/;"	m	struct:models.Trip	typeref:typename:*JSONTime
 Depleted	rsp/models/scan.go	/^	Depleted           bool     `json:"depleted"`$/;"	m	struct:models.Salvage	typeref:typename:bool
-Deployed	rsp/models/device.go	/^	Deployed             *JSONTime                    `json:"deployed_at"`$/;"	m	struct:models.Device	typeref:typename:*JSONTime
+Deployed	rsp/models/device.go	/^	Deployed             *JSONTime           `json:"deployed_at"`$/;"	m	struct:models.Device	typeref:typename:*JSONTime
 Description	rsp/models/blueprints.go	/^	Description      string         `json:"description"`$/;"	m	struct:models.Blueprint	typeref:typename:string
 Description	rsp/models/events.go	/^	Description      string           `json:"description"`$/;"	m	struct:models.Event	typeref:typename:string
 Description	rsp/models/replicant.go	/^	Description         string                       `json:"description"`$/;"	m	struct:models.Replicant	typeref:typename:string
@@ -272,8 +269,7 @@ DestinationName	rsp/models/travel.go	/^	DestinationName string         `json:"de
 DestinationStar	rsp/models/replicant.go	/^	DestinationStar  string         `json:"destination_star"`$/;"	m	struct:models.Teleport	typeref:typename:string
 DestinationType	rsp/models/device.go	/^	DestinationType      string              `json:"destination_type"`$/;"	m	struct:models.CommandResp	typeref:typename:string
 DestinationType	rsp/models/replicant.go	/^	DestinationType string         `json:"destination_type"`$/;"	m	struct:models.Travel	typeref:typename:string
-Detached	rsp/models/device.go	/^	Detached             []*StowedDevice     `json:"detached"`$/;"	m	struct:models.CommandResp	typeref:typename:[]*StowedDevice
-Detached	rsp/models/device.go	/^	Detached    []string   `json:"detached"`$/;"	m	struct:models.CommandDetachAll	typeref:typename:[]string
+Detached	rsp/models/device.go	/^	Detached             *StowedDevices      `json:"detached"`$/;"	m	struct:models.CommandResp	typeref:typename:*StowedDevices
 Detail	rsp/models/device.go	/^	Detail          *ProspectDetail `json:"detail"`$/;"	m	struct:models.Prospect	typeref:typename:*ProspectDetail
 Details	rsp/models/replicant.go	/^func (r *Replicant) Details() []*tview.TreeNode {$/;"	f	struct:models.Replicant	typeref:typename:[]*tview.TreeNode
 Device	rsp/cmd/table-wait.go	/^	Device       *models.Device$/;"	m	struct:cmd.ETA	typeref:typename:*models.Device
@@ -303,6 +299,7 @@ DeviceType	rsp/models/events.go	/^	DeviceType string `json:"device_type"`$/;"	m	
 DeviceType	rsp/models/replicant.go	/^	DeviceType string         `json:"device_type"`$/;"	m	struct:models.ReplicantEvent	typeref:typename:string
 DeviceType	rsp/models/replicant.go	/^	DeviceType string `json:"device_type"`$/;"	m	struct:models.PrintQueue	typeref:typename:string
 Devices	rsp/models/device.go	/^	Devices    []*Device `json:"devices"`$/;"	m	struct:models.TaggedDevices	typeref:typename:[]*Device
+Devices	rsp/models/device.go	/^	Devices []*StowedDevice$/;"	m	struct:models.StowedDevices	typeref:typename:[]*StowedDevice
 Devices	rsp/models/device.go	/^func (n *Network) Devices() []string {$/;"	f	struct:models.Network	typeref:typename:[]string
 Devices	rsp/models/events.go	/^	Devices   []*EventDevice                 `json:"devices"`$/;"	m	struct:models.EventProgressOption	typeref:typename:[]*EventDevice
 Devices	rsp/models/events.go	/^	Devices   []*EventDevice `json:"devices"`$/;"	m	struct:models.EventCriteria	typeref:typename:[]*EventDevice
@@ -377,7 +374,7 @@ ExperiencePointsTotal	rsp/models/account.go	/^	ExperiencePointsTotal int        
 Explored	rsp/models/location.go	/^	Explored              bool    `json:"explored"`$/;"	m	struct:models.Star	typeref:typename:bool
 ExtractLocations	rsp/models/scan.go	/^func (s *Scan) ExtractLocations() []string {$/;"	f	struct:models.Scan	typeref:typename:[]string
 Features	rsp/models/blueprints.go	/^	Features         []string       `json:"features"`$/;"	m	struct:models.Blueprint	typeref:typename:[]string
-Features	rsp/models/device.go	/^	Features             []string                     `json:"features"`$/;"	m	struct:models.Device	typeref:typename:[]string
+Features	rsp/models/device.go	/^	Features             []string            `json:"features"`$/;"	m	struct:models.Device	typeref:typename:[]string
 Fetched	rsp/models/device.go	/^func (d *Device) Fetched() time.Time {$/;"	f	struct:models.Device	typeref:typename:time.Time
 Fill	rsp/models/account.go	/^func (a *Account) Fill() error {$/;"	f	struct:models.Account	typeref:typename:error
 Fill	rsp/models/device.go	/^func (d *Device) Fill() error {$/;"	f	struct:models.Device	typeref:typename:error
@@ -397,6 +394,7 @@ From	rsp/models/travel.go	/^	From         string$/;"	m	struct:models.JourneyLeg	
 From	rsp/models/travel.go	/^	From       string         `json:"from"`$/;"	m	struct:models.TripLeg	typeref:typename:string
 FromName	rsp/models/travel.go	/^	FromName   string         `json:"from_name"`$/;"	m	struct:models.TripLeg	typeref:typename:string
 FromPosition	rsp/models/travel.go	/^	FromPosition *Position$/;"	m	struct:models.JourneyLeg	typeref:typename:*Position
+Generated_at	rsp/models/location.go	/^	Generated_at *JSONTime `json:"generated_at"`$/;"	m	struct:models.StarCatalog	typeref:typename:*JSONTime
 Get	rsp/cache/db.go	/^func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {$/;"	f	struct:cache.Cache	typeref:typename:(func(...any) error, error)
 Get	rsp/models/account.go	/^func (m *Message) Get() error {$/;"	f	struct:models.Message	typeref:typename:error
 Get	rsp/models/account.go	/^func (ms *Messages) Get() error {$/;"	f	struct:models.Messages	typeref:typename:error
@@ -422,9 +420,10 @@ GetTagged	rsp/rest/wrappers.go	/^func GetTagged(tag string) (*models.TaggedDevic
 GetType	rsp/rest/wrappers.go	/^func GetType(code string) (string, error) {$/;"	f	package:rest	typeref:typename:(string, error)
 GetTypeForPrefix	rsp/cache/alias.go	/^func (db *Cache) GetTypeForPrefix(a string) string {$/;"	f	unknown:cache.Cache	typeref:typename:string
 GetVal	rsp/cache/db.go	/^func (db *Cache) GetVal(table Tables, col, key string) (func(...any) error, error) {$/;"	f	struct:cache.Cache	typeref:typename:(func(...any) error, error)
-GracePeriodRemaining	rsp/models/device.go	/^	GracePeriodRemaining int                          `json:"grace_period_remaining"`$/;"	m	struct:models.Device	typeref:typename:int
+GracePeriodRemaining	rsp/models/device.go	/^	GracePeriodRemaining int                 `json:"grace_period_remaining"`$/;"	m	struct:models.Device	typeref:typename:int
 HabitableZone	rsp/models/location.go	/^	HabitableZone         struct {$/;"	m	struct:models.Star	typeref:typename:struct { InnerAu float32 `json:"inner_au"`; OuterAu float32 `json:"outer_au"`; }
 HasAlias	rsp/cache/alias.go	/^func (db *Cache) HasAlias(designation string) string {$/;"	f	unknown:cache.Cache	typeref:typename:string
+HasHub	rsp/models/location.go	/^	HasHub          bool      `json:"has_hub"`$/;"	m	struct:models.Star	typeref:typename:bool
 HasLife	rsp/models/location.go	/^	HasLife         bool      `json:"has_life"`$/;"	m	struct:models.Star	typeref:typename:bool
 Have	rsp/models/replicant.go	/^	Have int `json:"have"`$/;"	m	struct:models.MissingResources	typeref:typename:int
 HostedDeviceCode	rsp/models/replicant.go	/^	HostedDeviceCode    *CodeAlias                   `json:"hosted_device_code"`$/;"	m	struct:models.Replicant	typeref:typename:*CodeAlias
@@ -438,7 +437,7 @@ Id	rsp/models/device.go	/^	Id         int            `json:"id"`$/;"	m	struct:mo
 ImpactEta	rsp/models/scan.go	/^	ImpactEta            *JSONTime `json:"impact_eta"`$/;"	m	struct:models.Object	typeref:typename:*JSONTime
 ImpactLikelihood	rsp/models/scan.go	/^	ImpactLikelihood     float32   `json:"impact_likelihood"`$/;"	m	struct:models.Object	typeref:typename:float32
 ImpactTarget	rsp/models/scan.go	/^	ImpactTarget         string    `json:"impact_target"`$/;"	m	struct:models.Object	typeref:typename:string
-InControlRange	rsp/models/device.go	/^	InControlRange       bool                         `json:"in_control_range"`$/;"	m	struct:models.Device	typeref:typename:bool
+InControlRange	rsp/models/device.go	/^	InControlRange       bool                `json:"in_control_range"`$/;"	m	struct:models.Device	typeref:typename:bool
 InHabitableZone	rsp/models/location.go	/^	InHabitableZone     bool         `json:"in_habitable_zone"`$/;"	m	struct:models.Planet	typeref:typename:bool
 Index	rsp/models/location.go	/^	Index                 int            `json:"site_index"`$/;"	m	struct:models.Site	typeref:typename:int
 InitialStock	rsp/models/trades.go	/^	InitialStock int    `json:"initial_stock"`$/;"	m	struct:models.Trade	typeref:typename:int
@@ -464,8 +463,8 @@ LifeStage	rsp/models/location.go	/^	LifeStage           string       `json:"life
 ListIDs	rsp/cache/db.go	/^func (db *Cache) ListIDs(table Tables) ([]any, error) {$/;"	f	struct:cache.Cache	typeref:typename:([]any, error)
 ListItem	rsp/models/replicant.go	/^func (r *Replicant) ListItem() (string, string) {$/;"	f	struct:models.Replicant	typeref:typename:(string, string)
 LocalMsg	rsp/models/helpers.go	/^type LocalMsg interface {$/;"	i	package:models
-Location	rsp/models/device.go	/^	Location             string                       `json:"location"`$/;"	m	struct:models.Device	typeref:typename:string
 Location	rsp/models/device.go	/^	Location             string              `json:"location"`$/;"	m	struct:models.CommandResp	typeref:typename:string
+Location	rsp/models/device.go	/^	Location             string              `json:"location"`$/;"	m	struct:models.Device	typeref:typename:string
 Location	rsp/models/device.go	/^	Location string     `json:"location"`$/;"	m	struct:models.ControlledDevice	typeref:typename:string
 Location	rsp/models/events.go	/^	Location         string           `json:"location"`$/;"	m	struct:models.Event	typeref:typename:string
 Location	rsp/models/location.go	/^	Location            string                      `json:"location"`$/;"	m	struct:models.Location	typeref:typename:string
@@ -479,7 +478,7 @@ Location	rsp/rest/wrappers.go	/^func Location(id string) (*models.Location, erro
 LocationEvent	rsp/models/location.go	/^	LocationEvent       *Event                      `json:"location_event"`$/;"	m	struct:models.Location	typeref:typename:*Event
 LocationEvent	rsp/models/scan.go	/^type LocationEvent struct {$/;"	s	package:models
 LocationEvents	rsp/models/location.go	/^	LocationEvents int `json:"location_events"`$/;"	m	struct:models.LocationSummary	typeref:typename:int
-LocationName	rsp/models/device.go	/^	LocationName         string                       `json:"location_name"`$/;"	m	struct:models.Device	typeref:typename:string
+LocationName	rsp/models/device.go	/^	LocationName         string              `json:"location_name"`$/;"	m	struct:models.Device	typeref:typename:string
 LocationName	rsp/models/events.go	/^	LocationName     string           `json:"location_name"`$/;"	m	struct:models.Event	typeref:typename:string
 LocationName	rsp/models/replicant.go	/^	LocationName        string                       `json:"location_name"`$/;"	m	struct:models.Replicant	typeref:typename:string
 LocationName	rsp/models/trades.go	/^	LocationName       string   `json:"location_name"`$/;"	m	struct:models.Shop	typeref:typename:string
@@ -571,7 +570,7 @@ Object	rsp/models/location.go	/^	Object              *Object                    
 Object	rsp/models/scan.go	/^type Object struct {$/;"	s	package:models
 ObjectType	rsp/models/scan.go	/^	ObjectType           string    `json:"object_type"`$/;"	m	struct:models.Object	typeref:typename:string
 Offline	rsp/models/replicant.go	/^	Offline          *JSONTimeDelta `json:"offline_seconds"`$/;"	m	struct:models.Teleport	typeref:typename:*JSONTimeDelta
-OperationalCapacity	rsp/models/device.go	/^	OperationalCapacity  float32                      `json:"operational_capacity"`$/;"	m	struct:models.Device	typeref:typename:float32
+OperationalCapacity	rsp/models/device.go	/^	OperationalCapacity  float32             `json:"operational_capacity"`$/;"	m	struct:models.Device	typeref:typename:float32
 Options	rsp/models/events.go	/^	Options          []*EventProgressOption `json:"options"`$/;"	m	struct:models.EventProgress	typeref:typename:[]*EventProgressOption
 OrbitalDistanceAu	rsp/models/location.go	/^	OrbitalDistanceAu   float32      `json:"orbital_distance_au"`$/;"	m	struct:models.Planet	typeref:typename:float32
 OrbitalDistanceAu	rsp/models/scan.go	/^	OrbitalDistanceAu    float32   `json:"orbital_distance_au"`$/;"	m	struct:models.Object	typeref:typename:float32
@@ -587,8 +586,9 @@ OuterSystem	rsp/models/scan.go	/^	OuterSystem    struct {$/;"	m	struct:models.Sc
 OutwardNeighbours	rsp/models/device.go	/^	OutwardNeighbours int     `json:"outward_neighbours"`$/;"	m	struct:models.ProspectDetail	typeref:typename:int
 OutwardRatio	rsp/models/device.go	/^	OutwardRatio      float32 `json:"outward_ratio"`$/;"	m	struct:models.ProspectDetail	typeref:typename:float32
 OwnedDevices	rsp/models/replicant.go	/^type OwnedDevices struct {$/;"	s	package:models
+Owner	rsp/models/device.go	/^	Owner                *struct {$/;"	m	struct:models.Device	typeref:typename:*struct { Name string `json:"name"`; Code *CodeAlias `json:"replicant_code"`; }
 OwnerName	rsp/models/trades.go	/^	OwnerName          string   `json:"owner_name"`$/;"	m	struct:models.Shop	typeref:typename:string
-OwnerReplicant	rsp/models/device.go	/^	OwnerReplicant       *CodeAlias                   `json:"owner_replicant_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
+OwnerReplicant	rsp/models/device.go	/^	OwnerReplicant     *CodeAlias           `json:"owner_replicant_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
 OwnerReplicantCode	rsp/models/trades.go	/^	OwnerReplicantCode string   `json:"owner_replicant_code"`$/;"	m	struct:models.Shop	typeref:typename:string
 Page	rsp/models/location.go	/^	Page              int       `json:"page"`$/;"	m	struct:models.Census	typeref:typename:int
 ParentPlanet	rsp/models/location.go	/^	ParentPlanet string `json:"parent_planet"`$/;"	m	struct:models.Moon	typeref:typename:string
@@ -614,15 +614,16 @@ Position	rsp/models/location.go	/^type Position struct {$/;"	s	package:models
 Position	rsp/models/replicant.go	/^	Position            *Position                    `json:"position"`$/;"	m	struct:models.Replicant	typeref:typename:*Position
 Post	rsp/rest/api.go	/^func Post(path string, data []byte, args ...any) ([]byte, error) {$/;"	f	package:rest	typeref:typename:([]byte, error)
 Preferences	rsp/models/account.go	/^	Preferences *NotifyDetails `json:"preferences"`$/;"	m	struct:models.Notify	typeref:typename:*NotifyDetails
-PrintQueue	rsp/models/device.go	/^	PrintQueue           []*DevicePrintQueue          `json:"print_queue"`$/;"	m	struct:models.Device	typeref:typename:[]*DevicePrintQueue
+PrintQueue	rsp/models/device.go	/^	PrintQueue         []*DevicePrintQueue  `json:"print_queue"`$/;"	m	struct:models.Device	typeref:typename:[]*DevicePrintQueue
 PrintQueue	rsp/models/replicant.go	/^	PrintQueue          []*PrintQueue                `json:"print_queue"`$/;"	m	struct:models.Replicant	typeref:typename:[]*PrintQueue
 PrintQueue	rsp/models/replicant.go	/^type PrintQueue struct {$/;"	s	package:models
 PrintResp	rsp/models/blueprints.go	/^type PrintResp struct {$/;"	s	package:models
 PrintTime	rsp/models/blueprints.go	/^	PrintTime         *JSONTimeDelta `json:"print_time_seconds"`$/;"	m	struct:models.PrintResp	typeref:typename:*JSONTimeDelta
 PrintTime	rsp/models/blueprints.go	/^	PrintTime        *JSONTimeDelta `json:"print_time"`$/;"	m	struct:models.Blueprint	typeref:typename:*JSONTimeDelta
-Printing	rsp/models/device.go	/^	Printing             *DevicePrint                 `json:"printing"`$/;"	m	struct:models.Device	typeref:typename:*DevicePrint
+Printing	rsp/models/device.go	/^	Printing           *DevicePrint         `json:"printing"`$/;"	m	struct:models.Device	typeref:typename:*DevicePrint
 Printing	rsp/models/replicant.go	/^	Printing            *DevicePrint                 `json:"printing"`$/;"	m	struct:models.Replicant	typeref:typename:*DevicePrint
 Process	rsp/auto/prospect.go	/^func (pm *ProspectMachine) Process() (time.Time, error) {$/;"	f	struct:auto.ProspectMachine	typeref:typename:(time.Time, error)
+Process	rsp/auto/relay.go	/^func (rm *RelayMachine) Process() (time.Time, error) {$/;"	f	struct:auto.RelayMachine	typeref:typename:(time.Time, error)
 Process	rsp/auto/state.go	/^	Process() (time.Time, error)$/;"	n	interface:auto.Machine	typeref:typename:(time.Time, error)
 Processed	rsp/models/travel.go	/^	Processed    bool$/;"	m	struct:models.JourneyLeg	typeref:typename:bool
 Progress	rsp/models/events.go	/^	Progress         *EventProgress   `json:"progress"`$/;"	m	struct:models.Event	typeref:typename:*EventProgress
@@ -638,10 +639,11 @@ ProgressPercent	rsp/models/travel.go	/^	ProgressPercent float32        `json:"pr
 ProgressTime	rsp/models/helpers.go	/^func ProgressTime(width int, start, end time.Time) string {$/;"	f	package:models	typeref:typename:string
 Project	rsp/models/replicant.go	/^	Project             string                       `json:"project"`$/;"	m	struct:models.Replicant	typeref:typename:string
 Pronouns	rsp/models/replicant.go	/^	Pronouns            string                       `json:"pronouns"`$/;"	m	struct:models.Replicant	typeref:typename:string
-Prospect	rsp/models/device.go	/^	Prospect             *Prospect                    `json:"prospect"`$/;"	m	struct:models.Device	typeref:typename:*Prospect
+Prospect	rsp/models/device.go	/^	Prospect           *Prospect            `json:"prospect"`$/;"	m	struct:models.Device	typeref:typename:*Prospect
 Prospect	rsp/models/device.go	/^type Prospect struct {$/;"	s	package:models
 Prospect	rsp/rest/wrappers.go	/^func Prospect(id *models.CodeAlias, dir *models.Position) (*models.Prospect, error) {$/;"	f	package:rest	typeref:typename:(*models.Prospect, error)
 ProspectDetail	rsp/models/device.go	/^type ProspectDetail struct {$/;"	s	package:models
+ProspectLogs	rsp/rest/wrappers.go	/^func ProspectLogs(id *models.CodeAlias) error {$/;"	f	package:rest	typeref:typename:error
 ProspectMachine	rsp/auto/prospect.go	/^type ProspectMachine struct {$/;"	s	package:auto
 Quantity	rsp/models/device.go	/^	Quantity     float32 `json:"quantity"`$/;"	m	struct:models.Inventory	typeref:typename:float32
 QuantityPer20pct	rsp/models/device.go	/^	QuantityPer20pct int    `json:"quantity_per_20pct"`$/;"	m	struct:models.UpkeepRequirement	typeref:typename:int
@@ -649,7 +651,7 @@ Queue	rsp/models/blueprints.go	/^	Queue       []string `json:"queue"`$/;"	m	stru
 Queue	rsp/models/device.go	/^	Queue                []*DevicePrintQueue `json:"queue"`$/;"	m	struct:models.CommandResp	typeref:typename:[]*DevicePrintQueue
 QueueLength	rsp/models/blueprints.go	/^	QueueLength int      `json:"queue_length"`$/;"	m	struct:models.Queued	typeref:typename:int
 QueueLength	rsp/models/device.go	/^	QueueLength          int                 `json:"queue_length"`$/;"	m	struct:models.CommandResp	typeref:typename:int
-QueueSize	rsp/models/device.go	/^	QueueSize            int                          `json:"queue_size"`$/;"	m	struct:models.Device	typeref:typename:int
+QueueSize	rsp/models/device.go	/^	QueueSize          int                  `json:"queue_size"`$/;"	m	struct:models.Device	typeref:typename:int
 Queued	rsp/models/blueprints.go	/^type Queued struct {$/;"	s	package:models
 RadiusEarth	rsp/models/location.go	/^	RadiusEarth         float32      `json:"radius_earth"`$/;"	m	struct:models.Planet	typeref:typename:float32
 RangeLy	rsp/models/device.go	/^	RangeLy     float32        `json:"range_ly"`$/;"	m	struct:models.Network	typeref:typename:float32
@@ -658,15 +660,17 @@ Read	rsp/models/account.go	/^	Read    bool      `json:"is_read"`$/;"	m	struct:mo
 Read	rsp/models/events.go	/^	Read   bool$/;"	m	struct:models.Notification	typeref:typename:bool
 ReadCfg	rsp/cfg/config.go	/^func ReadCfg() (*Config, error) {$/;"	f	package:cfg	typeref:typename:(*Config, error)
 RecallResult	rsp/models/device.go	/^	RecallResult          string `json:"recall_result"`$/;"	m	struct:models.ControllerStatus	typeref:typename:string
-Released	rsp/models/device.go	/^	Released             []*StowedDevice     `json:"released"`$/;"	m	struct:models.CommandResp	typeref:typename:[]*StowedDevice
-Repair	rsp/models/device.go	/^	Repair               *Repair                      `json:"repair"`$/;"	m	struct:models.Device	typeref:typename:*Repair
+RelayMachine	rsp/auto/relay.go	/^type RelayMachine struct {$/;"	s	package:auto
+Released	rsp/models/device.go	/^	Released             *StowedDevices      `json:"released"`$/;"	m	struct:models.CommandResp	typeref:typename:*StowedDevices
+ReloadStars	rsp/rest/wrappers.go	/^func ReloadStars() (string, error) {$/;"	f	package:rest	typeref:typename:(string, error)
+Repair	rsp/models/device.go	/^	Repair             *Repair              `json:"repair"`$/;"	m	struct:models.Device	typeref:typename:*Repair
 Repair	rsp/models/device.go	/^type Repair struct {$/;"	s	package:models
-RepairPaidPct	rsp/models/device.go	/^	RepairPaidPct        float32                      `json:"repair_paid_pct"`$/;"	m	struct:models.Device	typeref:typename:float32
+RepairPaidPct	rsp/models/device.go	/^	RepairPaidPct      float32              `json:"repair_paid_pct"`$/;"	m	struct:models.Device	typeref:typename:float32
 Replicant	rsp/models/replicant.go	/^type Replicant struct {$/;"	s	package:models
 Replicant	rsp/rest/wrappers.go	/^func Replicant(id *models.CodeAlias) (*models.Replicant, error) {$/;"	f	package:rest	typeref:typename:(*models.Replicant, error)
 ReplicantCensus	rsp/rest/wrappers.go	/^func ReplicantCensus(id *models.CodeAlias, cnt, page int) (*models.Census, error) {$/;"	f	package:rest	typeref:typename:(*models.Census, error)
 ReplicantCode	rsp/models/account.go	/^	ReplicantCode string    `json:"replicant_code"`$/;"	m	struct:models.Bob	typeref:typename:string
-ReplicantCode	rsp/models/device.go	/^	ReplicantCode        *CodeAlias                   `json:"replicant_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
+ReplicantCode	rsp/models/device.go	/^	ReplicantCode      *CodeAlias           `json:"replicant_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
 ReplicantCooperation	rsp/models/account.go	/^	ReplicantCooperation  string                `json:"replicant_cooperation"`$/;"	m	struct:models.Account	typeref:typename:string
 ReplicantCooperation	rsp/models/account.go	/^	ReplicantCooperation string   `json:"replicant_cooperation,omitempty"`$/;"	m	struct:models.AccountUpdate	typeref:typename:string
 ReplicantDevices	rsp/rest/wrappers.go	/^func ReplicantDevices(c *models.CodeAlias, loc string) ([]*models.Device, error) {$/;"	f	package:rest	typeref:typename:([]*models.Device, error)
@@ -682,7 +686,7 @@ ReplicantPresent	rsp/models/events.go	/^	ReplicantPresent bool                  
 ReplicantPrint	rsp/rest/wrappers.go	/^func ReplicantPrint(id *models.CodeAlias, command, device string) (*models.PrintResp, error) {$/;"	f	package:rest	typeref:typename:(*models.PrintResp, error)
 ReplicantScan	rsp/rest/wrappers.go	/^func ReplicantScan(id *models.CodeAlias) (*models.Scan, error) {$/;"	f	package:rest	typeref:typename:(*models.Scan, error)
 ReplicantTeleport	rsp/rest/wrappers.go	/^func ReplicantTeleport(id, target *models.CodeAlias) (*models.Teleport, error) {$/;"	f	package:rest	typeref:typename:(*models.Teleport, error)
-ReplicantTravel	rsp/rest/wrappers.go	/^func ReplicantTravel(id *models.CodeAlias, dest string) (*models.Trip, error) {$/;"	f	package:rest	typeref:typename:(*models.Trip, error)
+ReplicantTravel	rsp/rest/wrappers.go	/^func ReplicantTravel(id *models.CodeAlias, dest string, dryRun bool) (*models.Trip, error) {$/;"	f	package:rest	typeref:typename:(*models.Trip, error)
 Replicants	rsp/models/account.go	/^	Replicants            map[string]*Replicant `json:"-"`$/;"	m	struct:models.Account	typeref:typename:map[string]*Replicant
 Replicants	rsp/models/location.go	/^	Replicants     int `json:"replicants"`$/;"	m	struct:models.LocationSummary	typeref:typename:int
 Replicants	rsp/models/scan.go	/^	Replicants    []*ScanReplicant `json:"replicants"`$/;"	m	struct:models.Scan	typeref:typename:[]*ScanReplicant
@@ -719,8 +723,9 @@ SalvageType	rsp/models/device.go	/^	SalvageType string `json:"salvage_type"`$/;"
 SalvageType	rsp/models/scan.go	/^	SalvageType        string   `json:"salvage_type"`$/;"	m	struct:models.Salvage	typeref:typename:string
 Save	rsp/models/events.go	/^func (n *Notification) Save() error {$/;"	f	struct:models.Notification	typeref:typename:error
 SaveState	rsp/auto/prospect.go	/^func (pm *ProspectMachine) SaveState(state string) error {$/;"	f	struct:auto.ProspectMachine	typeref:typename:error
+SaveState	rsp/auto/relay.go	/^func (rm *RelayMachine) SaveState(string) error {$/;"	f	struct:auto.RelayMachine	typeref:typename:error
 SaveState	rsp/auto/state.go	/^	SaveState(string) error$/;"	n	interface:auto.Machine	typeref:typename:error
-Scan	rsp/models/device.go	/^	Scan                 *DeviceScan                  `json:"scan"`$/;"	m	struct:models.Device	typeref:typename:*DeviceScan
+Scan	rsp/models/device.go	/^	Scan               *DeviceScan          `json:"scan"`$/;"	m	struct:models.Device	typeref:typename:*DeviceScan
 Scan	rsp/models/scan.go	/^type Scan struct {$/;"	s	package:models
 ScanReplicant	rsp/models/scan.go	/^type ScanReplicant struct {$/;"	s	package:models
 Scanned	rsp/models/device.go	/^	Scanned              bool                `json:"scanned"`$/;"	m	struct:models.CommandResp	typeref:typename:bool
@@ -758,10 +763,14 @@ Star	rsp/models/location.go	/^	Star         string$/;"	m	struct:models.Moon	type
 Star	rsp/models/location.go	/^type Star struct {$/;"	s	package:models
 Star	rsp/models/scan.go	/^	Star          *Star            `json:"star"`$/;"	m	struct:models.Scan	typeref:typename:*Star
 Star	rsp/models/trades.go	/^	Star               string   `json:"star"`$/;"	m	struct:models.Shop	typeref:typename:string
+StarCatalog	rsp/models/location.go	/^type StarCatalog struct {$/;"	s	package:models
+StarCatalog	rsp/rest/wrappers.go	/^func StarCatalog() (*models.StarCatalog, error) {$/;"	f	package:rest	typeref:typename:(*models.StarCatalog, error)
 Stars	rsp/models/device.go	/^func (n *Network) Stars() []string {$/;"	f	struct:models.Network	typeref:typename:[]string
 Stars	rsp/models/location.go	/^	Stars             []*Star   `json:"stars"`$/;"	m	struct:models.Census	typeref:typename:[]*Star
+Stars	rsp/models/location.go	/^	Stars        []*Star   `json:"stars"`$/;"	m	struct:models.StarCatalog	typeref:typename:[]*Star
 StarsTable	rsp/cache/db.go	/^	StarsTable             Tables = "stars"$/;"	c	package:cache	typeref:type:Tables
 Start	rsp/auto/prospect.go	/^func (pm *ProspectMachine) Start(d *models.Device, dryRun bool) error {$/;"	f	struct:auto.ProspectMachine	typeref:typename:error
+Start	rsp/auto/relay.go	/^func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {$/;"	f	struct:auto.RelayMachine	typeref:typename:error
 Start	rsp/auto/state.go	/^	Start(*models.Device, bool) error$/;"	n	interface:auto.Machine	typeref:typename:error
 Start	rsp/cmd/table-wait.go	/^	Start        time.Time$/;"	m	struct:cmd.ETA	typeref:typename:time.Time
 Start	rsp/models/events.go	/^	Start  time.Time$/;"	m	struct:models.Notification	typeref:typename:time.Time
@@ -775,14 +784,14 @@ Started	rsp/models/device.go	/^	Started         JSONTime      `json:"started_at"
 Started	rsp/models/replicant.go	/^	Started          *JSONTime      `json:"started_at"`$/;"	m	struct:models.Teleport	typeref:typename:*JSONTime
 Stats	rsp/cache/db.go	/^func (db *Cache) Stats() string {$/;"	f	struct:cache.Cache	typeref:typename:string
 Status	rsp/auto/prospect.go	/^func (pm *ProspectMachine) Status() string {$/;"	f	struct:auto.ProspectMachine	typeref:typename:string
+Status	rsp/auto/relay.go	/^func (rm *RelayMachine) Status() string {$/;"	f	struct:auto.RelayMachine	typeref:typename:string
 Status	rsp/auto/state.go	/^	Status() string$/;"	n	interface:auto.Machine	typeref:typename:string
 Status	rsp/models/account.go	/^	Status                string                `json:"status"`$/;"	m	struct:models.Account	typeref:typename:string
 Status	rsp/models/blueprints.go	/^	Status            string         `json:"status"`$/;"	m	struct:models.PrintResp	typeref:typename:string
 Status	rsp/models/blueprints.go	/^	Status      string   `json:"status"`$/;"	m	struct:models.Queued	typeref:typename:string
-Status	rsp/models/device.go	/^	Status               string                       `json:"status"`$/;"	m	struct:models.Device	typeref:typename:string
 Status	rsp/models/device.go	/^	Status               string              `json:"status"`$/;"	m	struct:models.CommandResp	typeref:typename:string
+Status	rsp/models/device.go	/^	Status             string               `json:"status"`$/;"	m	struct:models.Device	typeref:typename:string
 Status	rsp/models/device.go	/^	Status      string         `json:"status"`$/;"	m	struct:models.Network	typeref:typename:string
-Status	rsp/models/device.go	/^	Status      string     `json:"status"`$/;"	m	struct:models.CommandDetachAll	typeref:typename:string
 Status	rsp/models/device.go	/^	Status   string     `json:"status"`$/;"	m	struct:models.ControlledDevice	typeref:typename:string
 Status	rsp/models/events.go	/^	Status           string           `json:"status"`$/;"	m	struct:models.Event	typeref:typename:string
 Status	rsp/models/replicant.go	/^	Status              string                       `json:"status"`$/;"	m	struct:models.Replicant	typeref:typename:string
@@ -792,13 +801,14 @@ Status	rsp/models/travel.go	/^	Status          string         `json:"status"`$/;
 StellarClass	rsp/models/location.go	/^	StellarClass    string    `json:"stellar_class"`$/;"	m	struct:models.Star	typeref:typename:string
 Step	rsp/models/travel.go	/^	Step         int$/;"	m	struct:models.JourneyLeg	typeref:typename:int
 StowCapacity	rsp/models/blueprints.go	/^	StowCapacity     int            `json:"stow_capacity"`$/;"	m	struct:models.Blueprint	typeref:typename:int
-StowCapacity	rsp/models/device.go	/^	StowCapacity         int                          `json:"stow_capacity"`$/;"	m	struct:models.Device	typeref:typename:int
-StowUsed	rsp/models/device.go	/^	StowUsed             int                          `json:"stow_used"`$/;"	m	struct:models.Device	typeref:typename:int
+StowCapacity	rsp/models/device.go	/^	StowCapacity       int                  `json:"stow_capacity"`$/;"	m	struct:models.Device	typeref:typename:int
+StowUsed	rsp/models/device.go	/^	StowUsed           int                  `json:"stow_used"`$/;"	m	struct:models.Device	typeref:typename:int
 StowedDevice	rsp/models/device.go	/^type StowedDevice struct {$/;"	s	package:models
-StowedDevices	rsp/models/device.go	/^	StowedDevices        []*StowedDevice              `json:"stowed_devices"`$/;"	m	struct:models.Device	typeref:typename:[]*StowedDevice
+StowedDevices	rsp/models/device.go	/^	StowedDevices      *StowedDevices       `json:"stowed_devices"`$/;"	m	struct:models.Device	typeref:typename:*StowedDevices
+StowedDevices	rsp/models/device.go	/^type StowedDevices struct {$/;"	s	package:models
 StowedDevices	rsp/models/replicant.go	/^	StowedDevices       []*Device                    `json:"stowed_devices"`$/;"	m	struct:models.Replicant	typeref:typename:[]*Device
 StowedIn	rsp/models/device.go	/^	StowedIn             *CodeAlias          `json:"stowed_in"`$/;"	m	struct:models.CommandResp	typeref:typename:*CodeAlias
-StowedInDeviceCode	rsp/models/device.go	/^	StowedInDeviceCode   *CodeAlias                   `json:"stowed_in_device_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
+StowedInDeviceCode	rsp/models/device.go	/^	StowedInDeviceCode *CodeAlias           `json:"stowed_in_device_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
 Strength	rsp/models/blueprints.go	/^	Strength         float32        `json:"strength"`$/;"	m	struct:models.Blueprint	typeref:typename:float32
 String	rsp/models/device.go	/^func (n *Network) String() string {$/;"	f	struct:models.Network	typeref:typename:string
 String	rsp/models/device.go	/^func (ur *UpkeepRequirement) String() string {$/;"	f	struct:models.UpkeepRequirement	typeref:typename:string
@@ -813,19 +823,20 @@ SurfaceTempC	rsp/models/location.go	/^	SurfaceTempC        int          `json:"s
 SurfaceTempK	rsp/models/location.go	/^	SurfaceTempK        int          `json:"surface_temp_k"`$/;"	m	struct:models.Planet	typeref:typename:int
 SystemObjects	rsp/models/scan.go	/^	SystemObjects []*Object        `json:"system_objects"`$/;"	m	struct:models.Scan	typeref:typename:[]*Object
 SystemScanned	rsp/models/location.go	/^	SystemScanned       bool                        `json:"system_scanned"`$/;"	m	struct:models.Location	typeref:typename:bool
-SystemStatus	rsp/models/device.go	/^	SystemStatus         *SystemStatus                `json:"system_status"`$/;"	m	struct:models.Device	typeref:typename:*SystemStatus
+SystemStatus	rsp/models/device.go	/^	SystemStatus       *SystemStatus        `json:"system_status"`$/;"	m	struct:models.Device	typeref:typename:*SystemStatus
 SystemStatus	rsp/models/device.go	/^type SystemStatus struct {$/;"	s	package:models
 SystemTags	rsp/models/scan.go	/^	SystemTags    []string         `json:"system_tags"`$/;"	m	struct:models.Scan	typeref:typename:[]string
 Tables	rsp/cache/db.go	/^type Tables string$/;"	t	package:cache	typeref:typename:string
 TagOp	rsp/rest/wrappers.go	/^type TagOp string$/;"	t	package:rest	typeref:typename:string
 TaggedDevices	rsp/models/device.go	/^type TaggedDevices struct {$/;"	s	package:models
-Tags	rsp/models/device.go	/^	Tags                 []string                     `json:"tags"`$/;"	m	struct:models.Device	typeref:typename:[]string
+Tags	rsp/models/device.go	/^	Tags               []string             `json:"tags"`$/;"	m	struct:models.Device	typeref:typename:[]string
+Tags	rsp/models/device.go	/^	Tags            []string       `json:"tags"`$/;"	m	struct:models.DevicePrint	typeref:typename:[]string
 Tags	rsp/models/device.go	/^	Tags       []string          `json:"tags"`$/;"	m	struct:models.DevicePrintQueue	typeref:typename:[]string
 Tags	rsp/models/location.go	/^	Tags                []string     `json:"tags"`$/;"	m	struct:models.Planet	typeref:typename:[]string
 Target	rsp/models/device.go	/^	Target          string         `json:"target"`$/;"	m	struct:models.DeviceScan	typeref:typename:string
 TargetDeviceCode	rsp/models/device.go	/^	TargetDeviceCode *CodeAlias     `json:"target_device_code"`$/;"	m	struct:models.Repair	typeref:typename:*CodeAlias
 TargetMatrixCode	rsp/models/replicant.go	/^	TargetMatrixCode *CodeAlias     `json:"target_matrix_code"`$/;"	m	struct:models.Teleport	typeref:typename:*CodeAlias
-TaxiMode	rsp/models/device.go	/^	TaxiMode             string                       `json:"taxi_mode"`$/;"	m	struct:models.Device	typeref:typename:string
+TaxiMode	rsp/models/device.go	/^	TaxiMode           string               `json:"taxi_mode"`$/;"	m	struct:models.Device	typeref:typename:string
 Teleport	rsp/models/replicant.go	/^	Teleport            *Teleport                    `json:"teleport"`$/;"	m	struct:models.Replicant	typeref:typename:*Teleport
 Teleport	rsp/models/replicant.go	/^type Teleport struct {$/;"	s	package:models
 TemperatureK	rsp/models/location.go	/^	TemperatureK    int       `json:"temperature_k"`$/;"	m	struct:models.Star	typeref:typename:int
@@ -848,6 +859,7 @@ ToName	rsp/models/travel.go	/^	ToName     string         `json:"to_name"`$/;"	m	
 ToPosition	rsp/models/travel.go	/^	ToPosition   *Position$/;"	m	struct:models.JourneyLeg	typeref:typename:*Position
 Total	rsp/models/account.go	/^	Total         int    `json:"total"`$/;"	m	struct:models.Bobs	typeref:typename:int
 Total	rsp/models/location.go	/^	Total             int       `json:"total"`$/;"	m	struct:models.Census	typeref:typename:int
+Total	rsp/models/location.go	/^	Total        int       `json:"total"`$/;"	m	struct:models.StarCatalog	typeref:typename:int
 TotalDistanceLy	rsp/models/device.go	/^	TotalDistanceLy      float32             `json:"total_distance_ly"`$/;"	m	struct:models.CommandResp	typeref:typename:float32
 TotalDistanceLy	rsp/models/replicant.go	/^	TotalDistanceLy float32        `json:"total_distance_ly"`$/;"	m	struct:models.Travel	typeref:typename:float32
 TotalMessages	rsp/models/account.go	/^	TotalMessages int    `json:"total_messages"`$/;"	m	struct:models.Bobs	typeref:typename:int
@@ -864,7 +876,7 @@ Traders	rsp/models/trades.go	/^	Traders []*Shop `json:"traders"`$/;"	m	struct:mo
 Traders	rsp/rest/wrappers.go	/^func Traders(id *models.CodeAlias) (*models.Shops, error) {$/;"	f	package:rest	typeref:typename:(*models.Shops, error)
 Trades	rsp/models/trades.go	/^	Trades             []*Trade `json:"trades"`$/;"	m	struct:models.Shop	typeref:typename:[]*Trade
 Trades	rsp/rest/wrappers.go	/^func Trades(sid string) (*models.Shop, error) {$/;"	f	package:rest	typeref:typename:(*models.Shop, error)
-Travel	rsp/models/device.go	/^	Travel               *Trip                        `json:"travel"`$/;"	m	struct:models.Device	typeref:typename:*Trip
+Travel	rsp/models/device.go	/^	Travel             *Trip                `json:"travel"`$/;"	m	struct:models.Device	typeref:typename:*Trip
 Travel	rsp/models/replicant.go	/^	Travel              *Travel                      `json:"travel"`$/;"	m	struct:models.Replicant	typeref:typename:*Travel
 Travel	rsp/models/replicant.go	/^type Travel struct {$/;"	s	package:models
 TravelType	rsp/models/device.go	/^	TravelType           string              `json:"travel_type"`$/;"	m	struct:models.CommandResp	typeref:typename:string
@@ -875,7 +887,7 @@ Trip	rsp/models/travel.go	/^type Trip struct {$/;"	s	package:models
 TripLeg	rsp/models/travel.go	/^type TripLeg struct {$/;"	s	package:models
 TripStepCandidate	rsp/cmd/root-plot.go	/^func TripStepCandidate(start string, src, dst *models.Position, radius float32) ([]*models.Journ/;"	f	package:cmd	typeref:typename:([]*models.JourneyLeg, error)
 Type	rsp/models/account.go	/^	Type    string    `json:"message_type"`$/;"	m	struct:models.Message	typeref:typename:string
-Type	rsp/models/device.go	/^	Type                 string                       `json:"device_type"`$/;"	m	struct:models.Device	typeref:typename:string
+Type	rsp/models/device.go	/^	Type               string               `json:"device_type"`$/;"	m	struct:models.Device	typeref:typename:string
 Type	rsp/models/device.go	/^	Type       string            `json:"device_type"`$/;"	m	struct:models.DevicePrintQueue	typeref:typename:string
 Type	rsp/models/device.go	/^	Type     string     `json:"device_type"`$/;"	m	struct:models.ControlledDevice	typeref:typename:string
 Type	rsp/models/device.go	/^	Type string     `json:"device_type"`$/;"	m	struct:models.StowedDevice	typeref:typename:string
@@ -890,7 +902,8 @@ Type	rsp/models/replicant.go	/^	Type       string         `json:"event_type"`$/;
 Type	rsp/models/replicant.go	/^func (r *Replicant) Type() string {$/;"	f	struct:models.Replicant	typeref:typename:string
 Type	rsp/models/travel.go	/^	Type            string         `json:"type"`$/;"	m	struct:models.Trip	typeref:typename:string
 Type	rsp/models/travel.go	/^	Type       string         `json:"type"`$/;"	m	struct:models.TripLeg	typeref:typename:string
-Unfurl	rsp/models/device.go	/^	Unfurl               *Compact                     `json:"unfurl"`$/;"	m	struct:models.Device	typeref:typename:*Compact
+Unfurl	rsp/models/device.go	/^	Unfurl             *Compact             `json:"unfurl"`$/;"	m	struct:models.Device	typeref:typename:*Compact
+UnmarshalJSON	rsp/models/device.go	/^func (sd *StowedDevices) UnmarshalJSON(data []byte) error {$/;"	f	struct:models.StowedDevices	typeref:typename:error
 UnmarshalJSON	rsp/models/helpers.go	/^func (a *CodeAlias) UnmarshalJSON(data []byte) error {$/;"	f	struct:models.CodeAlias	typeref:typename:error
 UnmarshalJSON	rsp/models/helpers.go	/^func (jt *JSONTime) UnmarshalJSON(data []byte) error {$/;"	f	struct:models.JSONTime	typeref:typename:error
 UnmarshalJSON	rsp/models/helpers.go	/^func (jtd *JSONTimeDelta) UnmarshalJSON(data []byte) error {$/;"	f	struct:models.JSONTimeDelta	typeref:typename:error
@@ -906,22 +919,24 @@ UpdateFn	rsp/models/helpers.go	/^type UpdateFn struct {$/;"	s	package:models
 UpdateFn	rsp/models/replicant.go	/^	UpdateFn func(*CodeAlias) (*Replicant, error)$/;"	m	struct:models.Replicant	typeref:typename:func(*CodeAlias) (*Replicant, error)
 UpdateSchema	rsp/cache/db.go	/^func (db *Cache) UpdateSchema() error {$/;"	f	struct:cache.Cache	typeref:typename:error
 UpdateState	rsp/auto/prospect.go	/^func (pm *ProspectMachine) UpdateState() error {$/;"	f	struct:auto.ProspectMachine	typeref:typename:error
+UpdateState	rsp/auto/relay.go	/^func (rm *RelayMachine) UpdateState() error {$/;"	f	struct:auto.RelayMachine	typeref:typename:error
 UpdateState	rsp/auto/state.go	/^	UpdateState() error$/;"	n	interface:auto.Machine	typeref:typename:error
 UpdateTags	rsp/rest/wrappers.go	/^func UpdateTags(id *models.CodeAlias, operation TagOp, tags []string) (*models.Device, error) {$/;"	f	package:rest	typeref:typename:(*models.Device, error)
 UpkeepRequirement	rsp/models/device.go	/^type UpkeepRequirement struct {$/;"	s	package:models
-UpkeepRequirements	rsp/models/device.go	/^	UpkeepRequirements   []*UpkeepRequirement         `json:"upkeep_requirements"`$/;"	m	struct:models.Device	typeref:typename:[]*UpkeepRequirement
+UpkeepRequirements	rsp/models/device.go	/^	UpkeepRequirements []*UpkeepRequirement `json:"upkeep_requirements"`$/;"	m	struct:models.Device	typeref:typename:[]*UpkeepRequirement
 Username	rsp/cfg/config.go	/^	Username string `yaml:"username,omitempty"`$/;"	m	struct:cfg.Config	typeref:typename:string
 Wait	rsp/auto/state.go	/^func (eq *EventQueue) Wait() {$/;"	f	struct:auto.EventQueue
-WaitingFor	rsp/models/device.go	/^	WaitingFor           map[string]*MissingResources `json:"waiting_for"`$/;"	m	struct:models.Device	typeref:typename:map[string]*MissingResources
-WaitingFor	rsp/models/replicant.go	/^	WaitingFor          map[string]*MissingResources `json:"waiting_for"`$/;"	m	struct:models.Replicant	typeref:typename:map[string]*MissingResources
+WaitingFor	rsp/models/device.go	/^	WaitingFor         struct {$/;"	m	struct:models.Device	typeref:typename:struct { Components map[string]*MissingResources `json:"components"`; Resources map[string]*MissingResources `json:"resources"`; }
+WaitingFor	rsp/models/replicant.go	/^	WaitingFor          struct {$/;"	m	struct:models.Replicant	typeref:typename:struct { Components map[string]*MissingResources `json:"components"`; Resources map[string]*MissingResources `json:"resources"`; }
 Webhook	rsp/models/account.go	/^	Webhook     bool           `json:"webhook"`$/;"	m	struct:models.Notify	typeref:typename:bool
 Webhook	rsp/models/account.go	/^	Webhook map[string]bool `json:"webhook"`$/;"	m	struct:models.NotifyDetails	typeref:typename:map[string]bool
-WelcomeMessage	rsp/models/device.go	/^	WelcomeMessage       string                       `json:"welcome_message"`$/;"	m	struct:models.Device	typeref:typename:string
+WelcomeMessage	rsp/models/device.go	/^	WelcomeMessage string `json:"welcome_message"`$/;"	m	struct:models.Device	typeref:typename:string
 X	rsp/models/location.go	/^	X float32 `json:"x"`$/;"	m	struct:models.Position	typeref:typename:float32
 XP	rsp/models/events.go	/^	XP                    int            `json:"xp"`$/;"	m	struct:models.EventReward	typeref:typename:int
 Y	rsp/models/location.go	/^	Y float32 `json:"y"`$/;"	m	struct:models.Position	typeref:typename:float32
 Z	rsp/models/location.go	/^	Z float32 `json:"z"`$/;"	m	struct:models.Position	typeref:typename:float32
 accountCmd	rsp/cmd/root-me.go	/^var accountCmd = &cobra.Command{$/;"	v	package:cmd
+activateRelay	rsp/cmd/auto-relay.go	/^func activateRelay(loc string, d *models.Device) error {$/;"	f	package:cmd	typeref:typename:error
 addTagCmd	rsp/cmd/device-tags.go	/^var addTagCmd = &cobra.Command{$/;"	v	package:cmd
 adopt	rsp/cmd/root-auto.go	/^func adopt(cnt *models.CodeAlias, minions []*models.CodeAlias) error {$/;"	f	package:cmd	typeref:typename:error
 alias	rsp/cmd/helpers.go	/^func alias(in string) string {$/;"	f	package:cmd	typeref:typename:string
@@ -931,9 +946,11 @@ aliasCmd	rsp/cmd/cache.go	/^var aliasCmd = &cobra.Command{$/;"	v	package:cmd
 aliasType	rsp/cmd/helpers.go	/^func aliasType(in string) (string, string) {$/;"	f	package:cmd	typeref:typename:(string, string)
 alias_types	rsp/cache/schema.sql	/^CREATE TABLE IF NOT EXISTS alias_types ($/;"	t
 aliases	rsp/cache/schema.sql	/^CREATE TABLE IF NOT EXISTS aliases ($/;"	t
+aliases	rsp/cmd/helpers.go	/^func aliases(in []*models.CodeAlias) []string {$/;"	f	package:cmd	typeref:typename:[]string
 allShopCmd	rsp/cmd/replicant-shop.go	/^var allShopCmd = &cobra.Command{$/;"	v	package:cmd
 attach_capacity	rsp/cache/schema.sql	/^  attach_capacity INTEGER,$/;"	E	table:blueprints
 auto	rsp/auto/prospect.go	/^package auto$/;"	p
+auto	rsp/auto/relay.go	/^package auto$/;"	p
 auto	rsp/auto/state.go	/^package auto$/;"	p
 autoCmd	rsp/cmd/root-auto.go	/^var autoCmd = &cobra.Command{$/;"	v	package:cmd
 autoFerry	rsp/cmd/auto-ferry.go	/^func autoFerry(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
@@ -1044,8 +1061,10 @@ designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:m
 designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:planets
 designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:stars
 dest	rsp/auto/prospect.go	/^	dest   *models.Position$/;"	m	struct:auto.ProspectMachine	typeref:typename:*models.Position
+dest	rsp/auto/relay.go	/^	dest string$/;"	m	struct:auto.RelayMachine	typeref:typename:string
 dest	rsp/cache/schema.sql	/^  dest TEXT NOT NULL,$/;"	E	table:cached_journey_steps
 dev	rsp/auto/prospect.go	/^	dev    *models.Device$/;"	m	struct:auto.ProspectMachine	typeref:typename:*models.Device
+dev	rsp/auto/relay.go	/^	dev *models.Device$/;"	m	struct:auto.RelayMachine	typeref:typename:*models.Device
 device	rsp/cache/schema.sql	/^  device TEXT,$/;"	E	table:notifications
 deviceCmd	rsp/auto/prospect.go	/^func (pm *ProspectMachine) deviceCmd(id *models.CodeAlias, cmd string, args map[string]any) (*mo/;"	f	struct:auto.ProspectMachine	typeref:typename:(*models.CommandResp, error)
 deviceCmd	rsp/cmd/root-device.go	/^var deviceCmd = &cobra.Command{$/;"	v	package:cmd
@@ -1060,9 +1079,11 @@ dist_dest	rsp/cache/schema.sql	/^  dist_dest float32,$/;"	E	table:cached_journey
 dist_src	rsp/cache/schema.sql	/^  dist_src float32,$/;"	E	table:cached_journey_steps
 do	rsp/rest/api.go	/^func do(method, path string, data []byte, args ...any) ([]byte, error) {$/;"	f	package:rest	typeref:typename:([]byte, error)
 dryRun	rsp/auto/prospect.go	/^	dryRun bool$/;"	m	struct:auto.ProspectMachine	typeref:typename:bool
+dryRun	rsp/auto/relay.go	/^	dryRun bool$/;"	m	struct:auto.RelayMachine	typeref:typename:bool
 dt	rsp/cmd/output.go	/^func dt(t time.Duration) string {$/;"	f	package:cmd	typeref:typename:string
 end	rsp/cache/schema.sql	/^  end INTEGER,$/;"	E	table:notifications
 end	rsp/cache/schema.sql	/^  end TEXT NOT NULL,$/;"	E	table:cached_journey
+entry_point	rsp/cache/schema.sql	/^  entry_point TEXT$/;"	E	table:stars
 entry_point	rsp/cache/schema.sql	/^  entry_point TEXT,$/;"	E	table:stars
 est_planets	rsp/cache/schema.sql	/^  est_planets INTEGER,$/;"	E	table:stars
 eventCmd	rsp/cmd/replicant-events.go	/^var eventCmd = &cobra.Command{$/;"	v	package:cmd
@@ -1091,7 +1112,9 @@ getPosFromString	rsp/cmd/root-plot.go	/^func getPosFromString(dst string) (*mode
 getRID	rsp/cmd/root-replicant.go	/^func getRID(cmd *cobra.Command) (*models.CodeAlias, error) {$/;"	f	package:cmd	typeref:typename:(*models.CodeAlias, error)
 getTags	rsp/auto/state.go	/^func getTags(dev *models.Device) map[string]string {$/;"	f	package:auto	typeref:typename:map[string]string
 goCmd	rsp/auto/prospect.go	/^func (pm *ProspectMachine) goCmd(cmd string, args map[string]any) (*models.CommandResp, error) {$/;"	f	struct:auto.ProspectMachine	typeref:typename:(*models.CommandResp, error)
+has_hub	rsp/cache/schema.sql	/^  has_hub INTEGER not NULL,$/;"	E	table:stars
 has_life	rsp/cache/schema.sql	/^  has_life INTEGER not NULL,$/;"	E	table:stars
+home	rsp/auto/relay.go	/^const home = "MENKUNT-BELT-1"$/;"	c	package:auto
 humanize	rsp/cmd/output.go	/^func humanize(in string) string {$/;"	f	package:cmd	typeref:typename:string
 id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY,$/;"	E	table:cached_journey
 id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY,$/;"	E	table:messages
@@ -1205,7 +1228,7 @@ plotCmd	rsp/cmd/root-plot.go	/^var plotCmd = &cobra.Command{$/;"	v	package:cmd
 plotTrip	rsp/cmd/root-plot.go	/^func plotTrip(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 position_x	rsp/cache/schema.sql	/^  position_x REAL,$/;"	E	table:stars
 position_y	rsp/cache/schema.sql	/^  position_y REAL,$/;"	E	table:stars
-position_z	rsp/cache/schema.sql	/^  position_z REAL$/;"	E	table:stars
+position_z	rsp/cache/schema.sql	/^  position_z REAL,$/;"	E	table:stars
 prefix	rsp/cache/schema.sql	/^  prefix TEXT UNIQUE$/;"	E	table:alias_types
 prefixes	rsp/cache/alias.go	/^var prefixes = map[string]string{$/;"	v	package:cache
 prettyPrint	rsp/cmd/output.go	/^func prettyPrint(i any) {$/;"	f	package:cmd
@@ -1262,6 +1285,7 @@ starsCmd	rsp/cmd/replicant-stars.go	/^var starsCmd = &cobra.Command{$/;"	v	packa
 start	rsp/cache/schema.sql	/^  start INTEGER,$/;"	E	table:notifications
 start	rsp/cache/schema.sql	/^  start TEXT NOT NULL,$/;"	E	table:cached_journey
 state	rsp/auto/prospect.go	/^	state  string$/;"	m	struct:auto.ProspectMachine	typeref:typename:string
+state	rsp/auto/relay.go	/^	state string$/;"	m	struct:auto.RelayMachine	typeref:typename:string
 statsCmd	rsp/cmd/cache.go	/^var statsCmd = &cobra.Command{$/;"	v	package:cmd
 step	rsp/cache/schema.sql	/^  step INTEGER,$/;"	E	table:cached_journey_steps
 stopCmd	rsp/cmd/replicant-travel.go	/^var stopCmd = &cobra.Command{$/;"	v	package:cmd
@@ -1273,7 +1297,6 @@ tag	rsp/auto/prospect.go	/^	tag    string$/;"	m	struct:auto.ProspectMachine	type
 tagCmd	rsp/cmd/device-tags.go	/^var tagCmd = &cobra.Command{$/;"	v	package:cmd
 td	rsp/models/helpers.go	/^	td      time.Duration$/;"	m	struct:models.JSONTimeDelta	typeref:typename:time.Duration
 teleportCmd	rsp/cmd/replicant-travel.go	/^var teleportCmd = &cobra.Command{$/;"	v	package:cmd
-test2Cmd	rsp/cmd/test.go	/^var test2Cmd = &cobra.Command{$/;"	v	package:cmd
 testCmd	rsp/cmd/test.go	/^var testCmd = &cobra.Command{$/;"	v	package:cmd
 text	rsp/cache/schema.sql	/^  text TEXT,$/;"	E	table:notifications
 timeout	rsp/auto/state.go	/^	timeout time.Duration$/;"	m	struct:auto.EventQueue	typeref:typename:time.Duration

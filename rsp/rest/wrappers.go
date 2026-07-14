@@ -208,8 +208,9 @@ func ReplicantDevices(c *models.CodeAlias, loc string) ([]*models.Device, error)
 	return devs.Devices, nil
 }
 
-func ReplicantTravel(id *models.CodeAlias, dest string) (*models.Trip, error) {
-	data, _ := json.Marshal(map[string]string{
+func ReplicantTravel(id *models.CodeAlias, dest string, dryRun bool) (*models.Trip, error) {
+	data, _ := json.Marshal(map[string]any{
+		"dry_run":     dryRun,
 		"destination": dest,
 	})
 	trip, err := Post("replicants/%s/travel", data, id)
@@ -527,7 +528,14 @@ func Species() (*models.Species, error) {
 	return models.Parse[models.Species](res)
 }
 
-func ReloadStars() error {
+func ReloadStars() (string, error) {
+	var out []string
+	log := func(tmpl string, args ...any) {
+		out = append(out, fmt.Sprintf(tmpl, args...))
+	}
+	res := func() string {
+		return strings.Join(out, "\n")
+	}
 	// Get the current list of stars.
 	seen := make(map[string]*models.Star)
 	rows, err := db.DB.Query(`
@@ -535,7 +543,7 @@ func ReloadStars() error {
 			position_x, position_y, position_z, has_hub, entry_point
 		FROM stars`)
 	if err != nil {
-		return err
+		return res(), err
 	}
 	old := 0
 	for rows.Next() {
@@ -545,7 +553,7 @@ func ReloadStars() error {
 		err := rows.Scan(&s.Designation, &s.Name, &s.EstimatedPlanets, &s.HasLife,
 			&x, &y, &z, &s.HasHub, &s.EntryPoint)
 		if err != nil {
-			return err
+			return res(), err
 		}
 		s.Position = models.NewPosition(x, y, z)
 		seen[s.Designation] = s
@@ -580,7 +588,7 @@ func ReloadStars() error {
 	accounted := make(map[string]bool)
 	catalog, err := StarCatalog()
 	if err != nil {
-		return err
+		return res(), err
 	}
 	for _, star := range catalog.Stars {
 		accounted[star.Designation] = true
@@ -607,11 +615,11 @@ func ReloadStars() error {
 		len(added)+len(updated)+unchanged, len(added), len(updated), unchanged, len(missing))
 	for _, s := range append(added, updated...) {
 		if err := s.Cache(); err != nil {
-			return err
+			return res(), err
 		}
 	}
 	log("Updated done.")
-	return nil
+	return res(), nil
 }
 
 func ProspectLogs(id *models.CodeAlias) error {
@@ -637,13 +645,13 @@ func ProspectLogs(id *models.CodeAlias) error {
 		}
 
 		// {
-        //  "coordinates": {
-        //    "x": 101.3734,
-        //    "y": -137.8722,
-        //    "z": -86.3028
-        //  },
-        //  "designation": "QUADORANS"
-        // }
+		//  "coordinates": {
+		//    "x": 101.3734,
+		//    "y": -137.8722,
+		//    "z": -86.3028
+		//  },
+		//  "designation": "QUADORANS"
+		// }
 
 		for _, s := range sList {
 			m, ok := s.(map[string]any)

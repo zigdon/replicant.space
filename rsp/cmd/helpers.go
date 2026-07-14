@@ -204,6 +204,14 @@ func alias(in string) string {
 	return out
 }
 
+func aliases(in []*models.CodeAlias) []string {
+	res := make([]string, len(in))
+	for i, ca := range in {
+		res[i] = ca.Alias()
+	}
+	return res
+}
+
 func unalias(in string) string {
 	if db == nil {
 		return in

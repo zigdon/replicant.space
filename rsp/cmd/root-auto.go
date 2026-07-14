@@ -114,7 +114,7 @@ func setDirective(id *models.CodeAlias, directive string, cfg map[string]any) er
 }
 
 func adopt(cnt *models.CodeAlias, minions []*models.CodeAlias) error {
-	log("Adopting %v into %q", minions, cnt)
+	log("Adopting %v into %q", aliases(minions), cnt)
 	var ids []string
 	for _, m := range minions {
 		ids = append(ids, m.String())
