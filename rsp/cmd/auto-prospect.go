@@ -70,7 +70,11 @@ func autoProspect(cmd *cobra.Command, args []string) error {
 		if err := errors.Join(errs...); err != nil {
 			log("Errors: %v", err)
 		}
+		if dryRun {
+			break
+		}
 		log("Waiting for next process event: %s", time.Until(eq.Next()))
 		eq.Wait()
 	}
+	return nil
 }

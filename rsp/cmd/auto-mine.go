@@ -260,7 +260,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	if !done.IsZero() {
-		log("Print queue ETA: %s", done.Format(time.Stamp))
+		log("Print queue ETA: %s (in %s)", done.Format(time.Stamp), time.Until(done))
 		n := &models.Notification{
 			Start:  time.Now(),
 			End:    done,
@@ -332,15 +332,15 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("No fleet carriers found")
 	}
 	var carrier *models.Device
-	detached := make(map[*models.CodeAlias]bool)
+	detached := make(map[string]bool)
 	detachAll := func(ca *models.CodeAlias) error {
 		log("detach: %v", detached)
-		if detached[ca] {
+		if detached[ca.Alias()] {
 			log("Already detached devices from %q", ca.Alias())
 			return nil
 		}
 		log("Attempting to detach devices from %q", ca.Alias())
-		detached[ca] = true
+		detached[ca.Alias()] = true
 		info, err := getInfo(ca)
 		if err != nil {
 			return err

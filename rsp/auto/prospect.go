@@ -232,7 +232,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 	if err := pm.UpdateState(); err != nil {
 		return eta, err
 	}
-	var nextTag string
+	nextTag := pm.tag
 	switch pm.state {
 	case "prospecting":
 		nextTag = "teardown"
@@ -310,6 +310,17 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		}
 	default:
 		return eta, fmt.Errorf("Unknown state: %q", pm.state)
+	}
+	if !pm.dryRun && !eta.IsZero() {
+		n := &models.Notification{
+			Start:  time.Now(),
+			End:    eta,
+			Device: pm.dev.Code.Alias(),
+			Text:   fmt.Sprintf("Processing of %s state done.", pm.state),
+		}
+		if err := n.Save(); err != nil {
+			log("Error creating notification: %v", err)
+		}
 	}
 	return eta, pm.SaveState(nextTag)
 }

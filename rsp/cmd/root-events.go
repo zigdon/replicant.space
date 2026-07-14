@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -135,26 +136,52 @@ func printEvent(e *models.Event, style lg.Style) {
 }
 
 func formatDev(devs []*models.EventDevice, resBreakdown bool) string {
-	var out []string
 	bps := make(map[string]*models.Blueprint)
+	var bpRes func(string) (map[string]int, map[string]int)
+	var errs []error
+	bpRes = func(dt string) (map[string]int, map[string]int) {
+		bp, ok := bps[dt]
+		res := make(map[string]int)
+		dev := make(map[string]int)
+		if !ok {
+			bp = &models.Blueprint{DeviceType: dt}
+			if err := bp.Get(); err != nil {
+				errs = append(errs, fmt.Errorf("Can't load blueprint %q: %v", dt, err))
+				dev[dt] = 1
+				return nil, dev
+			}
+			bps[dt] = bp
+			for r, q := range bp.Resources {
+				res[r] += q
+			}
+			for r, q := range bp.Components {
+				dev[r] = q
+				subres, subdev := bpRes(r)
+				for k, v := range subres {
+					res[k] += v * q
+				}
+				for k, v := range subdev {
+					dev[k] += v * q
+				}
+			}
+		}
+		return res, dev
+	}
+	var out []string
 	res := make(map[string]int)
+	dev := make(map[string]int)
 	for _, d := range devs {
 		dt := d.DeviceType
 		out = append(out, fmt.Sprintf("%d x %s", d.Count+d.Current, dt))
 		if !resBreakdown {
 			continue
 		}
-		bp, ok := bps[dt]
-		if !ok {
-			bp = &models.Blueprint{DeviceType: dt}
-			if err := bp.Get(); err != nil {
-				log("Can't load blueprint %q: err", dt, err)
-				continue
-			}
-			bps[dt] = bp
+		subres, subdev := bpRes(dt)
+		for r, q := range subres {
+			res[r] += q * d.Count
 		}
-		for r, q := range bp.Resources {
-			res[r] += q
+		for r, q := range subdev {
+			dev[r] += q * d.Count
 		}
 	}
 	var rs []string
@@ -167,6 +194,25 @@ func formatDev(devs []*models.EventDevice, resBreakdown bool) string {
 			continue
 		}
 		out = append(out, fmt.Sprintf("(%4d x %s)", res[r], r))
+	}
+	out = append(out, "")
+	rs = []string{}
+	for k := range dev {
+		rs = append(rs, k)
+	}
+	if len(rs) > 0 {
+		slices.Sort(rs)
+		for _, r := range rs {
+			if dev[r] == 0 {
+				continue
+			}
+			out = append(out, fmt.Sprintf("(%4d x %s)", dev[r], r))
+		}
+		out = append(out, "")
+	}
+
+	if err := errors.Join(errs...); err != nil {
+		log("Errors:\n%v", err)
 	}
 
 	return strings.Join(out, "\n")
