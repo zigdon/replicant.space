@@ -81,15 +81,15 @@ type StarCatalog struct {
 }
 
 type Star struct {
-	AgeMy                 float32 `json:"age_my"`
-	Color                 string  `json:"color"`
-	Designation           string  `json:"designation"`
-	DistanceFromReplicant float32 `json:"distance_from_replicant"`
-	DistanceFromSol       float32 `json:"distance_from_sol"`
-	EntryPoint            string  `json:"entry_point"`
-	EstimatedPlanets      int     `json:"estimated_planets"`
-	EstimatedTravelTime   int     `json:"estimated_travel_time"`
-	Explored              bool    `json:"explored"`
+	AgeMy                 float32        `json:"age_my"`
+	Color                 string         `json:"color"`
+	Designation           string         `json:"designation"`
+	DistanceFromReplicant float32        `json:"distance_from_replicant"`
+	DistanceFromSol       float32        `json:"distance_from_sol"`
+	EntryPoint            string         `json:"entry_point"`
+	EstimatedPlanets      int            `json:"estimated_planets"`
+	EstimatedTravelTime   *JSONTimeDelta `json:"estimated_travel_time"`
+	Explored              bool           `json:"explored"`
 	HabitableZone         struct {
 		InnerAu float32 `json:"inner_au"`
 		OuterAu float32 `json:"outer_au"`

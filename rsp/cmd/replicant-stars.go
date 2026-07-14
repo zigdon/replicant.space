@@ -74,9 +74,9 @@ var starsCmd = &cobra.Command{
 				data := []string{
 					s.Designation,
 					s.EntryPoint,
-					d(s.EstimatedPlanets)+hasCache,
+					d(s.EstimatedPlanets) + hasCache,
 					f(s.DistanceFromReplicant),
-					d(s.EstimatedTravelTime),
+					s.EstimatedTravelTime.Duration().String(),
 					s.SpectralType,
 					b(s.Explored),
 					b(s.HasLife),

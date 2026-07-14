@@ -91,7 +91,11 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	log("->\n%s", string(body))
+	if len(body) < 20000 {
+		log("-> %d\n%s", len(body), string(body))
+	} else {
+		log("-> %d (truncated)\n%s", len(body), string(body[:20000]))
+	}
 
 	if unread, ok := resp.Header["X-Replicant-Space-Unread-Count"]; ok {
 		UnreadMessages, err = strconv.Atoi(unread[0])

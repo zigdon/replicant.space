@@ -622,10 +622,10 @@ func ReloadStars() (string, error) {
 	return res(), nil
 }
 
-func ProspectLogs(id *models.CodeAlias) error {
+func ProspectLogs(id *models.CodeAlias) (string, error) {
 	logs, err := DeviceLogs(id, true, 0, 100)
 	if err != nil {
-		return err
+		return "", err
 	}
 	var added []string
 	for _, l := range logs.Events {
@@ -672,8 +672,6 @@ func ProspectLogs(id *models.CodeAlias) error {
 			added = append(added, star.Designation)
 		}
 
-		log("%d new stars added: %v", len(added), added)
 	}
-
-	return nil
+	return fmt.Sprintf("%d new stars added: %v", len(added), added), nil
 }

@@ -9,7 +9,9 @@ import (
 var testCmd = &cobra.Command{
 	Use: "test",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return rest.ProspectLogs(models.NewCodeAlias(args[0]))
+		out, err := rest.ProspectLogs(models.NewCodeAlias(args[0]))
+		log(out)
+		return err
 	},
 }
 

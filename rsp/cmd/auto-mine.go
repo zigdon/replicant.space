@@ -334,9 +334,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	var carrier *models.Device
 	detached := make(map[*models.CodeAlias]bool)
 	detachAll := func(ca *models.CodeAlias) error {
+		log("detach: %v", detached)
 		if detached[ca] {
+			log("Already detached devices from %q", ca.Alias())
 			return nil
 		}
+		log("Attempting to detach devices from %q", ca.Alias())
 		detached[ca] = true
 		info, err := getInfo(ca)
 		if err != nil {

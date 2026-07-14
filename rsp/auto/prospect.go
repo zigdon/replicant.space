@@ -243,9 +243,14 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		eta = res.Completes.Time()
-		if err = rest.ProspectLogs(pm.dev.Code); err != nil {
+		log("Reading prospecting logs")
+		report, err := rest.ProspectLogs(pm.dev.Code)
+		if err != nil {
 			log("Error getting new stars: %v")
+		} else {
+			log("Prospecting results: %s", report)
 		}
+
 	case "compacting":
 		eta = pm.dev.Compact.Completes.Time()
 		res, err := pm.platform("travel", pm.dev.Location)
@@ -318,13 +323,18 @@ func (pm *ProspectMachine) SaveState(state string) error {
 		return nil
 	}
 	log("Updating tags on %q: -%s +%s", pm.dev.Code.Alias(), pm.tag, state)
-	_, err := rest.UpdateTags(pm.dev.Code, rest.DelTag, []string{fmt.Sprintf("state:%s", pm.tag)})
-	if err != nil {
-		return err
+	if pm.tag != "" {
+		_, err := rest.UpdateTags(pm.dev.Code, rest.DelTag, []string{fmt.Sprintf("state:%s", pm.tag)})
+		if err != nil {
+			return err
+		}
 	}
-	_, err = rest.UpdateTags(pm.dev.Code, rest.AddTag, []string{fmt.Sprintf("state:%s", state)})
-	if err != nil {
-		return err
+
+	if state != "" {
+		_, err := rest.UpdateTags(pm.dev.Code, rest.AddTag, []string{fmt.Sprintf("state:%s", state)})
+		if err != nil {
+			return err
+		}
 	}
 	pm.tag = state
 

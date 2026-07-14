@@ -38,6 +38,12 @@ var autoRelayCmd = &cobra.Command{
 	RunE:  autoRelay,
 }
 
+var autoRentCmd = &cobra.Command{
+	Use:   "rent",
+	Short: "Ensure all system hubs have required upkeep resources available",
+	RunE:  autoRent,
+}
+
 func init() {
 	rootCmd.AddCommand(autoCmd)
 
