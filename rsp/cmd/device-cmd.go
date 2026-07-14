@@ -171,11 +171,15 @@ func init() {
 			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
 		}
 		var as, rs []string
-		for _, d := range resp.AdoptedDevices.Devices {
-			as = append(as, d.Code.Alias())
+		if resp.AdoptedDevices != nil {
+			for _, d := range resp.AdoptedDevices.Devices {
+				as = append(as, d.Code.Alias())
+			}
 		}
-		for _, d := range resp.Released.Devices {
-			rs = append(rs, d.Code.Alias())
+		if resp.Released != nil {
+			for _, d := range resp.Released.Devices {
+				rs = append(rs, d.Code.Alias())
+			}
 		}
 		return []string{"Controller", "Status", "Adopted", "Released"}, [][]string{{
 			resp.ControllerCode.Alias(), resp.Status, list(as), list(rs),

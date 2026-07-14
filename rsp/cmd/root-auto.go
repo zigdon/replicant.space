@@ -69,6 +69,11 @@ func init() {
 	autoCmd.AddCommand(autoProspectCmd)
 	autoProspectCmd.Flags().StringSliceP("device", "d", []string{}, "Devices to use, leave blank for all")
 	autoProspectCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
+
+	autoCmd.AddCommand(autoRentCmd)
+	autoRentCmd.Flags().StringP("atc", "t", "atc-3", "ATC controlling cargo transports")
+	autoRentCmd.Flags().String("home", "MENKUNT-BELT-1", "Home system")
+	autoRentCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
 }
 
 var infos sync.Map
@@ -86,6 +91,10 @@ func getInfo(d *models.CodeAlias) (*models.Device, error) {
 	return i.(*models.Device), nil
 }
 
+func resetInfo(d *models.CodeAlias) {
+	infos.Delete(d)
+}
+
 func travel(id *models.CodeAlias, location string) error {
 	info, err := getInfo(id)
 	if err != nil {
@@ -100,6 +109,7 @@ func travel(id *models.CodeAlias, location string) error {
 		}
 		log("Shipped %s to %s: ETA %s", id.Alias(), location, res.TotalTime.String())
 	}
+	resetInfo(id)
 	return nil
 }
 
@@ -116,6 +126,7 @@ func setDirective(id *models.CodeAlias, directive string, cfg map[string]any) er
 		}
 	}
 	log("Set directive on %s: %s", id.Alias(), directive)
+	resetInfo(id)
 	return nil
 }
 
@@ -124,9 +135,11 @@ func adopt(cnt *models.CodeAlias, minions []*models.CodeAlias) error {
 	var ids []string
 	for _, m := range minions {
 		ids = append(ids, m.String())
+		resetInfo(m)
 	}
 	_, err := rest.DeviceCommand[models.CommandResp](cnt, "adopt", map[string]any{
 		"devices": minions,
 	})
+	resetInfo(cnt)
 	return err
 }

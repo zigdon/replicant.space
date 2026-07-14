@@ -1256,6 +1256,7 @@ removeRow	rsp/cmd/table-wait.go	/^func removeRow(id *models.CodeAlias, rows map[
 replicantCmd	rsp/cmd/root-replicant.go	/^var replicantCmd = &cobra.Command{$/;"	v	package:cmd
 replicantInfoCmd	rsp/cmd/replicant-info.go	/^var replicantInfoCmd = &cobra.Command{$/;"	v	package:cmd
 required	rsp/cmd/helpers.go	/^	required  bool$/;"	m	struct:cmd.flagDesc	typeref:typename:bool
+resetInfo	rsp/cmd/root-auto.go	/^func resetInfo(d *models.CodeAlias) {$/;"	f	package:cmd
 resetUniverse	rsp/cmd/cache.go	/^func resetUniverse(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 resetUniverseCmd	rsp/cmd/cache.go	/^var resetUniverseCmd = &cobra.Command{$/;"	v	package:cmd
 resource	rsp/cache/schema.sql	/^  resource TEXT,$/;"	E	table:belt_resources
