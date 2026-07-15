@@ -23,25 +23,27 @@ func autoRent(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	ships := make(map[string]*models.Device)
+	for _, cf := range atc.ControlledDevices {
+		info, err := getInfo(cf.Code)
+		if err != nil {
+			log("Error getting info for %q: %v", cf.Code.Alias(), err)
+			continue
+		}
+		if info.Status != "idle" {
+			continue
+		}
+		ships[info.Code.Alias()] = info
+	}
+
 	deliver := func(loc string, inv map[string]int) error {
 		// Find a ship
 		var ship *models.Device
-		for _, cf := range atc.ControlledDevices {
-			info, err := getInfo(cf.Code)
-			if err != nil {
-				log("Error getting info for %q: %v", cf.Code.Alias(), err)
+		for _, cf := range ships {
+			if len(cf.Cargo) != 0 {
 				continue
 			}
-			if info.Location != home {
-				continue
-			}
-			if info.Status != "idle" {
-				continue
-			}
-			if len(info.Cargo) != 0 {
-				continue
-			}
-			ship = info
+			ship = cf
 			break
 		}
 		if ship == nil {
@@ -62,10 +64,13 @@ func autoRent(cmd *cobra.Command, args []string) error {
 		// Ship it
 		if dryRun {
 			log("Would ship %s to %s", ship.Code.Alias(), loc)
-			return nil
-		} else {
-			return travel(ship.Code, loc)
+		} else if err := travel(ship.Code, loc); err != nil {
+			return err
 		}
+
+		// Remove the ship from our available list
+		delete(ships, ship.Code.Alias())
+		return nil
 	}
 
 	// Find our ships that are not at home, deposit their cargo, and call back
@@ -126,5 +131,8 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			errs = append(errs, deliver(sh.Location, missing))
 		}
 	}
-	return errors.Join(errs...)
+	if err := errors.Join(errs...); err != nil {
+		log("Couldn't pay all the rent:\n%v", err)
+	}
+	return nil
 }
