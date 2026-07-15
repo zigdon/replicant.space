@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -60,6 +62,68 @@ func autoRelay(cmd *cobra.Command, args []string) error {
 		log("Found %d extra relays: %s", len(extras), strings.Join(es, ", "))
 		return returnExtraRelays(devs)
 	}
+	return nil
+}
+
+func autoFR(cmd *cobra.Command, args []string) error {
+	// Simple version:
+	// - check we have an FR
+	// - check if there's a working FR in the system
+	// - If not, move to the L4 point
+	// - Deploy
+	// - Activate
+	// - Tag
+	rID, _ := cmd.Flags().GetInt("replicant")
+	r, err := rest.Replicant(models.NewCodeAlias(fmt.Sprintf("r-%d", rID)))
+	if err != nil {
+		return err
+	}
+	var fr *models.Device
+	if !slices.ContainsFunc(r.StowedDevices, func(d *models.Device) bool {
+		if d.Type == "ftl_relay" {
+			fr = d
+			return true
+		}
+		return false
+	}) {
+		return fmt.Errorf("No FTL Relay found stowed in r-%d's ship", rID)
+	}
+	starName, _, ok := strings.Cut(r.Location, "-")
+	if !ok {
+		return fmt.Errorf("r-%d is not in a system: %s", rID, r.Location)
+	}
+	devs, err := rest.Devices(map[string]string{"location": starName})
+	if err != nil {
+		return err
+	}
+	if slices.ContainsFunc(devs, func(d *models.Device) bool {
+		return d.Type == "ftl_relay" && d.Status == "relaying"
+	}) {
+		log("There is already a relaying FTL Relay in %s", starName)
+		return nil
+	}
+	s := &models.Star{Designation: starName}
+	if err := s.Get(); err != nil {
+		return fmt.Errorf("Can't load star %s: %v", starName, err)
+	}
+	if s.EntryPoint == "" {
+		return fmt.Errorf("Unknown entry point for %s", starName)
+	}
+	if r.Location != s.EntryPoint {
+		return travel(r.Code, s.EntryPoint)
+	}
+	if _, err = rest.DeviceCommand[models.CommandResp](fr.Code, "deploy", nil); err != nil {
+		return err
+	}
+	log("Deployed %s", fr.Code.Alias())
+	if _, err = rest.DeviceCommand[models.CommandResp](fr.Code, "activate", nil); err != nil {
+		return err
+	}
+	log("Activated %s", fr.Code.Alias())
+	if _, err = rest.UpdateTags(fr.Code, rest.AddTag, []string{"infrastructure"}); err != nil {
+		return err
+	}
+	log("Tagged %s", fr.Code.Alias())
 	return nil
 }
 

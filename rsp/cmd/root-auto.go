@@ -44,6 +44,12 @@ var autoRentCmd = &cobra.Command{
 	RunE:  autoRent,
 }
 
+var autoFRCmd = &cobra.Command{
+	Use:   "fr",
+	Short: "Deploy, activate, and tag a new FTL relay",
+	RunE:  autoFR,
+}
+
 func init() {
 	rootCmd.AddCommand(autoCmd)
 
@@ -65,6 +71,11 @@ func init() {
 
 	autoCmd.AddCommand(autoRelayCmd)
 	autoRelayCmd.Flags().String("home", "MENKUNT", "Home system")
+
+	autoCmd.AddCommand(autoFRCmd)
+	autoFRCmd.Flags().IntP("replicant", "r", 0, "Which replicant is deploying the FR")
+	autoFRCmd.Flags().Bool("dry_run", true, "When set, only describe what will be done")
+	autoFRCmd.MarkFlagRequired("replicant")
 
 	autoCmd.AddCommand(autoProspectCmd)
 	autoProspectCmd.Flags().StringSliceP("device", "d", []string{}, "Devices to use, leave blank for all")
