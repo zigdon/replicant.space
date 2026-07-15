@@ -105,7 +105,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		stats[t].found += 1
 		if strings.Contains(t, "ami") {
 			amis[t] = d.Code
-			log("ami found: %s -> %s", t, d.Code.Alias())
 		}
 		if m := missing[t]; m <= 0 {
 			if t == "maintenance_drone" && missing["service_bot"] > 0 {
@@ -297,26 +296,20 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		for _, d := range ds {
-			log("Checking %s: %s....", d.Code.Alias(), d.Location)
 			if d.Location == "" {
-				log("... in transit: %s (%.2f%%)", d.Status, d.Travel.ProgressPercent)
 				continue
 			}
 			dStar, _, ok := strings.Cut(d.Location, "-")
 			if ok && dStar == star {
-				log("... at destination star %q: %s", star, d.Location)
 				continue
 			}
 			if dest != "" && d.Location != dest {
-				log("... not at the pickup location %q: %s", dest, d.Location)
 				continue
 			}
 			if d.Status != "idle" && d.Status != "inactive" {
-				log("... not ready to pickup")
 				continue
 			}
 			needPicked = append(needPicked, d.Code.Alias())
-			log("... needs pickup at %q", d.Location)
 			if dest == "" {
 				dest = d.Location
 			}
@@ -334,9 +327,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	var carrier *models.Device
 	detached := make(map[string]bool)
 	detachAll := func(ca *models.CodeAlias) error {
-		log("detach: %v", detached)
 		if detached[ca.Alias()] {
-			log("Already detached devices from %q", ca.Alias())
 			return nil
 		}
 		log("Attempting to detach devices from %q", ca.Alias())
@@ -487,6 +478,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if err := detachAll(c.Code); err != nil {
 			return err
 		}
+		log("Carrier: %s at %s", c.Code.Alias(), c.Location)
 		if c.Location == locName && len(c.AttachedDevices) == 0 {
 			// If the fleet is at the destination, send it home
 			res, err := rest.DeviceCommand[models.CommandResp](c.Code, "travel", map[string]any{"destination": home})

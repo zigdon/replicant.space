@@ -146,7 +146,9 @@ var listTagsCmd = &cobra.Command{
 		ts := []string{"Tag"}
 		for _, t := range types {
 			a, err := db.AliasType(t)
-			log("%v", err)
+			if err != nil {
+				return err
+			}
 			ts = append(ts, a)
 		}
 		printTable(ts, data)

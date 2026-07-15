@@ -244,6 +244,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		if err != nil {
 			return eta, err
 		}
+		nextTag = "teardown"
 		eta = res.Completes.Time()
 		log("Reading prospecting logs")
 		report, err := rest.ProspectLogs(pm.dev.Code)
@@ -259,6 +260,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		if err != nil {
 			return eta, err
 		}
+		nextTag = "teardown"
 		if res.Arrives.Time().After(eta) {
 			eta = res.Arrives.Time()
 		}
@@ -293,9 +295,11 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		if err != nil {
 			return eta, err
 		}
+		nextTag = "setup"
 		eta = res.Completes.Time()
 	case "unfurling":
 		eta = pm.dev.Unfurl.Completes.Time()
+		nextTag = "setup"
 		// Wait
 	case "starting":
 		delta := pm.dest.Delta(pm.dev.GetPosition())
@@ -310,6 +314,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		if dev.Prospect != nil {
 			eta = dev.Prospect.Completes.Time()
 		}
+		nextTag = "teardown"
 	default:
 		return eta, fmt.Errorf("Unknown state: %q", pm.state)
 	}
