@@ -74,6 +74,9 @@ func (eq *EventQueue) AddEvent(name, desc string, when time.Time, callback func(
 }
 
 func (eq *EventQueue) Next() time.Time {
+	for len(eq.queue) > 0 && eq.queue[0].when.Before(time.Now()) {
+		eq.queue = eq.queue[1:]
+	}
 	if len(eq.queue) == 0 {
 		return time.Now().Add(eq.timeout)
 	}

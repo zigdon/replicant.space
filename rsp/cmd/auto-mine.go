@@ -24,13 +24,17 @@ import (
 // Set ami policy
 
 func autoMine(cmd *cobra.Command, args []string) error {
+	getStar := func(loc string) (string, bool) {
+		star, _, ok := strings.Cut(loc, "-")
+		return star, ok
+	}
 	// Validate the location
 	locName, _ := cmd.Flags().GetString("location")
 	loc, err := rest.Location(locName)
 	if err != nil {
 		return err
 	}
-	star, _, ok := strings.Cut(locName, "-")
+	star, ok := getStar(locName)
 	if !ok {
 		return fmt.Errorf("Can't figure out the star from %q", locName)
 	}
@@ -287,7 +291,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			d := ds[0]
-			dStar, _, ok := strings.Cut(d.Location, "-")
+			dStar, ok := getStar(d.Location)
 			if ok && star != dStar {
 				needPicked = append(needPicked, d.Code.Alias())
 				dest = d.Location
@@ -299,7 +303,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			if d.Location == "" {
 				continue
 			}
-			dStar, _, ok := strings.Cut(d.Location, "-")
+			dStar, ok := getStar(d.Location)
 			if ok && dStar == star {
 				continue
 			}
@@ -389,6 +393,13 @@ func autoMine(cmd *cobra.Command, args []string) error {
 					}
 				}
 				log("Carrier in transit, eta %s", res.TotalTime.String())
+				n := &models.Notification{
+					Start:  time.Now(),
+					End:    res.Arrives.Time(),
+					Device: "Mining fleet",
+					Text:   fmt.Sprintf("Fleet arrived at %q", locName),
+				}
+				n.Save()
 				return nil
 			}
 
@@ -412,7 +423,8 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	} else {
 		// If there's a fleet idling at the destination, send it home
 		for _, mf := range allMFs {
-			if mf.Location != star {
+			log("Carrier: %s at %s (%d remaining devices)", mf.Code.Alias(), mf.Location, len(mf.AttachedDevices))
+			if !strings.HasPrefix(mf.Location, star) {
 				continue
 			}
 			if len(mf.AttachedDevices) > 0 {
@@ -423,7 +435,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				log("Error sending %q home: %v", mf.Code, err)
 				continue
 			}
-			log("Shipping %q home: ETA %s", mf.Code, res.Eta.String())
+			log("Shipping %q home: ETA %s", mf.Code.Alias(), res.Arrives.Time())
 		}
 	}
 	if dryRun {
@@ -478,8 +490,8 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if err := detachAll(c.Code); err != nil {
 			return err
 		}
-		log("Carrier: %s at %s", c.Code.Alias(), c.Location)
-		if c.Location == locName && len(c.AttachedDevices) == 0 {
+		log("Carrier: %s at %s (%d remaining devices)", c.Code.Alias(), c.Location, len(c.AttachedDevices))
+		if strings.HasPrefix(c.Location, star) && len(c.AttachedDevices) == 0 {
 			// If the fleet is at the destination, send it home
 			res, err := rest.DeviceCommand[models.CommandResp](c.Code, "travel", map[string]any{"destination": home})
 			if err != nil {

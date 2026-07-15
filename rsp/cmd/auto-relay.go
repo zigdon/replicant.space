@@ -110,12 +110,12 @@ func autoFR(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Unknown entry point for %s", starName)
 	}
 	if r.Location != s.EntryPoint {
-		return travel(r.Code, s.EntryPoint)
+		return travel(r.HostedDeviceCode, s.EntryPoint)
 	}
 	if _, err = rest.DeviceCommand[models.CommandResp](fr.Code, "deploy", nil); err != nil {
 		return err
 	}
-	log("Deployed %s", fr.Code.Alias())
+	log("Deployed %s to %s", fr.Code.Alias(), s.EntryPoint)
 	if _, err = rest.DeviceCommand[models.CommandResp](fr.Code, "activate", nil); err != nil {
 		return err
 	}

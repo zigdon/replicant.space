@@ -106,6 +106,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 	// it over
 	for _, sh := range hubs {
 		if sh.Status != "relaying" {
+			log("%s @ %s not online", sh.Code.Alias(), sh.Location)
 			continue
 		}
 		inv, err := rest.Location(sh.Location)
@@ -129,6 +130,8 @@ func autoRent(cmd *cobra.Command, args []string) error {
 		}
 		if len(missing) > 0 {
 			errs = append(errs, deliver(sh.Location, missing))
+		} else {
+			log("%s @ %s up-to-date", sh.Code.Alias(), sh.Location)
 		}
 	}
 	if err := errors.Join(errs...); err != nil {

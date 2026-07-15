@@ -22,8 +22,7 @@ var replicantInfoCmd = &cobra.Command{
 			return fmt.Errorf("Error getting replicant: %v", err)
 		}
 		if raw, _ := cmd.Flags().GetBool("raw"); raw {
-			fmt.Printf("%T\n", repl)
-			prettyPrint(repl)
+			prettyPrint(&repl)
 			return nil
 		}
 		printTable([]string{

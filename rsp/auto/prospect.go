@@ -206,6 +206,11 @@ func (pm *ProspectMachine) UpdateState() error {
 	pm.dev = dev
 	status := pm.dev.Status
 	pm.tag = getTags(pm.dev)["state"]
+	plat, err := rest.DeviceInfo(pm.plat.Code)
+	if err != nil {
+		return err
+	}
+	pm.plat = plat
 	switch {
 	case status == "prospecting":
 		pm.state = "prospecting"
@@ -256,14 +261,17 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 
 	case "compacting":
 		eta = pm.dev.Compact.Completes.Time()
-		res, err := pm.platform("travel", pm.dev.Location)
-		if err != nil {
-			return eta, err
+		if pm.plat.Location != pm.dev.Location {
+			res, err := pm.platform("travel", pm.dev.Location)
+			if err != nil {
+				return eta, err
+			}
+			log("Platform in transit, eta: %s", res.Arrives.Time())
+			if res.Arrives.Time().After(eta) {
+				eta = res.Arrives.Time()
+			}
 		}
 		nextTag = "teardown"
-		if res.Arrives.Time().After(eta) {
-			eta = res.Arrives.Time()
-		}
 	case "leaving":
 		nextTag = "setup"
 		if pm.dev.AttachedToDeviceCode == nil {
@@ -318,7 +326,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 	default:
 		return eta, fmt.Errorf("Unknown state: %q", pm.state)
 	}
-	if !pm.dryRun && !eta.IsZero() {
+	if !pm.dryRun && !eta.IsZero() && nextTag != pm.tag {
 		n := &models.Notification{
 			Start:  time.Now(),
 			End:    eta,
@@ -328,6 +336,9 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		if err := n.Save(); err != nil {
 			log("Error creating notification: %v", err)
 		}
+	}
+	if !eta.IsZero() {
+		eta.Add(time.Second)
 	}
 	return eta, pm.SaveState(nextTag)
 }

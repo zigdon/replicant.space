@@ -381,6 +381,7 @@ Fill	rsp/models/device.go	/^func (d *Device) Fill() error {$/;"	f	struct:models.
 Fill	rsp/models/device.go	/^func (n *Network) Fill() error {$/;"	f	struct:models.Network	typeref:typename:error
 Fill	rsp/models/device.go	/^func (td *TaggedDevices) Fill() error {$/;"	f	struct:models.TaggedDevices	typeref:typename:error
 Fill	rsp/models/helpers.go	/^	Fill() error$/;"	n	interface:models.Fillable	typeref:typename:error
+Fill	rsp/models/location.go	/^func (s *Star) Fill() error {$/;"	f	struct:models.Star	typeref:typename:error
 Fill	rsp/models/replicant.go	/^func (r *Replicant) Fill() error {$/;"	f	struct:models.Replicant	typeref:typename:error
 Fill	rsp/models/scan.go	/^func (s *Scan) Fill() error {$/;"	f	struct:models.Scan	typeref:typename:error
 Fill	rsp/models/trades.go	/^func (s *Shop) Fill() error {$/;"	f	struct:models.Shop	typeref:typename:error
@@ -953,6 +954,8 @@ auto	rsp/auto/prospect.go	/^package auto$/;"	p
 auto	rsp/auto/relay.go	/^package auto$/;"	p
 auto	rsp/auto/state.go	/^package auto$/;"	p
 autoCmd	rsp/cmd/root-auto.go	/^var autoCmd = &cobra.Command{$/;"	v	package:cmd
+autoFR	rsp/cmd/auto-relay.go	/^func autoFR(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
+autoFRCmd	rsp/cmd/root-auto.go	/^var autoFRCmd = &cobra.Command{$/;"	v	package:cmd
 autoFerry	rsp/cmd/auto-ferry.go	/^func autoFerry(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 autoFerryCmd	rsp/cmd/root-auto.go	/^var autoFerryCmd = &cobra.Command{$/;"	v	package:cmd
 autoMine	rsp/cmd/auto-mine.go	/^func autoMine(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
