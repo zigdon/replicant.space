@@ -128,15 +128,17 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 		return "", err
 	}
 	for {
+		log("Considering %s as the next site", next)
 		// Check if there's aleady an observatory there, or on the way.
 		obvs, err := rest.Devices(map[string]string{
-			"device_type": "galactic_observatory",
+			"device_type": "parallax_array",
 		})
 		if err != nil {
-			return "", fmt.Errorf("Can't get GO list: %v", err)
+			return "", fmt.Errorf("Can't get observatory list: %v", err)
 		}
 		for _, o := range obvs {
-			if o.Location == next || (o.Travel != nil && o.Travel.Destination == next) {
+			if strings.HasPrefix(o.Location, next) ||
+				(o.Travel != nil && strings.HasPrefix(o.Travel.Destination, next)) {
 				if o.Travel == nil {
 					log("%s is already at %s", o.Code.Alias(), next)
 				} else {
@@ -180,7 +182,7 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 			if skip[s] || dists[s] == 0 {
 				continue
 			}
-			log("Next star in the sector: %s (%.2fly)", s, dists[s])
+			log("Next star in the sector: %s (%.2fly from SOL)", s, dists[s])
 			next = s
 			dist = dists[s]
 			found = true

@@ -106,6 +106,16 @@ type Star struct {
 	TemperatureK    int       `json:"temperature_k"`
 }
 
+func (s *Star) Fill() error {
+	if s.DistanceFromSol == 0 {
+		s.DistanceFromSol = float32(math.Sqrt(
+			float64(s.Position.X*s.Position.X) +
+				float64(s.Position.Y*s.Position.Y) +
+				float64(s.Position.Z*s.Position.Z)))
+	}
+	return nil
+}
+
 func (s *Star) Cache() error {
 	cur := &Star{Designation: s.Designation}
 	if err := cur.Get(); err == nil {
@@ -143,8 +153,11 @@ func (s *Star) Get() error {
 		p := NewPosition(0, 0, 0)
 		s.Position = p
 	}
-	return scan(&s.Designation, &s.Name, &s.EntryPoint, &s.EstimatedPlanets, &s.Explored,
-		&s.HasLife, &s.Position.X, &s.Position.Y, &s.Position.Z)
+	if err := scan(&s.Designation, &s.Name, &s.EntryPoint, &s.EstimatedPlanets, &s.Explored,
+		&s.HasLife, &s.Position.X, &s.Position.Y, &s.Position.Z); err != nil {
+		return err
+	}
+	return s.Fill()
 }
 
 type Census struct {
