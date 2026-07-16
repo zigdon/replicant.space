@@ -954,6 +954,7 @@ auto	rsp/auto/prospect.go	/^package auto$/;"	p
 auto	rsp/auto/relay.go	/^package auto$/;"	p
 auto	rsp/auto/state.go	/^package auto$/;"	p
 autoCmd	rsp/cmd/root-auto.go	/^var autoCmd = &cobra.Command{$/;"	v	package:cmd
+autoEvent	rsp/cmd/auto-event.go	/^func autoEvent(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 autoFR	rsp/cmd/auto-relay.go	/^func autoFR(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 autoFRCmd	rsp/cmd/root-auto.go	/^var autoFRCmd = &cobra.Command{$/;"	v	package:cmd
 autoFerry	rsp/cmd/auto-ferry.go	/^func autoFerry(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
@@ -1002,6 +1003,7 @@ cfgFile	rsp/cfg/config.go	/^	cfgFile = ".config.yaml"$/;"	c	package:cfg
 civ	rsp/cmd/root-civs.go	/^func civ(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 civCmd	rsp/cmd/root-civs.go	/^var civCmd = &cobra.Command{$/;"	v	package:cmd
 client	rsp/rest/api.go	/^	client         http.Client$/;"	v	package:rest	typeref:typename:http.Client
+cmd	rsp/cmd/auto-event.go	/^package cmd$/;"	p
 cmd	rsp/cmd/auto-ferry.go	/^package cmd$/;"	p
 cmd	rsp/cmd/auto-mine.go	/^package cmd$/;"	p
 cmd	rsp/cmd/auto-prospect.go	/^package cmd$/;"	p
@@ -1238,6 +1240,7 @@ position_z	rsp/cache/schema.sql	/^  position_z REAL,$/;"	E	table:stars
 prefix	rsp/cache/schema.sql	/^  prefix TEXT UNIQUE$/;"	E	table:alias_types
 prefixes	rsp/cache/alias.go	/^var prefixes = map[string]string{$/;"	v	package:cache
 prettyPrint	rsp/cmd/output.go	/^func prettyPrint(i any) {$/;"	f	package:cmd
+prettyPrintf	rsp/cmd/output.go	/^func prettyPrintf(f io.Writer, i any) {$/;"	f	package:cmd
 printCmd	rsp/cmd/replicant-print.go	/^var printCmd = &cobra.Command{$/;"	v	package:cmd
 printDeviceList	rsp/cmd/root-devices.go	/^func printDeviceList(devs []*models.Device, reference *models.Position, merge bool) {$/;"	f	package:cmd
 printEvent	rsp/cmd/root-events.go	/^func printEvent(e *models.Event, style lg.Style) {$/;"	f	package:cmd

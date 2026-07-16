@@ -39,8 +39,12 @@ func die(tmpl string, args ...any) {
 }
 
 func prettyPrint(i any) {
+	prettyPrintf(os.Stdout, i)
+}
+
+func prettyPrintf(f io.Writer, i any) {
 	s, _ := json.MarshalIndent(i, "", "  ")
-	fmt.Println(string(s))
+	fmt.Fprintln(f, string(s))
 }
 
 func wrap(t string, w int) string {

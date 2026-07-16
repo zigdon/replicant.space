@@ -423,6 +423,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	} else {
 		// If there's a fleet idling at the destination, send it home
 		for _, mf := range allMFs {
+			mf, err = rest.DeviceInfo(mf.Code)
+			if err != nil {
+				return err
+			}
 			log("Carrier: %s at %s (%d remaining devices)", mf.Code.Alias(), mf.Location, len(mf.AttachedDevices))
 			if !strings.HasPrefix(mf.Location, star) {
 				continue
