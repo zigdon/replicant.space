@@ -427,29 +427,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			log("Carrier in transit, eta %s", res.TotalTime.String())
 			return nil
 		}
-	} else {
-		// If there's a fleet idling at the destination, send it home
-		for _, mf := range allMFs {
-			mf, err = rest.DeviceInfo(mf.Code)
-			if err != nil {
-				return err
-			}
-			if mf.Status != "idle" {
-				continue
-			}
-			if !strings.HasPrefix(mf.Location, star) {
-				continue
-			}
-			if len(mf.AttachedDevices) > 0 {
-				continue
-			}
-			res, err := rest.DeviceCommand[models.CommandResp](mf.Code, "travel", map[string]any{"destination": home})
-			if err != nil {
-				log("Error sending %q home: %v", mf.Code, err)
-				continue
-			}
-			log("Shipping %q home: ETA %s", mf.Code.Alias(), res.Arrives.Time())
-		}
 	}
 	if dryRun {
 		return nil
@@ -499,6 +476,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
+	log("Carriers: %v", carriers)
 	for _, c := range carriers {
 		if c.Status != "idle" {
 			return fmt.Errorf("Carrier %s is not idle (%s)", c.Code.Alias(), c.Status)
@@ -506,14 +484,16 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if err := detachAll(c.Code); err != nil {
 			return err
 		}
-		log("Carrier: %s at %s (%d remaining devices)", c.Code.Alias(), c.Location, len(c.AttachedDevices))
-		if strings.HasPrefix(c.Location, star) && len(c.AttachedDevices) == 0 {
+		c.AttachedDevices = nil
+		log("Carrier: %s at %s", c.Code.Alias(), c.Location)
+		if strings.HasPrefix(c.Location, star) {
 			// If the fleet is at the destination, send it home
 			res, err := rest.DeviceCommand[models.CommandResp](c.Code, "travel", map[string]any{"destination": home})
 			if err != nil {
 				return err
 			}
 			log("Fleet returning to %q, eta %s", home, res.TotalTime.String())
+			c.Location = ""
 		}
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
@@ -109,6 +110,54 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	// Check what is already there
 	missing := make(map[string]int)
 	deliver := func() error {
+		cfs, err := rest.Devices(map[string]string{"device_type": "cargo_freighter"})
+		if err != nil {
+			return err
+		}
+		enRoute := make(map[string]int)
+		isEnRoute := func(d *models.Device) bool {
+			return d.Travel != nil && d.Travel.Destination == ev.Location
+		}
+		var eta time.Time
+		for _, cf := range cfs {
+			if !isEnRoute(cf) {
+				continue
+			}
+			for _, c := range cf.Cargo {
+				enRoute[c.ResourceType] += int(c.Quantity)
+				if _, ok := missing[c.ResourceType]; ok && cf.Travel.Arrives.Time().After(eta) {
+					eta = cf.Travel.Arrives.Time()
+				}
+			}
+		}
+		for _, t := range []string{"surge_plate", "surge_platform", "mobile_fleet"} {
+			sps, err := rest.Devices(map[string]string{"device_type": t})
+			if err != nil {
+				return err
+			}
+			for _, sp := range sps {
+				if !isEnRoute(sp) {
+					continue
+				}
+				for _, c := range sp.Cargo {
+					enRoute[c.ResourceType] += int(c.Quantity)
+					if _, ok := missing[c.ResourceType]; ok && sp.Travel.Arrives.Time().After(eta) {
+						eta = sp.Travel.Arrives.Time()
+					}
+				}
+			}
+		}
+		for k, v := range missing {
+			if v-enRoute[k] < 0 {
+				log("%d x %s already en-route", enRoute[k], k)
+				delete(missing, k)
+				continue
+			}
+		}
+		if len(missing) == 0 {
+			log("All required resources are already en-route, ETA %s (%s)", eta, time.Until(eta))
+			return nil
+		}
 		return fmt.Errorf("Need to deliver %v to %s", missing, ev.Location)
 	}
 

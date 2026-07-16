@@ -209,11 +209,14 @@ func ReplicantDevices(c *models.CodeAlias, loc string) ([]*models.Device, error)
 }
 
 func ReplicantTravel(id *models.CodeAlias, dest string, via []string, dryRun bool) (*models.Trip, error) {
-	data, _ := json.Marshal(map[string]any{
+	cfg := map[string]any{
 		"dry_run":     dryRun,
 		"destination": dest,
-		"via":         via,
-	})
+	}
+	if len(via) > 0 {
+		cfg["via"] = via
+	}
+	data, _ := json.Marshal(cfg)
 	trip, err := Post("replicants/%s/travel", data, id)
 	if err != nil {
 		return nil, err
