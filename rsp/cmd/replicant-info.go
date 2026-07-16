@@ -28,7 +28,7 @@ var replicantInfoCmd = &cobra.Command{
 		printTable([]string{
 			"Name", "Code", "Location", "XP", "Description", "Status",
 		}, [][]string{{
-			repl.Name, repl.Code.Alias(), repl.Location,
+			repl.Name, repl.Code.Alias(), string(repl.Location),
 			d(repl.ExperiencePoints), repl.Description, repl.Status,
 		}})
 		if repl.Travel != nil {
@@ -44,7 +44,7 @@ var replicantInfoCmd = &cobra.Command{
 			for _, l := range trip.Route {
 				dist := l.DistanceAu + l.DistanceLy
 				legs = append(legs, []string{
-					d(l.Leg), b(l.Active), l.From, l.To, l.Time.String(), f(dist), l.Type,
+					d(l.Leg), b(l.Active), string(l.From), string(l.To), l.Time.String(), f(dist), l.Type,
 				})
 			}
 			printTable([]string{"Leg", "Active", "From", "To", "Time", "Distance", "Type"}, legs)

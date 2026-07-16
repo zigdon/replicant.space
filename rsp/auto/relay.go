@@ -3,7 +3,6 @@ package auto
 import (
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/zigdon/rsp/models"
@@ -62,11 +61,9 @@ func (rm *RelayMachine) UpdateState() error {
 		return d.Type == "ftl_relay"
 	})
 	var star *models.Star
-	if s, _, ok := strings.Cut(rm.dev.Location, "-"); ok {
-		star = &models.Star{Designation: s}
-		if err := star.Get(); err != nil {
-			return err
-		}
+	star, err = models.NewStar(string(rm.dev.Location.Star()))
+	if err != nil {
+		return err
 	}
 	atHome := rm.dev.Location == home
 	var sysFRs []*models.Device
@@ -74,7 +71,7 @@ func (rm *RelayMachine) UpdateState() error {
 	if star != nil {
 		sysFRs, err := rest.Devices(map[string]string{
 			"device_type": "ftl_relay",
-			"location":    star.Designation,
+			"location":    string(star.Designation),
 		})
 		if err != nil {
 			return err

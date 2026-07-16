@@ -81,7 +81,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			log("Error getting info for %q: %v", cf.Code.Alias(), err)
 			continue
 		}
-		if info.Location == home {
+		if string(info.Location) == home {
 			continue
 		}
 		if info.Status != "idle" {
@@ -109,7 +109,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			log("%s @ %s not online", sh.Code.Alias(), sh.Location)
 			continue
 		}
-		inv, err := rest.Location(sh.Location)
+		inv, err := rest.Location(string(sh.Location))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("Can't get resources at %s: %v", sh.Location, err))
 			continue
@@ -129,7 +129,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			missing[k] -= v
 		}
 		if len(missing) > 0 {
-			errs = append(errs, deliver(sh.Location, missing))
+			errs = append(errs, deliver(string(sh.Location), missing))
 		} else {
 			log("%s @ %s up-to-date", sh.Code.Alias(), sh.Location)
 		}

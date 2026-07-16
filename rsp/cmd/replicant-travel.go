@@ -21,6 +21,7 @@ var travelCmd = &cobra.Command{
 		}
 		dryRun, _ := cmd.Flags().GetBool("dry_run")
 		via, _ := cmd.Flags().GetStringSlice("via")
+		autoVia, _ := cmd.Flags().GetBool("auto_via")
 		dest := args[0]
 		res, err := rest.ReplicantTravel(rID, dest, via, dryRun)
 		if err != nil {
@@ -33,13 +34,13 @@ var travelCmd = &cobra.Command{
 				"Origin", "Destination", "Status",
 				"Duration", "Departed", "Arrives",
 			}, [][]string{{
-				res.Origin, res.Destination, res.Status,
+				string(res.Origin), string(res.Destination), res.Status,
 				res.TotalTime.String(), t(res.Departed.Time()), t(res.Arrives.Time()),
 			}})
 			var ls [][]string
 			for _, l := range res.Route {
 				ls = append(ls, []string{
-					d(l.Leg), l.From, l.To, l.Type, l.Time.String(),
+					d(l.Leg), string(l.From), string(l.To), l.Type, l.Time.String(),
 				})
 			}
 			printTable([]string{"Leg", "From", "To", "Type", "Duration"}, ls)

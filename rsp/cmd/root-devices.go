@@ -60,8 +60,8 @@ var deviceListCmd = &cobra.Command{
 				}
 			} else {
 				// It's a location (probably)
-				oStar := &models.Star{Designation: src}
-				if err := oStar.Get(); err == nil {
+				oStar, err := models.NewStar(src)
+				if err == nil {
 					origin = oStar.Position
 					log("Distance from %s: %s", src, origin)
 				}
@@ -133,7 +133,7 @@ var networkCmd = &cobra.Command{
 				if net == nil || net.Status != "relaying" {
 					loc := d.StowedInDeviceCode.Alias()
 					if loc == "" {
-						loc = d.Location
+						loc = string(d.Location)
 					}
 					mu.Lock()
 					inactive = append(inactive, []string{d.Code.Alias(), loc})
@@ -221,7 +221,7 @@ func filterDevices(devs []*models.Device, withoutTags, withTags []string) ([]*mo
 				continue
 			}
 			if skipTags["mine"] && slices.ContainsFunc(d.Tags, func(s string) bool {
-				loc := strings.ToLower(d.Location)
+				loc := strings.ToLower(string(d.Location))
 				if loc == "" {
 					return false
 				}
@@ -258,7 +258,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 		return strings.Join([]string{
 			d.Type,
 			d.ControllerDeviceCode.Alias(),
-			d.Location,
+			string(d.Location),
 			d.Status,
 			eta,
 			d.StowedInDeviceCode.Alias() + d.AttachedToDeviceCode.Alias(),
@@ -304,7 +304,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 			d.Type,
 			d.Code.Alias(),
 			d.ControllerDeviceCode.Alias(),
-			d.Location,
+			string(d.Location),
 			p(d.OperationalCapacity),
 			status,
 			eta,

@@ -48,10 +48,10 @@ var starsCmd = &cobra.Command{
 			}
 			printTable(headers, data)
 			var stars [][]string
-			dist := make(map[string]float32)
+			dist := make(map[models.LocationID]float32)
 			for _, s := range resp.Stars {
 				if f, _ := cmd.Flags().GetString("filter"); f != "" {
-					if !strings.Contains(strings.ToLower(s.Designation), strings.ToLower(f)) {
+					if !strings.Contains(strings.ToLower(string(s.Designation)), strings.ToLower(f)) {
 						continue
 					}
 				}
@@ -72,8 +72,8 @@ var starsCmd = &cobra.Command{
 				}
 
 				data := []string{
-					s.Designation,
-					s.EntryPoint,
+					string(s.Designation),
+					string(s.EntryPoint),
 					d(s.EstimatedPlanets) + hasCache,
 					f(s.DistanceFromReplicant),
 					s.EstimatedTravelTime.Duration().String(),
@@ -109,7 +109,7 @@ var starsCmd = &cobra.Command{
 			if dest != "" {
 				headers = append(headers, "To destination")
 				slices.SortFunc(stars, func(a, b []string) int {
-					return cmp.Compare(dist[a[0]], dist[b[0]])
+					return cmp.Compare(dist[models.LocationID(a[0])], dist[models.LocationID(b[0])])
 				})
 			}
 			printTable(headers, stars)

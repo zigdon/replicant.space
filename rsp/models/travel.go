@@ -14,11 +14,11 @@ type TripLeg struct {
 	Active     bool           `json:"active"`
 	DistanceAu float32        `json:"distance_au"`
 	DistanceLy float32        `json:"distance_ly"`
-	From       string         `json:"from"`
+	From       LocationID     `json:"from"`
 	FromName   string         `json:"from_name"`
 	Leg        int            `json:"leg"`
 	Time       *JSONTimeDelta `json:"time_seconds"`
-	To         string         `json:"to"`
+	To         LocationID     `json:"to"`
 	ToName     string         `json:"to_name"`
 	Type       string         `json:"type"`
 }
@@ -26,12 +26,12 @@ type TripLeg struct {
 type Trip struct {
 	Arrives         *JSONTime      `json:"arrives_at"`
 	Departed        *JSONTime      `json:"departed_at"`
-	Destination     string         `json:"destination"`
+	Destination     LocationID     `json:"destination"`
 	DestinationName string         `json:"destination_name"`
 	DistanceLy      float32        `json:"distance_ly"`
 	Error           string         `json:"error"`
 	Eta             *JSONTimeDelta `json:"eta_seconds"`
-	Origin          string         `json:"origin"`
+	Origin          LocationID     `json:"origin"`
 	OriginName      string         `json:"origin_name"`
 	ProgressPercent float32        `json:"progress_percent"`
 	Route           []*TripLeg     `json:"route"`

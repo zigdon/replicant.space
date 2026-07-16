@@ -32,8 +32,8 @@ var scanCmd = &cobra.Command{
 			"Mining Bonus %",
 			"Tags",
 		}, [][]string{{
-			scan.Star.Designation,
-			scan.EntryPoint,
+			string(scan.Star.Designation),
+			string(scan.EntryPoint),
 			b(scan.LifeDetected),
 			d(scan.MiningBonusPct),
 			list(scan.SystemTags),
@@ -42,7 +42,7 @@ var scanCmd = &cobra.Command{
 			var belts [][]string
 			for _, b := range scan.AsteroidBelt.Belts {
 				belts = append(belts, []string{
-					b.Designation,
+					string(b.Designation),
 					b.Density,
 					m(b.Resources),
 				})
@@ -61,7 +61,7 @@ var scanCmd = &cobra.Command{
 				}
 				planets = append(planets, []string{
 					p.Name,
-					p.Designation,
+					string(p.Designation),
 					p.Type,
 					b(p.InHabitableZone),
 					d(p.MoonCount),
@@ -83,12 +83,12 @@ var scanCmd = &cobra.Command{
 		var outer [][]string
 		if scan.OuterSystem.Oort != nil {
 			outer = append(outer,
-				[]string{scan.OuterSystem.Oort.Designation,
+				[]string{string(scan.OuterSystem.Oort.Designation),
 					f(scan.OuterSystem.Oort.DistanceAu)})
 		}
 		if scan.OuterSystem.Kuiper != nil {
 			outer = append(outer,
-				[]string{scan.OuterSystem.Kuiper.Designation,
+				[]string{string(scan.OuterSystem.Kuiper.Designation),
 					f(scan.OuterSystem.Kuiper.DistanceAu)})
 		}
 		if len(outer) > 0 {
@@ -99,7 +99,7 @@ var scanCmd = &cobra.Command{
 			var events [][]string
 			for _, e := range scan.ActiveLocationEvents {
 				events = append(events, []string{
-					e.Designation, e.Title, e.EventType, e.Location, d(e.Tier),
+					string(e.Designation), e.Title, e.EventType, string(e.Location), d(e.Tier),
 				})
 			}
 			printTable([]string{"Designation", "Title", "Type", "Location", "Tier"}, events)
@@ -108,7 +108,7 @@ var scanCmd = &cobra.Command{
 		if len(scan.Replicants) > 0 {
 			var reps [][]string
 			for _, r := range scan.Replicants {
-				reps = append(reps, []string{r.Name, r.Code, r.Location, r.LastActive.String()})
+				reps = append(reps, []string{r.Name, r.Code, string(r.Location), r.LastActive.String()})
 			}
 			printTable([]string{"Name", "Code", "Location", "Last Active"}, reps)
 		}
@@ -135,7 +135,7 @@ var scanCmd = &cobra.Command{
 			var data [][]string
 			for _, so := range scan.SystemObjects {
 				data = append(data, []string{
-					so.Designation, so.Status, so.ObjectType, so.SizeClass, f(so.OrbitalDistanceAu),
+					string(so.Designation), so.Status, so.ObjectType, so.SizeClass, f(so.OrbitalDistanceAu),
 					so.ImpactTarget, t(so.ImpactEta.Time()), p(so.ImpactLikelihood), f(so.RequiredStrength),
 					d(so.ActivePlates), p(so.ProgressPct), f(so.CurrentThrustPerHour),
 				})

@@ -80,13 +80,18 @@ type StarCatalog struct {
 	Stars        []*Star   `json:"stars"`
 }
 
+func NewStar(id string) (*Star, error) {
+	s := &Star{Designation: LocationID(id)}
+	return s, s.Get()
+}
+
 type Star struct {
 	AgeMy                 float32        `json:"age_my"`
 	Color                 string         `json:"color"`
-	Designation           string         `json:"designation"`
+	Designation           LocationID     `json:"designation"`
 	DistanceFromReplicant float32        `json:"distance_from_replicant"`
 	DistanceFromSol       float32        `json:"distance_from_sol"`
-	EntryPoint            string         `json:"entry_point"`
+	EntryPoint            LocationID     `json:"entry_point"`
 	EstimatedPlanets      int            `json:"estimated_planets"`
 	EstimatedTravelTime   *JSONTimeDelta `json:"estimated_travel_time"`
 	Explored              bool           `json:"explored"`
@@ -145,7 +150,7 @@ func (s *Star) Get() error {
 	if s.Designation == "" {
 		return fmt.Errorf("Can't load unknown star")
 	}
-	scan, err := db.Get(cache.StarsTable, s.Designation)
+	scan, err := db.Get(cache.StarsTable, string(s.Designation))
 	if err != nil {
 		return fmt.Errorf("Error querying cache: %v", err)
 	}
@@ -172,11 +177,11 @@ type Census struct {
 
 type Belt struct {
 	Density       string            `json:"density"`
-	Designation   string            `json:"designation"`
+	Designation   LocationID        `json:"designation"`
 	InnerRadiusAu float32           `json:"inner_radius_au"`
 	OuterRadiusAu float32           `json:"outer_radius_au"`
 	Resources     map[string]string `json:"resources"`
-	Star          string
+	Star          LocationID
 }
 
 func (b *Belt) Cache() error {
@@ -205,7 +210,7 @@ func (b *Belt) Get() error {
 	if b.Designation == "" {
 		return fmt.Errorf("Can't load unknown belt")
 	}
-	scan, err := db.Get(cache.BeltsTable, b.Designation)
+	scan, err := db.Get(cache.BeltsTable, string(b.Designation))
 	if err != nil {
 		return fmt.Errorf("Error querying cache: %v", err)
 	}
@@ -217,7 +222,7 @@ func (b *Belt) Get() error {
 }
 
 type Site struct {
-	Designation           string         `json:"designation"`
+	Designation           LocationID     `json:"designation"`
 	Index                 int            `json:"site_index"`
 	Name                  string         `json:"name"`
 	ResourcesRemainingPct map[string]int `json:"resources_remaining_pct"`
@@ -228,7 +233,7 @@ type Planet struct {
 	Atmosphere          string       `json:"atmosphere"`
 	AxialTiltDeg        float32      `json:"axial_tilt_deg"`
 	DensityGcc          float32      `json:"density_gcc"`
-	Designation         string       `json:"designation"`
+	Designation         LocationID   `json:"designation"`
 	InHabitableZone     bool         `json:"in_habitable_zone"`
 	Inventory           []*Inventory `json:"inventory"`
 	LifeStage           string       `json:"life_stage"`
@@ -249,7 +254,7 @@ type Planet struct {
 	SurfaceTempK        int          `json:"surface_temp_k"`
 	Tags                []string     `json:"tags"`
 	Type                string       `json:"type"`
-	Star                string
+	Star                LocationID
 }
 
 func (p *Planet) Cache() error {
@@ -271,7 +276,7 @@ func (p *Planet) Get() error {
 	if p.Designation == "" {
 		return fmt.Errorf("Can't load unknown planet")
 	}
-	scan, err := db.Get(cache.PlanetsTable, p.Designation)
+	scan, err := db.Get(cache.PlanetsTable, string(p.Designation))
 	if err != nil {
 		return fmt.Errorf("Error querying cache: %v", err)
 	}
@@ -280,10 +285,10 @@ func (p *Planet) Get() error {
 }
 
 type Moon struct {
-	Designation  string `json:"designation"`
-	Name         string `json:"name"`
-	ParentPlanet string `json:"parent_planet"`
-	Star         string
+	Designation  LocationID `json:"designation"`
+	Name         string     `json:"name"`
+	ParentPlanet LocationID `json:"parent_planet"`
+	Star         LocationID
 	Scanned      bool   `json:"scanned"`
 	Type         string `json:"location_type"`
 }
@@ -306,7 +311,7 @@ func (m *Moon) Get() error {
 	if m.Designation == "" {
 		return fmt.Errorf("Can't load unknown moon")
 	}
-	scan, err := db.Get(cache.MoonsTable, m.Designation)
+	scan, err := db.Get(cache.MoonsTable, string(m.Designation))
 	if err != nil {
 		return fmt.Errorf("Error querying cache: %v", err)
 	}
@@ -323,28 +328,28 @@ type LocationSummary struct {
 
 type Location struct {
 	AsteroidBelt struct {
-		Belts   []Belt `json:"belts"`
-		Present bool   `json:"present"`
+		Belts   []*Belt `json:"belts"`
+		Present bool    `json:"present"`
 	} `json:"asteroid_belt"`
-	Belt                *Belt                       `json:"belt"`
-	Devices             []*Device                   `json:"devices"`
-	EntryPoint          string                      `json:"entry_point"`
-	Inventory           []*Inventory                `json:"inventory"`
-	Location            string                      `json:"location"`
-	LocationEvent       *Event                      `json:"location_event"`
-	Locations           map[string]*LocationSummary `json:"locations"`
-	Moon                *Moon                       `json:"moon"`
-	Moons               []*Moon                     `json:"moons"`
-	MoonsScanned        int                         `json:"moons_scanned"`
-	MoonsTotal          int                         `json:"moons_total"`
-	MoonsTotalEstimated bool                        `json:"moons_total_estimated"`
-	Object              *Object                     `json:"object"`
-	Planet              *Planet                     `json:"planet"`
-	Planets             []*Planet                   `json:"planets"`
-	PlanetsScanned      int                         `json:"planets_scanned"`
-	PlanetsTotal        int                         `json:"planets_total"`
-	ResourceSites       []*Site                     `json:"resource_sites"`
-	Star                *Star                       `json:"star"`
-	SystemScanned       bool                        `json:"system_scanned"`
-	Type                string                      `json:"location_type"`
+	Belt                *Belt                           `json:"belt"`
+	Devices             []*Device                       `json:"devices"`
+	EntryPoint          LocationID                      `json:"entry_point"`
+	Inventory           []*Inventory                    `json:"inventory"`
+	Location            LocationID                      `json:"location"`
+	LocationEvent       *Event                          `json:"location_event"`
+	Locations           map[LocationID]*LocationSummary `json:"locations"`
+	Moon                *Moon                           `json:"moon"`
+	Moons               []*Moon                         `json:"moons"`
+	MoonsScanned        int                             `json:"moons_scanned"`
+	MoonsTotal          int                             `json:"moons_total"`
+	MoonsTotalEstimated bool                            `json:"moons_total_estimated"`
+	Object              *Object                         `json:"object"`
+	Planet              *Planet                         `json:"planet"`
+	Planets             []*Planet                       `json:"planets"`
+	PlanetsScanned      int                             `json:"planets_scanned"`
+	PlanetsTotal        int                             `json:"planets_total"`
+	ResourceSites       []*Site                         `json:"resource_sites"`
+	Star                *Star                           `json:"star"`
+	SystemScanned       bool                            `json:"system_scanned"`
+	Type                string                          `json:"location_type"`
 }

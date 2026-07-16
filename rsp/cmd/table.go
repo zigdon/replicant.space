@@ -62,7 +62,7 @@ func getDeviceTable() (*tview.Table, error) {
 			NewCell(true, d.Type),
 			NewCell(true, d.Code.Alias()),
 			NewCell(SelectableUnlessEmpty(d.ControllerDeviceCode.Alias())),
-			NewCell(SelectableUnlessEmpty(d.Location)),
+			NewCell(SelectableUnlessEmpty(string(d.Location))),
 			NewCell(false, p(d.OperationalCapacity)),
 			NewCell(false, d.Status),
 			NewCell(

@@ -57,7 +57,7 @@ type Event struct {
 	Designation      string           `json:"designation"`
 	Discovered       *JSONTime        `json:"discovered_at"`
 	Error            string           `json:"error"`
-	Location         string           `json:"location"`
+	Location         LocationID       `json:"location"`
 	LocationName     string           `json:"location_name"`
 	Progress         *EventProgress   `json:"progress"`
 	Rewards          *EventReward     `json:"rewards"`

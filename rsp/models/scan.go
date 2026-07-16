@@ -6,49 +6,49 @@ import (
 )
 
 type Destination struct {
-	Designation string  `json:"designation"`
-	DistanceAu  float32 `json:"distanceAu"`
+	Designation LocationID `json:"designation"`
+	DistanceAu  float32    `json:"distanceAu"`
 }
 
 type Salvage struct {
-	Depleted           bool     `json:"depleted"`
-	Designation        string   `json:"designation"`
-	Location           string   `json:"location"`
-	Name               string   `json:"name"`
-	ResourcesAvailable []string `json:"resources_available"`
-	SalvageType        string   `json:"salvage_type"`
+	Depleted           bool       `json:"depleted"`
+	Designation        LocationID `json:"designation"`
+	Location           LocationID `json:"location"`
+	Name               string     `json:"name"`
+	ResourcesAvailable []string   `json:"resources_available"`
+	SalvageType        string     `json:"salvage_type"`
 }
 
 type ScanReplicant struct {
-	LastActive *JSONTime `json:"last_active"`
-	Location   string    `json:"location"`
-	Name       string    `json:"name"`
+	LastActive *JSONTime  `json:"last_active"`
+	Location   LocationID `json:"location"`
+	Name       string     `json:"name"`
 	// Don't alias other replicants
 	Code string `json:"replicant_code"`
 }
 
 type Object struct {
-	ActivePlates         int       `json:"active_plates"`
-	CurrentThrustPerHour float32   `json:"current_thrust_per_hour"`
-	Designation          string    `json:"designation"`
-	Discovered           *JSONTime `json:"discovered_at"`
-	ImpactEta            *JSONTime `json:"impact_eta"`
-	ImpactLikelihood     float32   `json:"impact_likelihood"`
-	ImpactTarget         string    `json:"impact_target"`
-	ObjectType           string    `json:"object_type"`
-	OrbitalDistanceAu    float32   `json:"orbital_distance_au"`
-	ProgressPct          float32   `json:"progress_pct"`
-	RequiredStrength     float32   `json:"required_strength"`
-	SizeClass            string    `json:"size_class"`
-	Status               string    `json:"status"`
+	ActivePlates         int        `json:"active_plates"`
+	CurrentThrustPerHour float32    `json:"current_thrust_per_hour"`
+	Designation          LocationID `json:"designation"`
+	Discovered           *JSONTime  `json:"discovered_at"`
+	ImpactEta            *JSONTime  `json:"impact_eta"`
+	ImpactLikelihood     float32    `json:"impact_likelihood"`
+	ImpactTarget         string     `json:"impact_target"`
+	ObjectType           string     `json:"object_type"`
+	OrbitalDistanceAu    float32    `json:"orbital_distance_au"`
+	ProgressPct          float32    `json:"progress_pct"`
+	RequiredStrength     float32    `json:"required_strength"`
+	SizeClass            string     `json:"size_class"`
+	Status               string     `json:"status"`
 }
 
 type LocationEvent struct {
-	Designation string `json:"designation"`
-	EventType   string `json:"event_type"`
-	Location    string `json:"location"`
-	Tier        int    `json:"tier"`
-	Title       string `json:"title"`
+	Designation LocationID `json:"designation"`
+	EventType   string     `json:"event_type"`
+	Location    LocationID `json:"location"`
+	Tier        int        `json:"tier"`
+	Title       string     `json:"title"`
 }
 
 type Scan struct {
@@ -57,9 +57,9 @@ type Scan struct {
 		Belts   []*Belt `json:"belts"`
 		Present bool    `json:"present"`
 	} `json:"asteroid_belt"`
-	EntryPoint     string `json:"entry_point"`
-	LifeDetected   bool   `json:"life_detected"`
-	MiningBonusPct int    `json:"mining_bonus_pct"`
+	EntryPoint     LocationID `json:"entry_point"`
+	LifeDetected   bool       `json:"life_detected"`
+	MiningBonusPct int        `json:"mining_bonus_pct"`
 	OuterSystem    struct {
 		Kuiper *Destination `json:"kuiper"`
 		Oort   *Destination `json:"oort"`
@@ -109,8 +109,8 @@ func (s *Scan) ExtractLocations() []string {
 	if s == nil {
 		return nil
 	}
-	locs := make(map[string]bool)
-	a := func(loc string) { locs[loc] = true }
+	locs := make(map[LocationID]bool)
+	a := func(loc LocationID) { locs[loc] = true }
 	if s.EntryPoint != "" {
 		a(s.EntryPoint)
 	}
@@ -137,7 +137,7 @@ func (s *Scan) ExtractLocations() []string {
 	// Dedup and sort before returning.
 	var res []string
 	for l := range locs {
-		res = append(res, l)
+		res = append(res, string(l))
 	}
 
 	return sort.StringSlice(res)

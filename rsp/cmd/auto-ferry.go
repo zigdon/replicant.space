@@ -60,7 +60,7 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	skip := make(map[string]bool)
+	skip := make(map[models.LocationID]bool)
 	for _, af := range afs {
 		log("Found autofactory %q in %q", af.Code.Alias(), af.Location)
 		skip[af.Location] = true
@@ -75,11 +75,11 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 	home, _ := cmd.Flags().GetString("home")
 	var wg sync.WaitGroup
 	for l := range locs.Locations {
-		if l == home || skip[l] {
+		if string(l) == home || skip[l] {
 			continue
 		}
 		wg.Go(func() {
-			loc, err := rest.Location(l)
+			loc, err := rest.Location(string(l))
 			if err != nil {
 				log("Error getting location %q: %v", l, err)
 				return
@@ -90,7 +90,7 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 			}
 			if c > 0 {
 				log("... %s: %.0f", l, c)
-				dests = append(dests, l)
+				dests = append(dests, string(l))
 				cnts.Store(l, c)
 			}
 		})

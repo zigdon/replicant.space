@@ -39,9 +39,9 @@ var addTagCmd = &cobra.Command{
 }
 
 var delTagCmd = &cobra.Command{
-	Use:   "del",
+	Use:     "del",
 	Aliases: []string{"remove"},
-	Short: "Remove a tag from a device",
+	Short:   "Remove a tag from a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
 		res, err := rest.UpdateTags(models.NewCodeAlias(id), rest.DelTag, args)
@@ -86,7 +86,7 @@ var findTagsCmd = &cobra.Command{
 			}
 			cargo = append([]string{fmt.Sprintf("%.2f/%d (%.0f%%)",
 				totalCargo, d.CargoCapacity, totalCargo/float32(d.CargoCapacity)*100)}, cargo...)
-			details = append(details, []string{code, d.Type, d.Location,
+			details = append(details, []string{code, d.Type, string(d.Location),
 				d.Status, d.ReplicantCode.Alias(),
 				lines(cargo),
 			})

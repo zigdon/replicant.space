@@ -139,7 +139,7 @@ type Device struct {
 	Features             []string            `json:"features"`
 	GracePeriodRemaining int                 `json:"grace_period_remaining"`
 	InControlRange       bool                `json:"in_control_range"`
-	Location             string              `json:"location"`
+	Location             LocationID          `json:"location"`
 	LocationName         string              `json:"location_name"`
 	OperationalCapacity  float32             `json:"operational_capacity"`
 	Owner                *struct {
@@ -203,12 +203,8 @@ func (d *Device) GetPosition() *Position {
 	if db == nil || d.Location == "" {
 		return nil
 	}
-	loc := d.Location
-	if i := strings.Index(d.Location, "-"); i > 0 {
-		loc = d.Location[:i]
-	}
-	s := &Star{Designation: loc}
-	if err := s.Get(); err != nil {
+	s, err := NewStar(string(d.Location.Star()))
+	if err != nil {
 		return nil
 	}
 	return s.Position

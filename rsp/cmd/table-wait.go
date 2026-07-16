@@ -25,7 +25,7 @@ func init() {
 
 type ETA struct {
 	Device       *models.Device
-	Source, Dest string
+	Source, Dest models.LocationID
 	Start        time.Time
 	Ends         time.Time
 	Note         string
@@ -106,14 +106,14 @@ func getETA(d *models.Device) *ETA {
 		return &ETA{
 			Device: d,
 			Source: d.Location,
-			Dest:   r.TargetDeviceCode.Alias(),
+			Dest:   models.LocationID(r.TargetDeviceCode.Alias()),
 			Start:  r.Started.Time(),
 			Ends:   eta,
 			Note:   fmt.Sprintf("%.f%%", r.ProgressPercent),
 		}
 	}
 	if d.Status == "diverting" {
-		loc, err := rest.Location(d.Location)
+		loc, err := rest.Location(string(d.Location))
 		if err != nil {
 			log("Error getting info for %q: %v", d.Location, err)
 			return nil
@@ -170,8 +170,8 @@ func waitPending(cmd *cobra.Command, args []string) error {
 			NewCell(true, d.Code.Alias()).SetStyle(s),
 			NewCell(true, d.Type).SetStyle(s),
 			NewCell(true, d.Status).SetStyle(s),
-			NewCell(true, eta.Source).SetStyle(s),
-			NewCell(true, eta.Dest).SetStyle(s),
+			NewCell(true, string(eta.Source)).SetStyle(s),
+			NewCell(true, string(eta.Dest)).SetStyle(s),
 			NewCell(true, dt(time.Until(eta.Start))).SetStyle(s),
 			NewCell(true, dt(time.Until(eta.Ends))).SetStyle(s),
 			NewCell(true, eta.Note).SetStyle(s),

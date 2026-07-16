@@ -40,7 +40,7 @@ var infoCmd = &cobra.Command{
 		printTable(
 			[]string{"Code", "Type", "Location", "Status", "Attached", "Controller",
 				"Replicant", "Ops Capacity", "Cargo"},
-			[][]string{{code, dev.Type, dev.Location, dev.Status,
+			[][]string{{code, dev.Type, string(dev.Location), dev.Status,
 				dev.AttachedToDeviceCode.Alias(),
 				dev.ControllerDeviceCode.Alias(), dev.ReplicantCode.Alias(),
 				f(dev.OperationalCapacity),
@@ -188,14 +188,15 @@ var infoCmd = &cobra.Command{
 			printTable([]string{
 				"Origin", "Destination", "ETA", "Percent", "Time Left", "Type",
 			}, [][]string{{
-				trip.Origin, trip.Destination, t(trip.Arrives.Time()), f(trip.ProgressPercent),
+				string(trip.Origin), string(trip.Destination),
+				t(trip.Arrives.Time()), f(trip.ProgressPercent),
 				trip.Eta.String(), trip.Type,
 			}})
 			var legs [][]string
 			for _, l := range trip.Route {
 				dist := l.DistanceAu + l.DistanceLy
 				legs = append(legs, []string{
-					d(l.Leg), b(l.Active), l.From, l.To, f(dist), l.Type,
+					d(l.Leg), b(l.Active), string(l.From), string(l.To), f(dist), l.Type,
 				})
 			}
 			printTable([]string{"Leg", "Active", "From", "To", "Distance", "Type"}, legs)

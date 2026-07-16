@@ -11,8 +11,8 @@ import (
 )
 
 var accountCmd = &cobra.Command{
-	Use:   "account",
-	Short: "Show current status",
+	Use:     "account",
+	Short:   "Show current status",
 	Aliases: []string{"me"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		emailUpt := make(map[string]bool)
@@ -118,7 +118,7 @@ var accountCmd = &cobra.Command{
 			reps = append(reps, []string{
 				r.Name,
 				code,
-				r.CurrentLocation,
+				string(r.CurrentLocation),
 				d(r.ExperiencePoints),
 				r.Status,
 			})

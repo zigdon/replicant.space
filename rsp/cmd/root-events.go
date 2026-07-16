@@ -64,7 +64,7 @@ var eventsCmd = &cobra.Command{
 			var events [][]string
 			for _, e := range data.Events {
 				events = append(events, []string{
-					e.Title, e.Designation, e.Location, e.Category, e.Status, d(e.Tier),
+					e.Title, e.Designation, string(e.Location), e.Category, e.Status, d(e.Tier),
 				})
 			}
 			printTable([]string{
@@ -99,7 +99,7 @@ func printEvent(e *models.Event, style lg.Style) {
 	printTable([]string{
 		"Title", "Type", "Designation", "Location", "Category", "Discovered", "Status", "Tier",
 	}, [][]string{{
-		e.Title, e.Type, e.Designation, e.Location, e.Category, e.Discovered.String(), e.Status, d(e.Tier),
+		e.Title, e.Type, e.Designation, string(e.Location), e.Category, e.Discovered.String(), e.Status, d(e.Tier),
 	}})
 	printTable([]string{
 		"Rewards: XP", "Civ Points", "Achievement", "Resources",

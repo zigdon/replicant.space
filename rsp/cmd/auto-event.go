@@ -42,7 +42,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	var data [][]string
 	for _, e := range evs.Events {
 		data = append(data, []string{
-			e.Designation, e.Title, e.Location,
+			e.Designation, e.Title, string(e.Location),
 		})
 		if e.Designation != eID {
 			continue
@@ -126,7 +126,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		var eta time.Time
 		var freeCFs, freeSPs []*models.Device
 		for _, cf := range cfs {
-			if cf.Location == home && len(cf.Cargo) == 0 {
+			if string(cf.Location) == home && len(cf.Cargo) == 0 {
 				freeCFs = append(freeCFs, cf)
 				continue
 			}
@@ -153,7 +153,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			for _, sp := range sps {
-				if sp.Location == home && len(sp.AttachedDevices) == 0 {
+				if string(sp.Location) == home && len(sp.AttachedDevices) == 0 {
 					freeSPs = append(freeSPs, sp)
 				}
 				if !isEnRoute(sp) {
@@ -212,7 +212,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			err = travel(cf.Code, ev.Location)
+			err = travel(cf.Code, string(ev.Location))
 			if err != nil {
 				return err
 			}
@@ -229,7 +229,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	for _, d := range ec.Devices {
 		missing[d.DeviceType] = d.Required - d.Current
 	}
-	loc, err := rest.Location(ev.Location)
+	loc, err := rest.Location(string(ev.Location))
 	if err != nil {
 		return err
 	}

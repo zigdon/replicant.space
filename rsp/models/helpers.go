@@ -256,6 +256,16 @@ func (a *CodeAlias) Alias() string {
 	return ""
 }
 
+type LocationID string
+
+func (l LocationID) Star() string {
+	star, _, ok := strings.Cut(string(l), "-")
+	if ok {
+		return star
+	}
+	return string(l)
+}
+
 func TreeNode(tmpl string, args ...any) *tview.TreeNode {
 	return tview.NewTreeNode(fmt.Sprintf(" "+tmpl, args...))
 }

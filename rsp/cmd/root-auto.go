@@ -123,7 +123,7 @@ func travel(id *models.CodeAlias, location string) error {
 	if err != nil {
 		return fmt.Errorf("Can't get %s info: %v", id.Alias(), err)
 	}
-	if info.Location != location {
+	if string(info.Location) != location {
 		res, err := rest.DeviceCommand[models.CommandResp](id, "travel", map[string]any{
 			"destination": location,
 		})

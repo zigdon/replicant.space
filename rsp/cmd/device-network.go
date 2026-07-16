@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -36,17 +35,17 @@ var deviceNetworkCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("Can't get info for %q: %v", ca.Alias(), err)
 			}
-			starName, _, _ := strings.Cut(di.Location, "-")
-			star = &models.Star{Designation: starName}
+			starName := di.Location.Star()
+			star, err = models.NewStar(starName)
 		} else {
-			star = &models.Star{Designation: ref}
+			star, err = models.NewStar(ref)
 		}
-		if err := star.Get(); err != nil {
+		if err != nil {
 			return fmt.Errorf("Can't get cached star %q: %v", star.Designation, err)
 		}
 		for _, n := range res.Connections {
-			s := &models.Star{Designation: n.Star}
-			if err := s.Get(); err != nil {
+			s, err := models.NewStar(n.Star)
+			if err != nil {
 				return err
 			}
 			n.DistanceLy = s.Position.Distance(star.Position)
@@ -59,8 +58,7 @@ var deviceNetworkCmd = &cobra.Command{
 
 		var nodes [][]string
 		for _, n := range res.Connections {
-			s := &models.Star{Designation: n.Star}
-			s.Get()
+			s, _ := models.NewStar(n.Star)
 			nodes = append(nodes, []string{
 				n.Star, n.DeviceCode.Alias(), f(s.Position.Distance(star.Position)),
 				s.Position.String(),

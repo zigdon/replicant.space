@@ -37,15 +37,15 @@ var locationCmd = &cobra.Command{
 		var data [][]string
 		var locs []string
 		for loc := range res.Locations {
-			if filter != "" && !strings.Contains(loc, filter) {
+			if filter != "" && !strings.Contains(string(loc), filter) {
 				continue
 			}
-			locs = append(locs, loc)
+			locs = append(locs, string(loc))
 		}
 		var mu sync.Mutex
 		var wg sync.WaitGroup
 		for _, loc := range locs {
-			sum := res.Locations[loc]
+			sum := res.Locations[models.LocationID(loc)]
 			wg.Go(func() {
 				line := []string{
 					loc, d(sum.Replicants), d(sum.Devices),
@@ -94,7 +94,7 @@ var locationCmd = &cobra.Command{
 				"Designation", "Name", "Entry Point", "Class", "Mining Bonus",
 				"Position", "Distance from SOL",
 			}, [][]string{{
-				s.Designation, s.Name, res.EntryPoint, s.StellarClass,
+				string(s.Designation), s.Name, string(res.EntryPoint), s.StellarClass,
 				d(s.MiningBonusPct) + "%", s.Position.String(),
 				f(s.DistanceFromSol) + "ly",
 			}})
@@ -116,7 +116,7 @@ var locationCmd = &cobra.Command{
 				data = [][]string{}
 				for _, b := range res.AsteroidBelt.Belts {
 					data = append(data, []string{
-						b.Designation, b.Density, m(b.Resources),
+						string(b.Designation), b.Density, m(b.Resources),
 					})
 				}
 				printTable([]string{"Belt", "Density", "Resources"}, data)
@@ -128,7 +128,7 @@ var locationCmd = &cobra.Command{
 					inv = append(inv, fmt.Sprintf("%.2f x %s", i.Quantity, i.ResourceType))
 				}
 				data = append(data, []string{
-					p.Designation, p.Name, p.Type, p.LifeStage,
+					string(p.Designation), p.Name, p.Type, p.LifeStage,
 					d(p.MoonCount), b(p.Scanned), lines(inv),
 				})
 			}
@@ -143,14 +143,14 @@ var locationCmd = &cobra.Command{
 				"Designation", "Name", "Habitable", "LifeStage", "Type", "Moons",
 				"Rings", "Tags",
 			}, [][]string{{
-				p.Designation, p.Name, b(p.InHabitableZone), p.LifeStage,
+				string(p.Designation), p.Name, b(p.InHabitableZone), p.LifeStage,
 				p.Type, d(len(res.Moons)), b(p.Rings), list(p.Tags),
 			}})
 
 			data = [][]string{}
 			for _, m := range res.Moons {
 				data = append(data, []string{
-					m.Designation, m.Type, m.Name, b(m.Scanned),
+					string(m.Designation), m.Type, m.Name, b(m.Scanned),
 				})
 			}
 			if len(data) > 0 {
@@ -163,7 +163,7 @@ var locationCmd = &cobra.Command{
 			printTable([]string{
 				"Designation", "Name", "Type", "Parent",
 			}, [][]string{{
-				m.Designation, m.Name, m.Type, m.ParentPlanet,
+				string(m.Designation), m.Name, m.Type, string(m.ParentPlanet),
 			}})
 		}
 
@@ -171,7 +171,7 @@ var locationCmd = &cobra.Command{
 			var data [][]string
 			so := res.Object
 			data = append(data, []string{
-				so.Designation, so.Status, so.ObjectType, so.SizeClass, f(so.OrbitalDistanceAu),
+				string(so.Designation), so.Status, so.ObjectType, so.SizeClass, f(so.OrbitalDistanceAu),
 				so.ImpactTarget, t(so.ImpactEta.Time()), p(so.ImpactLikelihood), f(so.RequiredStrength),
 				d(so.ActivePlates), p(so.ProgressPct), f(so.CurrentThrustPerHour),
 			})
@@ -204,7 +204,7 @@ var locationCmd = &cobra.Command{
 			data = [][]string{}
 			for _, s := range res.ResourceSites {
 				data = append(data, []string{
-					d(s.Index), s.Type, s.Designation, s.Name,
+					d(s.Index), s.Type, string(s.Designation), s.Name,
 					m(s.ResourcesRemainingPct),
 				})
 			}

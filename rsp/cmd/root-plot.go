@@ -65,8 +65,8 @@ func getPosFromString(dst string) (*models.Position, error) {
 	if strings.Contains(dst, ",") || strings.Contains(dst, ".") {
 		return models.ParsePosition(dst)
 	} else {
-		starDst := &models.Star{Designation: dst}
-		if err := starDst.Get(); err != nil {
+		starDst, err := models.NewStar(dst)
+		if err != nil {
 			return nil, err
 		}
 		return starDst.Position, nil
@@ -96,8 +96,8 @@ func vectorStars(cmd *cobra.Command, args []string) error {
 	}
 	var data [][]string
 	for _, s := range res {
-		st := &models.Star{Designation: s}
-		if err := st.Get(); err != nil {
+		st, err := models.NewStar(s)
+		if err != nil {
 			return err
 		}
 		data = append(data, []string{
@@ -115,8 +115,8 @@ func neighbourStars(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Missing required args: plot neighbours <star>")
 	}
 	r, _ := cmd.Flags().GetFloat32("radius")
-	src := &models.Star{Designation: args[0]}
-	if err := src.Get(); err != nil {
+	src, err := models.NewStar(args[0])
+	if err != nil {
 		return err
 	}
 	rows, err := db.DB.Query(
@@ -177,18 +177,15 @@ func nearestHub(cmd *cobra.Command, args []string) error {
 			log("Ignoring inactive hub %s at %s", h.Code.Alias(), h.Location)
 			continue
 		}
-		star, _, ok := strings.Cut(h.Location, "-")
-		if !ok {
-			return fmt.Errorf("Can't get star of %s", h.Location)
-		}
+		star := h.Location.Star()
 		locs[star] = h.Code.Alias()
 		if _, err := db.DB.Exec(`UPDATE stars SET has_my_hub=1 WHERE designation = ?`, star); err != nil {
 			return fmt.Errorf("Can't update %s with hub: %v", star, err)
 		}
 	}
 
-	s := &models.Star{Designation: args[0]}
-	if err := s.Get(); err != nil {
+	s, err := models.NewStar(args[0])
+	if err != nil {
 		return err
 	}
 	nearest, dist, err := db.FindNearestHub(s.Position.X, s.Position.Y, s.Position.Z)
@@ -217,8 +214,8 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 	// Ignore repeats (unless this is a shorter way to get to them)
 	// Repeat until destination is found
 
-	starSrc := &models.Star{Designation: src}
-	if err := starSrc.Get(); err != nil {
+	starSrc, err := models.NewStar(src)
+	if err != nil {
 		return err
 	}
 	sPos := starSrc.Position
@@ -235,14 +232,14 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("Can't find nearest star: %v", err)
 		}
 		log("Nearest star: %s (%.2fly away)", nearest, dist)
-		nStar := &models.Star{Designation: nearest}
-		if err := nStar.Get(); err != nil {
+		nStar, err := models.NewStar(nearest)
+		if err != nil {
 			return err
 		}
 		dPos = nStar.Position
 	} else {
-		starDst := &models.Star{Designation: dst}
-		if err := starDst.Get(); err != nil {
+		starDst, err := models.NewStar(dst)
+		if err != nil {
 			return err
 		}
 		dPos = starDst.Position
@@ -301,8 +298,8 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 
 			debug("=== %s", s)
 			// Get possible next steps
-			qStar := &models.Star{Designation: s}
-			if err := qStar.Get(); err != nil {
+			qStar, err := models.NewStar(s)
+			if err != nil {
 				return fmt.Errorf("Can't get star %q: %v", s, err)
 			}
 			stars, err := TripStepCandidate(s, qStar.Position, dPos, hop)

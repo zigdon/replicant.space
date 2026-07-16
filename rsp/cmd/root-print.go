@@ -68,7 +68,7 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		if info.Location != home {
+		if string(info.Location) != home {
 			continue
 		}
 		if info.Status == "waiting_for_resources" {

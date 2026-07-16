@@ -123,8 +123,8 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 	skip := make(map[string]bool)
 	next := nearest
 	stars := make(map[string]*models.Star)
-	stars[nearest] = &models.Star{Designation: nearest}
-	if err := stars[nearest].Get(); err != nil {
+	stars[nearest], err = models.NewStar(nearest)
+	if err != nil {
 		return "", err
 	}
 	for {
@@ -137,8 +137,8 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 			return "", fmt.Errorf("Can't get observatory list: %v", err)
 		}
 		for _, o := range obvs {
-			if strings.HasPrefix(o.Location, next) ||
-				(o.Travel != nil && strings.HasPrefix(o.Travel.Destination, next)) {
+			if o.Location.Star() == next ||
+				(o.Travel != nil && o.Travel.Destination.Star() == next) {
 				if o.Travel == nil {
 					log("%s is already at %s", o.Code.Alias(), next)
 				} else {
@@ -166,8 +166,8 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 			if skip[s] {
 				continue
 			}
-			stars[s] = &models.Star{Designation: s}
-			if err := stars[s].Get(); err != nil {
+			stars[s], err = models.NewStar(s)
+			if err != nil {
 				return "", err
 			}
 			dists[s] = stars[s].Position.Distance(origin)
@@ -262,7 +262,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 	case "compacting":
 		eta = pm.dev.Compact.Completes.Time()
 		if pm.plat.Location != pm.dev.Location {
-			res, err := pm.platform("travel", pm.dev.Location)
+			res, err := pm.platform("travel", string(pm.dev.Location))
 			if err != nil {
 				return eta, err
 			}

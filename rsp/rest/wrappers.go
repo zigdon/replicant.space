@@ -103,7 +103,7 @@ func CompleteEvent(eid string) (*models.Event, error) {
 		if eid != "" && e.Designation != eid {
 			continue
 		}
-		location = e.Location
+		location = string(e.Location)
 		break
 	}
 	if location == "" {
@@ -541,7 +541,7 @@ func ReloadStars() (string, error) {
 		return strings.Join(out, "\n")
 	}
 	// Get the current list of stars.
-	seen := make(map[string]*models.Star)
+	seen := make(map[models.LocationID]*models.Star)
 	rows, err := db.DB.Query(`
 		SELECT designation, name, est_planets, has_life,
 			position_x, position_y, position_z, has_hub, entry_point
@@ -589,7 +589,7 @@ func ReloadStars() (string, error) {
 		return false
 	}
 	unchanged := 0
-	accounted := make(map[string]bool)
+	accounted := make(map[models.LocationID]bool)
 	catalog, err := StarCatalog()
 	if err != nil {
 		return res(), err
@@ -612,7 +612,7 @@ func ReloadStars() (string, error) {
 		if _, ok := seen[star]; ok {
 			continue
 		}
-		missing = append(missing, star)
+		missing = append(missing, string(star))
 	}
 	log(
 		"Fetch done: %d total stars, %d added, %d updated, %d unchanged, %d removed",
@@ -663,7 +663,7 @@ func ProspectLogs(id *models.CodeAlias) (string, error) {
 				log("Can't map: %+v", s)
 				continue
 			}
-			star := &models.Star{Designation: m["designation"].(string)}
+			star := &models.Star{Designation: m["designation"].(models.LocationID)}
 			coords := m["coordinates"].(map[string]any)
 			star.Position = models.NewPosition(
 				float32(coords["x"].(float64)),
@@ -673,7 +673,7 @@ func ProspectLogs(id *models.CodeAlias) (string, error) {
 			if err := star.Cache(); err != nil {
 				log("Error saving %s: %v", star.Designation, err)
 			}
-			added = append(added, star.Designation)
+			added = append(added, string(star.Designation))
 		}
 
 	}

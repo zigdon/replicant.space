@@ -88,8 +88,8 @@ func autoFR(cmd *cobra.Command, args []string) error {
 	}) {
 		return fmt.Errorf("No FTL Relay found stowed in r-%d's ship", rID)
 	}
-	starName, _, ok := strings.Cut(r.Location, "-")
-	if !ok {
+	starName := r.Location.Star()
+	if starName == "" {
 		return fmt.Errorf("r-%d is not in a system: %s", rID, r.Location)
 	}
 	devs, err := rest.Devices(map[string]string{"location": starName})
@@ -102,15 +102,15 @@ func autoFR(cmd *cobra.Command, args []string) error {
 		log("There is already a relaying FTL Relay in %s", starName)
 		return nil
 	}
-	s := &models.Star{Designation: starName}
-	if err := s.Get(); err != nil {
+	s, err := models.NewStar(starName)
+	if err != nil {
 		return fmt.Errorf("Can't load star %s: %v", starName, err)
 	}
 	if s.EntryPoint == "" {
 		return fmt.Errorf("Unknown entry point for %s", starName)
 	}
 	if r.Location != s.EntryPoint {
-		return travel(r.HostedDeviceCode, s.EntryPoint)
+		return travel(r.HostedDeviceCode, string(s.EntryPoint))
 	}
 	if _, err = rest.DeviceCommand[models.CommandResp](fr.Code, "deploy", nil); err != nil {
 		return err
@@ -152,7 +152,7 @@ func getFTLRelays(loc string) ([]*models.Device, error) {
 		if d.Type != "ftl_relay" {
 			continue
 		}
-		if strings.Contains(d.Location, loc) {
+		if d.Location.Star() == loc {
 			devs = append(devs, d)
 		}
 	}

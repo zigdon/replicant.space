@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -41,10 +40,7 @@ func prospect(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get the current location.
-	loc := dev.Location
-	if strings.Contains(loc, "-") {
-		loc = loc[:strings.Index(loc, "-")]
-	}
+	loc := dev.Location.Star()
 	star, err := rest.Location(loc)
 	if err != nil {
 		return fmt.Errorf("Can't lookup star %q: %v", loc, err)

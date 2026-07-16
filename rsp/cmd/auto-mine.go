@@ -63,7 +63,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Get printer locations
 	home, _ := cmd.Flags().GetString("home")
-	locs := make(map[string]bool)
+	locs := make(map[models.LocationID]bool)
 	printerStrs, _ := cmd.Flags().GetStringSlice("factory")
 	var printers []*models.CodeAlias
 	if len(printerStrs) == 0 {
@@ -99,7 +99,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Get the existing or idle fleet
 	fleet := make(map[string][]*models.Device)
-	tag := fmt.Sprintf("mine-%s", strings.ToLower(loc.Location))
+	tag := fmt.Sprintf("mine-%s", strings.ToLower(string(loc.Location)))
 	tagged, err := rest.GetTagged(tag)
 
 	// Find what is missing
@@ -138,7 +138,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		// Special case for relays - if there's one working in the system, we
 		// don't need another.
 		t := d.Type
-		if t == "ftl_relay" && strings.HasPrefix(d.Location, star) && missing[t] > 0 {
+		if t == "ftl_relay" && d.Location.Star() == star && missing[t] > 0 {
 			log("Found a relay already in system: %q", d.Code.Alias())
 			missing[t] = 0
 			fleet[t] = append(fleet[t], d)
@@ -294,10 +294,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			d := ds[0]
-			dStar, ok := getStar(d.Location)
-			if ok && star != dStar {
+			dStar := d.Location.Star()
+			if star != dStar {
 				needPicked = append(needPicked, d.Code.Alias())
-				dest = d.Location
+				dest = string(d.Location)
 			}
 
 			continue
@@ -306,11 +306,11 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			if d.Location == "" {
 				continue
 			}
-			dStar, ok := getStar(d.Location)
-			if ok && dStar == star {
+			dStar := d.Location.Star()
+			if dStar == star {
 				continue
 			}
-			if dest != "" && d.Location != dest {
+			if dest != "" && string(d.Location) != dest {
 				continue
 			}
 			if d.Status != "idle" && d.Status != "inactive" {
@@ -318,7 +318,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 			needPicked = append(needPicked, d.Code.Alias())
 			if dest == "" {
-				dest = d.Location
+				dest = string(d.Location)
 			}
 		}
 	}
@@ -364,7 +364,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		log("Need to transport %v", needPicked)
 		// Skip fleets that are not home, or have attached devices
 		for _, mf := range allMFs {
-			if mf.Location != home {
+			if string(mf.Location) != home {
 				continue
 			}
 			if len(mf.AttachedDevices) > 0 {
@@ -386,7 +386,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				return err
 			}
 
-			if carrier.Location != dest {
+			if string(carrier.Location) != dest {
 				if carrier.Travel != nil {
 					log("%s already in transit to %q, ETA %s",
 						carrier.Code.Alias(), carrier.Travel.Destination, carrier.Travel.Arrives.String())
@@ -486,7 +486,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		}
 		c.AttachedDevices = nil
 		log("Carrier: %s at %s", c.Code.Alias(), c.Location)
-		if strings.HasPrefix(c.Location, star) {
+		if c.Location.Star() == star {
 			// If the fleet is at the destination, send it home
 			res, err := rest.DeviceCommand[models.CommandResp](c.Code, "travel", map[string]any{"destination": home})
 			if err != nil {
@@ -501,7 +501,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if len(frs) > 0 {
 		fr = frs[0]
 		if fr.Location != s.EntryPoint {
-			if err = travel(fr.Code, s.EntryPoint); err != nil {
+			if err = travel(fr.Code, string(s.EntryPoint)); err != nil {
 				errs = append(errs, err)
 			}
 		}
