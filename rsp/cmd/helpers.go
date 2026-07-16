@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -261,6 +262,17 @@ func explode[T any](v T) []string {
 	}
 
 	return res
+}
+
+func isResource(in string) bool {
+	return slices.Contains([]string{
+		"carbon",
+		"conductive",
+		"rares",
+		"silicates",
+		"structural",
+		"volatiles",
+	}, in)
 }
 
 var bps map[string]*models.Blueprint

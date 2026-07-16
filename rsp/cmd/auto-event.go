@@ -108,6 +108,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check what is already there
+	home, _ := cmd.Flags().GetString("home")
 	missing := make(map[string]int)
 	deliver := func() error {
 		cfs, err := rest.Devices(map[string]string{"device_type": "cargo_freighter"})
@@ -116,17 +117,33 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 		enRoute := make(map[string]int)
 		isEnRoute := func(d *models.Device) bool {
-			return d.Travel != nil && d.Travel.Destination == ev.Location
+			if d.Travel == nil {
+				return d.Location == ev.Location
+			} else {
+				return d.Travel.Destination == ev.Location
+			}
 		}
 		var eta time.Time
+		var freeCFs, freeSPs []*models.Device
 		for _, cf := range cfs {
+			if cf.Location == home && len(cf.Cargo) == 0 {
+				freeCFs = append(freeCFs, cf)
+				continue
+			}
 			if !isEnRoute(cf) {
 				continue
 			}
 			for _, c := range cf.Cargo {
 				enRoute[c.ResourceType] += int(c.Quantity)
-				if _, ok := missing[c.ResourceType]; ok && cf.Travel.Arrives.Time().After(eta) {
+				if _, ok := missing[c.ResourceType]; ok && cf.Travel != nil && cf.Travel.Arrives.Time().After(eta) {
 					eta = cf.Travel.Arrives.Time()
+				}
+			}
+			if cf.Location == ev.Location {
+				log("Unloading cargo from %s: %v", cf.Code.Alias(), cf.Cargo)
+				_, err := rest.DeviceCommand[models.CommandResp](cf.Code, "deposit_resources", nil)
+				if err != nil {
+					return err
 				}
 			}
 		}
@@ -136,6 +153,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			for _, sp := range sps {
+				if sp.Location == home && len(sp.AttachedDevices) == 0 {
+					freeSPs = append(freeSPs, sp)
+				}
 				if !isEnRoute(sp) {
 					continue
 				}
@@ -158,6 +178,51 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			log("All required resources are already en-route, ETA %s (%s)", eta, time.Until(eta))
 			return nil
 		}
+		// Find an empty cf at home, use it
+		if len(freeCFs) == 0 {
+			return fmt.Errorf("No freighters available to deliver %v to %s", missing, ev.Location)
+		}
+		for _, cf := range freeCFs {
+			if len(missing) == 0 {
+				break
+			}
+			avail := cf.CargoCapacity
+			get := make(map[string]int)
+			for k, v := range missing {
+				if !isResource(k) {
+					continue
+				}
+				if v <= avail {
+					get[k] = v
+					delete(missing, k)
+					avail -= v
+				} else {
+					get[k] = avail
+					missing[k] -= avail
+					avail = 0
+					break
+				}
+			}
+			if len(get) == 0 {
+				break
+			}
+			_, err := rest.DeviceCommand[models.CommandResp](cf.Code, "collect_resources", map[string]any{
+				"resources": get,
+			})
+			if err != nil {
+				return err
+			}
+			err = travel(cf.Code, ev.Location)
+			if err != nil {
+				return err
+			}
+		}
+
+		if len(missing) == 0 {
+			return nil
+		}
+		// TODO: handle devices
+
 		return fmt.Errorf("Need to deliver %v to %s", missing, ev.Location)
 	}
 

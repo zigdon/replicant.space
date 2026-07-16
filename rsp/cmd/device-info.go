@@ -138,7 +138,7 @@ var infoCmd = &cobra.Command{
 					if len(info.Cargo) > 0 {
 						var i []string
 						for _, c := range info.Cargo {
-							i = append(i, c.Short())
+							i = append(i, c.String())
 						}
 						cargo = lines(i)
 					}

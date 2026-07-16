@@ -740,7 +740,6 @@ ShopName	rsp/models/trades.go	/^	ShopName           string   `json:"shop_name"`$
 Shops	rsp/models/scan.go	/^	Shops         []*Shop          `json:"shops"`$/;"	m	struct:models.Scan	typeref:typename:[]*Shop
 Shops	rsp/models/trades.go	/^type Shops struct {$/;"	s	package:models
 Short	rsp/cmd/table-wait.go	/^func (e *ETA) Short() string {$/;"	f	struct:cmd.ETA	typeref:typename:string
-Short	rsp/models/device.go	/^func (i *Inventory) Short() string {$/;"	f	struct:models.Inventory	typeref:typename:string
 Short	rsp/models/travel.go	/^func (t *Trip) Short() string {$/;"	f	struct:models.Trip	typeref:typename:string
 ShortDescription	rsp/models/blueprints.go	/^	ShortDescription string         `json:"short_description"`$/;"	m	struct:models.Blueprint	typeref:typename:string
 Site	rsp/models/location.go	/^type Site struct {$/;"	s	package:models
@@ -812,6 +811,7 @@ StowedDevices	rsp/models/replicant.go	/^	StowedDevices       []*Device          
 StowedIn	rsp/models/device.go	/^	StowedIn             *CodeAlias          `json:"stowed_in"`$/;"	m	struct:models.CommandResp	typeref:typename:*CodeAlias
 StowedInDeviceCode	rsp/models/device.go	/^	StowedInDeviceCode *CodeAlias                   `json:"stowed_in_device_code"`$/;"	m	struct:models.Device	typeref:typename:*CodeAlias
 Strength	rsp/models/blueprints.go	/^	Strength         float32        `json:"strength"`$/;"	m	struct:models.Blueprint	typeref:typename:float32
+String	rsp/models/device.go	/^func (i *Inventory) String() string {$/;"	f	struct:models.Inventory	typeref:typename:string
 String	rsp/models/device.go	/^func (n *Network) String() string {$/;"	f	struct:models.Network	typeref:typename:string
 String	rsp/models/device.go	/^func (ur *UpkeepRequirement) String() string {$/;"	f	struct:models.UpkeepRequirement	typeref:typename:string
 String	rsp/models/helpers.go	/^func (a *CodeAlias) String() string {$/;"	f	struct:models.CodeAlias	typeref:typename:string
@@ -1171,6 +1171,7 @@ init	rsp/cmd/table-wait.go	/^func init() {$/;"	f	package:cmd
 init	rsp/cmd/table.go	/^func init() {$/;"	f	package:cmd
 init	rsp/cmd/test.go	/^func init() {$/;"	f	package:cmd
 intFlag	rsp/cmd/helpers.go	/^	intFlag   bool$/;"	m	struct:cmd.flagDesc	typeref:typename:bool
+isResource	rsp/cmd/helpers.go	/^func isResource(in string) bool {$/;"	f	package:cmd	typeref:typename:bool
 journey_id	rsp/cache/schema.sql	/^  journey_id INTEGER,$/;"	E	table:cached_journey_steps
 jsonKey	rsp/cmd/helpers.go	/^	jsonKey   string$/;"	m	struct:cmd.flagDesc	typeref:typename:string
 lg	rsp/cmd/device-logs.go	/^	lg "charm.land\/lipgloss\/v2"$/;"	P	package:charm.land/lipgloss/v2

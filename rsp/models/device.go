@@ -75,7 +75,7 @@ type Inventory struct {
 	ResourceType string  `json:"resource_type"`
 }
 
-func (i *Inventory) Short() string {
+func (i *Inventory) String() string {
 	return fmt.Sprintf("%.0f x %s", i.Quantity, i.ResourceType)
 }
 

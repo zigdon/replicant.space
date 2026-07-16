@@ -94,6 +94,7 @@ func init() {
 
 	autoCmd.AddCommand(autoEventCmd)
 	autoEventCmd.Flags().StringP("event_id", "e", "", "Event ID to work towards")
+	autoEventCmd.Flags().String("home", "MENKUNT-2-L4", "Home system")
 	autoEventCmd.Flags().IntP("criteria", "c", 0, "Which of multiple event criteria should be used")
 	autoEventCmd.MarkFlagRequired("event_id")
 }

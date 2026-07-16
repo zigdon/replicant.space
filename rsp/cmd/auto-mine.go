@@ -460,9 +460,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Issue travel commands
 	var errs []error
-	carriers := make(map[*models.CodeAlias]*models.Device)
+	carriers := make(map[string]*models.Device)
 	if carrier != nil {
-		carriers[carrier.Code] = carrier
+		carriers[carrier.Code.Alias()] = carrier
 	}
 	for _, ds := range fleet {
 		for _, d := range ds {
@@ -472,7 +472,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 					errs = append(errs, err)
 					continue
 				}
-				carriers[d.AttachedToDeviceCode] = i
+				carriers[d.AttachedToDeviceCode.Alias()] = i
 			}
 		}
 	}
