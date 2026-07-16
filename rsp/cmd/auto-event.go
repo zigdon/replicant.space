@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -52,6 +54,14 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Can't find event ID %q. Pick from:\n%s", eID, eventsDesc.String())
 	}
 
+	deliver := func() error {
+		return fmt.Errorf("Not implemented")
+	}
+
+	moveReplicant := func() error {
+		return fmt.Errorf("Not implemented")
+	}
+
 	// Load the blueprints we know
 	bps := make(map[string]bool)
 	blueprints, err := db.ListIDs(cache.BlueprintsTable)
@@ -99,7 +109,52 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	} else {
 		ec = ecs[0]
 	}
-	prettyPrint(ec)
+
+	// Check what is already there
+	missing := make(map[string]int)
+	for _, d := range ec.Devices {
+		missing[d.DeviceType] = d.Required - d.Current
+	}
+	loc, err := rest.Location(ev.Location)
+	if err != nil {
+		return err
+	}
+	for _, i := range loc.Inventory {
+		missing[i.ResourceType] = int(-i.Quantity)
+	}
+	for r, q := range ec.Resources {
+		missing[r] += q
+	}
+
+	data = [][]string{}
+	for k, v := range missing {
+		if v > 0 {
+			data = append(data, []string{k, d(v)})
+		}
+	}
+	slices.SortFunc(data, func(a, b []string) int {
+		return cmp.Compare(a[0], b[0])
+	})
+	if len(data) > 0 {
+		log("Missing:")
+		printTable([]string{"Resource", "Quantity"}, data)
+		return deliver()
+	}
+
+	// Requirements all met, get a replicant there
+	acc, err := rest.Account()
+	if err != nil {
+		return err
+	}
+	for _, r := range acc.ReplicantList {
+		if r.Location == ev.Location {
+			return eventComplete(eID)
+		}
+	}
+
+	if err := moveReplicant(); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -13,30 +13,34 @@ import (
 	lg "charm.land/lipgloss/v2"
 )
 
+func eventComplete(eid string) error {
+	e, err := rest.CompleteEvent(eid)
+	if err != nil {
+		return err
+	}
+	var xp, civ int
+	var rs []string
+	if e.Rewards != nil {
+		xp = e.Rewards.XP
+		civ = e.Rewards.CivilisationPoints
+		for k, v := range e.Rewards.Resources {
+			rs = append(rs, fmt.Sprintf("%d x %s", v, k))
+		}
+	}
+	printTable([]string{
+		"Designation", "Title", "Status", "XP", "Civ Points", "Resources",
+	}, [][]string{{
+		e.Designation, e.Title, e.Status, d(xp), d(civ), lines(rs),
+	}})
+	return nil
+}
+
 var eventCompleteCmd = &cobra.Command{
 	Use:   "complete",
 	Short: "Trigger event completion",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		eventID, _ := cmd.Flags().GetString("id")
-		e, err := rest.CompleteEvent(eventID)
-		if err != nil {
-			return err
-		}
-		var xp, civ int
-		var rs []string
-		if e.Rewards != nil {
-			xp = e.Rewards.XP
-			civ = e.Rewards.CivilisationPoints
-			for k, v := range e.Rewards.Resources {
-				rs = append(rs, fmt.Sprintf("%d x %s", v, k))
-			}
-		}
-		printTable([]string{
-			"Designation", "Title", "Status", "XP", "Civ Points", "Resources",
-		}, [][]string{{
-			e.Designation, e.Title, e.Status, d(xp), d(civ), lines(rs),
-		}})
-		return nil
+		return eventComplete(eventID)
 	},
 }
 
@@ -172,7 +176,7 @@ func formatDev(devs []*models.EventDevice, resBreakdown bool) string {
 	dev := make(map[string]int)
 	for _, d := range devs {
 		dt := d.DeviceType
-		out = append(out, fmt.Sprintf("%d x %s", d.Count+d.Current, dt))
+		out = append(out, fmt.Sprintf("%d x %s", d.Required, dt))
 		if !resBreakdown {
 			continue
 		}

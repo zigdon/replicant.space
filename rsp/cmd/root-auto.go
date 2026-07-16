@@ -50,6 +50,12 @@ var autoFRCmd = &cobra.Command{
 	RunE:  autoFR,
 }
 
+var autoEventCmd = &cobra.Command{
+	Use:   "event",
+	Short: "Build and deliver event requirements",
+	RunE:  autoEvent,
+}
+
 func init() {
 	rootCmd.AddCommand(autoCmd)
 
@@ -85,6 +91,11 @@ func init() {
 	autoRentCmd.Flags().StringP("atc", "t", "atc-3", "ATC controlling cargo transports")
 	autoRentCmd.Flags().String("home", "MENKUNT-BELT-1", "Home system")
 	autoRentCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
+
+	autoCmd.AddCommand(autoEventCmd)
+	autoEventCmd.Flags().StringP("event_id", "e", "", "Event ID to work towards")
+	autoEventCmd.Flags().IntP("criteria", "c", 0, "Which of multiple event criteria should be used")
+	autoEventCmd.MarkFlagRequired("event_id")
 }
 
 var infos sync.Map
