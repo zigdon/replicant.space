@@ -149,15 +149,6 @@ func init() {
 		}}, "device-stow",
 	)
 	mkDeviceCommand[models.CommandResp](
-		"travel", "Instruct a device to relocate", "travel",
-		[]flagDesc{{
-			// args[0]
-			required: true, jsonKey: "destination",
-		}, {
-			name: "dry_run", boolFlag: true, jsonKey: "dry_run",
-		}}, "device-travel",
-	)
-	mkDeviceCommand[models.CommandResp](
 		"unfurl", "Reassemble a modular device after transport", "unfurl", nil, "",
 	)
 

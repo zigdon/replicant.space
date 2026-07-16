@@ -171,6 +171,7 @@ func nearestHub(cmd *cobra.Command, args []string) error {
 	hubs, err := rest.Devices(map[string]string{
 		"device_type": "system_hub",
 	})
+	locs := make(map[string]string)
 	for _, h := range hubs {
 		if h.Status != "relaying" {
 			log("Ignoring inactive hub %s at %s", h.Code.Alias(), h.Location)
@@ -180,6 +181,7 @@ func nearestHub(cmd *cobra.Command, args []string) error {
 		if !ok {
 			return fmt.Errorf("Can't get star of %s", h.Location)
 		}
+		locs[star] = h.Code.Alias()
 		if _, err := db.DB.Exec(`UPDATE stars SET has_my_hub=1 WHERE designation = ?`, star); err != nil {
 			return fmt.Errorf("Can't update %s with hub: %v", star, err)
 		}
@@ -193,7 +195,7 @@ func nearestHub(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("Can't find nearest hub: %v", err)
 	}
-	log("Nearest star: %s (%.2fly away)", nearest, dist)
+	log("Nearest hub: %s at %s (%.2fly away)", locs[nearest], nearest, dist)
 	return nil
 }
 
