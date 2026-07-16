@@ -17,25 +17,103 @@ var rootPrintCmd = &cobra.Command{
 	RunE:  rootPrint,
 }
 
+var rootPrintListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List the current queue of all home autofactories",
+	RunE:  rootPrintList,
+}
+
 func init() {
 	rootCmd.AddCommand(rootPrintCmd)
 	rootPrintCmd.Flags().String("home", "MENKUNT-2-L4", "Where can autofactories be found")
 	rootPrintCmd.Flags().IntP("repeat", "r", 1, "How many copies should be printed")
+
+	rootPrintCmd.AddCommand(rootPrintListCmd)
+	rootPrintListCmd.Flags().String("home", "MENKUNT-2-L4", "Where can autofactories be found")
+}
+
+func getHomeFactories(home string) ([]*models.CodeAlias, error) {
+	factories, err := rest.Devices(map[string]string{"location": home, "device_type": "autofactory"})
+	if err != nil {
+		return nil, err
+	}
+	if len(factories) == 0 {
+		return nil, fmt.Errorf("No factories found at %s", home)
+	}
+	log("%d factories found", len(factories))
+	var printers []*models.CodeAlias
+	for _, f := range factories {
+		printers = append(printers, f.Code)
+	}
+	return printers, nil
+}
+
+func rootPrintList(cmd *cobra.Command, args []string) error {
+	home, _ := cmd.Flags().GetString("home")
+	printers, err := getHomeFactories(home)
+	if err != nil {
+		return err
+	}
+	type pq struct {
+		code       *models.CodeAlias
+		deviceType string
+		tags       []string
+		pos        int
+		eta        time.Time
+	}
+	times := make(map[*models.CodeAlias]time.Duration)
+	var queue []pq
+	for _, p := range printers {
+		info, err := getInfo(p)
+		if err != nil {
+			return err
+		}
+		if info.Location != home {
+			continue
+		}
+		if info.Printing != nil {
+			queue = append(queue, pq{
+				code:       p,
+				deviceType: info.Printing.DeviceType,
+				tags:       info.Printing.Tags,
+				pos:        -1,
+				eta:        info.Printing.Completes.Time(),
+			})
+			times[p] += info.Printing.Eta.Duration()
+		}
+		for i, q := range info.PrintQueue {
+			bp := getBP(q.Type)
+			queue = append(queue, pq{
+				code:       p,
+				deviceType: q.Type,
+				tags:       q.Tags,
+				pos:        i,
+				eta:        time.Now().Add(bp.PrintTime.Duration()).Add(times[p]),
+			})
+		}
+	}
+
+	slices.SortFunc(queue, func(a, b pq) int {
+		return cmp.Compare(a.eta.Unix(), b.eta.Unix())
+	})
+	var data [][]string
+	for _, q := range queue {
+		var pos string
+		if q.pos < 0 {
+			pos = "printing"
+		} else {
+			pos = d(q.pos)
+		}
+		data = append(data, []string{
+			q.deviceType, list(q.tags), q.code.Alias(), pos, t(q.eta),
+		})
+	}
+	printTable([]string{"Type", "Tags", "Factory", "Position", "ETA"}, data)
+
+	return nil
 }
 
 func rootPrint(cmd *cobra.Command, args []string) error {
-	bps := make(map[string]*models.Blueprint)
-	getBP := func(bp string) *models.Blueprint {
-		if b, ok := bps[bp]; ok {
-			return b
-		}
-		b := &models.Blueprint{DeviceType: bp}
-		if err := b.Get(); err != nil {
-			panic(fmt.Sprintf("Can load blueprint for %s: %v", bp, err))
-		}
-		bps[bp] = b
-		return b
-	}
 	if len(args) == 0 {
 		return fmt.Errorf("Usage: rsp print <device> [-r <copies>]")
 	}
@@ -43,17 +121,9 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	log("Print time, per copy: %s", bp.PrintTime.Duration())
 
 	home, _ := cmd.Flags().GetString("home")
-	factories, err := rest.Devices(map[string]string{"location": home, "device_type": "autofactory"})
+	printers, err := getHomeFactories(home)
 	if err != nil {
 		return err
-	}
-	if len(factories) == 0 {
-		return fmt.Errorf("No factories found at %s", home)
-	}
-	log("%d factories found", len(factories))
-	var printers []*models.CodeAlias
-	for _, f := range factories {
-		printers = append(printers, f.Code)
 	}
 
 	copies, _ := cmd.Flags().GetInt("repeat")

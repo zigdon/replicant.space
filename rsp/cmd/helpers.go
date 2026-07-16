@@ -262,3 +262,20 @@ func explode[T any](v T) []string {
 
 	return res
 }
+
+var bps map[string]*models.Blueprint
+
+func getBP(bp string) *models.Blueprint {
+	if bps == nil {
+		bps = make(map[string]*models.Blueprint)
+	}
+	if b, ok := bps[bp]; ok {
+		return b
+	}
+	b := &models.Blueprint{DeviceType: bp}
+	if err := b.Get(); err != nil {
+		panic(fmt.Sprintf("Can load blueprint for %s: %v", bp, err))
+	}
+	bps[bp] = b
+	return b
+}

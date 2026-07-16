@@ -266,7 +266,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	if !done.IsZero() {
-		log("Print queue ETA: %s (in %s)", done.Format(time.Stamp), time.Until(done))
+		log("Print queue ETA: %s (in %s)", done.Format(time.Stamp), time.Until(done).Truncate(time.Second))
 		n := &models.Notification{
 			Start:  time.Now(),
 			End:    done,
@@ -378,6 +378,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		}
 		if !dryRun {
 			// Detach anything connected to the carrier, if it isn't in motion
+			if carrier.Status != "idle" {
+				log("Carrier %s is not idle (%s)", carrier.Code.Alias(), carrier.Status)
+				return nil
+			}
 			if err := detachAll(carrier.Code); err != nil {
 				return err
 			}
@@ -430,7 +434,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			log("Carrier: %s at %s (%d remaining devices)", mf.Code.Alias(), mf.Location, len(mf.AttachedDevices))
+			if mf.Status != "idle" {
+				continue
+			}
 			if !strings.HasPrefix(mf.Location, star) {
 				continue
 			}
@@ -494,6 +500,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		}
 	}
 	for _, c := range carriers {
+		if c.Status != "idle" {
+			return fmt.Errorf("Carrier %s is not idle (%s)", c.Code.Alias(), c.Status)
+		}
 		if err := detachAll(c.Code); err != nil {
 			return err
 		}

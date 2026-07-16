@@ -90,6 +90,13 @@ func init() {
 		"clear_queue", "Clear print queue", "clear_queue", nil, "",
 	)
 	mkDeviceCommand[models.CommandResp](
+		"dequeue", "Dequeue a print job", "dequeue_print",
+		[]flagDesc{{
+			name: "index", desc: "Index in the queue to remove",
+			jsonKey: "index", short: 'i', required: true,
+		}}, "",
+	)
+	mkDeviceCommand[models.CommandResp](
 		"print", "Queue a print job", "enqueue_print",
 		[]flagDesc{{
 			// args[0]

@@ -99,19 +99,19 @@ var infoCmd = &cobra.Command{
 				printTime[bp.DeviceType] = bp.PrintTime.Duration()
 			}
 			print := dev.Printing
-			data := [][]string{{
+			data := [][]string{{"-",
 				print.DeviceType, p(print.ProgressPercent),
 				print.Eta.String(), list(print.Tags), t(print.Started.Time()), t(print.Completes.Time()),
 			}}
 			est := print.Completes.Time()
-			for _, q := range dev.PrintQueue {
+			for i, q := range dev.PrintQueue {
 				dur := printTime[q.Type]
-				data = append(data, []string{
+				data = append(data, []string{d(i),
 					q.Type, "Queued", dur.String(), list(q.Tags), t(est), t(est.Add(dur)),
 				})
 				est = est.Add(dur)
 			}
-			printTable([]string{"Type", "Progress", "ETA", "Tags", "Started", "Ends"}, data)
+			printTable([]string{"#", "Type", "Progress", "ETA", "Tags", "Started", "Ends"}, data)
 		}
 		if len(dev.WaitingFor) > 0 {
 			var w [][]string

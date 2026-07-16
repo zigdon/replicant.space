@@ -987,6 +987,7 @@ blueprintsCmd	rsp/cmd/root-blueprints.go	/^var blueprintsCmd = &cobra.Command{$/
 bobCmd	rsp/cmd/root-msg.go	/^var bobCmd = &cobra.Command{$/;"	v	package:cmd
 body	rsp/cache/schema.sql	/^  body TEXT,$/;"	E	table:messages
 boolFlag	rsp/cmd/helpers.go	/^	boolFlag  bool$/;"	m	struct:cmd.flagDesc	typeref:typename:bool
+bps	rsp/cmd/helpers.go	/^var bps map[string]*models.Blueprint$/;"	v	package:cmd	typeref:typename:map[string]*models.Blueprint
 cache	rsp/cache/alias.go	/^package cache$/;"	p
 cache	rsp/cache/db.go	/^package cache$/;"	p
 cacheCmd	rsp/cmd/cache.go	/^var cacheCmd = &cobra.Command{$/;"	v	package:cmd
@@ -1115,9 +1116,11 @@ findTagsCmd	rsp/cmd/device-tags.go	/^var findTagsCmd = &cobra.Command{$/;"	v	pac
 flagDesc	rsp/cmd/helpers.go	/^type flagDesc struct {$/;"	s	package:cmd
 formatDev	rsp/cmd/root-events.go	/^func formatDev(devs []*models.EventDevice, resBreakdown bool) string {$/;"	f	package:cmd	typeref:typename:string
 get	bin/r.sh	/^function get {$/;"	f
+getBP	rsp/cmd/helpers.go	/^func getBP(bp string) *models.Blueprint {$/;"	f	package:cmd	typeref:typename:*models.Blueprint
 getDeviceTable	rsp/cmd/table.go	/^func getDeviceTable() (*tview.Table, error) {$/;"	f	package:cmd	typeref:typename:(*tview.Table, error)
 getETA	rsp/cmd/table-wait.go	/^func getETA(d *models.Device) *ETA {$/;"	f	package:cmd	typeref:typename:*ETA
 getFTLRelays	rsp/cmd/auto-relay.go	/^func getFTLRelays(loc string) ([]*models.Device, error) {$/;"	f	package:cmd	typeref:typename:([]*models.Device, error)
+getHomeFactories	rsp/cmd/root-print.go	/^func getHomeFactories(home string) ([]*models.CodeAlias, error) {$/;"	f	package:cmd	typeref:typename:([]*models.CodeAlias, error)
 getInfo	rsp/cmd/root-auto.go	/^func getInfo(d *models.CodeAlias) (*models.Device, error) {$/;"	f	package:cmd	typeref:typename:(*models.Device, error)
 getPosFromString	rsp/cmd/root-plot.go	/^func getPosFromString(dst string) (*models.Position, error) {$/;"	f	package:cmd	typeref:typename:(*models.Position, error)
 getRID	rsp/cmd/root-replicant.go	/^func getRID(cmd *cobra.Command) (*models.CodeAlias, error) {$/;"	f	package:cmd	typeref:typename:(*models.CodeAlias, error)
@@ -1280,6 +1283,8 @@ rings	rsp/cache/schema.sql	/^  rings INTEGER,$/;"	E	table:planets
 rootCmd	rsp/cmd/root.go	/^var rootCmd = &cobra.Command{$/;"	v	package:cmd
 rootPrint	rsp/cmd/root-print.go	/^func rootPrint(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 rootPrintCmd	rsp/cmd/root-print.go	/^var rootPrintCmd = &cobra.Command{$/;"	v	package:cmd
+rootPrintList	rsp/cmd/root-print.go	/^func rootPrintList(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
+rootPrintListCmd	rsp/cmd/root-print.go	/^var rootPrintListCmd = &cobra.Command{$/;"	v	package:cmd
 runTable	rsp/cmd/table.go	/^func runTable(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 scanCmd	rsp/cmd/replicant-scan.go	/^var scanCmd = &cobra.Command{$/;"	v	package:cmd
 scanned	rsp/cache/schema.sql	/^  scanned INTEGER not NULL,$/;"	E	table:moons
