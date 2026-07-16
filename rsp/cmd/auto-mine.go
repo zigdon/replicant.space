@@ -76,11 +76,14 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		for _, f := range facts {
-			if f.Status == "compacted" {
+			if slices.Contains([]string{"compacted", "unfurling", "compacting"}, f.Status) {
 				continue
 			}
 			printerStrs = append(printerStrs, f.Code.Alias())
 		}
+	}
+	if len(printerStrs) == 0 {
+		return fmt.Errorf("No autofactories found")
 	}
 	var pAliases []string
 	for _, f := range printerStrs {

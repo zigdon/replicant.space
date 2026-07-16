@@ -54,12 +54,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Can't find event ID %q. Pick from:\n%s", eID, eventsDesc.String())
 	}
 
-	deliver := func() error {
-		return fmt.Errorf("Not implemented")
-	}
-
 	moveReplicant := func() error {
-		return fmt.Errorf("Not implemented")
+		return fmt.Errorf("Need a replicant moved to %s to resolve the event", ev.Location)
 	}
 
 	// Load the blueprints we know
@@ -112,6 +108,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 
 	// Check what is already there
 	missing := make(map[string]int)
+	deliver := func() error {
+		return fmt.Errorf("Need to deliver %v to %s", missing, ev.Location)
+	}
+
 	for _, d := range ec.Devices {
 		missing[d.DeviceType] = d.Required - d.Current
 	}
@@ -130,6 +130,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	for k, v := range missing {
 		if v > 0 {
 			data = append(data, []string{k, d(v)})
+		} else {
+			delete(missing, k)
 		}
 	}
 	slices.SortFunc(data, func(a, b []string) int {

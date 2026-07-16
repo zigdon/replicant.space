@@ -16,8 +16,10 @@ var deviceTravelCmd = &cobra.Command{
 			return fmt.Errorf("Destination is required for travel, pass as arg")
 		}
 		id, _ := cmd.Flags().GetString("device")
+		via, _ := cmd.Flags().GetStringSlice("via")
 		resp, err := rest.DeviceCommand[models.CommandResp](models.NewCodeAlias(id), "travel", map[string]any{
 			"destination": args[0],
+			"via":         via,
 		})
 		if err != nil {
 			return fmt.Errorf("Failed to initiate travel for %q: %v", id, err)
@@ -37,4 +39,5 @@ var deviceTravelCmd = &cobra.Command{
 
 func init() {
 	deviceCmd.AddCommand(deviceTravelCmd)
+	deviceTravelCmd.Flags().StringSliceP("via", "v", []string{}, "Specify an explicit route")
 }

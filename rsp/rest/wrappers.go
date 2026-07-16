@@ -208,10 +208,11 @@ func ReplicantDevices(c *models.CodeAlias, loc string) ([]*models.Device, error)
 	return devs.Devices, nil
 }
 
-func ReplicantTravel(id *models.CodeAlias, dest string, dryRun bool) (*models.Trip, error) {
+func ReplicantTravel(id *models.CodeAlias, dest string, via []string, dryRun bool) (*models.Trip, error) {
 	data, _ := json.Marshal(map[string]any{
 		"dry_run":     dryRun,
 		"destination": dest,
+		"via":         via,
 	})
 	trip, err := Post("replicants/%s/travel", data, id)
 	if err != nil {

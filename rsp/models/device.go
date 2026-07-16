@@ -146,32 +146,29 @@ type Device struct {
 		Name string     `json:"name"`
 		Code *CodeAlias `json:"replicant_code"`
 	} `json:"owner"`
-	OwnerReplicant     *CodeAlias           `json:"owner_replicant_code"`
-	PrintQueue         []*DevicePrintQueue  `json:"print_queue"`
-	Printing           *DevicePrint         `json:"printing"`
-	Prospect           *Prospect            `json:"prospect"`
-	QueueSize          int                  `json:"queue_size"`
-	Repair             *Repair              `json:"repair"`
-	RepairPaidPct      float32              `json:"repair_paid_pct"`
-	ReplicantCode      *CodeAlias           `json:"replicant_code"`
-	Scan               *DeviceScan          `json:"scan"`
-	Status             string               `json:"status"`
-	StowCapacity       int                  `json:"stow_capacity"`
-	StowUsed           int                  `json:"stow_used"`
-	StowedDevices      *StowedDevices       `json:"stowed_devices"`
-	StowedInDeviceCode *CodeAlias           `json:"stowed_in_device_code"`
-	SystemStatus       *SystemStatus        `json:"system_status"`
-	Tags               []string             `json:"tags"`
-	TaxiMode           string               `json:"taxi_mode"`
-	Travel             *Trip                `json:"travel"`
-	Type               string               `json:"device_type"`
-	Unfurl             *Compact             `json:"unfurl"`
-	UpkeepRequirements []*UpkeepRequirement `json:"upkeep_requirements"`
-	WaitingFor         struct {
-		Components map[string]*MissingResources `json:"components"`
-		Resources  map[string]*MissingResources `json:"resources"`
-	} `json:"waiting_for"`
-	WelcomeMessage string `json:"welcome_message"`
+	OwnerReplicant     *CodeAlias                   `json:"owner_replicant_code"`
+	PrintQueue         []*DevicePrintQueue          `json:"print_queue"`
+	Printing           *DevicePrint                 `json:"printing"`
+	Prospect           *Prospect                    `json:"prospect"`
+	QueueSize          int                          `json:"queue_size"`
+	Repair             *Repair                      `json:"repair"`
+	RepairPaidPct      float32                      `json:"repair_paid_pct"`
+	ReplicantCode      *CodeAlias                   `json:"replicant_code"`
+	Scan               *DeviceScan                  `json:"scan"`
+	Status             string                       `json:"status"`
+	StowCapacity       int                          `json:"stow_capacity"`
+	StowUsed           int                          `json:"stow_used"`
+	StowedDevices      *StowedDevices               `json:"stowed_devices"`
+	StowedInDeviceCode *CodeAlias                   `json:"stowed_in_device_code"`
+	SystemStatus       *SystemStatus                `json:"system_status"`
+	Tags               []string                     `json:"tags"`
+	TaxiMode           string                       `json:"taxi_mode"`
+	Travel             *Trip                        `json:"travel"`
+	Type               string                       `json:"device_type"`
+	Unfurl             *Compact                     `json:"unfurl"`
+	UpkeepRequirements []*UpkeepRequirement         `json:"upkeep_requirements"`
+	WaitingFor         map[string]*MissingResources `json:"waiting_for"`
+	WelcomeMessage     string                       `json:"welcome_message"`
 }
 
 func (d *Device) Alias() {
