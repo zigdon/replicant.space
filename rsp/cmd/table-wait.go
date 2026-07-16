@@ -43,12 +43,21 @@ func getETA(d *models.Device) *ETA {
 	}
 	if d.Travel != nil {
 		t := d.Travel
+		var note string
+		if d.CargoCapacity > 0 {
+			var fill int
+			for _, i := range d.Cargo {
+				fill += int(i.Quantity)
+			}
+			note = fmt.Sprintf("%d/%d (%d%%)", fill, d.CargoCapacity, 100*fill/d.CargoCapacity)
+		}
 		return &ETA{
 			Device: d,
 			Source: t.Origin,
 			Dest:   t.Destination,
 			Start:  t.Departed.Time(),
 			Ends:   t.Arrives.Time(),
+			Note:   note,
 		}
 	}
 	if d.Unfurl != nil {
@@ -133,6 +142,7 @@ func getETA(d *models.Device) *ETA {
 		}
 	}
 	if strings.HasPrefix(d.Status, "printing") {
+		d.Status = "printing"
 		p := d.Printing
 		return &ETA{
 			Device: d,
@@ -184,9 +194,10 @@ func waitPending(cmd *cobra.Command, args []string) error {
 		"inactive",
 		"mining",
 		"monitoring",
-		"out_of_range",
 		"paused",
 		"relaying",
+		"scanning",
+		"searching",
 		"stowed",
 		"tracking",
 	}

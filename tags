@@ -389,6 +389,7 @@ Fill	rsp/models/trades.go	/^func (ss *Shops) Fill() error {$/;"	f	struct:models.
 Fillable	rsp/models/helpers.go	/^type Fillable interface {$/;"	i	package:models
 FinalDestination	rsp/models/device.go	/^	FinalDestination     string              `json:"final_destination"`$/;"	m	struct:models.CommandResp	typeref:typename:string
 FinalDestinationName	rsp/models/device.go	/^	FinalDestinationName string              `json:"final_destination_name"`$/;"	m	struct:models.CommandResp	typeref:typename:string
+FindNearestHub	rsp/cache/db.go	/^func (db *Cache) FindNearestHub(x, y, z float32) (string, float32, error) {$/;"	f	struct:cache.Cache	typeref:typename:(string, float32, error)
 FindNearestStar	rsp/cache/db.go	/^func (db *Cache) FindNearestStar(x, y, z float32) (string, float32, error) {$/;"	f	struct:cache.Cache	typeref:typename:(string, float32, error)
 FindPrinter	rsp/rest/helpers.go	/^func FindPrinter(printers []*models.CodeAlias, extra map[string]time.Duration) (*models.CodeAlia/;"	f	package:rest	typeref:typename:(*models.CodeAlias, error)
 From	rsp/models/travel.go	/^	From         string$/;"	m	struct:models.JourneyLeg	typeref:typename:string
@@ -1124,6 +1125,7 @@ getTags	rsp/auto/state.go	/^func getTags(dev *models.Device) map[string]string {
 goCmd	rsp/auto/prospect.go	/^func (pm *ProspectMachine) goCmd(cmd string, args map[string]any) (*models.CommandResp, error) {$/;"	f	struct:auto.ProspectMachine	typeref:typename:(*models.CommandResp, error)
 has_hub	rsp/cache/schema.sql	/^  has_hub INTEGER not NULL,$/;"	E	table:stars
 has_life	rsp/cache/schema.sql	/^  has_life INTEGER not NULL,$/;"	E	table:stars
+has_my_hub	rsp/cache/schema.sql	/^  has_my_hub INTEGER not NULL,$/;"	E	table:stars
 home	rsp/auto/relay.go	/^const home = "MENKUNT-2-L4"$/;"	c	package:auto
 humanize	rsp/cmd/output.go	/^func humanize(in string) string {$/;"	f	package:cmd	typeref:typename:string
 id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY,$/;"	E	table:cached_journey
@@ -1219,6 +1221,8 @@ name	rsp/cache/schema.sql	/^  name TEXT,$/;"	E	table:planets
 name	rsp/cache/schema.sql	/^  name TEXT,$/;"	E	table:stars
 name	rsp/cmd/helpers.go	/^	name      string$/;"	m	struct:cmd.flagDesc	typeref:typename:string
 nearestCmd	rsp/cmd/root-plot.go	/^var nearestCmd = &cobra.Command{$/;"	v	package:cmd
+nearestHub	rsp/cmd/root-plot.go	/^func nearestHub(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
+nearestHubCmd	rsp/cmd/root-plot.go	/^var nearestHubCmd = &cobra.Command{$/;"	v	package:cmd
 nearestStar	rsp/cmd/root-plot.go	/^func nearestStar(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 neighbourStars	rsp/cmd/root-plot.go	/^func neighbourStars(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 neighboursCmd	rsp/cmd/root-plot.go	/^var neighboursCmd = &cobra.Command{$/;"	v	package:cmd
