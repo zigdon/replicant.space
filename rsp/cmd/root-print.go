@@ -19,7 +19,7 @@ var rootPrintCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(rootPrintCmd)
-	rootPrintCmd.Flags().String("home", "MENKUNT-BELT-1", "Where can autofactories be found")
+	rootPrintCmd.Flags().String("home", "MENKUNT-2-L4", "Where can autofactories be found")
 	rootPrintCmd.Flags().IntP("repeat", "r", 1, "How many copies should be printed")
 }
 

@@ -69,10 +69,10 @@ func init() {
 	autoMineCmd.Flags().BoolP("dry_run", "n", false, "Only plan, don't actually queue prints")
 	autoMineCmd.Flags().Bool("no_print", false, "Skip printing missing resources")
 	autoMineCmd.Flags().StringSlice("skip", []string{}, "Remove these devices from the plan")
-	autoMineCmd.Flags().String("home", "MENKUNT-BELT-1", "Destination for ferrying")
+	autoMineCmd.Flags().String("home", "MENKUNT-2-L4", "Destination for ferrying")
 
 	autoCmd.AddCommand(autoFerryCmd)
-	autoFerryCmd.Flags().String("home", "MENKUNT-BELT-1", "Destination for ferrying")
+	autoFerryCmd.Flags().String("home", "MENKUNT-2-L4", "Destination for ferrying")
 	autoFerryCmd.Flags().StringP("atc", "t", "atc-1", "Transport controller to use")
 
 	autoCmd.AddCommand(autoRelayCmd)
@@ -89,7 +89,7 @@ func init() {
 
 	autoCmd.AddCommand(autoRentCmd)
 	autoRentCmd.Flags().StringP("atc", "t", "atc-3", "ATC controlling cargo transports")
-	autoRentCmd.Flags().String("home", "MENKUNT-BELT-1", "Home system")
+	autoRentCmd.Flags().String("home", "MENKUNT-2-L4", "Home system")
 	autoRentCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
 
 	autoCmd.AddCommand(autoEventCmd)

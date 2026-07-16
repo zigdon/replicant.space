@@ -27,13 +27,13 @@ import (
 // leaving: find the next system, head there
 // activating: deploy, activate, tag
 
-const home = "MENKUNT-BELT-1"
+const home = "MENKUNT-2-L4"
 
 type RelayMachine struct {
 	dryRun bool
-	dev *models.Device
-	dest string
-	state string
+	dev    *models.Device
+	dest   string
+	state  string
 }
 
 func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
@@ -74,7 +74,7 @@ func (rm *RelayMachine) UpdateState() error {
 	if star != nil {
 		sysFRs, err := rest.Devices(map[string]string{
 			"device_type": "ftl_relay",
-			"location": star.Designation,
+			"location":    star.Designation,
 		})
 		if err != nil {
 			return err
