@@ -71,6 +71,16 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 		if info.Location != home {
 			continue
 		}
+		if info.Status == "waiting_for_resources" {
+			queue = append(queue, pq{
+				code:       p,
+				deviceType: "Waiting for resources",
+				tags: []string{
+					v(info.WaitingFor),
+				},
+				pos: -1,
+			})
+		}
 		if info.Printing != nil {
 			queue = append(queue, pq{
 				code:       p,
