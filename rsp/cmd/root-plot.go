@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
+	"github.com/zigdon/rsp/rest"
 )
 
 var plotCmd = &cobra.Command{
@@ -22,6 +23,12 @@ var nearestCmd = &cobra.Command{
 	Use:   "nearest",
 	Short: "Find the nearest star to an arbitrary position",
 	RunE:  nearestStar,
+}
+
+var nearestHubCmd = &cobra.Command{
+	Use:   "hub",
+	Short: "Find the nearest star with our system hub to a specified destination",
+	RunE:  nearestHub,
 }
 
 var neighboursCmd = &cobra.Command{
@@ -43,6 +50,7 @@ func init() {
 	plotCmd.PersistentFlags().Bool("debug", false, "Output additional debugging data")
 
 	plotCmd.AddCommand(nearestCmd)
+	plotCmd.AddCommand(nearestHubCmd)
 
 	plotCmd.AddCommand(neighboursCmd)
 	neighboursCmd.Flags().Float32P("radius", "r", 7.5, "Radius for search")
@@ -150,6 +158,40 @@ func nearestStar(cmd *cobra.Command, args []string) error {
 	nearest, dist, err := db.FindNearestStar(pos.X, pos.Y, pos.Z)
 	if err != nil {
 		return fmt.Errorf("Can't find nearest star: %v", err)
+	}
+	log("Nearest star: %s (%.2fly away)", nearest, dist)
+	return nil
+}
+
+func nearestHub(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Missing required args: plot hub STAR")
+	}
+	// Update the db with our hubs
+	hubs, err := rest.Devices(map[string]string{
+		"device_type": "system_hub",
+	})
+	for _, h := range hubs {
+		if h.Status != "relaying" {
+			log("Ignoring inactive hub %s at %s", h.Code.Alias(), h.Location)
+			continue
+		}
+		star, _, ok := strings.Cut(h.Location, "-")
+		if !ok {
+			return fmt.Errorf("Can't get star of %s", h.Location)
+		}
+		if _, err := db.DB.Exec(`UPDATE stars SET has_my_hub=1 WHERE designation = ?`, star); err != nil {
+			return fmt.Errorf("Can't update %s with hub: %v", star, err)
+		}
+	}
+
+	s := &models.Star{Designation: args[0]}
+	if err := s.Get(); err != nil {
+		return err
+	}
+	nearest, dist, err := db.FindNearestHub(s.Position.X, s.Position.Y, s.Position.Z)
+	if err != nil {
+		return fmt.Errorf("Can't find nearest hub: %v", err)
 	}
 	log("Nearest star: %s (%.2fly away)", nearest, dist)
 	return nil

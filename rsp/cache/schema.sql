@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS stars (
   position_y REAL,
   position_z REAL,
   has_hub INTEGER not NULL,
+  has_my_hub INTEGER not NULL,
   entry_point TEXT
 );
 

@@ -307,6 +307,29 @@ func (db *Cache) FindNearestStar(x, y, z float32) (string, float32, error) {
 	return dsg, dist, err
 }
 
+func (db *Cache) FindNearestHub(x, y, z float32) (string, float32, error) {
+	row := db.DB.QueryRow(
+		`SELECT designation, position_x, position_y, position_z,
+		    sqrt(
+				power(position_x-?,2) +
+				power(position_y-?,2) +
+				power(position_z-?,2)) AS dist
+		FROM stars
+		WHERE has_my_hub = 1
+		ORDER BY dist ASC LIMIT 1`,
+		x, y, z,
+	)
+	if row.Err() != nil {
+		return "", 0, row.Err()
+	}
+	var dsg string
+	var dist float32
+	err := row.Scan(
+		&dsg, &x, &y, &z, &dist,
+	)
+	return dsg, dist, err
+}
+
 func (db *Cache) GetSector(x, y, z float32, cone, margin int) ([]string, error) {
 	dist := float32(math.Sqrt(float64(x*x + y*y + z*z)))
 	log("dist=%v, margin=%v", dist, margin)
