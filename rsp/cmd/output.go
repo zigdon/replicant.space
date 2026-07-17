@@ -124,6 +124,22 @@ func v(data any) string {
 	return string(s)
 }
 
+func rm(data map[string]int) string {
+	var h, d string
+	for _, r := range []string{"carbon", "conductive", "rares", "silicates",
+		"structural", "volatiles"} {
+		if data[r] <= 0 {
+			continue
+		}
+		h += strings.Title(r[:3])
+		d += fmt.Sprintf("%2d ", data[r])
+		if len(d) > len(h) {
+			h += strings.Repeat(" ", len(d)-len(h))
+		}
+	}
+	return h + "\n" + d
+}
+
 func dt(t time.Duration) string {
 	tmpl := "in %s"
 	if t < 0 {

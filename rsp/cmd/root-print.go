@@ -31,7 +31,7 @@ func init() {
 	rootPrintCmd.Flags().String("on_complete", "", "What commands to execute once done")
 
 	rootPrintCmd.AddCommand(rootPrintListCmd)
-	rootPrintListCmd.Flags().String("home", "MENKUNT-2-L4", "Where can autofactories be found")
+	rootPrintListCmd.Flags().String("location", "", "Show only factories in this location")
 }
 
 func getHomeFactories(home string) ([]*models.CodeAlias, error) {
@@ -51,7 +51,7 @@ func getHomeFactories(home string) ([]*models.CodeAlias, error) {
 }
 
 func rootPrintList(cmd *cobra.Command, args []string) error {
-	home, _ := cmd.Flags().GetString("home")
+	loc, _ := cmd.Flags().GetString("location")
 	printers, err := rest.Devices(map[string]string{"device_type": "autofactory"})
 	if err != nil {
 		return err
@@ -62,21 +62,26 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 		tags       []string
 		pos        int
 		eta        time.Time
+		missing    map[string]int   
 	}
 	times := make(map[*models.CodeAlias]time.Duration)
 	var queue []pq
 	for _, info := range printers {
-		if string(info.Location) != home {
+		if loc != "" && string(info.Location) != loc {
 			continue
 		}
 		if info.Status == "waiting_for_resources" {
+			missing := make(map[string]int)
+			for k, v := range info.WaitingFor {
+				if v.Have < v.Need {
+					missing[k] = v.Need - v.Have
+				}
+			}
 			queue = append(queue, pq{
 				code:       info.Code,
 				deviceType: "Waiting for resources",
-				tags: []string{
-					v(info.WaitingFor),
-				},
 				pos: -1,
+				missing: missing,
 			})
 		}
 		if info.Printing != nil {
@@ -113,10 +118,10 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 			pos = d(q.pos)
 		}
 		data = append(data, []string{
-			q.deviceType, list(q.tags), q.code.Alias(), pos, t(q.eta),
+			q.deviceType, list(q.tags), q.code.Alias(), pos, t(q.eta), rm(q.missing),
 		})
 	}
-	printTable([]string{"Type", "Tags", "Factory", "Position", "ETA"}, data)
+	printTable([]string{"Type", "Tags", "Factory", "Position", "ETA", "Missing"}, data)
 
 	return nil
 }

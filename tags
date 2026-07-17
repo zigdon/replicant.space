@@ -68,7 +68,7 @@
 !_TAG_PARSER_VERSION!Sh	0.0	/current.age/
 !_TAG_PARSER_VERSION!Yaml	0.0	/current.age/
 !_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
-!_TAG_PROC_CWD	/home/zigdon/Projects/replicant.space/	//
+!_TAG_PROC_CWD	/home/zigdon/Projects/Replicant/	//
 !_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
@@ -1107,7 +1107,7 @@ eventCompleteCmd	rsp/cmd/root-events.go	/^var eventCompleteCmd = &cobra.Command{
 eventsCmd	rsp/cmd/root-events.go	/^var eventsCmd = &cobra.Command{$/;"	v	package:cmd
 executeTradeCmd	rsp/cmd/replicant-shop.go	/^var executeTradeCmd = &cobra.Command{$/;"	v	package:cmd
 explode	rsp/cmd/helpers.go	/^func explode[T any](v T) []string {$/;"	f	package:cmd	typeref:typename:(v T) [
-explored	rsp/cache/schema.sql	/^  explored INTEGER not NULL,$/;"	E	table:stars
+explored	rsp/cache/schema.sql	/^  explored INTEGER NOT NULL,$/;"	E	table:stars
 f	rsp/cmd/output.go	/^func f(n float32) string {$/;"	f	package:cmd	typeref:typename:string
 feature	rsp/cache/schema.sql	/^  feature TEXT,$/;"	E	table:blueprint_features
 fetchedAt	rsp/models/device.go	/^	fetchedAt time.Time$/;"	m	struct:models.Device	typeref:typename:time.Time
@@ -1130,9 +1130,9 @@ getPosFromString	rsp/cmd/root-plot.go	/^func getPosFromString(dst string) (*mode
 getRID	rsp/cmd/root-replicant.go	/^func getRID(cmd *cobra.Command) (*models.CodeAlias, error) {$/;"	f	package:cmd	typeref:typename:(*models.CodeAlias, error)
 getTags	rsp/auto/state.go	/^func getTags(dev *models.Device) map[string]string {$/;"	f	package:auto	typeref:typename:map[string]string
 goCmd	rsp/auto/prospect.go	/^func (pm *ProspectMachine) goCmd(cmd string, args map[string]any) (*models.CommandResp, error) {$/;"	f	struct:auto.ProspectMachine	typeref:typename:(*models.CommandResp, error)
-has_hub	rsp/cache/schema.sql	/^  has_hub INTEGER not NULL,$/;"	E	table:stars
-has_life	rsp/cache/schema.sql	/^  has_life INTEGER not NULL,$/;"	E	table:stars
-has_my_hub	rsp/cache/schema.sql	/^  has_my_hub INTEGER not NULL,$/;"	E	table:stars
+has_hub	rsp/cache/schema.sql	/^  has_hub INTEGER NOT NULL,$/;"	E	table:stars
+has_life	rsp/cache/schema.sql	/^  has_life INTEGER NOT NULL,$/;"	E	table:stars
+has_my_hub	rsp/cache/schema.sql	/^  has_my_hub INTEGER NOT NULL,$/;"	E	table:stars
 home	rsp/auto/relay.go	/^const home = "MENKUNT-2-L4"$/;"	c	package:auto
 humanize	rsp/cmd/output.go	/^func humanize(in string) string {$/;"	f	package:cmd	typeref:typename:string
 id	rsp/cache/schema.sql	/^  id INTEGER PRIMARY KEY,$/;"	E	table:cached_journey
@@ -1285,6 +1285,7 @@ rest	rsp/rest/helpers.go	/^package rest$/;"	p
 rest	rsp/rest/wrappers.go	/^package rest$/;"	p
 returnExtraRelays	rsp/cmd/auto-relay.go	/^func returnExtraRelays(devs []*models.Device) error {$/;"	f	package:cmd	typeref:typename:error
 rings	rsp/cache/schema.sql	/^  rings INTEGER,$/;"	E	table:planets
+rm	rsp/cmd/output.go	/^func rm(data map[string]int) string {$/;"	f	package:cmd	typeref:typename:string
 rootCmd	rsp/cmd/root.go	/^var rootCmd = &cobra.Command{$/;"	v	package:cmd
 rootPrint	rsp/cmd/root-print.go	/^func rootPrint(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 rootPrintCmd	rsp/cmd/root-print.go	/^var rootPrintCmd = &cobra.Command{$/;"	v	package:cmd
@@ -1292,8 +1293,8 @@ rootPrintList	rsp/cmd/root-print.go	/^func rootPrintList(cmd *cobra.Command, arg
 rootPrintListCmd	rsp/cmd/root-print.go	/^var rootPrintListCmd = &cobra.Command{$/;"	v	package:cmd
 runTable	rsp/cmd/table.go	/^func runTable(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 scanCmd	rsp/cmd/replicant-scan.go	/^var scanCmd = &cobra.Command{$/;"	v	package:cmd
-scanned	rsp/cache/schema.sql	/^  scanned INTEGER not NULL,$/;"	E	table:moons
-scanned	rsp/cache/schema.sql	/^  scanned INTEGER not NULL,$/;"	E	table:planets
+scanned	rsp/cache/schema.sql	/^  scanned INTEGER NOT NULL,$/;"	E	table:moons
+scanned	rsp/cache/schema.sql	/^  scanned INTEGER NOT NULL,$/;"	E	table:planets
 schema	rsp/cache/db.go	/^var schema string$/;"	v	package:cache	typeref:typename:string
 seconds	rsp/models/helpers.go	/^	seconds float32$/;"	m	struct:models.JSONTimeDelta	typeref:typename:float32
 setDirective	rsp/cmd/root-auto.go	/^func setDirective(id *models.CodeAlias, directive string, cfg map[string]any) error {$/;"	f	package:cmd	typeref:typename:error
@@ -1302,6 +1303,7 @@ shopTradesCmd	rsp/cmd/replicant-shop.go	/^var shopTradesCmd = &cobra.Command{$/;
 short	rsp/cache/schema.sql	/^  short TEXT,$/;"	E	table:blueprints
 short	rsp/cmd/helpers.go	/^	short     rune$/;"	m	struct:cmd.flagDesc	typeref:typename:rune
 slice	rsp/cmd/helpers.go	/^	slice     bool$/;"	m	struct:cmd.flagDesc	typeref:typename:bool
+spectral_type	rsp/cache/schema.sql	/^  spectral_type TEXT NOT NULL,$/;"	E	table:stars
 src	rsp/cache/schema.sql	/^  src TEXT NOT NULL,$/;"	E	table:cached_journey_steps
 star	rsp/cache/schema.sql	/^  star TEXT NOT NULL,$/;"	E	table:belts
 star	rsp/cache/schema.sql	/^  star TEXT NOT NULL,$/;"	E	table:moons
