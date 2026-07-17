@@ -117,10 +117,10 @@ var infoCmd = &cobra.Command{
 			var w [][]string
 			for k, v := range dev.WaitingFor {
 				w = append(w, []string{
-					k, d(v.Have), d(v.Need),
+					k, d(v.Have), d(v.Need), d(v.Need - v.Have),
 				})
 			}
-			printTable([]string{"Resource", "Have", "Need"}, w)
+			printTable([]string{"Resource", "Have", "Need", "Missing"}, w)
 		}
 		if len(dev.ControlledDevices) > 0 {
 			var cds [][]string

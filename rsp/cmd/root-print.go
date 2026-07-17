@@ -52,7 +52,7 @@ func getHomeFactories(home string) ([]*models.CodeAlias, error) {
 
 func rootPrintList(cmd *cobra.Command, args []string) error {
 	home, _ := cmd.Flags().GetString("home")
-	printers, err := getHomeFactories(home)
+	printers, err := rest.Devices(map[string]string{"device_type": "autofactory"})
 	if err != nil {
 		return err
 	}
@@ -65,17 +65,13 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 	}
 	times := make(map[*models.CodeAlias]time.Duration)
 	var queue []pq
-	for _, p := range printers {
-		info, err := getInfo(p)
-		if err != nil {
-			return err
-		}
+	for _, info := range printers {
 		if string(info.Location) != home {
 			continue
 		}
 		if info.Status == "waiting_for_resources" {
 			queue = append(queue, pq{
-				code:       p,
+				code:       info.Code,
 				deviceType: "Waiting for resources",
 				tags: []string{
 					v(info.WaitingFor),
@@ -85,22 +81,22 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 		}
 		if info.Printing != nil {
 			queue = append(queue, pq{
-				code:       p,
+				code:       info.Code,
 				deviceType: info.Printing.DeviceType,
 				tags:       info.Printing.Tags,
 				pos:        -1,
 				eta:        info.Printing.Completes.Time(),
 			})
-			times[p] += info.Printing.Eta.Duration()
+			times[info.Code] += info.Printing.Eta.Duration()
 		}
 		for i, q := range info.PrintQueue {
 			bp := getBP(q.Type)
 			queue = append(queue, pq{
-				code:       p,
+				code:       info.Code,
 				deviceType: q.Type,
 				tags:       q.Tags,
 				pos:        i,
-				eta:        time.Now().Add(bp.PrintTime.Duration()).Add(times[p]),
+				eta:        time.Now().Add(bp.PrintTime.Duration()).Add(times[info.Code]),
 			})
 		}
 	}
