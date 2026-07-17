@@ -125,6 +125,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check what is already there
+	log("Checking inventory at %s", ev.Location)
 	home, _ := cmd.Flags().GetString("home")
 	missing := make(map[string]int)
 	deliver := func() error {
@@ -228,6 +229,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				avail := cf.CargoCapacity
 				get := make(map[string]int)
 				for k, v := range missing {
+					if v <= 0 {
+						delete(missing, k)
+						continue
+					}
 					if !isResource(k) {
 						continue
 					}
@@ -369,19 +374,16 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Need to deliver %v to %s", missing, ev.Location)
 	}
 
-	for _, d := range ep.Devices {
-		missing[d.DeviceType] = d.Count - d.Current
-	}
-	loc, err := rest.Location(string(ev.Location))
-	if err != nil {
-		return err
-	}
-	for _, i := range loc.Inventory {
-		missing[i.ResourceType] = int(-i.Quantity)
+	data = [][]string{}
+	for _, dev := range ep.Devices {
+		missing[dev.DeviceType] = dev.Count - dev.Current
+		data = append(data, []string{dev.DeviceType, d(dev.Count), d(dev.Current)})
 	}
 	for _, r := range ep.Resources {
 		missing[r.ResourceType] += r.Required - int(r.Current)
+		data = append(data, []string{r.ResourceType, d(r.Required), f(r.Current)})
 	}
+	printTable([]string{"Type", "Required", "Current"}, data)
 
 	data = [][]string{}
 	for k, v := range missing {

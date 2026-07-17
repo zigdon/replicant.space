@@ -107,10 +107,12 @@ var teleportCmd = &cobra.Command{
 				if err := rows.Scan(&t); err != nil {
 					return err
 				}
+				log("Searching for %s...", t)
 				devs, err := rest.Devices(map[string]string{"device_type": t})
 				if err != nil {
 					return err
 				}
+				log("... %v", devList(devs))
 				cradles = append(cradles, devs...)
 			}
 			if err := rows.Err(); err != nil {
@@ -120,6 +122,15 @@ var teleportCmd = &cobra.Command{
 			var erms []*models.CodeAlias
 			for _, c := range cradles {
 				var erm *models.CodeAlias
+				var sds []string
+				if c.StowedDevices == nil {
+					log("%s: Nothing stowed", c.Code.Alias())
+					continue
+				}
+				for _, sd := range c.StowedDevices.Devices {
+					sds = append(sds, sd.Code.Alias())
+				}
+				log("%s (%s) @ %s: %v", c.Code.Alias(), c.Type, c.Location, list(sds))
 				if !slices.ContainsFunc(c.StowedDevices.Devices, func(d *models.StowedDevice) bool {
 					if d.Type == "empty_replicant_matrix" {
 						erm = d.Code
@@ -130,10 +141,12 @@ var teleportCmd = &cobra.Command{
 					continue
 				}
 				if string(c.Location) == loc {
+					log("...bullseye")
 					erms = []*models.CodeAlias{erm}
 					break
 				}
 				if strings.HasPrefix(loc, c.Location.Star()) {
+					log("...in system")
 					erms = append(erms, erm)
 				}
 			}
