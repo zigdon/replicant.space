@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
+	"golang.org/x/sync/semaphore"
 )
 
 var deviceListCmd = &cobra.Command{
@@ -107,6 +109,8 @@ var networkCmd = &cobra.Command{
 		var wg sync.WaitGroup
 		var errs []error
 		var mu sync.Mutex
+		sem := semaphore.NewWeighted(10)
+		ctx := context.Background()
 		for _, d := range devs {
 			if d.Type != "ftl_relay" {
 				continue
@@ -122,7 +126,12 @@ var networkCmd = &cobra.Command{
 				continue
 			}
 
+			if err := sem.Acquire(ctx, 1); err != nil {
+				return err
+			}
+
 			wg.Go(func() {
+				defer sem.Release(1)
 				net, err := rest.DeviceNetwork(d.Code)
 				if err != nil {
 					mu.Lock()
