@@ -56,6 +56,23 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	}
 
 	moveReplicant := func() error {
+		log("Event ready to complete...")
+		acc, err := rest.Account()
+		if err != nil {
+			return err
+		}
+		for _, r := range acc.ReplicantList {
+			if r.CurrentLocation == ev.Location {
+				log("Completing event with %s...", r.Code.Alias())
+				return eventComplete(eID)
+			}
+			if r.CurrentLocation.Star() == ev.Location.Star() {
+				log("Moving %s to %s...", r.Code.Alias(), ev.Location)
+				_, err := rest.ReplicantTravel(
+					r.Code, string(ev.Location), nil, false)
+				return err
+			}
+		}
 		return fmt.Errorf("Need a replicant moved to %s to resolve the event", ev.Location)
 	}
 
@@ -142,19 +159,24 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						eta = cf.Travel.Arrives.Time()
 					}
 				}
-			} else if len(cf.Cargo) > 0 {
-				log("Unloading cargo from %s: %v", cf.Code.Alias(), cf.Cargo)
-				_, err := rest.DeviceCommand[models.CommandResp](cf.Code, "deposit_resources", nil)
-				if err != nil {
-					return err
-				}
 			} else {
+				if len(cf.Cargo) > 0 {
+					log("Unloading cargo from %s: %v", cf.Code.Alias(), cf.Cargo)
+					_, err := rest.DeviceCommand[models.CommandResp](cf.Code, "deposit_resources", nil)
+					if err != nil {
+						return err
+					}
+					for _, c := range cf.Cargo {
+						missing[c.ResourceType] -= int(c.Quantity)
+					}
+				}
 				log("Sending %s back home", cf.Code.Alias())
 				if err := travel(cf.Code, home); err != nil {
 					return err
 				}
 			}
 		}
+
 		for _, t := range []string{"surge_plate", "surge_platform", "mobile_fleet"} {
 			sps, err := rest.Devices(map[string]string{"device_type": t})
 			if err != nil {
