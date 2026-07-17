@@ -57,6 +57,7 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	type pq struct {
+		location   models.LocationID
 		code       *models.CodeAlias
 		deviceType string
 		tags       []string
@@ -78,14 +79,15 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 				}
 			}
 			queue = append(queue, pq{
+				location:   info.Location,
 				code:       info.Code,
 				deviceType: "Waiting for resources",
 				pos: -1,
 				missing: missing,
 			})
-		}
-		if info.Printing != nil {
+		} else if info.Printing != nil {
 			queue = append(queue, pq{
+				location:   info.Location,
 				code:       info.Code,
 				deviceType: info.Printing.DeviceType,
 				tags:       info.Printing.Tags,
@@ -95,6 +97,9 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 			times[info.Code] += info.Printing.Eta.Duration()
 		}
 		for i, q := range info.PrintQueue {
+			if info.Status == "waiting_for_resources" && i == 0 {
+				continue
+			}
 			bp := getBP(q.Type)
 			queue = append(queue, pq{
 				code:       info.Code,
@@ -118,10 +123,10 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 			pos = d(q.pos)
 		}
 		data = append(data, []string{
-			q.deviceType, list(q.tags), q.code.Alias(), pos, t(q.eta), rm(q.missing),
+			string(q.location), q.deviceType, list(q.tags), q.code.Alias(), pos, t(q.eta), rm(q.missing),
 		})
 	}
-	printTable([]string{"Type", "Tags", "Factory", "Position", "ETA", "Missing"}, data)
+	printTable([]string{"Location", "Type", "Tags", "Factory", "Position", "ETA", "Missing"}, data)
 
 	return nil
 }

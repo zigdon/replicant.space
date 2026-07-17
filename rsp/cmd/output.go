@@ -131,8 +131,8 @@ func rm(data map[string]int) string {
 		if data[r] <= 0 {
 			continue
 		}
-		h += strings.Title(r[:3])
-		d += fmt.Sprintf("%2d ", data[r])
+		h += strings.ToUpper(r[:1]) + r[1:3]
+		d += fmt.Sprintf("%3d ", data[r])
 		if len(d) > len(h) {
 			h += strings.Repeat(" ", len(d)-len(h))
 		}
