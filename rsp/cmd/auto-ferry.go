@@ -80,7 +80,7 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		if loc.Resources > 0 {
-			log("... %s: %.0f", l, loc.Resources)
+			log("... %s: %d", l, loc.Resources)
 			dests = append(dests, dest{
 				location: string(l),
 				count:    loc.Resources,
@@ -93,7 +93,7 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 	log("Resource pile found at %s: %d", dests[0].location, dests[0].count)
 
 	return setDirective(atc.Code, "ferry", map[string]any{
-		"collect": dests[0],
+		"collect": dests[0].location,
 		"deliver": home,
 	})
 }
