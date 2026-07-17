@@ -1,0 +1,131 @@
+CREATE TABLE IF NOT EXISTS stars (
+  designation TEXT PRIMARY KEY,
+  name TEXT NULL,
+  entry_point TEXT NOT NULL,
+  est_planets SMALLINT NOT NULL,
+  spectral_type TEXT NOT NULL,
+  explored BOOLEAN,
+  has_life BOOLEAN,
+  position_x NUMERIC(6,2) NOT NULL,
+  position_y NUMERIC(6,2) NOT NULL,
+  position_z NUMERIC(6,2) NOT NULL,
+  has_hub BOOLEAN,
+  has_my_hub BOOLEAN
+);
+
+CREATE TABLE IF NOT EXISTS planets (
+  designation TEXT PRIMARY KEY,
+  star TEXT NOT NULL REFERENCES stars(designation),
+  name TEXT NULL,
+  life_stage TEXT NULL,
+  moons SMALLINT NOT NULL,
+  rings SMALLINT NOT NULL,
+  scanned BOOLEAN,
+  type TEXT NOT NULL,
+);
+
+CREATE TABLE IF NOT EXISTS moons (
+  designation TEXT PRIMARY KEY,
+  planet TEXT NOT NULL REFERENCES planets(designation),,
+  star TEXT NOT NULL REFERENCES stars(designation),
+  name TEXT NULL,
+  scanned BOOLEAN,
+  type TEXT NOT NULL,
+);
+
+CREATE TABLE IF NOT EXISTS belts (
+  designation TEXT PRIMARY KEY,
+  star TEXT NOT NULL REFERENCES stars(designation),
+  density TEXT NOT NULL,
+);
+
+CREATE TABLE IF NOT EXISTS belt_resources (
+  belt TEXT NOT NULL REFERENCES belts(designation),
+  resource TEXT NOT NULL,
+  density TEXT NOT NULL,
+  PRIMARY KEY (belt, resource),
+);
+
+CREATE TABLE IF NOT EXISTS aliases (
+  designation TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  name TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS alias_types (
+  type TEXT PRIMARY KEY,
+  prefix TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS blueprints (
+  type TEXT PRIMARY KEY,
+  print_time INTERVAL NOT NULL,
+  attach_capacity SMALLINT NOT NULL,
+  cargo_capacity SMALLINT NOT NULL,
+  stow_capacity SMALLINT NOT NULL,
+  short TEXT,
+  description TEXT
+);
+
+CREATE TABLE IF NOT EXISTS blueprint_resources(
+  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),,
+  type TEXT NOT NULL,
+  qty SMALLINT NOT NULL,
+  PRIMARY KEY (blueprint_type, type)
+);
+
+CREATE TABLE IF NOT EXISTS blueprint_components(
+  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),,
+  type TEXT NOT NULL,
+  qty SMALLINT NOT NULL,
+  PRIMARY KEY (blueprint_type, type)
+);
+
+CREATE TABLE IF NOT EXISTS blueprint_directives(
+  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),,
+  directive TEXT NOT NULL,
+  PRIMARY KEY (blueprint_type, directive)
+);
+
+CREATE TABLE IF NOT EXISTS blueprint_features(
+  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),,
+  feature TEXT NOT NULL,
+  PRIMARY KEY (blueprint_type, feature)
+);
+
+CREATE TABLE IF NOT EXISTS notifications(
+  id INTEGER PRIMARY KEY,
+  start TIMESTAMP NULL,
+  end TIMESTAMP NOT NULL,
+  device TEXT NULL,
+  text TEXT NOT NULL,
+  read BOOLEAN
+);
+
+CREATE TABLE IF NOT EXISTS messages(
+  id INTEGER PRIMARY KEY,
+  body TEXT NOT NULL,
+  created TIMESTAMP NOT NULL,
+  read BOOLEAN,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cached_journey(
+  id INTEGER PRIMARY KEY,
+  start TEXT NOT NULL,
+  end TEXT NOT NULL,
+  max_hop SMALLINT NOT NULL,
+  calculated TIMESTAMP NOT NULL,
+  UNIQUE (start, end, max_hop)
+);
+
+CREATE TABLE IF NOT EXISTS cached_journey_steps(
+  journey_id INTEGER REFERENCES cached_routes(id),
+  src TEXT NOT NULL,
+  dest TEXT NOT NULL,
+  step SMALLINT NOT NULL,
+  dist_src NUMERIC(6,2) NOT NULL,
+  dist_dest NUMERIC(6,2) NOT NULL,
+  PRIMARY KEY (journey_id, step)
+);
