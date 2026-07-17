@@ -27,6 +27,8 @@ func init() {
 	rootCmd.AddCommand(rootPrintCmd)
 	rootPrintCmd.Flags().String("home", "MENKUNT-2-L4", "Where can autofactories be found")
 	rootPrintCmd.Flags().IntP("repeat", "r", 1, "How many copies should be printed")
+	rootPrintCmd.Flags().StringP("controller", "c", "", "What controller should be assigned")
+	rootPrintCmd.Flags().String("on_complete", "", "What commands to execute once done")
 
 	rootPrintCmd.AddCommand(rootPrintListCmd)
 	rootPrintListCmd.Flags().String("home", "MENKUNT-2-L4", "Where can autofactories be found")
@@ -141,19 +143,20 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	onComplete, _ := cmd.Flags().GetString("on_complete")
 	queue := make(map[string]time.Duration)
 	added := make(map[string]int)
+	cfg := map[string]any{
+		"device_type": bp.DeviceType,
+	}
+	if controller != "" {
+		cfg["controller"] = controller
+	}
+	if onComplete != "" {
+		cfg["oncomplete"] = onComplete
+	}
+
 	for ; copies > 0; copies-- {
 		p, err := rest.FindPrinter(printers, queue)
 		if err != nil {
 			return err
-		}
-		cfg := map[string]any{
-			"device_type": bp.DeviceType,
-		}
-		if controller != "" {
-			cfg["controller"] = controller
-		}
-		if onComplete != "" {
-			cfg["oncomplete"] = onComplete
 		}
 		_, err = rest.DeviceCommand[models.CommandResp](p, "enqueue_print", cfg)
 		if err != nil {

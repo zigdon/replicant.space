@@ -11,6 +11,7 @@ import (
 	lg "charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/rivo/tview"
+	"github.com/zigdon/rsp/models"
 )
 
 var LogFh io.Writer = os.Stderr
@@ -45,6 +46,14 @@ func prettyPrint(i any) {
 func prettyPrintf(f io.Writer, i any) {
 	s, _ := json.MarshalIndent(i, "", "  ")
 	fmt.Fprintln(f, string(s))
+}
+
+func devList(cs []*models.Device) []string {
+	res := make([]string, len(cs))
+	for i, c := range cs {
+		res[i] = c.Code.Alias()
+	}
+	return res
 }
 
 func wrap(t string, w int) string {
