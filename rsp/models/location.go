@@ -130,16 +130,17 @@ func (s *Star) Cache() error {
 		s.Explored = cur.Explored || s.Explored
 	}
 	return db.Update(cache.StarsTable, map[string]any{
-		"designation": s.Designation,
-		"entry_point": s.EntryPoint,
-		"est_planets": s.EstimatedPlanets,
-		"explored":    s.Explored,
-		"has_life":    s.HasLife,
-		"has_hub":     s.HasHub,
-		"name":        s.Name,
-		"position_x":  s.Position.X,
-		"position_y":  s.Position.Y,
-		"position_z":  s.Position.Z,
+		"designation":   s.Designation,
+		"entry_point":   s.EntryPoint,
+		"est_planets":   s.EstimatedPlanets,
+		"spectral_type": s.SpectralType,
+		"explored":      s.Explored,
+		"has_life":      s.HasLife,
+		"has_hub":       s.HasHub,
+		"name":          s.Name,
+		"position_x":    s.Position.X,
+		"position_y":    s.Position.Y,
+		"position_z":    s.Position.Z,
 	})
 }
 
@@ -158,8 +159,9 @@ func (s *Star) Get() error {
 		p := NewPosition(0, 0, 0)
 		s.Position = p
 	}
-	if err := scan(&s.Designation, &s.Name, &s.EntryPoint, &s.EstimatedPlanets, &s.Explored,
-		&s.HasLife, &s.Position.X, &s.Position.Y, &s.Position.Z); err != nil {
+	if err := scan(&s.Designation, &s.Name, &s.EntryPoint, &s.EstimatedPlanets,
+		&s.SpectralType, &s.Explored, &s.HasLife, &s.Position.X, &s.Position.Y,
+		&s.Position.Z); err != nil {
 		return err
 	}
 	return s.Fill()

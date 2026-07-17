@@ -4,13 +4,14 @@ CREATE TABLE IF NOT EXISTS stars (
   name TEXT,
   entry_point TEXT,
   est_planets INTEGER,
-  explored INTEGER not NULL,
-  has_life INTEGER not NULL,
+  spectral_type TEXT NOT NULL,
+  explored INTEGER NOT NULL,
+  has_life INTEGER NOT NULL,
   position_x REAL,
   position_y REAL,
   position_z REAL,
-  has_hub INTEGER not NULL,
-  has_my_hub INTEGER not NULL,
+  has_hub INTEGER NOT NULL,
+  has_my_hub INTEGER NOT NULL,
   entry_point TEXT
 );
 
@@ -21,7 +22,7 @@ CREATE TABLE IF NOT EXISTS planets (
   life_stage TEXT,
   moons INTEGER,
   rings INTEGER,
-  scanned INTEGER not NULL,
+  scanned INTEGER NOT NULL,
   type INTEGER,
   FOREIGN KEY(star) REFERENCES stars(designation)
 );
@@ -31,7 +32,7 @@ CREATE TABLE IF NOT EXISTS moons (
   planet TEXT NOT NULL,
   star TEXT NOT NULL,
   name TEXT,
-  scanned INTEGER not NULL,
+  scanned INTEGER NOT NULL,
   type TEXT,
   FOREIGN KEY(planet) REFERENCES planets(designation),
   FOREIGN KEY(star) REFERENCES stars(designation)

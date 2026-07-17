@@ -543,7 +543,7 @@ func ReloadStars() (string, error) {
 	// Get the current list of stars.
 	seen := make(map[models.LocationID]*models.Star)
 	rows, err := db.DB.Query(`
-		SELECT designation, name, est_planets, has_life,
+		SELECT designation, name, est_planets, spectral_type, has_life,
 			position_x, position_y, position_z, has_hub, entry_point
 		FROM stars`)
 	if err != nil {
@@ -554,13 +554,16 @@ func ReloadStars() (string, error) {
 		old++
 		s := new(models.Star)
 		var x, y, z float32
-		err := rows.Scan(&s.Designation, &s.Name, &s.EstimatedPlanets, &s.HasLife,
-			&x, &y, &z, &s.HasHub, &s.EntryPoint)
+		err := rows.Scan(&s.Designation, &s.Name, &s.EstimatedPlanets,
+			&s.SpectralType, &s.HasLife, &x, &y, &z, &s.HasHub, &s.EntryPoint)
 		if err != nil {
 			return res(), err
 		}
 		s.Position = models.NewPosition(x, y, z)
 		seen[s.Designation] = s
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
 	}
 	log("Loaded %d stars from cache", old)
 
@@ -584,6 +587,10 @@ func ReloadStars() (string, error) {
 		}
 		if a.HasLife != b.HasLife {
 			log("%q: has life updated: %v -> %v", a.Designation, a.HasLife, b.HasLife)
+			return true
+		}
+		if a.SpectralType != b.SpectralType {
+			log("%q: spectral type updated: %q -> %q", a.Designation, a.SpectralType, b.SpectralType)
 			return true
 		}
 		return false

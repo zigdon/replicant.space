@@ -60,8 +60,8 @@ const (
 
 var cols = map[Tables][]string{
 	StarsTable: {
-		"designation", "name", "entry_point", "est_planets", "explored", "has_life",
-		"position_x", "position_y", "position_z"},
+		"designation", "name", "entry_point", "est_planets", "spectral_type",
+		"explored", "has_life", "position_x", "position_y", "position_z"},
 	PlanetsTable: {
 		"designation", "star", "name", "life_stage", "moons", "rings", "scanned", "type"},
 	MoonsTable: {
