@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -91,6 +93,55 @@ var teleportCmd = &cobra.Command{
 			return fmt.Errorf("Replicant not found: %v", err)
 		}
 		target, _ := cmd.Flags().GetString("target")
+		if target == "" {
+			loc, _ := cmd.Flags().GetString("location")
+			var cradles []*models.Device
+			rows, err := db.DB.Query(
+				`SELECT blueprint_type FROM blueprint_features WHERE feature = 'cradle';`)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var t string
+				if err := rows.Scan(&t); err != nil {
+					return err
+				}
+				devs, err := rest.Devices(map[string]string{"device_type": t})
+				if err != nil {
+					return err
+				}
+				cradles = append(cradles, devs...)
+			}
+			if err := rows.Err(); err != nil {
+				return err
+			}
+			// Now check each cradle, and see which have an empty matrix
+			var erms []*models.CodeAlias
+			for _, c := range cradles {
+				var erm *models.CodeAlias
+				if !slices.ContainsFunc(c.StowedDevices.Devices, func(d *models.StowedDevice) bool {
+					if d.Type == "empty_replicant_matrix" {
+						erm = d.Code
+						return true
+					}
+					return false
+				}) {
+					continue
+				}
+				if string(c.Location) == loc {
+					erms = []*models.CodeAlias{erm}
+					break
+				}
+				if strings.HasPrefix(loc, c.Location.Star()) {
+					erms = append(erms, erm)
+				}
+			}
+			if len(erms) == 0 {
+				return fmt.Errorf("No empty matrixes found at %s", loc)
+			}
+			target = erms[0].String()
+		}
 		res, err := rest.ReplicantTeleport(rID, models.NewCodeAlias(target))
 		if err != nil {
 			return err
@@ -114,5 +165,6 @@ func init() {
 
 	replicantCmd.AddCommand(teleportCmd)
 	teleportCmd.Flags().StringP("target", "t", "", "Matrix id to teleport to")
-	teleportCmd.MarkFlagRequired("target")
+	teleportCmd.Flags().StringP("location", "l", "", "Location to teleport to")
+	teleportCmd.MarkFlagsOneRequired("target", "location")
 }

@@ -56,6 +56,24 @@ func (b *Blueprint) Cache() error {
 		}
 	}
 
+	for _, f := range b.Features {
+		if err := db.Update(cache.BlueprintFeaturesTable, map[string]any{
+			"blueprint_type": b.DeviceType,
+			"feature":        f,
+		}); err != nil {
+			return err
+		}
+	}
+
+	for _, d := range b.Directives {
+		if err := db.Update(cache.BlueprintDirsTable, map[string]any{
+			"blueprint_type": b.DeviceType,
+			"directive":      d,
+		}); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -139,6 +157,7 @@ func (bs *Blueprints) Get() error {
 	`); err != nil {
 		return err
 	} else {
+		defer rows.Close()
 		for rows.Next() {
 			bp := &Blueprint{
 				PrintTime:  new(JSONTimeDelta),
@@ -155,6 +174,9 @@ func (bs *Blueprints) Get() error {
 			}
 			bpm[bp.DeviceType] = bp
 		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
 	}
 	if rows, err := db.DB.Query(`SELECT blueprint_type, type, qty FROM blueprint_resources`); err != nil {
 		return err
@@ -164,6 +186,9 @@ func (bs *Blueprints) Get() error {
 			var q int
 			rows.Scan(&bt, &t, &q)
 			bpm[bt].Resources[t] = q
+		}
+		if err := rows.Err(); err != nil {
+			return err
 		}
 	}
 	if rows, err := db.DB.Query(`SELECT blueprint_type, type, qty FROM blueprint_components`); err != nil {
@@ -175,6 +200,9 @@ func (bs *Blueprints) Get() error {
 			rows.Scan(&bt, &t, &q)
 			bpm[bt].Components[t] = q
 		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
 	}
 	if rows, err := db.DB.Query(`SELECT blueprint_type, feature FROM blueprint_features`); err != nil {
 		return err
@@ -184,6 +212,9 @@ func (bs *Blueprints) Get() error {
 			rows.Scan(&bt, &f)
 			bpm[bt].Features = append(bpm[bt].Features, f)
 		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
 	}
 	if rows, err := db.DB.Query(`SELECT blueprint_type, directive FROM blueprint_directives`); err != nil {
 		return err
@@ -192,6 +223,9 @@ func (bs *Blueprints) Get() error {
 			var bt, d string
 			rows.Scan(&bt, &d)
 			bpm[bt].Directives = append(bpm[bt].Directives, d)
+		}
+		if err := rows.Err(); err != nil {
+			return err
 		}
 	}
 	for _, bp := range bpm {
