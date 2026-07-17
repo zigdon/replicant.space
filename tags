@@ -68,7 +68,7 @@
 !_TAG_PARSER_VERSION!Sh	0.0	/current.age/
 !_TAG_PARSER_VERSION!Yaml	0.0	/current.age/
 !_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
-!_TAG_PROC_CWD	/home/zigdon/Projects/replicant.space/	//
+!_TAG_PROC_CWD	/home/zigdon/Projects/Replicant/	//
 !_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
@@ -1079,6 +1079,7 @@ dest	rsp/auto/relay.go	/^	dest   string$/;"	m	struct:auto.RelayMachine	typeref:t
 dest	rsp/cache/schema.sql	/^  dest TEXT NOT NULL,$/;"	E	table:cached_journey_steps
 dev	rsp/auto/prospect.go	/^	dev    *models.Device$/;"	m	struct:auto.ProspectMachine	typeref:typename:*models.Device
 dev	rsp/auto/relay.go	/^	dev    *models.Device$/;"	m	struct:auto.RelayMachine	typeref:typename:*models.Device
+devList	rsp/cmd/output.go	/^func devList(cs []*models.Device) []string {$/;"	f	package:cmd	typeref:typename:[]string
 device	rsp/cache/schema.sql	/^  device TEXT,$/;"	E	table:notifications
 deviceCmd	rsp/auto/prospect.go	/^func (pm *ProspectMachine) deviceCmd(id *models.CodeAlias, cmd string, args map[string]any) (*mo/;"	f	struct:auto.ProspectMachine	typeref:typename:(*models.CommandResp, error)
 deviceCmd	rsp/cmd/root-device.go	/^var deviceCmd = &cobra.Command{$/;"	v	package:cmd

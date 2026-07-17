@@ -47,7 +47,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			break
 		}
 		if ship == nil {
-			return fmt.Errorf("Can't find an available ship")
+			return fmt.Errorf("%s: Can't find an available ship", loc)
 		}
 
 		// Load cargo
@@ -129,6 +129,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			missing[k] -= v
 		}
 		if len(missing) > 0 {
+			log("%s @ %s : need %v", sh.Code.Alias(), sh.Location, missing)
 			errs = append(errs, deliver(string(sh.Location), missing))
 		} else {
 			log("%s @ %s up-to-date", sh.Code.Alias(), sh.Location)
