@@ -63,12 +63,23 @@ func FindPrinter(printers []*models.CodeAlias, extra map[string]time.Duration) (
 
 	// Calculate the queue length for each printer
 	queue := make(map[*models.CodeAlias]time.Duration)
+	full := make(map[string]bool)
 	for _, p := range printers {
+		if len(info[p].PrintQueue) >= info[p].QueueSize {
+			log("%s has a full queue", p.Alias())
+			full[p.Alias()] = true
+			continue
+		}
 		eta, err := GetPrintQueueETA(info[p])
 		if err != nil {
 			return nil, fmt.Errorf("error getting print queue for %q: %v", p, err)
 		}
 		queue[p] = eta + extra[p.String()]
+	}
+	for k := range queue {
+		if full[k.Alias()] {
+			delete(queue, k)
+		}
 	}
 	if len(queue) == 0 {
 		return nil, fmt.Errorf("No available printer found")

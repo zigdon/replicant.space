@@ -84,6 +84,7 @@ type RejectedContribution struct {
 }
 
 type Contribute struct {
+	Error    string                  `json:"error"`
 	Location string                  `json:"location"`
 	Accepted []*AcceptedContribution `json:"accepted"`
 	Rejected []*RejectedContribution `json:"rejected"`

@@ -50,9 +50,13 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		ev = e
 	}
 	if ev == nil {
-		var eventsDesc *strings.Builder
-		printTablef(eventsDesc, []string{"ID", "Title", "Location"}, data)
-		return fmt.Errorf("Can't find event ID %q. Pick from:\n%s", eID, eventsDesc.String())
+		if len(evs.Events) == 1 {
+			ev = evs.Events[0]
+		} else {
+			eventsDesc := new(strings.Builder)
+			printTablef(eventsDesc, []string{"ID", "Title", "Location"}, data)
+			return fmt.Errorf("Can't find event ID %q. Pick from:\n%s", eID, eventsDesc.String())
+		}
 	}
 
 	moveReplicant := func() error {

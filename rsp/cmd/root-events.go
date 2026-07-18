@@ -100,12 +100,14 @@ var megaContributeCmd = &cobra.Command{
 			prettyPrint(res)
 			return nil
 		}
-		printTable([]string{"Location", "Status", "Leaderboard", "Contributions",
-			"Value", "Progress", "Stage"}, [][]string{{
-			res.Location, res.Status, d(res.LeaderboardPosition),
-			d(res.YourTotalContributions), d(res.YourTotalValue),
-			p(res.Progress.Percentage), res.Progress.Stage,
-		}})
+		if res.Error == "" {
+			printTable([]string{"Location", "Status", "Leaderboard", "Contributions",
+				"Value", "Progress", "Stage"}, [][]string{{
+				res.Location, res.Status, d(res.LeaderboardPosition),
+				d(res.YourTotalContributions), d(res.YourTotalValue),
+				p(res.Progress.Percentage), res.Progress.Stage,
+			}})
+		}
 		accepted := make(map[string][]string)
 		values := make(map[string]int)
 		types := make(map[string]bool)
