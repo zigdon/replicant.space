@@ -24,7 +24,7 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	// Connect to the database
 	var err error
-	db, err = cache.Connect(false)
+	db, err = cache.Connect()
 	if err != nil {
 		log("Failed to connect to db: %v", err)
 	} else {

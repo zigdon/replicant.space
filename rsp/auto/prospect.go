@@ -105,7 +105,7 @@ func (pm *ProspectMachine) platform(cmd string, arg string) (*models.CommandResp
 
 func (pm *ProspectMachine) nextDest() (string, error) {
 	if pm.db == nil {
-		db, err := cache.Connect(false)
+		db, err := cache.Connect()
 		if err != nil {
 			return "", err
 		}

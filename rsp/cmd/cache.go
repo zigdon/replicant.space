@@ -17,7 +17,7 @@ var cacheInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Create the db or update the schema",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		db, err := cache.Connect(true)
+		db, err := cache.Connect()
 		if err != nil {
 			return err
 		}
@@ -30,7 +30,7 @@ var statsCmd = &cobra.Command{
 	Use:   "stats",
 	Short: "Show cache stats",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		db, err := cache.Connect(false)
+		db, err := cache.Connect()
 		if err != nil {
 			return err
 		}
@@ -43,7 +43,7 @@ var updateSchemaCmd = &cobra.Command{
 	Use:   "update-schema",
 	Short: "Update the database schema",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		db, err := cache.Connect(false)
+		db, err := cache.Connect()
 		if err != nil {
 			return err
 		}

@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS blueprints (
   cargo_capacity SMALLINT NOT NULL,
   stow_capacity SMALLINT NOT NULL,
   short TEXT,
-  description TEXT
+  description TEXT,
+  alias TEXT
 );
 
 CREATE TABLE IF NOT EXISTS blueprint_resources(
@@ -95,8 +96,8 @@ CREATE TABLE IF NOT EXISTS blueprint_features(
 
 CREATE TABLE IF NOT EXISTS notifications(
   id INTEGER PRIMARY KEY,
-  start TIMESTAMP NULL,
-  end TIMESTAMP NOT NULL,
+  start_ts TIMESTAMP NULL,
+  end_ts TIMESTAMP NOT NULL,
   device TEXT NULL,
   text TEXT NOT NULL,
   read BOOLEAN
@@ -113,11 +114,11 @@ CREATE TABLE IF NOT EXISTS messages(
 
 CREATE TABLE IF NOT EXISTS cached_journey(
   id INTEGER PRIMARY KEY,
-  start TEXT NOT NULL,
-  end TEXT NOT NULL,
+  start_ts TEXT NOT NULL,
+  end_ts TEXT NOT NULL,
   max_hop SMALLINT NOT NULL,
   calculated TIMESTAMP NOT NULL,
-  UNIQUE (start, end, max_hop)
+  UNIQUE (start_ts, end_ts, max_hop)
 );
 
 CREATE TABLE IF NOT EXISTS cached_journey_steps(

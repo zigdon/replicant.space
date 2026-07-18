@@ -70,7 +70,8 @@ CREATE TABLE IF NOT EXISTS blueprints (
   cargo_capacity INTEGER,
   stow_capacity INTEGER,
   short TEXT,
-  description TEXT
+  description TEXT,
+  alias TEXT
 );
 
 CREATE TABLE IF NOT EXISTS blueprint_resources(
@@ -105,8 +106,8 @@ CREATE TABLE IF NOT EXISTS blueprint_features(
 
 CREATE TABLE IF NOT EXISTS notifications(
   id INTEGER PRIMARY KEY,
-  start INTEGER,
-  end INTEGER,
+  start_ts INTEGER,
+  end_ts INTEGER,
   device TEXT,
   text TEXT,
   read INTEGER
@@ -123,8 +124,8 @@ CREATE TABLE IF NOT EXISTS messages(
 
 CREATE TABLE IF NOT EXISTS cached_journey(
   id INTEGER PRIMARY KEY,
-  start TEXT NOT NULL,
-  end TEXT NOT NULL,
+  start_ts TEXT NOT NULL,
+  end_ts TEXT NOT NULL,
   max_hop REAL,
   calculated INTEGER,
   UNIQUE (start, end, max_hop) ON CONFLICT REPLACE

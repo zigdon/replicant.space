@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/lib/pq" // To register the driver.
+	"github.com/zigdon/rsp/cfg"
 )
 
 const (
@@ -87,7 +87,7 @@ var cols = map[Tables][]string{
 	MsgTable: {
 		"id", "body", "created", "read", "type", "title"},
 	JourneyTable: {
-		"id", "start", "end", "max_hop", "calculated"},
+		"id", "start_ts", "end_ts", "max_hop", "calculated"},
 	JourneyStepsTable: {
 		"journey_id", "src", "dest", "dist_src", "dist_dest"},
 }
@@ -96,38 +96,15 @@ type Cache struct {
 	DB *sql.DB
 }
 
-func createDB() (*Cache, error) {
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		return nil, err
-	}
-
-	// Create the file if it isn't there.
-	sdb, err := sql.Open("sqlite", dbPath)
+func Connect() (*Cache, error) {
+	cfg, err := cfg.ReadCfg()
 	if err != nil {
 		return nil, err
 	}
+	pdb, err := sql.Open("postgres",
+		fmt.Sprintf("host=%s dbname=%s connect_timeout=5 sslmode=prefer", cfg.DBHost, cfg.DBName))
 
-	// Create our tables
-	_, err = sdb.Exec(schema)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Cache{sdb}, nil
-}
-
-func Connect(create bool) (*Cache, error) {
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		if !create {
-			return nil, err
-		}
-		return createDB()
-	}
-	sdb, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		return nil, err
-	}
-	db := &Cache{sdb}
+	db := &Cache{pdb}
 
 	// Preload aliases
 	rows, err := db.DB.Query(`SELECT type, prefix FROM alias_types`)
@@ -143,7 +120,7 @@ func Connect(create bool) (*Cache, error) {
 		}
 		prefixes[k] = v
 	}
-	return db, nil
+	return db, rows.Err()
 }
 
 func (db *Cache) UpdateSchema() error {
@@ -254,7 +231,7 @@ func (db *Cache) ListIDs(table Tables) ([]any, error) {
 func (db *Cache) PendingNotifications(read bool) (*sql.Rows, error) {
 	now := time.Now()
 	return db.DB.Query(fmt.Sprintf(
-		"SELECT id, start, end, device, text FROM %s WHERE read == ? AND end < ?",
+		"SELECT id, start_ts, end_ts, device, text FROM %s WHERE read == $1 AND end_ts < $2",
 		NotificationTable), read, now.Unix())
 }
 
@@ -368,5 +345,5 @@ func (db *Cache) GetSector(x, y, z float32, cone, margin int) ([]string, error) 
 		res = append(res, dsg)
 	}
 
-	return res, nil
+	return res, rows.Err()
 }

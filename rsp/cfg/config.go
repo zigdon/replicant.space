@@ -14,6 +14,8 @@ const (
 type Config struct {
 	APIKey   string `yaml:"api_key"`
 	Username string `yaml:"username,omitempty"`
+	DBHost   string `yaml:"db_host"`
+	DBName   string `yaml:"db_name"`
 }
 
 func ReadCfg() (*Config, error) {

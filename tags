@@ -199,7 +199,7 @@ CompletionAchievement	rsp/models/events.go	/^	CompletionAchievement string      
 Components	rsp/models/blueprints.go	/^	Components       map[string]int `json:"components"`$/;"	m	struct:models.Blueprint	typeref:typename:map[string]int
 Config	rsp/cfg/config.go	/^type Config struct {$/;"	s	package:cfg
 Config	rsp/models/device.go	/^	Config map[string]any `json:"config"`$/;"	m	struct:models.DeviceDirective	typeref:typename:map[string]any
-Connect	rsp/cache/db.go	/^func Connect(create bool) (*Cache, error) {$/;"	f	package:cache	typeref:typename:(*Cache, error)
+Connect	rsp/cache/db.go	/^func Connect() (*Cache, error) {$/;"	f	package:cache	typeref:typename:(*Cache, error)
 ConnectDB	rsp/models/helpers.go	/^func ConnectDB(cdb *cache.Cache) {$/;"	f	package:models
 ConnectDB	rsp/rest/wrappers.go	/^func ConnectDB(cdb *cache.Cache) {$/;"	f	package:rest
 Connections	rsp/models/device.go	/^	Connections []*NetworkNode `json:"connections"`$/;"	m	struct:models.Network	typeref:typename:[]*NetworkNode
@@ -231,6 +231,8 @@ CurrentStarName	rsp/models/replicant.go	/^	CurrentStarName     string        `js
 CurrentStock	rsp/models/trades.go	/^	CurrentStock int    `json:"current_stock"`$/;"	m	struct:models.Trade	typeref:typename:int
 CurrentThrustPerHour	rsp/models/scan.go	/^	CurrentThrustPerHour float32    `json:"current_thrust_per_hour"`$/;"	m	struct:models.Object	typeref:typename:float32
 DB	rsp/cache/db.go	/^	DB *sql.DB$/;"	m	struct:cache.Cache	typeref:typename:*sql.DB
+DBHost	rsp/cfg/config.go	/^	DBHost   string `yaml:"db_host"`$/;"	m	struct:cfg.Config	typeref:typename:string
+DBName	rsp/cfg/config.go	/^	DBName   string `yaml:"db_name"`$/;"	m	struct:cfg.Config	typeref:typename:string
 Dealias	rsp/cache/alias.go	/^func (db *Cache) Dealias(alias string) string {$/;"	f	unknown:cache.Cache	typeref:typename:string
 DelTag	rsp/rest/wrappers.go	/^	DelTag  TagOp = "remove_tags"$/;"	c	package:rest	typeref:type:TagOp
 Delta	rsp/models/location.go	/^func (p *Position) Delta(pb *Position) *Position {$/;"	f	struct:models.Position	typeref:typename:*Position
@@ -944,6 +946,7 @@ accountCmd	rsp/cmd/root-me.go	/^var accountCmd = &cobra.Command{$/;"	v	package:c
 activateRelay	rsp/cmd/auto-relay.go	/^func activateRelay(loc string, d *models.Device) error {$/;"	f	package:cmd	typeref:typename:error
 addTagCmd	rsp/cmd/device-tags.go	/^var addTagCmd = &cobra.Command{$/;"	v	package:cmd
 adopt	rsp/cmd/root-auto.go	/^func adopt(cnt *models.CodeAlias, minions []*models.CodeAlias) error {$/;"	f	package:cmd	typeref:typename:error
+alias	rsp/cache/schema.sql	/^  alias TEXT$/;"	E	table:blueprints
 alias	rsp/cmd/helpers.go	/^func alias(in string) string {$/;"	f	package:cmd	typeref:typename:string
 alias	rsp/models/helpers.go	/^	alias string$/;"	m	struct:models.CodeAlias	typeref:typename:string
 aliasAddCmd	rsp/cmd/cache.go	/^var aliasAddCmd = &cobra.Command{$/;"	v	package:cmd
@@ -1053,7 +1056,6 @@ cmd	rsp/cmd/table.go	/^package cmd$/;"	p
 cmd	rsp/cmd/test.go	/^package cmd$/;"	p
 cols	rsp/cache/db.go	/^var cols = map[Tables][]string{$/;"	v	package:cache
 configCmd	rsp/cmd/root-config.go	/^var configCmd = &cobra.Command{$/;"	v	package:cmd
-createDB	rsp/cache/db.go	/^func createDB() (*Cache, error) {$/;"	f	package:cache	typeref:typename:(*Cache, error)
 created	rsp/cache/schema.sql	/^  created INTEGER,$/;"	E	table:messages
 d	rsp/cmd/output.go	/^func d(n int) string {$/;"	f	package:cmd	typeref:typename:string
 db	rsp/auto/prospect.go	/^	db     *cache.Cache$/;"	m	struct:auto.ProspectMachine	typeref:typename:*cache.Cache
@@ -1068,7 +1070,7 @@ density	rsp/cache/schema.sql	/^  density TEXT,$/;"	E	table:belt_resources
 density	rsp/cache/schema.sql	/^  density TEXT,$/;"	E	table:belts
 desc	rsp/auto/state.go	/^	name, desc string$/;"	m	struct:auto.Event	typeref:typename:string
 desc	rsp/cmd/helpers.go	/^	desc      string$/;"	m	struct:cmd.flagDesc	typeref:typename:string
-description	rsp/cache/schema.sql	/^  description TEXT$/;"	E	table:blueprints
+description	rsp/cache/schema.sql	/^  description TEXT,$/;"	E	table:blueprints
 designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:aliases
 designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:belts
 designation	rsp/cache/schema.sql	/^  designation TEXT PRIMARY KEY,$/;"	E	table:moons
@@ -1096,8 +1098,8 @@ do	rsp/rest/api.go	/^func do(method, path string, data []byte, args ...any) ([]b
 dryRun	rsp/auto/prospect.go	/^	dryRun bool$/;"	m	struct:auto.ProspectMachine	typeref:typename:bool
 dryRun	rsp/auto/relay.go	/^	dryRun bool$/;"	m	struct:auto.RelayMachine	typeref:typename:bool
 dt	rsp/cmd/output.go	/^func dt(t time.Duration) string {$/;"	f	package:cmd	typeref:typename:string
-end	rsp/cache/schema.sql	/^  end INTEGER,$/;"	E	table:notifications
-end	rsp/cache/schema.sql	/^  end TEXT NOT NULL,$/;"	E	table:cached_journey
+end_ts	rsp/cache/schema.sql	/^  end_ts INTEGER,$/;"	E	table:notifications
+end_ts	rsp/cache/schema.sql	/^  end_ts TEXT NOT NULL,$/;"	E	table:cached_journey
 entry_point	rsp/cache/schema.sql	/^  entry_point TEXT$/;"	E	table:stars
 entry_point	rsp/cache/schema.sql	/^  entry_point TEXT,$/;"	E	table:stars
 est_planets	rsp/cache/schema.sql	/^  est_planets INTEGER,$/;"	E	table:stars
@@ -1310,8 +1312,8 @@ star	rsp/cache/schema.sql	/^  star TEXT NOT NULL,$/;"	E	table:moons
 star	rsp/cache/schema.sql	/^  star TEXT NOT NULL,$/;"	E	table:planets
 stars	rsp/cache/schema.sql	/^CREATE TABLE IF NOT EXISTS stars ($/;"	t
 starsCmd	rsp/cmd/replicant-stars.go	/^var starsCmd = &cobra.Command{$/;"	v	package:cmd
-start	rsp/cache/schema.sql	/^  start INTEGER,$/;"	E	table:notifications
-start	rsp/cache/schema.sql	/^  start TEXT NOT NULL,$/;"	E	table:cached_journey
+start_ts	rsp/cache/schema.sql	/^  start_ts INTEGER,$/;"	E	table:notifications
+start_ts	rsp/cache/schema.sql	/^  start_ts TEXT NOT NULL,$/;"	E	table:cached_journey
 state	rsp/auto/prospect.go	/^	state  string$/;"	m	struct:auto.ProspectMachine	typeref:typename:string
 state	rsp/auto/relay.go	/^	state  string$/;"	m	struct:auto.RelayMachine	typeref:typename:string
 statsCmd	rsp/cmd/cache.go	/^var statsCmd = &cobra.Command{$/;"	v	package:cmd
