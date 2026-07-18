@@ -91,7 +91,11 @@ func d(n int) string {
 }
 
 func list(s []string) string {
-	return strings.Join(s, ", ")
+	res := strings.Join(s, ", ")
+	if len(res) > 50 {
+		res = res[:50] + "..."
+	}
+	return res
 }
 
 func lines(s []string) string {

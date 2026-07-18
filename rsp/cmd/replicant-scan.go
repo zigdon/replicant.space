@@ -138,9 +138,12 @@ func replicantScan(cmd *cobra.Command, args []string) error {
 		var odata [][]string
 		for _, so := range scan.SystemObjects {
 			data = append(data, []string{
-				string(so.Designation), so.Status, so.ObjectType, so.SizeClass, f(so.OrbitalDistanceAu),
-				so.ImpactTarget, t(so.ImpactEta.Time()), p(so.ImpactLikelihood), f(so.RequiredStrength),
-				d(so.ActivePlates), p(so.ProgressPct), f(so.CurrentThrustPerHour), so.Description,
+				string(so.Designation), string(so.Location), so.Status,
+				so.ObjectType, so.SizeClass, f(so.OrbitalDistanceAu),
+				so.ImpactTarget, t(so.ImpactEta.Time()),
+				p(so.ImpactLikelihood), f(so.RequiredStrength),
+				d(so.ActivePlates), p(so.ProgressPct),
+				f(so.CurrentThrustPerHour), so.Description,
 			})
 			for ot, ro := range so.Requirements {
 				odata = append(odata, []string{
@@ -150,9 +153,9 @@ func replicantScan(cmd *cobra.Command, args []string) error {
 			}
 		}
 		printTable([]string{
-			"Designation", "Status", "Type", "Class", "Distance AU", "Impact Target",
-			"ETA", "Likelyhood", "Required Strength", "Active Plates", "Progress",
-			"Thrust/hr", "Description"}, data)
+			"Designation", "Location", "Status", "Type", "Class", "Distance AU",
+			"Impact Target", "ETA", "Likelyhood", "Required Strength",
+			"Active Plates", "Progress", "Thrust/hr", "Description"}, data)
 		printTable([]string{
 			"Type", "Complete", "Current", "Remaining", "Required"}, odata)
 	}

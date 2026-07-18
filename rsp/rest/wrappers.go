@@ -686,3 +686,18 @@ func ProspectLogs(id *models.CodeAlias) (string, error) {
 	}
 	return fmt.Sprintf("%d new stars added: %v", len(added), added), nil
 }
+
+func Contribute(id string, devs []*models.CodeAlias) (*models.Contribute, error) {
+	ids := make([]string, len(devs))
+	for n, d := range devs {
+		ids[n] = d.String()
+	}
+	data, err := json.Marshal(map[string][]string{
+		"devices": ids,
+	})
+	if err != nil {
+		return nil, err
+	}
+	res, err := Post("locations/%s/contribute", data, id)
+	return models.Parse[models.Contribute](res)
+}

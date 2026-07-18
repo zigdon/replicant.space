@@ -83,6 +83,78 @@ var eventsCmd = &cobra.Command{
 	},
 }
 
+var megaContributeCmd = &cobra.Command{
+	Use:   "contribute",
+	Short: "Contribute to a megastructure",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		id, _ := cmd.Flags().GetString("id")
+		ds, _ := cmd.Flags().GetStringSlice("device")
+		raw, _ := cmd.Flags().GetBool("raw")
+		var devs []*models.CodeAlias
+		for _, d := range ds {
+			ids := explode(d)
+			for _, id := range ids {
+				devs = append(devs, models.NewCodeAlias(id))
+			}
+		}
+		if len(devs) == 0 {
+			return fmt.Errorf("No devices specified")
+		}
+		res, err := rest.Contribute(id, devs)
+		if err != nil {
+			return err
+		}
+		if raw {
+			prettyPrint(res)
+			return nil
+		}
+		printTable([]string{"Location", "Status", "Leaderboard", "Contributions",
+			"Value", "Progress", "Stage"}, [][]string{{
+			res.Location, res.Status, d(res.LeaderboardPosition),
+			d(res.YourTotalContributions), d(res.YourTotalValue),
+			p(res.Progress.Percentage), res.Progress.Stage,
+		}})
+		accepted := make(map[string][]string)
+		values := make(map[string]int)
+		types := make(map[string]bool)
+		for _, d := range res.Accepted {
+			id := d.DeviceCode
+			accepted[id.Type()] = append(accepted[id.Type()], id.Alias())
+			values[id.Type()] += d.Value
+			types[id.Type()] = true
+		}
+		var tList []string
+		for k := range types {
+			tList = append(tList, k)
+		}
+
+		slices.Sort(tList)
+		var data [][]string
+		for _, t := range tList {
+			data = append(data, []string{
+				t, d(values[t]), d(len(accepted[t])), list(accepted[t]),
+			})
+		}
+
+		if len(data) > 0 {
+			printTable([]string{"Type", "Value", "Count", "Accepted"}, data)
+		}
+
+		rejected := make(map[string][]string)
+		for _, d := range res.Rejected {
+			rejected[d.Reason] = append(rejected[d.Reason], d.DeviceCode.Alias())
+		}
+		data = [][]string{}
+		for k, v := range rejected {
+			data = append(data, []string{k, list(v)})
+		}
+		if len(data) > 0 {
+			printTable([]string{"Reason", "Rejected"}, data)
+		}
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(eventsCmd)
 	eventsCmd.Flags().IntP("width", "w", 50, "Wrap message body to this width")
@@ -92,6 +164,12 @@ func init() {
 	eventsCmd.AddCommand(eventCompleteCmd)
 	eventCompleteCmd.Flags().String("id", "", "Show only this event")
 	eventCompleteCmd.MarkFlagRequired("id")
+
+	rootCmd.AddCommand(megaContributeCmd)
+	megaContributeCmd.Flags().String("id", "", "Megastructure ID")
+	megaContributeCmd.Flags().StringSliceP("device", "d", []string{}, "Devices to contribute")
+	megaContributeCmd.MarkFlagRequired("id")
+	megaContributeCmd.MarkFlagRequired("device")
 }
 
 func printEvent(e *models.Event, style lg.Style) {

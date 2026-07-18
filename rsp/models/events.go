@@ -72,6 +72,31 @@ type Events struct {
 	NextCursor int      `json:"next_cursor"`
 }
 
+type AcceptedContribution struct {
+	DeviceCode *CodeAlias `json:"device_code"`
+	DeviceType string     `json:"device_type"`
+	Value      int        `json:"value"`
+}
+
+type RejectedContribution struct {
+	DeviceCode *CodeAlias `json:"device_code"`
+	Reason     string     `json:"reason"`
+}
+
+type Contribute struct {
+	Location string                  `json:"location"`
+	Accepted []*AcceptedContribution `json:"accepted"`
+	Rejected []*RejectedContribution `json:"rejected"`
+	Progress struct {
+		Percentage float32 `json:"percentage"`
+		Stage      string  `json:"stage"`
+	} `json:"progress"`
+	Status                 string `json:"status"`
+	LeaderboardPosition    int    `json:"leaderboard_position"`
+	YourTotalContributions int    `json:"your_total_contributions"`
+	YourTotalValue         int    `json:"your_total_value"`
+}
+
 // Client notifications
 type Notification struct {
 	ID     int
