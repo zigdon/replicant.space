@@ -87,16 +87,17 @@ var starsCmd = &cobra.Command{
 					data = append(data, f(dist[s.Designation]))
 				}
 				if err := db.Update(cache.StarsTable, map[string]any{
-					"designation": s.Designation,
-					"entry_point": s.EntryPoint,
-					"est_planets": s.EstimatedPlanets,
-					"explored":    s.Explored,
-					"has_life":    s.HasLife,
-					"name":        s.Name,
-					"position_x":  s.Position.X,
-					"position_y":  s.Position.Y,
-					"position_z":  s.Position.Z,
-					"has_hub":     false,
+					"designation":   s.Designation,
+					"entry_point":   s.EntryPoint,
+					"est_planets":   s.EstimatedPlanets,
+					"explored":      s.Explored,
+					"has_hub":       false,
+					"has_life":      s.HasLife,
+					"name":          s.Name,
+					"position_x":    s.Position.X,
+					"position_y":    s.Position.Y,
+					"position_z":    s.Position.Z,
+					"spectral_type": s.SpectralType,
 				}); err != nil {
 					log("Error updating cache for %q: %v", s.Designation, err)
 				}

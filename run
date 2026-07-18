@@ -7,7 +7,9 @@ if [[ -n "$changed" ]]; then
   cd $dir/rsp
   go build
   cd ..
+  echo Regenerating tags...
   ctags -R .
+  echo Launching...
 fi
 
 ./rsp/rsp "$@"

@@ -133,14 +133,14 @@ func (s *Star) Cache() error {
 		"designation":   s.Designation,
 		"entry_point":   s.EntryPoint,
 		"est_planets":   s.EstimatedPlanets,
-		"spectral_type": s.SpectralType,
 		"explored":      s.Explored,
-		"has_life":      s.HasLife,
 		"has_hub":       s.HasHub,
+		"has_life":      s.HasLife,
 		"name":          s.Name,
 		"position_x":    s.Position.X,
 		"position_y":    s.Position.Y,
 		"position_z":    s.Position.Z,
+		"spectral_type": s.SpectralType,
 	})
 }
 
