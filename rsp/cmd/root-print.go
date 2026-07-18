@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -63,9 +64,9 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 		tags       []string
 		pos        int
 		eta        time.Time
-		missing    map[string]int   
+		missing    map[string]int
 	}
-	times := make(map[*models.CodeAlias]time.Duration)
+	times := make(map[string]time.Duration)
 	var queue []pq
 	for _, info := range printers {
 		if loc != "" && string(info.Location) != loc {
@@ -82,8 +83,8 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 				location:   info.Location,
 				code:       info.Code,
 				deviceType: "Waiting for resources",
-				pos: -1,
-				missing: missing,
+				pos:        -1,
+				missing:    missing,
 			})
 		} else if info.Printing != nil {
 			queue = append(queue, pq{
@@ -94,19 +95,20 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 				pos:        -1,
 				eta:        info.Printing.Completes.Time(),
 			})
-			times[info.Code] += info.Printing.Eta.Duration()
+			times[info.Code.Alias()] += info.Printing.Eta.Duration()
 		}
 		for i, q := range info.PrintQueue {
 			if info.Status == "waiting_for_resources" && i == 0 {
 				continue
 			}
 			bp := getBP(q.Type)
+			times[info.Code.Alias()] += bp.PrintTime.Duration()
 			queue = append(queue, pq{
 				code:       info.Code,
 				deviceType: q.Type,
 				tags:       q.Tags,
 				pos:        i,
-				eta:        time.Now().Add(bp.PrintTime.Duration()).Add(times[info.Code]),
+				eta:        time.Now().Add(bp.PrintTime.Duration()).Add(times[info.Code.Alias()]),
 			})
 		}
 	}
@@ -127,6 +129,17 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 		})
 	}
 	printTable([]string{"Location", "Type", "Tags", "Factory", "Position", "ETA", "Missing"}, data)
+
+	slices.SortFunc(printers, func(a, b *models.Device) int {
+		return cmp.Compare(times[a.Code.Alias()], times[b.Code.Alias()])
+	})
+	data = [][]string{}
+	for _, p := range printers {
+		data = append(data, []string{
+			p.Code.Alias(), string(p.Location), dt(times[p.Code.Alias()]),
+		})
+	}
+	printTable([]string{"Autofactory", "Location", "ETA"}, data)
 
 	return nil
 }
@@ -170,6 +183,18 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		}
 		added[p.Alias()]++
 		queue[p.String()] += bp.PrintTime.Duration()
+		prog := new(strings.Builder)
+		slices.SortFunc(printers, func(a, b *models.CodeAlias) int {
+			return cmp.Compare(a.Num(), b.Num())
+		})
+		for _, p := range printers {
+			a := p.Alias()
+			if added[a] == 0 {
+				continue
+			}
+			fmt.Fprintf(prog, "%s:%d ", a, added[a])
+		}
+		log(prog.String())
 	}
 	slices.SortFunc(printers, func(a, b *models.CodeAlias) int {
 		return cmp.Compare(a.Num(), b.Num())
