@@ -93,7 +93,20 @@ var cols = map[Tables][]string{
 }
 
 var constraints = map[Tables]string{
-	MsgTable: "id",
+	BeltResTable:           "belt, resource",
+	BeltsTable:             "designation",
+	BlueprintCmpTable:      "blueprint_type, type",
+	BlueprintDirsTable:     "blueprint_type, directive",
+	BlueprintFeaturesTable: "blueprint_type, feature",
+	BlueprintResTable:      "blueprint_type, type",
+	BlueprintsTable:        "type",
+	JourneyStepsTable:      "journey_id, step",
+	JourneyTable:           "id",
+	MoonsTable:             "designation",
+	MsgTable:               "id",
+	NotificationTable:      "id",
+	PlanetsTable:           "designation",
+	StarsTable:             "designation",
 }
 
 type Cache struct {

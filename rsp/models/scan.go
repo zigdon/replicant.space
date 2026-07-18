@@ -27,20 +27,35 @@ type ScanReplicant struct {
 	Code string `json:"replicant_code"`
 }
 
+type RequirdObj struct {
+	Complete  bool `json:"complete"`
+	Current   int  `json:"current"`
+	Remaining int  `json:"remaining"`
+	Required  int  `json:"required"`
+}
+
 type Object struct {
-	ActivePlates         int        `json:"active_plates"`
-	CurrentThrustPerHour float32    `json:"current_thrust_per_hour"`
-	Designation          LocationID `json:"designation"`
-	Discovered           *JSONTime  `json:"discovered_at"`
-	ImpactEta            *JSONTime  `json:"impact_eta"`
-	ImpactLikelihood     float32    `json:"impact_likelihood"`
-	ImpactTarget         string     `json:"impact_target"`
-	ObjectType           string     `json:"object_type"`
-	OrbitalDistanceAu    float32    `json:"orbital_distance_au"`
-	ProgressPct          float32    `json:"progress_pct"`
-	RequiredStrength     float32    `json:"required_strength"`
-	SizeClass            string     `json:"size_class"`
-	Status               string     `json:"status"`
+	ActivePlates         int                    `json:"active_plates"`
+	Contributors         int                    `json:"contributors"`
+	CurrentThrustPerHour float32                `json:"current_thrust_per_hour"`
+	Deadline             *JSONTime              `json:"deadline"`
+	Description          string                 `json:"description"`
+	Designation          LocationID             `json:"designation"`
+	Discovered           *JSONTime              `json:"discovered_at"`
+	ImpactEta            *JSONTime              `json:"impact_eta"`
+	ImpactLikelihood     float32                `json:"impact_likelihood"`
+	ImpactTarget         string                 `json:"impact_target"`
+	Location             LocationID             `json:"location"`
+	MegastructureType    string                 `json:"megastructure_type"`
+	ObjectType           string                 `json:"object_type"`
+	OrbitalDistanceAu    float32                `json:"orbital_distance_au"`
+	ProgressPct          float32                `json:"progress_percentage"`
+	RequiredStrength     float32                `json:"required_strength"`
+	Requirements         map[string]*RequirdObj `json:"requirements"`
+	SizeClass            string                 `json:"size_class"`
+	Stage                string                 `json:"stage"`
+	StarDesignation      LocationID             `json:"star_designation"`
+	Status               string                 `json:"status"`
 }
 
 type LocationEvent struct {

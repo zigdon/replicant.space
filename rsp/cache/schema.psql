@@ -19,9 +19,9 @@ CREATE TABLE IF NOT EXISTS planets (
   name TEXT NULL,
   life_stage TEXT NULL,
   moons SMALLINT NOT NULL,
-  rings SMALLINT NOT NULL,
+  rings BOOLEAN,
   scanned BOOLEAN,
-  type TEXT NOT NULL,
+  type TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS moons (
@@ -30,20 +30,20 @@ CREATE TABLE IF NOT EXISTS moons (
   star TEXT NOT NULL REFERENCES stars(designation),
   name TEXT NULL,
   scanned BOOLEAN,
-  type TEXT NOT NULL,
+  type TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS belts (
   designation TEXT PRIMARY KEY,
   star TEXT NOT NULL REFERENCES stars(designation),
-  density TEXT NOT NULL,
+  density TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS belt_resources (
   belt TEXT NOT NULL REFERENCES belts(designation),
   resource TEXT NOT NULL,
   density TEXT NOT NULL,
-  PRIMARY KEY (belt, resource),
+  PRIMARY KEY (belt, resource)
 );
 
 CREATE TABLE IF NOT EXISTS aliases (
@@ -95,9 +95,9 @@ CREATE TABLE IF NOT EXISTS blueprint_features(
 );
 
 CREATE TABLE IF NOT EXISTS notifications(
-  id INTEGER PRIMARY KEY,
-  start_ts TIMESTAMP NULL,
-  end_ts TIMESTAMP NOT NULL,
+  id SERIAL PRIMARY KEY,
+  start_ts TIMESTAMPTZ NULL,
+  end_ts TIMESTAMPTZ NOT NULL,
   device TEXT NULL,
   text TEXT NOT NULL,
   read BOOLEAN
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS notifications(
 CREATE TABLE IF NOT EXISTS messages(
   id INTEGER PRIMARY KEY,
   body TEXT NOT NULL,
-  created TIMESTAMP NOT NULL,
+  created TIMESTAMPTZ NOT NULL,
   read BOOLEAN,
   type TEXT NOT NULL,
   title TEXT NOT NULL
@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS cached_journey(
   start_ts TEXT NOT NULL,
   end_ts TEXT NOT NULL,
   max_hop SMALLINT NOT NULL,
-  calculated TIMESTAMP NOT NULL,
+  calculated TIMESTAMPTZ NOT NULL,
   UNIQUE (start_ts, end_ts, max_hop)
 );
 

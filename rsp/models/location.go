@@ -268,6 +268,7 @@ func (p *Planet) Cache() error {
 		"moons":       p.MoonCount,
 		"rings":       p.Rings,
 		"scanned":     p.Scanned,
+		"type":        p.Type,
 	})
 }
 
