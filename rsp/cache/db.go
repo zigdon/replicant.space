@@ -20,7 +20,7 @@ const (
 	logFile = "/tmp/rsp-query.log"
 )
 
-//go:embed schema.sql
+//go:embed schema.psql
 var schema string
 
 func log(tmpl string, args ...any) {
@@ -329,7 +329,7 @@ func (db *Cache) FindNearestHub(x, y, z float32) (string, float32, error) {
 				power(position_y-$2,2) +
 				power(position_z-$3,2)) AS dist
 		FROM stars
-		WHERE has_my_hub = 1
+		WHERE has_my_hub
 		ORDER BY dist ASC LIMIT 1`,
 		x, y, z,
 	)

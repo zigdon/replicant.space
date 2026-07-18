@@ -91,6 +91,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			if dryRun {
 				log("Would deposit contents of %s at %s", info.Code.Alias(), info.Location)
 			} else if _, err := rest.DeviceCommand[models.CommandResp](info.Code, "deposit_resources", nil); err != nil {
+				log("Deposited cargo from %s at %s", info.Code.Alias(), info.Location)
 				errs = append(errs, err)
 				continue
 			}
@@ -99,6 +100,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			log("Would ship %s to %s", info.Code.Alias(), home)
 		} else {
 			errs = append(errs, travel(info.Code, home))
+			log("Shiping %s to %s", info.Code.Alias(), home)
 		}
 	}
 

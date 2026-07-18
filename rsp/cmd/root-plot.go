@@ -37,10 +37,10 @@ var neighboursCmd = &cobra.Command{
 	RunE:  neighbourStars,
 }
 
-var vectorStarsCmd = &cobra.Command{
+var sectorStarsCmd = &cobra.Command{
 	Use:   "sector",
 	Short: "List the stars in a specific vector of the galaxy",
-	RunE:  vectorStars,
+	RunE:  sectorStars,
 }
 
 func init() {
@@ -55,10 +55,10 @@ func init() {
 	plotCmd.AddCommand(neighboursCmd)
 	neighboursCmd.Flags().Float32P("radius", "r", 7.5, "Radius for search")
 
-	plotCmd.AddCommand(vectorStarsCmd)
-	vectorStarsCmd.Flags().StringP("source", "s", "SOL", "Vector source, STAR or x,y,z")
-	vectorStarsCmd.Flags().IntP("cone", "c", 1, "Radius of the cone, as a percentage of each vector element")
-	vectorStarsCmd.Flags().IntP("margin", "m", 5, "Depth of the sector, as a percentage of the distance from origin")
+	plotCmd.AddCommand(sectorStarsCmd)
+	sectorStarsCmd.Flags().StringP("source", "s", "SOL", "Vector source, STAR or x,y,z")
+	sectorStarsCmd.Flags().IntP("cone", "c", 1, "Radius of the cone, as a percentage of each vector element")
+	sectorStarsCmd.Flags().IntP("margin", "m", 5, "Depth of the sector, as a percentage of the distance from origin")
 }
 
 func getPosFromString(dst string) (*models.Position, error) {
@@ -73,7 +73,7 @@ func getPosFromString(dst string) (*models.Position, error) {
 	}
 }
 
-func vectorStars(cmd *cobra.Command, args []string) error {
+func sectorStars(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("Missing required args: plot vector <star or location>")
 	}
@@ -179,7 +179,7 @@ func nearestHub(cmd *cobra.Command, args []string) error {
 		}
 		star := h.Location.Star()
 		locs[star] = h.Code.Alias()
-		if _, err := db.DB.Exec(`UPDATE stars SET has_my_hub=1 WHERE designation = $1`, star); err != nil {
+		if _, err := db.DB.Exec(`UPDATE stars SET has_my_hub=true WHERE designation = $1`, star); err != nil {
 			return fmt.Errorf("Can't update %s with hub: %v", star, err)
 		}
 	}

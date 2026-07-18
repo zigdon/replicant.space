@@ -92,7 +92,7 @@ func PendingNotifications(read bool) ([]*Notification, error) {
 	var ids []int
 	for rows.Next() {
 		var id int
-		var s, e int64
+		var s, e time.Time
 		var d, t string
 		if err := rows.Scan(&id, &s, &e, &d, &t); err != nil {
 			return nil, err
@@ -100,8 +100,8 @@ func PendingNotifications(read bool) ([]*Notification, error) {
 		ids = append(ids, id)
 		n := &Notification{
 			ID:     id,
-			Start:  time.Unix(s, 0).Local(),
-			End:    time.Unix(e, 0).Local(),
+			Start:  s,
+			End:    e,
 			Device: d,
 			Text:   t,
 		}
