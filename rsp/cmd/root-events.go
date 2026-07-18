@@ -61,15 +61,7 @@ var eventsCmd = &cobra.Command{
 			return nil
 		}
 		if noDetails {
-			var events [][]string
-			for _, e := range data.Events {
-				events = append(events, []string{
-					e.Title, e.Designation, string(e.Location), e.Category, e.Status, d(e.Tier),
-				})
-			}
-			printTable([]string{
-				"Title", "Designation", "Location", "Category", "Status", "Tier",
-			}, events)
+			printEventSummary(data.Events)
 			return nil
 		}
 
@@ -170,6 +162,18 @@ func init() {
 	megaContributeCmd.Flags().StringSliceP("device", "d", []string{}, "Devices to contribute")
 	megaContributeCmd.MarkFlagRequired("id")
 	megaContributeCmd.MarkFlagRequired("device")
+}
+
+func printEventSummary(es []*models.Event) {
+	var events [][]string
+	for _, e := range es {
+		events = append(events, []string{
+			e.Title, e.Designation, string(e.Location), e.Category, e.Status, d(e.Tier),
+		})
+	}
+	printTable([]string{
+		"Title", "Designation", "Location", "Category", "Status", "Tier",
+	}, events)
 }
 
 func printEvent(e *models.Event, style lg.Style) {

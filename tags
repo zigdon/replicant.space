@@ -1142,7 +1142,6 @@ lg	rsp/cmd/device-logs.go	/^	lg "charm.land\/lipgloss\/v2"$/;"	P	package:charm.l
 lg	rsp/cmd/output.go	/^	lg "charm.land\/lipgloss\/v2"$/;"	P	package:charm.land/lipgloss/v2
 lg	rsp/cmd/replicant-events.go	/^	lg "charm.land\/lipgloss\/v2"$/;"	P	package:charm.land/lipgloss/v2
 lg	rsp/cmd/root-events.go	/^	lg "charm.land\/lipgloss\/v2"$/;"	P	package:charm.land/lipgloss/v2
-lg	rsp/cmd/root-location.go	/^	lg "charm.land\/lipgloss\/v2"$/;"	P	package:charm.land/lipgloss/v2
 lines	rsp/cmd/output.go	/^func lines(s []string) string {$/;"	f	package:cmd	typeref:typename:string
 list	rsp/cmd/output.go	/^func list(s []string) string {$/;"	f	package:cmd	typeref:typename:string
 listTagsCmd	rsp/cmd/device-tags.go	/^var listTagsCmd = &cobra.Command{$/;"	v	package:cmd
@@ -1203,6 +1202,7 @@ prettyPrintf	rsp/cmd/output.go	/^func prettyPrintf(f io.Writer, i any) {$/;"	f	p
 printCmd	rsp/cmd/replicant-print.go	/^var printCmd = &cobra.Command{$/;"	v	package:cmd
 printDeviceList	rsp/cmd/root-devices.go	/^func printDeviceList(devs []*models.Device, reference *models.Position, merge bool) {$/;"	f	package:cmd
 printEvent	rsp/cmd/root-events.go	/^func printEvent(e *models.Event, style lg.Style) {$/;"	f	package:cmd
+printEventSummary	rsp/cmd/root-events.go	/^func printEventSummary(es []*models.Event) {$/;"	f	package:cmd
 printTable	rsp/cmd/output.go	/^func printTable(headers []string, data [][]string) {$/;"	f	package:cmd
 printTablef	rsp/cmd/output.go	/^func printTablef(out io.Writer, headers []string, data [][]string) {$/;"	f	package:cmd
 prospect	rsp/cmd/device-prospect.go	/^func prospect(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error

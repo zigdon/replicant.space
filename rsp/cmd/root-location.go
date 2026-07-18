@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	lg "charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
@@ -214,7 +213,7 @@ var locationCmd = &cobra.Command{
 		}
 
 		if res.LocationEvent != nil {
-			printEvent(res.LocationEvent, lg.NewStyle().Width(40))
+			printEventSummary([]*models.Event{res.LocationEvent})
 		}
 
 		return nil
