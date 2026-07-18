@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS planets (
 
 CREATE TABLE IF NOT EXISTS moons (
   designation TEXT PRIMARY KEY,
-  planet TEXT NOT NULL REFERENCES planets(designation),,
+  planet TEXT NOT NULL REFERENCES planets(designation),
   star TEXT NOT NULL REFERENCES stars(designation),
   name TEXT NULL,
   scanned BOOLEAN,
@@ -69,27 +69,27 @@ CREATE TABLE IF NOT EXISTS blueprints (
 );
 
 CREATE TABLE IF NOT EXISTS blueprint_resources(
-  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),,
+  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),
   type TEXT NOT NULL,
   qty SMALLINT NOT NULL,
   PRIMARY KEY (blueprint_type, type)
 );
 
 CREATE TABLE IF NOT EXISTS blueprint_components(
-  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),,
+  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),
   type TEXT NOT NULL,
   qty SMALLINT NOT NULL,
   PRIMARY KEY (blueprint_type, type)
 );
 
 CREATE TABLE IF NOT EXISTS blueprint_directives(
-  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),,
+  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),
   directive TEXT NOT NULL,
   PRIMARY KEY (blueprint_type, directive)
 );
 
 CREATE TABLE IF NOT EXISTS blueprint_features(
-  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),,
+  blueprint_type TEXT NOT NULL REFERENCES blueprints(type),
   feature TEXT NOT NULL,
   PRIMARY KEY (blueprint_type, feature)
 );
