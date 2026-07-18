@@ -116,10 +116,10 @@ func (n *Notification) Save() error {
 		return nil
 	}
 	return db.Update(cache.NotificationTable, map[string]any{
-		"start":  n.Start.Unix(),
-		"end":    n.End.Unix(),
-		"device": n.Device,
-		"text":   n.Text,
-		"read":   false,
+		"start_ts": n.Start,
+		"end_ts":   n.End,
+		"device":   n.Device,
+		"text":     n.Text,
+		"read":     false,
 	})
 }

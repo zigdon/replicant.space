@@ -122,11 +122,11 @@ func neighbourStars(cmd *cobra.Command, args []string) error {
 	rows, err := db.DB.Query(
 		`SELECT designation, position_x, position_y, position_z,
 		    sqrt(
-				power(position_x-?,2) +
-				power(position_y-?,2) +
-				power(position_z-?,2)) AS dist
+				power(position_x-$1,2) +
+				power(position_y-$2,2) +
+				power(position_z-$3,2)) AS dist
 		FROM stars
-		WHERE dist <= ?
+		WHERE dist <= $4
 		ORDER BY dist
 		`, src.Position.X, src.Position.Y, src.Position.Z, r)
 	if err != nil {
@@ -144,7 +144,7 @@ func neighbourStars(cmd *cobra.Command, args []string) error {
 		})
 	}
 	printTable([]string{"Designation", "Position", "Distance"}, data)
-	return nil
+	return rows.Err()
 }
 
 func nearestStar(cmd *cobra.Command, args []string) error {
@@ -179,7 +179,7 @@ func nearestHub(cmd *cobra.Command, args []string) error {
 		}
 		star := h.Location.Star()
 		locs[star] = h.Code.Alias()
-		if _, err := db.DB.Exec(`UPDATE stars SET has_my_hub=1 WHERE designation = ?`, star); err != nil {
+		if _, err := db.DB.Exec(`UPDATE stars SET has_my_hub=1 WHERE designation = $1`, star); err != nil {
 			return fmt.Errorf("Can't update %s with hub: %v", star, err)
 		}
 	}
@@ -387,14 +387,14 @@ func TripStepCandidate(start string, src, dst *models.Position, radius float32) 
 			position_y,
 			position_z,
 		    sqrt(
-				power(position_x-?,2) +
-				power(position_y-?,2) +
-				power(position_z-?,2)) AS from_src,
+				power(position_x-$1,2) +
+				power(position_y-$2,2) +
+				power(position_z-$3,2)) AS from_src,
 		    sqrt(
-				power(position_x-?,2) +
-				power(position_y-?,2) +
-				power(position_z-?,2)) AS from_dst
-		FROM stars WHERE from_src <= ? AND from_src > 0.001`,
+				power(position_x-$4,3) +
+				power(position_y-$5,2) +
+				power(position_z-$6,2)) AS from_dst
+		FROM stars WHERE from_src <= $7 AND from_src > 0.001`,
 		src.X,
 		src.Y,
 		src.Z,
@@ -426,6 +426,7 @@ func TripStepCandidate(start string, src, dst *models.Position, radius float32) 
 		},
 		)
 	}
+	errs = append(errs, rows.Err())
 
 	return res, errors.Join(errs...)
 }

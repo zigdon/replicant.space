@@ -1056,6 +1056,7 @@ cmd	rsp/cmd/table.go	/^package cmd$/;"	p
 cmd	rsp/cmd/test.go	/^package cmd$/;"	p
 cols	rsp/cache/db.go	/^var cols = map[Tables][]string{$/;"	v	package:cache
 configCmd	rsp/cmd/root-config.go	/^var configCmd = &cobra.Command{$/;"	v	package:cmd
+constraints	rsp/cache/db.go	/^var constraints = map[Tables]string{$/;"	v	package:cache
 created	rsp/cache/schema.sql	/^  created INTEGER,$/;"	E	table:messages
 d	rsp/cmd/output.go	/^func d(n int) string {$/;"	f	package:cmd	typeref:typename:string
 db	rsp/auto/prospect.go	/^	db     *cache.Cache$/;"	m	struct:auto.ProspectMachine	typeref:typename:*cache.Cache

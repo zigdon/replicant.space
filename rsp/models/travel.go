@@ -110,10 +110,10 @@ type Journey struct {
 }
 
 func (j *Journey) ClearCache() error {
-	if _, err := db.DB.Exec("DELETE FROM cached_journey_steps WHERE journey_id = ?", j.ID); err != nil {
+	if _, err := db.DB.Exec("DELETE FROM cached_journey_steps WHERE journey_id = $1", j.ID); err != nil {
 		return fmt.Errorf("Can't delete old steps: %v", err)
 	}
-	if _, err := db.DB.Exec("DELETE FROM cached_journey WHERE id = ?", j.ID); err != nil {
+	if _, err := db.DB.Exec("DELETE FROM cached_journey WHERE id = $1", j.ID); err != nil {
 		return fmt.Errorf("Can't delete old journey: %v", err)
 	}
 	return nil
@@ -121,7 +121,7 @@ func (j *Journey) ClearCache() error {
 
 func (j *Journey) Cache() error {
 	// See if we already have an id for this journey
-	row := db.DB.QueryRow(`SELECT id FROM cached_journey WHERE start = ? AND end = ?`, j.Source, j.Dest)
+	row := db.DB.QueryRow(`SELECT id FROM cached_journey WHERE start = $1 AND end = $2`, j.Source, j.Dest)
 	if row.Err() == nil {
 		if err := row.Scan(&j.ID); err == nil {
 			log("Loaded existing ID: %d", j.ID)
@@ -187,7 +187,7 @@ func (j *Journey) Get() error {
 	row := db.DB.QueryRow(`
 		SELECT id, start, end, max_hop, calculated
 		FROM cached_journey
-		WHERE start == ? AND end == ?
+		WHERE start == $1 AND end == $2
 	`, j.Source, j.Dest)
 	if err := row.Err(); err != nil {
 		return err
@@ -202,7 +202,7 @@ func (j *Journey) Get() error {
 	rows, err := db.DB.Query(`
         SELECT src, dest, dist_src, dist_dest, step
         FROM cached_journey_steps
-        WHERE journey_id = ?
+        WHERE journey_id = $1
     `, j.ID)
 	if err != nil {
 		return err
@@ -218,5 +218,5 @@ func (j *Journey) Get() error {
 	})
 	j.Legs = legs
 
-	return nil
+	return rows.Err()
 }

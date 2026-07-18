@@ -14,7 +14,7 @@ var prefixes = map[string]string{
 }
 
 func (db *Cache) GetAliasAndType(code string) (string, string) {
-	row := db.DB.QueryRow("SELECT name, type FROM aliases WHERE designation = ?", code)
+	row := db.DB.QueryRow("SELECT name, type FROM aliases WHERE designation = $1", code)
 	if row.Err() != nil {
 		return "", ""
 	}
@@ -32,7 +32,7 @@ func (db *Cache) Dealias(alias string) string {
 	}
 
 	// Look it up
-	row := db.DB.QueryRow("SELECT designation FROM aliases WHERE name = ?", alias)
+	row := db.DB.QueryRow("SELECT designation FROM aliases WHERE name = $1", alias)
 	var code string
 	if err := row.Scan(&code); err != nil {
 		return alias
@@ -41,7 +41,7 @@ func (db *Cache) Dealias(alias string) string {
 }
 
 func (db *Cache) HasAlias(designation string) string {
-	row := db.DB.QueryRow("SELECT name FROM aliases WHERE designation = ?", designation)
+	row := db.DB.QueryRow("SELECT name FROM aliases WHERE designation = $1", designation)
 	if row.Err() != nil {
 		return ""
 	}
@@ -53,7 +53,7 @@ func (db *Cache) HasAlias(designation string) string {
 }
 
 func (db *Cache) GetPrefixForType(t string) string {
-	row := db.DB.QueryRow(`SELECT prefix FROM alias_types WHERE type = ?`, t)
+	row := db.DB.QueryRow(`SELECT prefix FROM alias_types WHERE type = $1`, t)
 	var a string
 	if err := row.Scan(&a); err != nil {
 		log("%v", err)
@@ -62,7 +62,7 @@ func (db *Cache) GetPrefixForType(t string) string {
 }
 
 func (db *Cache) GetTypeForPrefix(a string) string {
-	row := db.DB.QueryRow(`SELECT type FROM alias_types WHERE prefix = ?`, a)
+	row := db.DB.QueryRow(`SELECT type FROM alias_types WHERE prefix = $1`, a)
 	var t string
 	if err := row.Scan(&t); err != nil {
 		log("%v", err)
@@ -72,7 +72,7 @@ func (db *Cache) GetTypeForPrefix(a string) string {
 
 func (db *Cache) AddAliasType(prefix, t string) error {
 	_, err := db.DB.Exec(
-		"INSERT INTO alias_types (type, prefix) VALUES (?,?)",
+		"INSERT INTO alias_types (type, prefix) VALUES ($1, $2)",
 		t, prefix)
 	return err
 }
@@ -107,7 +107,7 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 	}
 
 	// See if there's already an alias
-	row := db.DB.QueryRow("SELECT name FROM aliases WHERE designation = ?", designation)
+	row := db.DB.QueryRow("SELECT name FROM aliases WHERE designation = $1", designation)
 	if row.Err() != nil {
 		log("Error getting alias for %q: %v", designation, row.Err())
 		return "", row.Err()
@@ -131,7 +131,7 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 	}
 
 	// Find how many of these prefixes we already have
-	row = db.DB.QueryRow("SELECT COUNT(*) FROM aliases WHERE type = ?", deviceType)
+	row = db.DB.QueryRow("SELECT COUNT(*) FROM aliases WHERE type = $1", deviceType)
 	var cnt int
 	if err := row.Scan(&cnt); err != nil {
 		return "", err
@@ -141,7 +141,7 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 	alias = fmt.Sprintf("%s-%d", prefix, cnt+1)
 	log("Adding new alias %q (%q) -> %q", designation, deviceType, alias)
 	if _, err := db.DB.Exec(
-		"INSERT INTO aliases (designation, type, name) VALUES (?, ?, ?)",
+		"INSERT INTO aliases (designation, type, name) VALUES ($1, $2, $3)",
 		designation, deviceType, alias); err != nil {
 		return "", err
 	}

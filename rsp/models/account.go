@@ -78,7 +78,7 @@ func (m *Message) Cache() error {
 	return db.Update(cache.MsgTable, map[string]any{
 		"id":      m.ID,
 		"body":    m.Body,
-		"created": m.Created.ts.Unix(),
+		"created": m.Created.ts,
 		"read":    m.Read,
 		"type":    m.Type,
 		"title":   m.Title,
@@ -96,9 +96,9 @@ func (m *Message) Get() error {
 	if err != nil {
 		return err
 	}
-	var sec int
-	err = scan(&m.ID, &m.Body, &sec, &m.Read, &m.Type, &m.Title)
-	m.Created = &JSONTime{ts: time.Unix(int64(sec), 0)}
+	var c time.Time
+	err = scan(&m.ID, &m.Body, &c, &m.Read, &m.Type, &m.Title)
+	m.Created = &JSONTime{ts: c}
 	return err
 }
 

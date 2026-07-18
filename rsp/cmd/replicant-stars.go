@@ -58,7 +58,7 @@ var starsCmd = &cobra.Command{
 
 				// See if we have actual scans in the cache.
 				var hasCache string
-				row := db.DB.QueryRow(`SELECT COUNT(designation) FROM planets WHERE star = ?`, s.Designation)
+				row := db.DB.QueryRow(`SELECT COUNT(designation) FROM planets WHERE star = $1`, s.Designation)
 				if row.Err() == nil {
 					var planets int
 					row.Scan(&planets)

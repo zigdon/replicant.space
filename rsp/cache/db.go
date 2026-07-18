@@ -92,6 +92,10 @@ var cols = map[Tables][]string{
 		"journey_id", "src", "dest", "dist_src", "dist_dest"},
 }
 
+var constraints = map[Tables]string{
+	MsgTable: "id",
+}
+
 type Cache struct {
 	DB *sql.DB
 }
@@ -144,9 +148,9 @@ func (db *Cache) Stats() string {
 }
 
 func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
-	log("SELECT %s FROM %s WHERE %s = ?", strings.Join(cols[table], ", "), table, cols[table][0])
+	log("SELECT %s FROM %s WHERE %s = $1", strings.Join(cols[table], ", "), table, cols[table][0])
 	row := db.DB.QueryRow(
-		fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?",
+		fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1",
 			strings.Join(cols[table], ", "), table, cols[table][0]), key)
 	if row.Err() != nil {
 		return nil, row.Err()
@@ -155,9 +159,9 @@ func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
 }
 
 func (db *Cache) GetVal(table Tables, col, key string) (func(...any) error, error) {
-	log("SELECT %s FROM %s WHERE %s = ?", col, table, cols[table][0])
+	log("SELECT %s FROM %s WHERE %s = $1", col, table, cols[table][0])
 	row := db.DB.QueryRow(
-		fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?", col, table, cols[table][0]), key)
+		fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1", col, table, cols[table][0]), key)
 	if row.Err() != nil {
 		return nil, row.Err()
 	}
@@ -165,9 +169,9 @@ func (db *Cache) GetVal(table Tables, col, key string) (func(...any) error, erro
 }
 
 func (db *Cache) GetAll(table Tables, key string) (*sql.Rows, error) {
-	log("SELECT %s FROM %s WHERE %s = ?", strings.Join(cols[table], ", "), table, cols[table][0])
+	log("SELECT %s FROM %s WHERE %s = $1", strings.Join(cols[table], ", "), table, cols[table][0])
 	rows, err := db.DB.Query(
-		fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?",
+		fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1",
 			strings.Join(cols[table], ", "), table, cols[table][0]), key)
 	if err != nil {
 		return nil, err
@@ -178,16 +182,27 @@ func (db *Cache) GetAll(table Tables, key string) (*sql.Rows, error) {
 func (db *Cache) Update(table Tables, data map[string]any) error {
 	var columns, placeholders []string
 	var values []any
+	var updates []string
+	n := 1
 	for k, v := range data {
+		updates = append(updates, fmt.Sprintf("%s=EXCLUDED.%s", k, k))
 		columns = append(columns, k)
 		values = append(values, v)
-		placeholders = append(placeholders, "?")
+		placeholders = append(placeholders, fmt.Sprintf("$%d", n))
+		n++
 	}
-	q := fmt.Sprintf(
-		"REPLACE INTO %s (%s) VALUES (%s)",
+	q := fmt.Sprintf(`
+		INSERT INTO %s (%s)
+		VALUES (%s)
+		ON CONFLICT (%s)
+		DO UPDATE SET
+		%s;
+		`,
 		table, strings.Join(columns, ", "),
-		strings.Join(placeholders, ", "))
-	log("update: %q: %v", q, values)
+		strings.Join(placeholders, ", "),
+		constraints[table], strings.Join(updates, ",\n"),
+	)
+	log("update: %q: %+v", q, values)
 	res, err := db.DB.Exec(q, values...)
 
 	if err != nil {
@@ -230,20 +245,28 @@ func (db *Cache) ListIDs(table Tables) ([]any, error) {
 
 func (db *Cache) PendingNotifications(read bool) (*sql.Rows, error) {
 	now := time.Now()
-	return db.DB.Query(fmt.Sprintf(
-		"SELECT id, start_ts, end_ts, device, text FROM %s WHERE read == $1 AND end_ts < $2",
-		NotificationTable), read, now.Unix())
+	q := fmt.Sprintf(`
+		SELECT id, start_ts, end_ts, device, text
+		FROM %s
+		WHERE read = $1 AND end_ts < $2`, NotificationTable)
+	return db.DB.Query(q, read, now)
 }
 
 func (db *Cache) ClearNotifications(ids []int) error {
+	if len(ids) == 0 {
+		return nil
+	}
 	var phs []string
 	as := make([]any, len(ids))
 	for i := range ids {
-		phs = append(phs, "?")
+		phs = append(phs, fmt.Sprintf("$%d", i+1))
 		as[i] = ids[i]
 	}
-	_, err := db.DB.Exec(
-		fmt.Sprintf("UPDATE %s SET read = true WHERE id in (%s)", NotificationTable, strings.Join(phs, ", ")), as...)
+	q := fmt.Sprintf(`
+		UPDATE %s
+		SET read = true
+		WHERE id in (%s)`, NotificationTable, strings.Join(phs, ", "))
+	_, err := db.DB.Exec(q, as...)
 	return err
 }
 
@@ -267,9 +290,9 @@ func (db *Cache) FindNearestStar(x, y, z float32) (string, float32, error) {
 	row := db.DB.QueryRow(
 		`SELECT designation, position_x, position_y, position_z,
 		    sqrt(
-				power(position_x-?,2) +
-				power(position_y-?,2) +
-				power(position_z-?,2)) AS dist
+				power(position_x-$1,2) +
+				power(position_y-$2,2) +
+				power(position_z-$3,2)) AS dist
 		FROM stars ORDER BY dist ASC LIMIT 1`,
 		x, y, z,
 	)
@@ -288,9 +311,9 @@ func (db *Cache) FindNearestHub(x, y, z float32) (string, float32, error) {
 	row := db.DB.QueryRow(
 		`SELECT designation, position_x, position_y, position_z,
 		    sqrt(
-				power(position_x-?,2) +
-				power(position_y-?,2) +
-				power(position_z-?,2)) AS dist
+				power(position_x-$1,2) +
+				power(position_y-$2,2) +
+				power(position_z-$3,2)) AS dist
 		FROM stars
 		WHERE has_my_hub = 1
 		ORDER BY dist ASC LIMIT 1`,
@@ -320,10 +343,10 @@ func (db *Cache) GetSector(x, y, z float32, cone, margin int) ([]string, error) 
 				power(position_y,2) +
 				power(position_z,2)) AS dist_src
 		FROM stars
-		WHERE dist_src BETWEEN ? AND ? AND
-			position_x BETWEEN ? AND ? AND
-			position_y BETWEEN ? AND ? AND
-			position_z BETWEEN ? AND ?`,
+		WHERE dist_src BETWEEN $1 AND $2 AND
+			position_x BETWEEN $3 AND $4 AND
+			position_y BETWEEN $5 AND $6 AND
+			position_z BETWEEN $7 AND $8`,
 		minLY, maxLY,
 		slices.Min([]float32{x * (1 - deg), x * (1 + deg)}),
 		slices.Max([]float32{x * (1 - deg), x * (1 + deg)}),
