@@ -114,11 +114,11 @@ CREATE TABLE IF NOT EXISTS messages(
 
 CREATE TABLE IF NOT EXISTS cached_journey(
   id INTEGER PRIMARY KEY,
-  start_ts TEXT NOT NULL,
-  end_ts TEXT NOT NULL,
-  max_hop SMALLINT NOT NULL,
+  origin TEXT NOT NULL,
+  dest TEXT NOT NULL,
+  max_hop REAL NOT NULL,
   calculated TIMESTAMPTZ NOT NULL,
-  UNIQUE (start_ts, end_ts, max_hop)
+  UNIQUE (origin, dest, max_hop)
 );
 
 CREATE TABLE IF NOT EXISTS cached_journey_steps(

@@ -203,7 +203,7 @@ func printTablef(out io.Writer, headers []string, data [][]string) {
 			max = len(headers[i])
 		}
 		for _, l := range data {
-			if len(l[i]) > 0 {
+			if len(l[i]) > 0 && l[i] != "0" && l[i] != "0.00" {
 				hasData[i] = true
 			}
 			if strings.Contains(l[i], "\n") {

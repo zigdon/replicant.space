@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/lib/pq" // To register the driver.
+
 	"github.com/zigdon/rsp/cfg"
 )
 
@@ -87,7 +88,7 @@ var cols = map[Tables][]string{
 	MsgTable: {
 		"id", "body", "created", "read", "type", "title"},
 	JourneyTable: {
-		"id", "start_ts", "end_ts", "max_hop", "calculated"},
+		"id", "origin", "dest", "max_hop", "calculated"},
 	JourneyStepsTable: {
 		"journey_id", "src", "dest", "dist_src", "dist_dest"},
 }

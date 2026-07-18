@@ -121,7 +121,7 @@ func (j *Journey) ClearCache() error {
 
 func (j *Journey) Cache() error {
 	// See if we already have an id for this journey
-	row := db.DB.QueryRow(`SELECT id FROM cached_journey WHERE start = $1 AND end = $2`, j.Source, j.Dest)
+	row := db.DB.QueryRow(`SELECT id FROM cached_journey WHERE origin = $1 AND dest = $2`, j.Source, j.Dest)
 	if row.Err() == nil {
 		if err := row.Scan(&j.ID); err == nil {
 			log("Loaded existing ID: %d", j.ID)
@@ -146,10 +146,10 @@ func (j *Journey) Cache() error {
 
 	if err := db.Update(cache.JourneyTable, map[string]any{
 		"id":         j.ID,
-		"start":      j.Source,
-		"end":        j.Dest,
+		"origin":      j.Source,
+		"dest":        j.Dest,
 		"max_hop":    j.MaxHop,
-		"calculated": j.Calculated.Unix(),
+		"calculated": j.Calculated,
 	}); err != nil {
 		return fmt.Errorf("Error caching journey: %v", err)
 	}
@@ -185,19 +185,17 @@ func (j *Journey) Get() error {
 	}
 
 	row := db.DB.QueryRow(`
-		SELECT id, start, end, max_hop, calculated
+		SELECT id, origin, dest, max_hop, calculated
 		FROM cached_journey
-		WHERE start == $1 AND end == $2
+		WHERE origin = $1 AND dest = $2
 	`, j.Source, j.Dest)
 	if err := row.Err(); err != nil {
 		return err
 	}
-	var ts int64
-	if err := row.Scan(&j.ID, &j.Source, &j.Dest, &j.MaxHop, &ts); err != nil {
+	if err := row.Scan(&j.ID, &j.Source, &j.Dest, &j.MaxHop, &j.Calculated); err != nil {
 		return err
 	}
 
-	j.Calculated = time.Unix(ts, 0)
 
 	rows, err := db.DB.Query(`
         SELECT src, dest, dist_src, dist_dest, step

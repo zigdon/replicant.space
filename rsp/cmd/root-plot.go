@@ -349,7 +349,7 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		if closest == 0 {
+		if waypoints[cur].To == dst {
 			// Print it
 			var lines []string
 			for {
@@ -381,26 +381,25 @@ func plotTrip(cmd *cobra.Command, args []string) error {
 }
 
 func TripStepCandidate(start string, src, dst *models.Position, radius float32) ([]*models.JourneyLeg, error) {
-	rows, err := db.DB.Query(
-		`SELECT designation,
-			position_x,
-			position_y,
-			position_z,
-		    sqrt(
-				power(position_x-$1,2) +
-				power(position_y-$2,2) +
-				power(position_z-$3,2)) AS from_src,
-		    sqrt(
-				power(position_x-$4,3) +
-				power(position_y-$5,2) +
-				power(position_z-$6,2)) AS from_dst
-		FROM stars WHERE from_src <= $7 AND from_src > 0.001`,
-		src.X,
-		src.Y,
-		src.Z,
-		dst.X,
-		dst.Y,
-		dst.Z,
+	rows, err := db.DB.Query(`
+		SELECT designation, position_x, position_y, position_z, from_src, from_dst
+		FROM (
+			SELECT designation, position_x, position_y, position_z,
+				sqrt(
+					power(position_x - $1, 2) + 
+					power(position_y - $2, 2) + 
+					power(position_z - $3, 2)
+				) AS from_src,
+				sqrt(
+					power(position_x - $4, 2) +
+					power(position_y - $5, 2) + 
+					power(position_z - $6, 2)
+				) AS from_dst
+			FROM stars
+		) sub
+		WHERE from_src <= $7 AND from_src > 0.001;`,
+		src.X, src.Y, src.Z,
+		dst.X, dst.Y, dst.Z,
 		radius,
 	)
 	if err != nil {

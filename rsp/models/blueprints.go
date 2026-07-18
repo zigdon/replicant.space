@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/zigdon/rsp/cache"
@@ -88,18 +89,21 @@ func (b *Blueprint) Get() error {
 	if err != nil {
 		return fmt.Errorf("Error querying cache: %v", err)
 	}
-	var pt float32
+	var pt string
 	err = scan(
 		&b.DeviceType, &pt, &b.AttachCapacity, &b.CargoCapacity, &b.StowCapacity,
 		&b.ShortDescription, &b.Description)
 	if err != nil {
 		return err
 	}
-	d, err := time.ParseDuration(fmt.Sprintf("%fs", pt))
+	pt = strings.Replace(pt, ":", "h", 1)
+	pt = strings.Replace(pt, ":", "m", 1)
+	pt += "s"
+	d, err := time.ParseDuration(pt)
 	if err != nil {
 		return err
 	}
-	b.PrintTime = &JSONTimeDelta{pt, d}
+	b.PrintTime = &JSONTimeDelta{float32(d.Seconds()), d}
 
 	if b.Resources == nil {
 		b.Resources = make(map[string]int)
