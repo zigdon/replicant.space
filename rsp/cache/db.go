@@ -57,6 +57,7 @@ const (
 	MsgTable               Tables = "messages"
 	JourneyTable           Tables = "cached_journey"
 	JourneyStepsTable      Tables = "cached_journey_steps"
+	JSONDevices            Tables = "json_devices"
 )
 
 var cols = map[Tables][]string{
@@ -91,6 +92,8 @@ var cols = map[Tables][]string{
 		"id", "origin", "dest", "max_hop", "calculated"},
 	JourneyStepsTable: {
 		"journey_id", "src", "dest", "dist_src", "dist_dest"},
+	JSONDevices: {
+		"code", "updated_ts", "location", "data"},
 }
 
 var constraints = map[Tables]string{
@@ -101,6 +104,7 @@ var constraints = map[Tables]string{
 	BlueprintFeaturesTable: "blueprint_type, feature",
 	BlueprintResTable:      "blueprint_type, type",
 	BlueprintsTable:        "type",
+	JSONDevices:            "code",
 	JourneyStepsTable:      "journey_id, step",
 	JourneyTable:           "id",
 	MoonsTable:             "designation",

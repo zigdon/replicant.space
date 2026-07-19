@@ -246,19 +246,59 @@ func ReplicantTeleport(id, target *models.CodeAlias) (*models.Teleport, error) {
 }
 
 // Devices
+func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, error) {
+	if !useCache {
+		return RefreshDevices(filters)
+	}
+
+	if len(filters) == 0 {
+		if cached, err := db.DB.Query(`
+			SELECT code, data
+			FROM json_devices`); err == nil {
+			var devs []*models.Device
+			valid := true
+			for cached.Next() {
+				var code string
+				var data []byte
+				if err := cached.Scan(&code, &data); err != nil {
+					fmt.Printf("Error scanning %q: %v\n", code, err)
+					valid = false
+					break
+				}
+				d, err := models.Parse[models.Device](data)
+				if err != nil {
+					fmt.Printf("Error parsing %q: %v\n", code, err)
+					valid = false
+					break
+				}
+				devs = append(devs, d)
+			}
+			if err := cached.Err(); err != nil {
+				fmt.Printf("Error in cache: %v\n", err)
+				valid = false
+			}
+			if valid {
+				return devs, nil
+			}
+		}
+	}
+
+	// Implement filtering from the cached devices
+	// device_type
+	// location
+
+	return RefreshDevices(filters)
+}
+
 func Devices(filters map[string]string) ([]*models.Device, error) {
-	ttl := 10 * time.Second
+	return CachedDevices(filters, true)
+}
+
+func RefreshDevices(filters map[string]string) ([]*models.Device, error) {
 	url := "devices"
 	var params []string
 	for k, v := range filters {
 		params = append(params, fmt.Sprintf("%s=%s", k, v))
-	}
-	key := "DEVS " + strings.Join(params, "&")
-	if c, ok := cachedCalls.Load(key); ok {
-		ent, _ := c.(cacheEntry)
-		if time.Since(ent.ts) < ttl {
-			return ent.val.([]*models.Device), nil
-		}
 	}
 	params = append([]string{"limit=50", "cursor=%d"}, params...)
 	if len(params) > 0 {
@@ -281,7 +321,6 @@ func Devices(filters map[string]string) ([]*models.Device, error) {
 		}
 		cur = ds.NextCursor
 	}
-	cachedCalls.Store(key, cacheEntry{ts: time.Now(), val: devs})
 
 	return devs, nil
 }
@@ -356,12 +395,35 @@ func DeviceLogs(id *models.CodeAlias, latest bool, page, limit int) (*models.Dev
 	return ret, nil
 }
 
-func DeviceInfo(id *models.CodeAlias) (*models.Device, error) {
-	res, err := cacheGET("", 0, "devices/%s", id)
+func RefreshDeviceInfo(id *models.CodeAlias) (*models.Device, error) {
+	res, err := Get("devices/%s", id)
 	if err != nil {
 		return nil, err
 	}
 	return models.Parse[models.Device](res)
+}
+
+func CachedDeviceInfo(id *models.CodeAlias, useCache bool) (*models.Device, error) {
+	if !useCache {
+		log("Skipping cache for %q", id.Alias())
+		return RefreshDeviceInfo(id)
+	}
+	d := &models.Device{Code: id}
+	if err := d.Get(); err != nil {
+		log("Error loading cached %s: %v", id.Alias(), err)
+		return RefreshDeviceInfo(id)
+	}
+	if time.Since(d.Fetched()) <= time.Minute {
+		log("Using cache for %q", id.Alias())
+		return d, nil
+	}
+
+	log("Using cache for %q", id.Alias())
+	return RefreshDeviceInfo(id)
+}
+
+func DeviceInfo(id *models.CodeAlias) (*models.Device, error) {
+	return CachedDeviceInfo(id, true)
 }
 
 func DeviceNetwork(id *models.CodeAlias) (*models.Network, error) {

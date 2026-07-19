@@ -130,3 +130,10 @@ CREATE TABLE IF NOT EXISTS cached_journey_steps(
   dist_dest NUMERIC(6,2) NOT NULL,
   PRIMARY KEY (journey_id, step)
 );
+
+CREATE TABLE IF NOT EXISTS json_devices(
+  code TEXT PRIMARY KEY,
+  updated_ts TIMESTAMPTZ,
+  location TEXT,
+  data JSONB
+);

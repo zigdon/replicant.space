@@ -57,7 +57,7 @@ func Parse[T any](data []byte) (*T, error) {
 	s := new(T)
 
 	if err := json.Unmarshal(data, s); err != nil {
-		return nil, fmt.Errorf("Error parsing %T: %v", s, err)
+		return nil, fmt.Errorf("Error parsing %T: %v\n%s", s, err, string(data))
 	}
 	if f, ok := any(s).(Fillable); ok {
 		if err := f.Fill(); err != nil {
@@ -88,24 +88,31 @@ type JSONTimeDelta struct {
 }
 
 func (jtd *JSONTimeDelta) UnmarshalJSON(data []byte) error {
-	var seconds float32
-	if err := json.Unmarshal(data, &seconds); err != nil {
+	var tds string
+	var tdf float32
+	var td time.Duration
+	if err := json.Unmarshal(data, &tds); err == nil {
+		td, err = time.ParseDuration(tds)
+		if err != nil {
+			return err
+		}
+	} else if err := json.Unmarshal(data, &tdf); err == nil {
+		td, err = time.ParseDuration(fmt.Sprintf("%.2fs", tdf))
+		if err != nil {
+			return err
+		}
+	} else {
 		return err
 	}
-	if seconds <= 0 {
-		return nil
-	}
-	var td time.Duration
-	err := fillDuration(seconds, &td)
-	*jtd = JSONTimeDelta{seconds, td}
-	return err
+	*jtd = JSONTimeDelta{float32(td.Seconds()), td}
+	return nil
 }
 
 func (jtd *JSONTimeDelta) MarshalJSON() ([]byte, error) {
 	if jtd == nil {
 		return []byte{}, nil
 	}
-	return json.Marshal(jtd.String())
+	return json.Marshal(jtd.td.Seconds())
 }
 
 func (jtd *JSONTimeDelta) String() string {
@@ -146,6 +153,13 @@ func (jt *JSONTime) MarshalJSON() ([]byte, error) {
 }
 
 func (jt *JSONTime) String() string {
+	if jt == nil {
+		return ""
+	}
+	return jt.ts.Format(time.RFC3339)
+}
+
+func (jt *JSONTime) Format() string {
 	if jt == nil {
 		return ""
 	}
