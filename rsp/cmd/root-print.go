@@ -148,7 +148,11 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("Usage: rsp print <device> [-r <copies>]")
 	}
-	bp := getBP(args[0])
+	name := args[0]
+	if full := db.GetTypeForPrefix(args[0]); full != "" {
+		name = full
+	}
+	bp := getBP(name)
 	log("Print time, per copy: %s", bp.PrintTime.Duration())
 
 	home, _ := cmd.Flags().GetString("home")
