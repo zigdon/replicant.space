@@ -36,6 +36,10 @@ func mkCommand[T any](parent *cobra.Command, name, short, command string, flags 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, _ := cmd.Flags().GetString("device")
 			ca := models.NewCodeAlias(id)
+			dev, err := getInfo(ca)
+			if err != nil {
+				return err
+			}
 			data := make(map[string]any)
 			var argsFlag flagDesc
 			var reps = 1
@@ -91,7 +95,7 @@ func mkCommand[T any](parent *cobra.Command, name, short, command string, flags 
 					continue
 				}
 				if f.rangeFlag {
-					val = explode(val)
+					val = explode(val, dev.Location)
 				}
 				if f.required {
 					data[f.jsonKey] = val
@@ -220,7 +224,7 @@ func unalias(in string) string {
 	return db.Dealias(in)
 }
 
-func explode[T any](v T) []string {
+func explode[T any](v T, loc models.LocationID) []string {
 	var res []string
 	var in []string
 	if s, ok := any(v).(string); ok {
@@ -240,6 +244,28 @@ func explode[T any](v T) []string {
 		if spl := strings.Split(s, ","); len(spl) > 1 {
 			in = append(in, spl...)
 			continue
+		}
+		if s, ok := strings.CutSuffix(s, "-*"); ok {
+			devType := db.GetTypeForPrefix(s)
+			if devType == "" {
+				panic(fmt.Errorf("Unknown prefix %q", s))
+			}
+			if loc == "" {
+				panic(fmt.Errorf("Can't get * from unknown location"))
+			}
+			devs, err := rest.Devices(map[string]string{
+				"device_type": devType,
+				"location":    string(loc),
+			})
+			if err != nil {
+				log("Error getting %q from %q: %v", devType, loc, err)
+			} else {
+				for _, d := range devs {
+					res = append(res, d.Code.Alias())
+				}
+				log("%s-* -> %d devices", s, len(devs))
+				continue
+			}
 		}
 		if parts := strings.Split(s, "-"); len(parts) == 3 {
 			start, err := strconv.Atoi(parts[1])

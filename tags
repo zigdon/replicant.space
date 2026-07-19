@@ -1076,7 +1076,7 @@ eventComplete	rsp/cmd/root-events.go	/^func eventComplete(eid string) error {$/;
 eventCompleteCmd	rsp/cmd/root-events.go	/^var eventCompleteCmd = &cobra.Command{$/;"	v	package:cmd
 eventsCmd	rsp/cmd/root-events.go	/^var eventsCmd = &cobra.Command{$/;"	v	package:cmd
 executeTradeCmd	rsp/cmd/replicant-shop.go	/^var executeTradeCmd = &cobra.Command{$/;"	v	package:cmd
-explode	rsp/cmd/helpers.go	/^func explode[T any](v T) []string {$/;"	f	package:cmd	typeref:typename:(v T) [
+explode	rsp/cmd/helpers.go	/^func explode[T any](v T, loc models.LocationID) []string {$/;"	f	package:cmd	typeref:typename:(v T, loc models.LocationID) [
 f	rsp/cmd/output.go	/^func f(n float32) string {$/;"	f	package:cmd	typeref:typename:string
 fetchedAt	rsp/models/device.go	/^	fetchedAt time.Time$/;"	m	struct:models.Device	typeref:typename:time.Time
 fill	rsp/rest/helpers.go	/^func fill[T []E, E models.Fillable](s []E) error {$/;"	f	package:rest	typeref:typename:(s []E) error

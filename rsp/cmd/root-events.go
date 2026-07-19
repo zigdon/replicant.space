@@ -84,7 +84,7 @@ var megaContributeCmd = &cobra.Command{
 		raw, _ := cmd.Flags().GetBool("raw")
 		var devs []*models.CodeAlias
 		for _, d := range ds {
-			ids := explode(d)
+			ids := explode(d, models.LocationID(id))
 			for _, id := range ids {
 				devs = append(devs, models.NewCodeAlias(id))
 			}
