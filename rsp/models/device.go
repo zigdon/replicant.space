@@ -126,25 +126,27 @@ type Compact struct {
 }
 
 type DeviceUpdate struct {
-	AmiDirective         *DeviceDirective `json:"ami_directive"`
-	AmiDirectiveStatus   string           `json:"ami_directive_status"`
-	AttachedToDeviceCode *CodeAlias       `json:"attached_to_device_code"`
-	AvailableCommands    []string         `json:"available_commands"`
-	AvailableDirectives  []string         `json:"available_directives"`
-	ControllerDeviceCode *CodeAlias       `json:"controller_device_code"`
-	Created              *JSONTime        `json:"created_at"`
-	Code                 *CodeAlias       `json:"device_code"`
-	Type                 string           `json:"device_type"`
-	Features             []string         `json:"features"`
-	InControlRange       bool             `json:"in_control_range"`
-	Location             LocationID       `json:"location"`
-	LocationName         string           `json:"location_name"`
-	OperationalCapacity  float32          `json:"operational_capacity"`
-	QueueSize            int              `json:"queue_size"`
-	ReplicantCode        *CodeAlias       `json:"replicant_code"`
-	Status               string           `json:"status"`
-	Tags                 []string         `json:"tags"`
-	StowedInDeviceCode   *CodeAlias       `json:"stowed_in_device_code"`
+	AmiDirective         *DeviceDirective    `json:"ami_directive"`
+	AmiDirectiveStatus   string              `json:"ami_directive_status"`
+	AttachedToDeviceCode *CodeAlias          `json:"attached_to_device_code"`
+	AvailableCommands    []string            `json:"available_commands"`
+	AvailableDirectives  []string            `json:"available_directives"`
+	ControllerDeviceCode *CodeAlias          `json:"controller_device_code"`
+	Created              *JSONTime           `json:"created_at"`
+	Code                 *CodeAlias          `json:"device_code"`
+	Type                 string              `json:"device_type"`
+	Features             []string            `json:"features"`
+	InControlRange       bool                `json:"in_control_range"`
+	Location             LocationID          `json:"location"`
+	LocationName         string              `json:"location_name"`
+	PrintQueue           []*DevicePrintQueue `json:"print_queue"`
+	Printing             *DevicePrint        `json:"printing"`
+	OperationalCapacity  float32             `json:"operational_capacity"`
+	QueueSize            int                 `json:"queue_size"`
+	ReplicantCode        *CodeAlias          `json:"replicant_code"`
+	Status               string              `json:"status"`
+	Tags                 []string            `json:"tags"`
+	StowedInDeviceCode   *CodeAlias          `json:"stowed_in_device_code"`
 }
 
 func (pd *DeviceUpdate) Apply() *Device {
@@ -167,6 +169,8 @@ func (pd *DeviceUpdate) Apply() *Device {
 	d.InControlRange = pd.InControlRange
 	d.Location = pd.Location
 	d.LocationName = pd.LocationName
+	d.PrintQueue = pd.PrintQueue
+	d.Printing = pd.Printing
 	d.OperationalCapacity = pd.OperationalCapacity
 	d.QueueSize = pd.QueueSize
 	d.ReplicantCode = pd.ReplicantCode
@@ -420,7 +424,6 @@ type TaggedDevices struct {
 }
 
 func (td *TaggedDevices) Fill() error {
-	log("%d device updates", len(td.Updates))
 	for _, u := range td.Updates {
 		d := u.Apply()
 		if err := d.Fill(); err != nil {
