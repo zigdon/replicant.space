@@ -52,6 +52,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	if ev == nil {
 		if len(evs.Events) == 1 {
 			ev = evs.Events[0]
+			eID = ev.Designation
+			log("Selecting event %s", ev.Designation)
 		} else {
 			eventsDesc := new(strings.Builder)
 			printTablef(eventsDesc, []string{"ID", "Title", "Location"}, data)
