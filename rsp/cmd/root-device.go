@@ -15,4 +15,5 @@ func init() {
 	rootCmd.AddCommand(deviceCmd)
 	deviceCmd.PersistentFlags().StringP("device", "d", "", "Device to use (e.g. A1B2C3D4 or md-1)")
 	deviceCmd.MarkPersistentFlagRequired("device")
+	deviceCmd.Flags().BoolP("refresh", "r", false, "When set, refresh the cached info")
 }

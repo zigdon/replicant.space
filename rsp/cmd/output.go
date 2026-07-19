@@ -96,7 +96,7 @@ func d(n int) string {
 func list(s []string) string {
 	res := strings.Join(s, ", ")
 	if len(res) > 50 {
-		res = res[:50] + "..."
+		res = fmt.Sprintf("(%d) %s...", len(s), res[:50])
 	}
 	return res
 }

@@ -139,7 +139,7 @@ type Device struct {
 	CargoCapacity        int                 `json:"cargo_capacity,omitempty"`
 	Code                 *CodeAlias          `json:"device_code,omitempty"`
 	Compact              *Compact            `json:"compact,omitempty"`
-	ControlledDevices    []*ControlledDevice `json:"controlled_devices,omitempty"`
+	ControlledDevices    []*ControlledDevice `json:"controlled_devices"`
 	ControllerDeviceCode *CodeAlias          `json:"controller_device_code,omitempty"`
 	Created              *JSONTime           `json:"created_at,omitempty"`
 	Deployed             *JSONTime           `json:"deployed_at,omitempty"`

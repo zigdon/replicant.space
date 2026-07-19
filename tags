@@ -190,7 +190,7 @@ Contribute	rsp/models/events.go	/^type Contribute struct {$/;"	s	package:models
 Contribute	rsp/rest/wrappers.go	/^func Contribute(id string, devs []*models.CodeAlias) (*models.Contribute, error) {$/;"	f	package:rest	typeref:typename:(*models.Contribute, error)
 Contributors	rsp/models/scan.go	/^	Contributors         int                    `json:"contributors"`$/;"	m	struct:models.Object	typeref:typename:int
 ControlledDevice	rsp/models/device.go	/^type ControlledDevice struct {$/;"	s	package:models
-ControlledDevices	rsp/models/device.go	/^	ControlledDevices    []*ControlledDevice `json:"controlled_devices,omitempty"`$/;"	m	struct:models.Device	typeref:typename:[]*ControlledDevice
+ControlledDevices	rsp/models/device.go	/^	ControlledDevices    []*ControlledDevice `json:"controlled_devices"`$/;"	m	struct:models.Device	typeref:typename:[]*ControlledDevice
 Controller	rsp/models/device.go	/^	Controller           *ControllerStatus   `json:"controller"`$/;"	m	struct:models.CommandResp	typeref:typename:*ControllerStatus
 Controller	rsp/models/device.go	/^	Controller string            `json:"Controller"`$/;"	m	struct:models.DevicePrintQueue	typeref:typename:string
 ControllerCode	rsp/models/device.go	/^	ControllerCode       *CodeAlias          `json:"controller_code"`$/;"	m	struct:models.CommandResp	typeref:typename:*CodeAlias

@@ -17,7 +17,14 @@ var infoCmd = &cobra.Command{
 	Short: "Show detailed information about a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
-		dev, err := rest.DeviceInfo(models.NewCodeAlias(id))
+
+		var infoFn func(*models.CodeAlias) (*models.Device, error)
+		if refresh, _ := cmd.Flags().GetBool("refresh"); refresh {
+			infoFn = rest.RefreshDeviceInfo
+		} else {
+			infoFn = rest.DeviceInfo
+		}
+		dev, err := infoFn(models.NewCodeAlias(id))
 		if err != nil {
 			return fmt.Errorf("Failed to get info for %q: %v", id, err)
 		}
@@ -221,4 +228,5 @@ var infoCmd = &cobra.Command{
 
 func init() {
 	deviceCmd.AddCommand(infoCmd)
+	infoCmd.Flags().BoolP("refresh", "r", false, "When set, refresh the cached info")
 }

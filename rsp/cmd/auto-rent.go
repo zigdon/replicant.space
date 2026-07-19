@@ -35,7 +35,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 		}
 		ships[info.Code.Alias()] = info
 	}
-	log("%d ships in rent fleet", len(ships))
+	log("%d/%d ships available in rent fleet", len(ships), len(atc.ControlledDevices))
 
 	deliver := func(loc string, inv map[string]int) error {
 		// Find a ship
