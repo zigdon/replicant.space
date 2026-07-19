@@ -320,6 +320,7 @@ func RefreshDevices(filters map[string]string) ([]*models.Device, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		devs = append(devs, ds.Devices...)
 		if ds.NextCursor == 0 {
 			break

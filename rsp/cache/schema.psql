@@ -133,7 +133,9 @@ CREATE TABLE IF NOT EXISTS cached_journey_steps(
 
 CREATE TABLE IF NOT EXISTS json_devices(
   code TEXT PRIMARY KEY,
+  fetched_ts TIMESTAMPTZ,
   updated_ts TIMESTAMPTZ,
   location TEXT,
+  type TEXT,
   data JSONB
 );

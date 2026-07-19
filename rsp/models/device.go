@@ -125,8 +125,62 @@ type Compact struct {
 	Started         JSONTime      `json:"started_at"`
 }
 
+type DeviceUpdate struct {
+	AmiDirective         *DeviceDirective `json:"ami_directive"`
+	AmiDirectiveStatus   string           `json:"ami_directive_status"`
+	AttachedToDeviceCode *CodeAlias       `json:"attached_to_device_code"`
+	AvailableCommands    []string         `json:"available_commands"`
+	AvailableDirectives  []string         `json:"available_directives"`
+	ControllerDeviceCode *CodeAlias       `json:"controller_device_code"`
+	Created              *JSONTime        `json:"created_at"`
+	Code                 *CodeAlias       `json:"device_code"`
+	Type                 string           `json:"device_type"`
+	Features             []string         `json:"features"`
+	InControlRange       bool             `json:"in_control_range"`
+	Location             LocationID       `json:"location"`
+	LocationName         string           `json:"location_name"`
+	OperationalCapacity  float32          `json:"operational_capacity"`
+	QueueSize            int              `json:"queue_size"`
+	ReplicantCode        *CodeAlias       `json:"replicant_code"`
+	Status               string           `json:"status"`
+	Tags                 []string         `json:"tags"`
+	StowedInDeviceCode   *CodeAlias       `json:"stowed_in_device_code"`
+}
+
+func (pd *DeviceUpdate) Apply() *Device {
+	// Grab a cached version of the device, update the fields we fetched
+	d := &Device{Code: pd.Code}
+	// Try to fetch the saved data, if we have any. If not, fill in the
+	// immutable fields too.
+	if err := d.Get(); err != nil {
+		d.AvailableCommands = pd.AvailableCommands
+		d.AvailableDirectives = pd.AvailableDirectives
+		d.Created = pd.Created
+		d.Type = pd.Type
+		d.Features = pd.Features
+	}
+	d.fetchedAt.update = time.Now()
+	d.AmiDirective = pd.AmiDirective
+	d.AmiDirectiveStatus = pd.AmiDirectiveStatus
+	d.AttachedToDeviceCode = pd.AttachedToDeviceCode
+	d.ControllerDeviceCode = pd.ControllerDeviceCode
+	d.InControlRange = pd.InControlRange
+	d.Location = pd.Location
+	d.LocationName = pd.LocationName
+	d.OperationalCapacity = pd.OperationalCapacity
+	d.QueueSize = pd.QueueSize
+	d.ReplicantCode = pd.ReplicantCode
+	d.Status = pd.Status
+	d.Tags = pd.Tags
+	d.StowedInDeviceCode = pd.StowedInDeviceCode
+	return d
+}
+
 type Device struct {
-	fetchedAt time.Time
+	fetchedAt struct {
+		full   time.Time
+		update time.Time
+	}
 
 	AmiDirective         *DeviceDirective    `json:"ami_directive"`
 	AmiDirectiveStatus   string              `json:"ami_directive_status"`
@@ -187,12 +241,16 @@ func (d *Device) Alias() {
 }
 
 func (d *Device) Fetched() time.Time {
-	return d.fetchedAt
+	return d.fetchedAt.full
+}
+
+func (d *Device) Updated() time.Time {
+	return d.fetchedAt.update
 }
 
 func (d *Device) Fill() error {
-	if d.fetchedAt.IsZero() {
-		d.fetchedAt = time.Now()
+	if d.fetchedAt.full.IsZero() {
+		d.fetchedAt.full = time.Now()
 	}
 	if strings.Contains(d.Status, "repairing (") {
 		target := d.Status[strings.Index(d.Status, "(")+1 : strings.Index(d.Status, ")")]
@@ -226,8 +284,10 @@ func (d *Device) Cache() error {
 	}
 	err = db.Update(cache.JSONDevices, map[string]any{
 		"code":       d.Code.String(),
-		"updated_ts": d.Fetched(),
+		"fetched_ts": d.Fetched(),
+		"updated_ts": d.Updated(),
 		"location":   d.Location,
+		"type":       d.Type,
 		"data":       data,
 	})
 	return err
@@ -242,14 +302,14 @@ func (d *Device) Get() error {
 	}
 
 	row := db.DB.QueryRow(`
-		SELECT updated_ts, data
+		SELECT fetched_ts, updated_ts, data
 		FROM json_devices
 		WHERE code = $1`, d.Code.String())
 	if err := row.Err(); err != nil {
 		return err
 	}
 	var data []byte
-	if err := row.Scan(&d.fetchedAt, &data); err != nil {
+	if err := row.Scan(&d.fetchedAt.full, &d.fetchedAt.update, &data); err != nil {
 		return err
 	}
 
@@ -354,15 +414,19 @@ type AvailableSite struct {
 }
 
 type TaggedDevices struct {
-	Devices    []*Device `json:"devices"`
-	NextCursor int       `json:"next_cursor"`
+	Updates    []*DeviceUpdate `json:"devices"`
+	NextCursor int             `json:"next_cursor"`
+	Devices    []*Device
 }
 
 func (td *TaggedDevices) Fill() error {
-	for _, d := range td.Devices {
+	log("%d device updates", len(td.Updates))
+	for _, u := range td.Updates {
+		d := u.Apply()
 		if err := d.Fill(); err != nil {
 			return err
 		}
+		td.Devices = append(td.Devices, d)
 	}
 	return nil
 }
