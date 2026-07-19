@@ -88,6 +88,20 @@ var infoCmd = &cobra.Command{
 				lines(dev.AvailableDirectives),
 			}})
 		}
+		if dev.Compact != nil {
+			u := dev.Compact
+			printTable([]string{"Compacting started", "Progress", "Completes"},
+				[][]string{{
+					t(u.Started.Time()), f(u.ProgressPercent), t(u.Completes.Time()),
+				}})
+		}
+		if dev.Unfurl != nil {
+			u := dev.Unfurl
+			printTable([]string{"Unfurling started", "Progress", "Completes"},
+				[][]string{{
+					t(u.Started.Time()), f(u.ProgressPercent), t(u.Completes.Time()),
+				}})
+		}
 		if dev.Printing != nil {
 			printTime := make(map[string]time.Duration)
 			bps := &models.Blueprints{}
