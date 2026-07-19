@@ -44,7 +44,8 @@ var deviceListCmd = &cobra.Command{
 				filter["device_type"] = t
 			}
 		}
-		devs, err := rest.Devices(filter)
+		refresh, _ := cmd.Flags().GetBool("refresh")
+		devs, err := rest.CachedDevices(filter, !refresh)
 		if err != nil {
 			return err
 		}
@@ -189,6 +190,7 @@ var networkCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(deviceListCmd)
 	deviceListCmd.Flags().Bool("ignore_tags", false, "If set, ignore tag filters")
+	deviceListCmd.Flags().Bool("refresh", false, "If set, bypass the cached data")
 	deviceListCmd.Flags().StringSliceP("filter_tags", "f", []string{"infrastructure", "mine", "matrix"}, "Filter results with these tags")
 	deviceListCmd.Flags().StringSliceP("only_tags", "t", []string{}, "Show only results with these tags")
 	deviceListCmd.Flags().StringP("distance", "d", "", "Show distance from this object's star")

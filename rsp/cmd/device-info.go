@@ -18,13 +18,8 @@ var infoCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, _ := cmd.Flags().GetString("device")
 
-		var infoFn func(*models.CodeAlias) (*models.Device, error)
-		if refresh, _ := cmd.Flags().GetBool("refresh"); refresh {
-			infoFn = rest.RefreshDeviceInfo
-		} else {
-			infoFn = rest.DeviceInfo
-		}
-		dev, err := infoFn(models.NewCodeAlias(id))
+		refresh, _ := cmd.Flags().GetBool("refresh")
+		dev, err := rest.CachedDeviceInfo(models.NewCodeAlias(id), refresh)
 		if err != nil {
 			return fmt.Errorf("Failed to get info for %q: %v", id, err)
 		}
