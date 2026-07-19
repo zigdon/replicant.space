@@ -131,22 +131,28 @@ type DeviceUpdate struct {
 	AttachedToDeviceCode *CodeAlias          `json:"attached_to_device_code"`
 	AvailableCommands    []string            `json:"available_commands"`
 	AvailableDirectives  []string            `json:"available_directives"`
+	Code                 *CodeAlias          `json:"device_code"`
+	Compact              *Compact            `json:"compact"`
 	ControllerDeviceCode *CodeAlias          `json:"controller_device_code"`
 	Created              *JSONTime           `json:"created_at"`
-	Code                 *CodeAlias          `json:"device_code"`
-	Type                 string              `json:"device_type"`
 	Features             []string            `json:"features"`
 	InControlRange       bool                `json:"in_control_range"`
 	Location             LocationID          `json:"location"`
 	LocationName         string              `json:"location_name"`
+	OperationalCapacity  float32             `json:"operational_capacity"`
 	PrintQueue           []*DevicePrintQueue `json:"print_queue"`
 	Printing             *DevicePrint        `json:"printing"`
-	OperationalCapacity  float32             `json:"operational_capacity"`
+	Prospect             *Prospect           `json:"prospect"`
 	QueueSize            int                 `json:"queue_size"`
+	Repair               *Repair             `json:"repair"`
 	ReplicantCode        *CodeAlias          `json:"replicant_code"`
+	Scan                 *DeviceScan         `json:"scan"`
 	Status               string              `json:"status"`
-	Tags                 []string            `json:"tags"`
 	StowedInDeviceCode   *CodeAlias          `json:"stowed_in_device_code"`
+	Tags                 []string            `json:"tags"`
+	Travel               *Trip               `json:"travel"`
+	Type                 string              `json:"device_type"`
+	Unfurl               *Compact            `json:"unfurl"`
 }
 
 func (pd *DeviceUpdate) Apply() *Device {
@@ -165,18 +171,24 @@ func (pd *DeviceUpdate) Apply() *Device {
 	d.AmiDirective = pd.AmiDirective
 	d.AmiDirectiveStatus = pd.AmiDirectiveStatus
 	d.AttachedToDeviceCode = pd.AttachedToDeviceCode
+	d.Compact = pd.Compact
 	d.ControllerDeviceCode = pd.ControllerDeviceCode
 	d.InControlRange = pd.InControlRange
 	d.Location = pd.Location
 	d.LocationName = pd.LocationName
+	d.OperationalCapacity = pd.OperationalCapacity
 	d.PrintQueue = pd.PrintQueue
 	d.Printing = pd.Printing
-	d.OperationalCapacity = pd.OperationalCapacity
+	d.Prospect = pd.Prospect
 	d.QueueSize = pd.QueueSize
+	d.Repair = pd.Repair
 	d.ReplicantCode = pd.ReplicantCode
+	d.Scan = pd.Scan
 	d.Status = pd.Status
-	d.Tags = pd.Tags
 	d.StowedInDeviceCode = pd.StowedInDeviceCode
+	d.Tags = pd.Tags
+	d.Travel = pd.Travel
+	d.Unfurl = pd.Unfurl
 	return d
 }
 
