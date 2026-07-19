@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -161,11 +160,63 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Check each printer for available print slots, and eta
+	var slots int
+	type rec struct {
+		delay   time.Duration
+		eta     time.Duration
+		toQueue int
+		avail   int
+	}
+	plan := make(map[string]*rec)
+	for _, p := range printers {
+		r := new(rec)
+		info, err := getInfo(p)
+		if err != nil {
+			return err
+		}
+		r.avail = info.QueueSize - len(info.PrintQueue)
+		slots += r.avail
+		if info.Printing != nil {
+			slots -= 1
+		}
+		r.delay, err = rest.GetPrintQueueETA(info)
+		if err != nil {
+			return err
+		}
+		r.eta = r.delay
+		plan[p.Alias()] = r
+	}
+
 	copies, _ := cmd.Flags().GetInt("repeat")
+	for copies > 0 {
+		// Sort the printers by next available
+		slices.SortFunc(printers, func(a, b *models.CodeAlias) int {
+			return cmp.Compare(plan[a.Alias()].eta, plan[b.Alias()].eta)
+		})
+		var found bool
+		for _, p := range printers {
+			pl := plan[p.Alias()]
+			if pl.avail == 0 {
+				continue
+			}
+			// Add the next print
+			pl.toQueue++
+			pl.eta = pl.eta + bp.PrintTime.Duration()
+			plan[p.Alias()] = pl
+			found = true
+			break
+		}
+		if found {
+			copies--
+		} else {
+			log("Ran out of print slots, %d copies remaining", copies)
+			break
+		}
+	}
+
 	controller, _ := cmd.Flags().GetString("controller")
 	onComplete, _ := cmd.Flags().GetString("on_complete")
-	queue := make(map[string]time.Duration)
-	added := make(map[string]int)
 	cfg := map[string]any{
 		"device_type": bp.DeviceType,
 	}
@@ -176,55 +227,31 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		cfg["oncomplete"] = onComplete
 	}
 
-	for ; copies > 0; copies-- {
-		p, err := rest.FindPrinter(printers, queue)
-		if err != nil {
-			return err
-		}
-		_, err = rest.DeviceCommand[models.CommandResp](p, "enqueue_print", cfg)
-		if err != nil {
-			return err
-		}
-		added[p.Alias()]++
-		queue[p.String()] += bp.PrintTime.Duration()
-		prog := new(strings.Builder)
-		slices.SortFunc(printers, func(a, b *models.CodeAlias) int {
-			return cmp.Compare(a.Num(), b.Num())
-		})
-		for _, p := range printers {
-			a := p.Alias()
-			if added[a] == 0 {
-				continue
-			}
-			fmt.Fprintf(prog, "%s:%d ", a, added[a])
-		}
-		log(prog.String())
-	}
 	slices.SortFunc(printers, func(a, b *models.CodeAlias) int {
 		return cmp.Compare(a.Num(), b.Num())
 	})
+
 	var data [][]string
 	for _, p := range printers {
-		if added[p.Alias()] == 0 {
+		pl := plan[p.Alias()]
+		if pl.toQueue == 0 {
 			continue
 		}
-		var q, eta []string
-		if dev, err := getInfo(p); err == nil {
-			if dev.Printing != nil {
-				q = append(q, dev.Printing.DeviceType)
-				eta = append(eta, dev.Printing.Eta.String())
-			}
-			for _, pq := range dev.PrintQueue {
-				q = append(q, pq.Type)
-				eta = append(eta, getBP(pq.Type).PrintTime.String())
-			}
-			for i := 0; i < added[p.Alias()]; i++ {
-				q = append(q, bp.DeviceType)
-				eta = append(eta, bp.PrintTime.String())
-			}
+		var delay string
+		if pl.delay > 0 {
+			delay = dt(pl.delay)
 		}
-		data = append(data, []string{p.Alias(), d(added[p.Alias()]), lines(q), lines(eta)})
+		data = append(data, []string{
+			p.Alias(), d(pl.toQueue), delay, dt(pl.eta),
+		})
+		for pl.toQueue > 0 {
+			_, err = rest.DeviceCommand[models.CommandResp](p, "enqueue_print", cfg)
+			if err != nil {
+				return err
+			}
+			pl.toQueue--
+		}
 	}
-	printTable([]string{"Factory", "Copies", "Queue", "ETA"}, data)
+	printTable([]string{"Factory", "Copies", "Delay", "ETA"}, data)
 	return nil
 }
