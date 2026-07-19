@@ -224,7 +224,7 @@ func waitPending(cmd *cobra.Command, args []string) error {
 		rows := make(map[string]int)
 		rows["_title"] = 0
 		for {
-			devs, err := rest.Devices(nil)
+			devs, err := rest.RefreshDevices(nil)
 			if err != nil {
 				log("Error reading devices: %v", err)
 				app.Draw()
