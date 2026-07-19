@@ -135,7 +135,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	home, _ := cmd.Flags().GetString("home")
 	missing := make(map[string]int)
 	deliver := func() error {
-		cfs, err := rest.Devices(map[string]string{"device_type": "cargo_freighter"})
+		cfs, err := rest.RefreshDevices(map[string]string{"device_type": "cargo_freighter"})
 		if err != nil {
 			return err
 		}
