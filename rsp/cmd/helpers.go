@@ -287,6 +287,11 @@ func explode[T any](v T, loc models.LocationID) []string {
 		res = append(res, s)
 	}
 
+	if len(res) > 100 {
+		log("Returning the first 100 targets of %d", len(res))
+		return res[:100]
+	}
+
 	return res
 }
 
