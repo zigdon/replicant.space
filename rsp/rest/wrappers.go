@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -248,49 +249,65 @@ func ReplicantTeleport(id, target *models.CodeAlias) (*models.Teleport, error) {
 // Devices
 func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, error) {
 	if !useCache {
+		log("**: Skipping cache")
 		return RefreshDevices(filters)
 	}
 
-	if len(filters) == 0 {
-		if cached, err := db.DB.Query(`
-			SELECT code, data
-			FROM json_devices`); err == nil {
-			var devs []*models.Device
-			valid := true
-			for cached.Next() {
-				var code string
-				var data []byte
-				if err := cached.Scan(&code, &data); err != nil {
-					log("Error scanning %q: %v", code, err)
-					valid = false
-					break
-				}
-				d, err := models.Parse[models.Device](data)
-				if err != nil {
-					log("Error parsing %q: %v", code, err)
-					valid = false
-					break
-				}
-				devs = append(devs, d)
-				if time.Since(d.Fetched()) > time.Minute {
-					log("Cache for %s too old: %s (%s)", d.Code.Alias(), d.Fetched(), time.Since(d.Fetched()))
-					valid = false
-					break
-				}
+	validCols := []string{"device_type", "location", "replicant_code"}
+	q := "SELECT code, data FROM json_devices"
+	var vals []any
+	if len(filters) > 0 {
+		q += " WHERE "
+		var limits []string
+		for k, v := range filters {
+			if !slices.Contains(validCols, k) {
+				return nil, fmt.Errorf("Invalid filter %q, must be one of %v", k, validCols)
 			}
-			if err := cached.Err(); err != nil {
-				log("Error in cache: %v", err)
-				valid = false
-			}
-			if valid {
-				return devs, nil
+			if k == "location" {
+				limits = append(limits, fmt.Sprintf("%s LIKE $%d", k, len(vals)+1))
+				vals = append(vals, v+"%")
+			} else {
+				limits = append(limits, fmt.Sprintf("%s = $%d", k, len(vals)+1))
+				vals = append(vals, v)
 			}
 		}
+		q += strings.Join(limits, " AND ")
 	}
-
-	// Implement filtering from the cached devices
-	// device_type
-	// location
+	log("**: query: %q %v", q, vals)
+	if cached, err := db.DB.Query(q, vals...); err == nil {
+		var devs []*models.Device
+		valid := true
+		for cached.Next() {
+			var code string
+			var data []byte
+			if err := cached.Scan(&code, &data); err != nil {
+				log("**: Error scanning %q: %v", code, err)
+				valid = false
+				break
+			}
+			d, err := models.Parse[models.Device](data)
+			if err != nil {
+				log("**: Error parsing %q: %v", code, err)
+				valid = false
+				break
+			}
+			devs = append(devs, d)
+			if time.Since(d.Fetched()) > time.Minute {
+				log("**: Cache for %s too old: %s (%s)", d.Code.Alias(), d.Fetched(), time.Since(d.Fetched()))
+				valid = false
+				break
+			}
+		}
+		if err := cached.Err(); err != nil {
+			log("**: Error in cache: %v", err)
+			valid = false
+		}
+		if valid {
+			log("**: %d rows returned", len(devs))
+			return devs, nil
+		}
+		log("**: Invalid cache, refeshing...")
+	}
 
 	return RefreshDevices(filters)
 }
@@ -411,20 +428,20 @@ func RefreshDeviceInfo(id *models.CodeAlias) (*models.Device, error) {
 
 func CachedDeviceInfo(id *models.CodeAlias, useCache bool) (*models.Device, error) {
 	if !useCache {
-		log("Skipping cache for %q", id.Alias())
+		log("**: Skipping cache for %q", id.Alias())
 		return RefreshDeviceInfo(id)
 	}
 	d := &models.Device{Code: id}
 	if err := d.Get(); err != nil {
-		log("Error loading cached %s: %v", id.Alias(), err)
+		log("**: Error loading cached %s: %v", id.Alias(), err)
 		return RefreshDeviceInfo(id)
 	}
 	if time.Since(d.Fetched()) <= time.Minute {
-		log("Using cache for %q", id.Alias())
+		log("**: Using cache for %q", id.Alias())
 		return d, nil
 	}
 
-	log("Using cache for %q", id.Alias())
+	log("**: Using cache for %q", id.Alias())
 	return RefreshDeviceInfo(id)
 }
 
@@ -711,15 +728,15 @@ func ProspectLogs(id *models.CodeAlias) (string, error) {
 		if l.EventType != "prospect_complete" {
 			continue
 		}
-		log("Prospect log: %s", l.Message)
+		log("**: Prospect log: %s", l.Message)
 		data, ok := l.Payload["stars"]
 		if !ok {
-			log("No stars in payload: %+v", l.Payload)
+			log("**: No stars in payload: %+v", l.Payload)
 			continue
 		}
 		sList, ok := data.([]any)
 		if !ok {
-			log("Can't parse payload: %+v", data)
+			log("**: Can't parse payload: %+v", data)
 			continue
 		}
 
@@ -735,7 +752,7 @@ func ProspectLogs(id *models.CodeAlias) (string, error) {
 		for _, s := range sList {
 			m, ok := s.(map[string]any)
 			if !ok {
-				log("Can't map: %+v", s)
+				log("**: Can't map: %+v", s)
 				continue
 			}
 			star := &models.Star{Designation: m["designation"].(models.LocationID)}
@@ -746,7 +763,7 @@ func ProspectLogs(id *models.CodeAlias) (string, error) {
 				float32(coords["z"].(float64)),
 			)
 			if err := star.Cache(); err != nil {
-				log("Error saving %s: %v", star.Designation, err)
+				log("**: Error saving %s: %v", star.Designation, err)
 			}
 			added = append(added, string(star.Designation))
 		}

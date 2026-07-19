@@ -221,6 +221,7 @@ func waitPending(cmd *cobra.Command, args []string) error {
 	}
 	table.SetFixed(1, 1)
 	go func() {
+		var lastUpdate time.Time
 		rows := make(map[string]int)
 		rows["_title"] = 0
 		for {
@@ -231,6 +232,7 @@ func waitPending(cmd *cobra.Command, args []string) error {
 				time.Sleep(time.Second)
 				continue
 			}
+			lastUpdate = time.Now()
 			models.SortDevices(devs)
 			var r int
 			for _, d := range devs {
@@ -280,7 +282,7 @@ func waitPending(cmd *cobra.Command, args []string) error {
 				}
 			}
 			app.Draw()
-			time.Sleep(time.Second)
+			time.Until(lastUpdate.Add(15 * time.Second))
 		}
 	}()
 	inputCapture := func(ev *tcell.EventKey) *tcell.EventKey {

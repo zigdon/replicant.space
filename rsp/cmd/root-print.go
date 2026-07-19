@@ -32,6 +32,7 @@ func init() {
 
 	rootPrintCmd.AddCommand(rootPrintListCmd)
 	rootPrintListCmd.Flags().String("location", "", "Show only factories in this location")
+	rootPrintListCmd.Flags().Bool("refresh", false, "When set, bypass the device cache")
 }
 
 func getHomeFactories(home string) ([]*models.CodeAlias, error) {
@@ -52,7 +53,9 @@ func getHomeFactories(home string) ([]*models.CodeAlias, error) {
 
 func rootPrintList(cmd *cobra.Command, args []string) error {
 	loc, _ := cmd.Flags().GetString("location")
-	printers, err := rest.Devices(map[string]string{"device_type": "autofactory"})
+	refresh, _ := cmd.Flags().GetBool("refresh")
+	printers, err := rest.CachedDevices(
+		map[string]string{"device_type": "autofactory"}, !refresh)
 	if err != nil {
 		return err
 	}
@@ -67,16 +70,30 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 	}
 	times := make(map[string]time.Duration)
 	var queue []pq
+	totalMissing := make(map[string]int)
 	for _, info := range printers {
 		if loc != "" && string(info.Location) != loc {
 			continue
 		}
 		if info.Status == "waiting_for_resources" {
+			info, err = rest.RefreshDeviceInfo(info.Code)
+			if err != nil {
+				return err
+			}
+		}
+		if info.Status == "waiting_for_resources" {
 			missing := make(map[string]int)
-			for k, v := range info.WaitingFor {
+			for k, v := range info.WaitingFor.Resources {
 				if v.Have < v.Need {
 					missing[k] = v.Need - v.Have
 				}
+				totalMissing[k] += missing[k]
+			}
+			for k, v := range info.WaitingFor.Components {
+				if v.Have < v.Need {
+					missing[k] = v.Need - v.Have
+				}
+				totalMissing[k] += missing[k]
 			}
 			queue = append(queue, pq{
 				location:   info.Location,
@@ -139,6 +156,14 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 		})
 	}
 	printTable([]string{"Autofactory", "Location", "ETA"}, data)
+
+	if len(totalMissing) > 0 {
+		data = [][]string{}
+		for k, v := range totalMissing {
+			data = append(data, []string{k, d(v)})
+		}
+		printTable([]string{"Missing", "Quantity"}, data)
+	}
 
 	return nil
 }

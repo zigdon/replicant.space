@@ -144,7 +144,17 @@ func rm(data map[string]int) string {
 			h += strings.Repeat(" ", len(d)-len(h))
 		}
 	}
-	return h + "\n" + d
+	var res []string
+	if len(h) > 0 {
+		res = []string{h, d}
+	}
+	for k, v := range data {
+		if isResource(k) {
+			continue
+		}
+		res = append(res, fmt.Sprintf("%s: %d", k, v))
+	}
+	return strings.Join(res, "\n")
 }
 
 func dt(t time.Duration) string {

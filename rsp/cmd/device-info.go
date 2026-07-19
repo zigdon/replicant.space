@@ -104,7 +104,7 @@ var infoCmd = &cobra.Command{
 					t(u.Started.Time()), f(u.ProgressPercent), t(u.Completes.Time()),
 				}})
 		}
-		if dev.Printing != nil {
+		if dev.Printing != nil || len(dev.PrintQueue) > 0 {
 			printTime := make(map[string]time.Duration)
 			bps := &models.Blueprints{}
 			err := bps.Get()
@@ -114,12 +114,15 @@ var infoCmd = &cobra.Command{
 			for _, bp := range bps.Blueprints {
 				printTime[bp.DeviceType] = bp.PrintTime.Duration()
 			}
-			print := dev.Printing
-			data := [][]string{{"-",
-				print.DeviceType, p(print.ProgressPercent),
-				print.Eta.String(), list(print.Tags), t(print.Started.Time()), t(print.Completes.Time()),
-			}}
-			est := print.Completes.Time()
+			var data [][]string
+			var est time.Time
+			if print := dev.Printing; print != nil {
+				data = [][]string{{"-",
+					print.DeviceType, p(print.ProgressPercent),
+					print.Eta.String(), list(print.Tags), t(print.Started.Time()), t(print.Completes.Time()),
+				}}
+				est = print.Completes.Time()
+			}
 			for i, q := range dev.PrintQueue {
 				dur := printTime[q.Type]
 				data = append(data, []string{d(i),
@@ -129,9 +132,15 @@ var infoCmd = &cobra.Command{
 			}
 			printTable([]string{"#", "Type", "Progress", "ETA", "Tags", "Started", "Ends"}, data)
 		}
-		if len(dev.WaitingFor) > 0 {
+		if len(dev.WaitingFor.Components) > 0 || len(dev.WaitingFor.Resources) > 0 {
+
 			var w [][]string
-			for k, v := range dev.WaitingFor {
+			for k, v := range dev.WaitingFor.Resources {
+				w = append(w, []string{
+					k, d(v.Have), d(v.Need), d(v.Need - v.Have),
+				})
+			}
+			for k, v := range dev.WaitingFor.Components {
 				w = append(w, []string{
 					k, d(v.Have), d(v.Need), d(v.Need - v.Have),
 				})

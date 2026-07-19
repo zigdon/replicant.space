@@ -16,7 +16,6 @@ import (
 )
 
 const (
-	dbPath  = "./sql/replicant.db"
 	logFile = "/tmp/rsp-query.log"
 )
 
@@ -25,6 +24,16 @@ var schema string
 
 func log(tmpl string, args ...any) {
 	ts := time.Now().Format(time.Stamp)
+	for n, a := range args {
+		if b, ok := a.([]byte); ok {
+			s := string(b)
+			if len(s) > 10000 {
+				args[n] = fmt.Sprintf("[%d]byte: %s...", len(b), s[:10000])
+			} else {
+				args[n] = fmt.Sprintf("[%d]byte: %s", len(b), s)
+			}
+		}
+	}
 	line := fmt.Sprintf(ts+" "+tmpl+"\n", args...)
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -220,8 +229,19 @@ func (db *Cache) Update(table Tables, data map[string]any) error {
 		strings.Join(placeholders, ", "),
 		constraints[table], strings.Join(updates, ",\n"),
 	)
-	log("update: %q: %+v", q, values)
+
 	res, err := db.DB.Exec(q, values...)
+	for n, a := range values {
+		if b, ok := a.([]byte); ok {
+			s := string(b)
+			if len(s) > 10000 {
+				values[n] = fmt.Sprintf("[%d]byte: %s...", len(b), s[:10000])
+			} else {
+				values[n] = fmt.Sprintf("[%d]byte: %s", len(b), s)
+			}
+		}
+	}
+	log("update: %q: %+v", q, values)
 
 	if err != nil {
 		return fmt.Errorf("failed to call REPLACE: %v", err)
