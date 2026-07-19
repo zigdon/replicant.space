@@ -128,54 +128,54 @@ type Compact struct {
 type Device struct {
 	fetchedAt time.Time
 
-	AmiDirective         *DeviceDirective    `json:"ami_directive,omitempty"`
-	AmiDirectiveStatus   string              `json:"ami_directive_status,omitempty"`
-	AttachCapacity       int                 `json:"attach_capacity,omitempty"`
-	AttachedDevices      []*Device           `json:"attached_devices,omitempty"`
-	AttachedToDeviceCode *CodeAlias          `json:"attached_to_device_code,omitempty"`
-	AvailableCommands    []string            `json:"available_commands,omitempty"`
-	AvailableDirectives  []string            `json:"available_directives,omitempty"`
-	Cargo                []*Inventory        `json:"cargo,omitempty"`
-	CargoCapacity        int                 `json:"cargo_capacity,omitempty"`
-	Code                 *CodeAlias          `json:"device_code,omitempty"`
-	Compact              *Compact            `json:"compact,omitempty"`
+	AmiDirective         *DeviceDirective    `json:"ami_directive"`
+	AmiDirectiveStatus   string              `json:"ami_directive_status"`
+	AttachCapacity       int                 `json:"attach_capacity"`
+	AttachedDevices      []*Device           `json:"attached_devices"`
+	AttachedToDeviceCode *CodeAlias          `json:"attached_to_device_code"`
+	AvailableCommands    []string            `json:"available_commands"`
+	AvailableDirectives  []string            `json:"available_directives"`
+	Cargo                []*Inventory        `json:"cargo"`
+	CargoCapacity        int                 `json:"cargo_capacity"`
+	Code                 *CodeAlias          `json:"device_code"`
+	Compact              *Compact            `json:"compact"`
 	ControlledDevices    []*ControlledDevice `json:"controlled_devices"`
-	ControllerDeviceCode *CodeAlias          `json:"controller_device_code,omitempty"`
-	Created              *JSONTime           `json:"created_at,omitempty"`
-	Deployed             *JSONTime           `json:"deployed_at,omitempty"`
-	Features             []string            `json:"features,omitempty"`
-	GracePeriodRemaining int                 `json:"grace_period_remaining,omitempty"`
-	InControlRange       bool                `json:"in_control_range,omitempty"`
-	Location             LocationID          `json:"location,omitempty"`
-	LocationName         string              `json:"location_name,omitempty"`
-	OperationalCapacity  float32             `json:"operational_capacity,omitempty"`
+	ControllerDeviceCode *CodeAlias          `json:"controller_device_code"`
+	Created              *JSONTime           `json:"created_at"`
+	Deployed             *JSONTime           `json:"deployed_at"`
+	Features             []string            `json:"features"`
+	GracePeriodRemaining int                 `json:"grace_period_remaining"`
+	InControlRange       bool                `json:"in_control_range"`
+	Location             LocationID          `json:"location"`
+	LocationName         string              `json:"location_name"`
+	OperationalCapacity  float32             `json:"operational_capacity"`
 	Owner                *struct {
-		Name string     `json:"name,omitempty"`
-		Code *CodeAlias `json:"replicant_code,omitempty"`
-	} `json:"owner,omitempty"`
-	OwnerReplicant     *CodeAlias                   `json:"owner_replicant_code,omitempty"`
-	PrintQueue         []*DevicePrintQueue          `json:"print_queue,omitempty"`
-	Printing           *DevicePrint                 `json:"printing,omitempty"`
-	Prospect           *Prospect                    `json:"prospect,omitempty"`
-	QueueSize          int                          `json:"queue_size,omitempty"`
-	Repair             *Repair                      `json:"repair,omitempty"`
-	RepairPaidPct      float32                      `json:"repair_paid_pct,omitempty"`
-	ReplicantCode      *CodeAlias                   `json:"replicant_code,omitempty"`
-	Scan               *DeviceScan                  `json:"scan,omitempty"`
-	Status             string                       `json:"status,omitempty"`
-	StowCapacity       int                          `json:"stow_capacity,omitempty"`
-	StowUsed           int                          `json:"stow_used,omitempty"`
-	StowedDevices      *StowedDevices               `json:"stowed_devices,omitempty"`
-	StowedInDeviceCode *CodeAlias                   `json:"stowed_in_device_code,omitempty"`
-	SystemStatus       *SystemStatus                `json:"system_status,omitempty"`
-	Tags               []string                     `json:"tags,omitempty"`
-	TaxiMode           string                       `json:"taxi_mode,omitempty"`
-	Travel             *Trip                        `json:"travel,omitempty"`
-	Type               string                       `json:"device_type,omitempty"`
-	Unfurl             *Compact                     `json:"unfurl,omitempty"`
-	UpkeepRequirements []*UpkeepRequirement         `json:"upkeep_requirements,omitempty"`
-	WaitingFor         map[string]*MissingResources `json:"waiting_for,omitempty"`
-	WelcomeMessage     string                       `json:"welcome_message,omitempty"`
+		Name string     `json:"name"`
+		Code *CodeAlias `json:"replicant_code"`
+	} `json:"owner"`
+	OwnerReplicant     *CodeAlias                   `json:"owner_replicant_code"`
+	PrintQueue         []*DevicePrintQueue          `json:"print_queue"`
+	Printing           *DevicePrint                 `json:"printing"`
+	Prospect           *Prospect                    `json:"prospect"`
+	QueueSize          int                          `json:"queue_size"`
+	Repair             *Repair                      `json:"repair"`
+	RepairPaidPct      float32                      `json:"repair_paid_pct"`
+	ReplicantCode      *CodeAlias                   `json:"replicant_code"`
+	Scan               *DeviceScan                  `json:"scan"`
+	Status             string                       `json:"status"`
+	StowCapacity       int                          `json:"stow_capacity"`
+	StowUsed           int                          `json:"stow_used"`
+	StowedDevices      *StowedDevices               `json:"stowed_devices"`
+	StowedInDeviceCode *CodeAlias                   `json:"stowed_in_device_code"`
+	SystemStatus       *SystemStatus                `json:"system_status"`
+	Tags               []string                     `json:"tags"`
+	TaxiMode           string                       `json:"taxi_mode"`
+	Travel             *Trip                        `json:"travel"`
+	Type               string                       `json:"device_type"`
+	Unfurl             *Compact                     `json:"unfurl"`
+	UpkeepRequirements []*UpkeepRequirement         `json:"upkeep_requirements"`
+	WaitingFor         map[string]*MissingResources `json:"waiting_for"`
+	WelcomeMessage     string                       `json:"welcome_message"`
 }
 
 func (d *Device) Alias() {
