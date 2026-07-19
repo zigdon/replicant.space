@@ -261,20 +261,25 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 				var code string
 				var data []byte
 				if err := cached.Scan(&code, &data); err != nil {
-					fmt.Printf("Error scanning %q: %v\n", code, err)
+					log("Error scanning %q: %v", code, err)
 					valid = false
 					break
 				}
 				d, err := models.Parse[models.Device](data)
 				if err != nil {
-					fmt.Printf("Error parsing %q: %v\n", code, err)
+					log("Error parsing %q: %v", code, err)
 					valid = false
 					break
 				}
 				devs = append(devs, d)
+				if time.Since(d.Fetched()) > time.Minute {
+					log("Cache for %s too old: %s (%s)", d.Code.Alias(), d.Fetched(), time.Since(d.Fetched()))
+					valid = false
+					break
+				}
 			}
 			if err := cached.Err(); err != nil {
-				fmt.Printf("Error in cache: %v\n", err)
+				log("Error in cache: %v", err)
 				valid = false
 			}
 			if valid {
