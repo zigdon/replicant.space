@@ -130,10 +130,15 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	// See if we can repurpose idle devices
-	devs, err := rest.Devices(nil)
-	if err != nil {
-		return err
+	var devs []*models.Device
+	for k := range fleet {
+		ds, err := rest.Devices(map[string]string{"device_type": k})
+		if err != nil {
+			return err
+		}
+		devs = append(devs, ds...)
 	}
+
 	for _, d := range devs {
 		// Special case for relays - if there's one working in the system, we
 		// don't need another.
