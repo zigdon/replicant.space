@@ -79,7 +79,16 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 			log("Too many requests, backing off for %s", backoff)
 			for k, v := range resp.Header {
 				if strings.HasPrefix(k, "X-Ratelimit-") {
-					log("  %s: %s", k, v)
+					log("  %s: %v", k, v)
+				}
+				if k == "X-Ratelimit-Reset" {
+					if ts, err := strconv.Atoi(v[0]); err != nil {
+						log("  Can't parse reset: %v", err)
+					} else {
+						reset := time.Unix(int64(ts), 0)
+						backoff = time.Until(reset)
+						log("  reset: %s (%s)", reset, backoff)
+					}
 				}
 			}
 			time.Sleep(backoff)

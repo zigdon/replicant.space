@@ -68,6 +68,9 @@ func b(n bool) string {
 }
 
 func humanize(in string) string {
+	if strings.Contains(in, ",") {
+		return in
+	}
 	var out string
 	d := strings.Index(in, ".")
 	if d >= 0 {

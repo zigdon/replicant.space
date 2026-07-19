@@ -35,6 +35,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 		}
 		ships[info.Code.Alias()] = info
 	}
+	log("%d ships in rent fleet", len(ships))
 
 	deliver := func(loc string, inv map[string]int) error {
 		// Find a ship
@@ -57,7 +58,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			_, err := rest.DeviceCommand[models.CommandResp](ship.Code, "collect_resources",
 				map[string]any{"resources": inv})
 			if err != nil {
-				return err
+				return fmt.Errorf("Error loading %v into %s: %v", inv, ship.Code.Alias(), err)
 			}
 		}
 
@@ -71,6 +72,12 @@ func autoRent(cmd *cobra.Command, args []string) error {
 		// Remove the ship from our available list
 		delete(ships, ship.Code.Alias())
 		return nil
+	}
+
+	res, err := rest.Location(home)
+	log("Resources available at home:")
+	for _, i := range res.Inventory {
+		log("  %s: %s", i.ResourceType, f(i.Quantity))
 	}
 
 	// Find our ships that are not at home, deposit their cargo, and call back
