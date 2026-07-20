@@ -863,6 +863,7 @@ String	rsp/models/device.go	/^func (ur *UpkeepRequirement) String() string {$/;"
 String	rsp/models/helpers.go	/^func (a *CodeAlias) String() string {$/;"	f	struct:models.CodeAlias	typeref:typename:string
 String	rsp/models/helpers.go	/^func (jt *JSONTime) String() string {$/;"	f	struct:models.JSONTime	typeref:typename:string
 String	rsp/models/helpers.go	/^func (jtd *JSONTimeDelta) String() string {$/;"	f	struct:models.JSONTimeDelta	typeref:typename:string
+String	rsp/models/location.go	/^func (b *Belt) String() string {$/;"	f	struct:models.Belt	typeref:typename:string
 String	rsp/models/location.go	/^func (p *Position) String() string {$/;"	f	struct:models.Position	typeref:typename:string
 String	rsp/models/travel.go	/^func (jl *JourneyLeg) String() string {$/;"	f	struct:models.JourneyLeg	typeref:typename:string
 Strs	rsp/cache/db.go	/^func Strs(in []any) []string {$/;"	f	package:cache	typeref:typename:[]string
@@ -1142,7 +1143,6 @@ getResourcePriorities	rsp/cmd/auto-ferry.go	/^func getResourcePriorities(loc str
 getTags	rsp/auto/state.go	/^func getTags(dev *models.Device) map[string]string {$/;"	f	package:auto	typeref:typename:map[string]string
 getTeleportDests	rsp/cmd/replicant-travel.go	/^func getTeleportDests() ([]*models.Device, error) {$/;"	f	package:cmd	typeref:typename:([]*models.Device, error)
 goCmd	rsp/auto/prospect.go	/^func (pm *ProspectMachine) goCmd(cmd string, args map[string]any) (*models.CommandResp, error) {$/;"	f	struct:auto.ProspectMachine	typeref:typename:(*models.CommandResp, error)
-home	rsp/auto/relay.go	/^const home = "MENKUNT-2-L4"$/;"	c	package:auto
 humanize	rsp/cmd/output.go	/^func humanize(in string) string {$/;"	f	package:cmd	typeref:typename:string
 infoCmd	rsp/cmd/device-info.go	/^var infoCmd = &cobra.Command{$/;"	v	package:cmd
 infos	rsp/cmd/root-auto.go	/^var infos sync.Map$/;"	v	package:cmd	typeref:typename:sync.Map
@@ -1291,6 +1291,7 @@ state	rsp/auto/prospect.go	/^	state  string$/;"	m	struct:auto.ProspectMachine	ty
 state	rsp/auto/relay.go	/^	state  string$/;"	m	struct:auto.RelayMachine	typeref:typename:string
 statsCmd	rsp/cmd/cache.go	/^var statsCmd = &cobra.Command{$/;"	v	package:cmd
 stopCmd	rsp/cmd/replicant-travel.go	/^var stopCmd = &cobra.Command{$/;"	v	package:cmd
+supply	rsp/auto/relay.go	/^	supply *models.Device$/;"	m	struct:auto.RelayMachine	typeref:typename:*models.Device
 surveyCmd	rsp/cmd/device-directive.go	/^var surveyCmd = &cobra.Command{$/;"	v	package:cmd
 t	rsp/cmd/output.go	/^func t(ts time.Time) string {$/;"	f	package:cmd	typeref:typename:string
 tableCmd	rsp/cmd/table.go	/^var tableCmd = &cobra.Command{$/;"	v	package:cmd

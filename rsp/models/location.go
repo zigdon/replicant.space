@@ -186,6 +186,10 @@ type Belt struct {
 	Star          LocationID
 }
 
+func (b *Belt) String() string {
+	return fmt.Sprintf("%s (%s)", b.Designation, b.Density)
+}
+
 func (b *Belt) Cache() error {
 	var errs []error
 	errs = append(errs, db.Update(cache.BeltsTable, map[string]any{

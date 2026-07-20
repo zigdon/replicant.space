@@ -3,6 +3,7 @@ package auto
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/zigdon/rsp/models"
@@ -17,20 +18,22 @@ import (
 // - pick up and de-tag spares
 // if there is a relay, check our tags for dest, plot the course from the nearest relay on the home network
 // States:
-//
-// return: build new FRs, fly home
-// resupply: slurp all FRs
-// transit: wait
-// incoming: go to L4 point
-// cleanup: pick up any FRs that are not releying, remove tags
-// leaving: find the next system, head there
-// activating: deploy, activate, tag
-
-const home = "MENKUNT-2-L4"
+// cargo vessel:
+//   transit: wait
+//   incoming: scan, check frs, {go to L4 point / or skip to leaving}
+//   deploying: deploy, activate, tag
+//   cleanup: stow/detag spares
+//   empty: move FRs from mf
+//   leaving: find the next system, head there
+// mobile fleet:
+//   empty: head home, queue FRs
+//   resupplying: attach until full capacity
+//   full: follow cv
 
 type RelayMachine struct {
 	dryRun bool
 	dev    *models.Device
+	supply *models.Device
 	dest   string
 	state  string
 }
@@ -47,60 +50,78 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 		return fmt.Errorf("Relay destination not tagged on %s", d.Code.Alias())
 	}
 	rm.dest = dest
+
+	p, err := rest.GetTagged(fmt.Sprintf("supply:%s", d.Code.Alias()))
+	if err != nil {
+		return err
+	}
+	if len(p.Devices) != 1 {
+		return fmt.Errorf("Can't find exactly one device tagged supply:%s, found %d", d.Code.Alias(), len(p.Devices))
+	}
+	rm.supply = p.Devices[0]
+
 	return rm.UpdateState()
 }
 
 func (rm *RelayMachine) UpdateState() error {
-	dev, err := rest.DeviceInfo(rm.dev.Code)
+	dev, err := rest.RefreshDeviceInfo(rm.dev.Code)
 	if err != nil {
 		return err
 	}
 	rm.dev = dev
 	status := rm.dev.Status
+
+	// State flags
+	var sysFRs []*models.Device // FRs in system
+	var sysFRRelaying bool      // FRs operational
+	inL4 := strings.Contains(string(rm.dev.Location), "L4")
+
+	// Check FR inventory
 	frInv := slices.ContainsFunc(rm.dev.StowedDevices.Devices, func(d *models.StowedDevice) bool {
 		return d.Type == "ftl_relay"
 	})
-	var star *models.Star
-	star, err = models.NewStar(string(rm.dev.Location.Star()))
-	if err != nil {
-		return err
-	}
-	atHome := rm.dev.Location == home
-	var sysFRs []*models.Device
-	var sysFRRelaying bool
-	if star != nil {
-		sysFRs, err := rest.Devices(map[string]string{
-			"device_type": "ftl_relay",
-			"location":    string(star.Designation),
-		})
+
+	// Check the current location
+	if rm.dev.Location != "" {
+		var star *models.Star
+		star, err = models.NewStar(string(rm.dev.Location.Star()))
 		if err != nil {
 			return err
 		}
-		for _, fr := range sysFRs {
-			if fr.Status == "relaying" {
-				sysFRRelaying = true
-				break
+
+		if star != nil {
+			sysFRs, err := rest.Devices(map[string]string{
+				"device_type": "ftl_relay",
+				"location":    string(star.Designation),
+			})
+			if err != nil {
+				return err
+			}
+			for _, fr := range sysFRs {
+				if fr.Status == "relaying" {
+					sysFRRelaying = true
+					break
+				}
 			}
 		}
 	}
-	sysHasFR := len(sysFRs) > 0
 	sysHasSpareFR := len(sysFRs) > 1
 
 	switch {
-	case atHome:
-		rm.state = "resupply"
-	case !frInv:
-		rm.state = "return"
-	case status != "idle":
+	case rm.dev.Location == "" || status != "idle":
 		rm.state = "transit"
-	case rm.dev.Location != star.EntryPoint:
-		rm.state = "incoming"
-	case sysHasSpareFR:
-		rm.state = "cleanup"
-	case sysFRRelaying:
+	case rm.state == "transit" && sysFRRelaying:
 		rm.state = "leaving"
-	case sysHasFR:
-		rm.state = "activating"
+	case rm.state == "transit" && !inL4:
+		rm.state = "incoming"
+	case rm.state == "transit" && inL4:
+		rm.state = "deploying"
+	case rm.state == "deploying" && sysHasSpareFR:
+		rm.state = "cleanup"
+	case rm.state == "deploying" && !frInv:
+		rm.state = "empty"
+	case frInv && (rm.state == "empty" || rm.state == "deploying"):
+		rm.state = "leaving"
 	default:
 		return fmt.Errorf("Unknown state (%s): FRs: ship %v, sys %d (relaying: %v)",
 			rm.dev.Code.Alias(), frInv, len(sysFRs), sysFRRelaying)
@@ -111,13 +132,34 @@ func (rm *RelayMachine) UpdateState() error {
 func (rm *RelayMachine) Process() (time.Time, error) {
 	var eta time.Time
 	switch rm.state {
-	case "return":
-	case "resupply":
 	case "transit":
+		if t := rm.dev.Travel; t != nil {
+			eta = t.Arrives.Time()
+		}
 	case "incoming":
-	case "cleanup":
-	case "leaving":
-	case "activating":
+		if strings.Contains(string(rm.dev.Location), "L4") {
+			return eta, nil
+		}
+		scan, err := rest.ReplicantScan(rm.dev.Code)
+		if err != nil {
+			return eta, err
+		}
+		if scan.AsteroidBelt.Present {
+			log("Asteroid belt detected: %v", scan.AsteroidBelt.Belts)
+		}
+		if len(scan.SystemObjects) > 0 {
+			var objs []string
+			for _, so := range scan.SystemObjects {
+				objs = append(objs, string(so.Designation))
+			}
+			log("System objects found: %s", strings.Join(objs, ", "))
+		}
+		res, err := rest.DeviceCommand[models.CommandResp](rm.dev.Code, "travel", map[string]any{
+			"destination": scan.EntryPoint,
+		})
+		return res.Arrives.Time(), err
+	case "deploying":
+
 	default:
 		return eta, fmt.Errorf("Unknown state: %q", rm.state)
 	}

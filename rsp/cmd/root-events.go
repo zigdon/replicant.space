@@ -225,12 +225,12 @@ func printEvent(e *models.Event, style lg.Style) {
 
 func formatDev(devs []*models.EventDevice, resBreakdown bool) string {
 	bps := make(map[string]*models.Blueprint)
-	var bpRes func(string) (map[string]int, map[string]int)
 	var errs []error
+	var bpRes func(string) (map[string]int, map[string]int)
 	bpRes = func(dt string) (map[string]int, map[string]int) {
-		bp, ok := bps[dt]
 		res := make(map[string]int)
 		dev := make(map[string]int)
+		bp, ok := bps[dt]
 		if !ok {
 			bp = &models.Blueprint{DeviceType: dt}
 			if err := bp.Get(); err != nil {
@@ -260,7 +260,7 @@ func formatDev(devs []*models.EventDevice, resBreakdown bool) string {
 	dev := make(map[string]int)
 	for _, d := range devs {
 		dt := d.DeviceType
-		out = append(out, fmt.Sprintf("%d x %s", d.Required, dt))
+		out = append(out, fmt.Sprintf("%d x %s", d.Count+d.Required, dt))
 		if !resBreakdown {
 			continue
 		}
