@@ -130,6 +130,9 @@ func (jtd *JSONTimeDelta) String() string {
 }
 
 func (jtd *JSONTimeDelta) Duration() time.Duration {
+	if jtd == nil {
+		return 0
+	}
 	return jtd.td
 }
 

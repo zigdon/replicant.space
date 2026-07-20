@@ -292,7 +292,7 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 				break
 			}
 			devs = append(devs, d)
-			if time.Since(d.Fetched()) > time.Minute {
+			if time.Since(d.Updated()) > time.Minute {
 				log("**: Cache for %s too old: %s (%s)", d.Code.Alias(), d.Fetched(), time.Since(d.Fetched()))
 				valid = false
 				break

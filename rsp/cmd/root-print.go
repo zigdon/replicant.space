@@ -146,17 +146,6 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 	}
 	printTable([]string{"Location", "Type", "Tags", "Factory", "Position", "ETA", "Missing"}, data)
 
-	slices.SortFunc(printers, func(a, b *models.Device) int {
-		return cmp.Compare(times[a.Code.Alias()], times[b.Code.Alias()])
-	})
-	data = [][]string{}
-	for _, p := range printers {
-		data = append(data, []string{
-			p.Code.Alias(), string(p.Location), dt(times[p.Code.Alias()]),
-		})
-	}
-	printTable([]string{"Autofactory", "Location", "ETA"}, data)
-
 	if len(totalMissing) > 0 {
 		data = [][]string{}
 		for k, v := range totalMissing {

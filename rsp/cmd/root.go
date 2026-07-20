@@ -103,7 +103,8 @@ var outputTable = map[string]func(data any) ([]string, [][]string){
 				"ETA", "Started", "Ends"},
 			[][]string{{
 				resp.DeviceCode.Alias(), resp.Location, resp.Star,
-				resp.Belt, resp.Status, resp.Eta.String(), resp.Started.String(), resp.Completes.String(),
+				resp.Belt, resp.Status, dt(resp.Eta.Duration()),
+				t(resp.Started.Time()), t(resp.Completes.Time()),
 			}}
 	},
 }

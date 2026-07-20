@@ -270,6 +270,7 @@ func (d *Device) Updated() time.Time {
 func (d *Device) Fill() error {
 	if d.fetchedAt.full.IsZero() {
 		d.fetchedAt.full = time.Now()
+		d.fetchedAt.update = time.Now()
 	}
 	if strings.Contains(d.Status, "repairing (") {
 		target := d.Status[strings.Index(d.Status, "(")+1 : strings.Index(d.Status, ")")]

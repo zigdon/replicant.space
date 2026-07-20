@@ -135,7 +135,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	home, _ := cmd.Flags().GetString("home")
 	missing := make(map[string]int)
 	deliver := func() error {
-		cfs, err := rest.RefreshDevices(map[string]string{"device_type": "cargo_freighter"})
+		log("Finding available freighters...")
+		cfs, err := rest.Devices(map[string]string{"device_type": "cargo_freighter"})
 		if err != nil {
 			return err
 		}
@@ -150,7 +151,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		var eta time.Time
 		var freeCFs, freeSPs []*models.Device
 		for _, cf := range cfs {
-			cf, err := rest.RefreshDeviceInfo(cf.Code)
+			cf, err := rest.DeviceInfo(cf.Code)
 			if err != nil {
 				return err
 			}
@@ -188,13 +189,14 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			}
 		}
 
+		log("Finding available platforms...")
 		for _, t := range []string{"surge_plate", "surge_platform", "mobile_fleet"} {
 			sps, err := rest.Devices(map[string]string{"device_type": t})
 			if err != nil {
 				return err
 			}
 			for _, sp := range sps {
-				sp, err := rest.RefreshDeviceInfo(sp.Code)
+				sp, err := rest.DeviceInfo(sp.Code)
 				if err != nil {
 					return err
 				}
@@ -293,52 +295,43 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 
 			// See if we have the devices we need
 			var pickUp []*models.Device
-			var slots int
 			queue := make(map[string]time.Duration)
 			for k, v := range missing {
 				if isResource(k) {
 					continue
 				}
+				log("Searching for %d new %ss", v, k)
 				devs, err := rest.Devices(map[string]string{
-					"location":    string(ev.Location),
-					"device_type": k,
-				})
-				if err != nil {
-					return err
-				}
-				if len(devs) > 0 {
-					log("Found %d x %s already at %s", len(devs), k, ev.Location)
-					missing[k] -= len(devs)
-					if missing[k] <= 0 {
-						continue
-					}
-				}
-				bp := getBP(k)
-				devs, err = rest.Devices(map[string]string{
 					"location":    home,
 					"device_type": k,
 				})
 				if err != nil {
 					return err
 				}
-				log("%s: %s", k, devList(devs))
+				log("%s: want %d, found %d %s", k, v, len(devs), devList(devs))
 				if len(devs) >= v {
+					log("Have enough %s: %d", k, len(devs))
 					pickUp = append(pickUp, devs[:v]...)
-					slots += v
 					delete(missing, k)
 				} else {
+					log("Picking up %d %ss", len(devs), k)
+					bp := getBP(k)
 					pickUp = append(pickUp, devs...)
-					slots += len(devs)
 					missing[k] -= len(devs)
 
-					p, err := rest.FindPrinter(printers, queue)
-					if err != nil {
-						return err
+					log("Still missing %d %ss", missing[k], k)
+					for missing[k] > 0 {
+						p, err := rest.FindPrinter(printers, queue)
+						if err != nil {
+							return err
+						}
+						log("Printing %s at %s", k, p.Alias())
+						_, err = rest.DeviceCommand[models.CommandResp](
+							p, "enqueue_print", map[string]any{"device_type": k})
+						queue[p.String()] += bp.PrintTime.Duration()
+						missing[k]--
 					}
-					_, err = rest.DeviceCommand[models.CommandResp](
-						p, "enqueue_print", map[string]any{"device_type": k})
-					queue[p.String()] += bp.PrintTime.Duration()
-					log("Printing %s at %s", k, p.Alias())
+					delete(missing, k)
 				}
 			}
 			log("missing: %v", missing)
@@ -356,6 +349,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			for n, d := range pickUp {
 				ids[n] = d.Code
 			}
+			slices.SortFunc(freeSPs, func(a, b *models.Device) int {
+				return cmp.Compare(a.AttachCapacity, b.AttachCapacity)
+			})
 			for _, sp := range freeSPs {
 				if len(pickUp) == 0 {
 					break
@@ -399,8 +395,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 
 	data = [][]string{}
 	for _, dev := range ep.Devices {
-		missing[dev.DeviceType] = dev.Count + dev.Required - dev.Current
-		data = append(data, []string{dev.DeviceType, d(dev.Count), d(dev.Current)})
+		missing[dev.DeviceType] = dev.Required - dev.Current
+		data = append(data, []string{dev.DeviceType, d(dev.Required), d(dev.Current)})
 	}
 	for _, r := range ep.Resources {
 		missing[r.ResourceType] += r.Required - int(r.Current)
