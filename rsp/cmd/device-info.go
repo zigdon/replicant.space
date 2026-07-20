@@ -19,7 +19,7 @@ var infoCmd = &cobra.Command{
 		id, _ := cmd.Flags().GetString("device")
 
 		refresh, _ := cmd.Flags().GetBool("refresh")
-		dev, err := rest.CachedDeviceInfo(models.NewCodeAlias(id), refresh)
+		dev, err := rest.CachedDeviceInfo(models.NewCodeAlias(id), !refresh)
 		if err != nil {
 			return fmt.Errorf("Failed to get info for %q: %v", id, err)
 		}

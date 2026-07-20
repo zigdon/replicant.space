@@ -150,6 +150,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		var eta time.Time
 		var freeCFs, freeSPs []*models.Device
 		for _, cf := range cfs {
+			cf, err := rest.RefreshDeviceInfo(cf.Code)
+			if err != nil {
+				return err
+			}
 			if string(cf.Location) == home && len(cf.Cargo) == 0 {
 				freeCFs = append(freeCFs, cf)
 				continue
@@ -233,23 +237,31 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					break
 				}
 				avail := cf.CargoCapacity
+				log("%d available on %s", avail, cf.Code.Alias())
+				if avail <= 0 {
+					continue
+				}
 				get := make(map[string]int)
 				for k, v := range missing {
 					if v <= 0 {
+						log("All %s got", k)
 						delete(missing, k)
 						continue
 					}
 					if !isResource(k) {
+						log("%s is not a resource", k)
 						continue
 					}
 					if v <= avail {
 						get[k] = v
 						delete(missing, k)
+						log("%d x %s to be picked up", v, k)
 						avail -= v
 					} else {
 						get[k] = avail
 						missing[k] -= avail
 						avail = 0
+						log("%d x %s to be picked up", avail, k)
 						break
 					}
 				}
