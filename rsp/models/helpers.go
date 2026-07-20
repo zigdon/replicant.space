@@ -15,6 +15,13 @@ import (
 
 var db *cache.Cache
 
+func psqlDuration(in string) (time.Duration, error) {
+	in = strings.Replace(in, ":", "h", 1)
+	in = strings.Replace(in, ":", "m", 1)
+	in += "s"
+	return time.ParseDuration(in)
+}
+
 type Fillable interface {
 	Fill() error
 }

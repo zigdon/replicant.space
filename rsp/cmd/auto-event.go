@@ -337,7 +337,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					}
 					_, err = rest.DeviceCommand[models.CommandResp](
 						p, "enqueue_print", map[string]any{"device_type": k})
-					queue[p.Alias()] += bp.PrintTime.Duration()
+					queue[p.String()] += bp.PrintTime.Duration()
 					log("Printing %s at %s", k, p.Alias())
 				}
 			}

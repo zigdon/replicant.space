@@ -3,8 +3,6 @@ package models
 import (
 	"errors"
 	"fmt"
-	"strings"
-	"time"
 
 	"github.com/zigdon/rsp/cache"
 )
@@ -96,10 +94,7 @@ func (b *Blueprint) Get() error {
 	if err != nil {
 		return err
 	}
-	pt = strings.Replace(pt, ":", "h", 1)
-	pt = strings.Replace(pt, ":", "m", 1)
-	pt += "s"
-	d, err := time.ParseDuration(pt)
+	d, err := psqlDuration(pt)
 	if err != nil {
 		return err
 	}
@@ -168,14 +163,18 @@ func (bs *Blueprints) Get() error {
 				Resources:  make(map[string]int),
 				Components: make(map[string]int),
 			}
-			var pt float32
-			rows.Scan(
+			var pt string
+			if err := rows.Scan(
 				&bp.DeviceType, &pt, &bp.AttachCapacity, &bp.CargoCapacity, &bp.StowCapacity,
 				&bp.ShortDescription, &bp.Description,
-			)
-			if err := fillDuration(pt, &bp.PrintTime.td); err != nil {
+			); err != nil {
 				return err
 			}
+			d, err := psqlDuration(pt)
+			if err != nil {
+				return err
+			}
+			bp.PrintTime.td = d
 			bpm[bp.DeviceType] = bp
 		}
 		if err := rows.Err(); err != nil {

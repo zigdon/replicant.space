@@ -1252,6 +1252,7 @@ printTable	rsp/cmd/output.go	/^func printTable(headers []string, data [][]string
 printTablef	rsp/cmd/output.go	/^func printTablef(out io.Writer, headers []string, data [][]string) {$/;"	f	package:cmd
 prospect	rsp/cmd/device-prospect.go	/^func prospect(cmd *cobra.Command, args []string) error {$/;"	f	package:cmd	typeref:typename:error
 prospectCmd	rsp/cmd/device-prospect.go	/^var prospectCmd = &cobra.Command{$/;"	v	package:cmd
+psqlDuration	rsp/models/helpers.go	/^func psqlDuration(in string) (time.Duration, error) {$/;"	f	package:models	typeref:typename:(time.Duration, error)
 queue	rsp/auto/state.go	/^	queue   []*Event$/;"	m	struct:auto.EventQueue	typeref:typename:[]*Event
 rangeFlag	rsp/cmd/helpers.go	/^	rangeFlag bool$/;"	m	struct:cmd.flagDesc	typeref:typename:bool
 ref	rsp/models/helpers.go	/^func ref[T any](s T) func() []any {$/;"	f	package:models	typeref:typename:(s T) func
