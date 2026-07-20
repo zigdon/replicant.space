@@ -1138,6 +1138,7 @@ getHomeFactories	rsp/cmd/root-print.go	/^func getHomeFactories(home string) ([]*
 getInfo	rsp/cmd/root-auto.go	/^func getInfo(d *models.CodeAlias) (*models.Device, error) {$/;"	f	package:cmd	typeref:typename:(*models.Device, error)
 getPosFromString	rsp/cmd/root-plot.go	/^func getPosFromString(dst string) (*models.Position, error) {$/;"	f	package:cmd	typeref:typename:(*models.Position, error)
 getRID	rsp/cmd/root-replicant.go	/^func getRID(cmd *cobra.Command) (*models.CodeAlias, error) {$/;"	f	package:cmd	typeref:typename:(*models.CodeAlias, error)
+getResourcePriorities	rsp/cmd/auto-ferry.go	/^func getResourcePriorities(loc string) ([]string, error) {$/;"	f	package:cmd	typeref:typename:([]string, error)
 getTags	rsp/auto/state.go	/^func getTags(dev *models.Device) map[string]string {$/;"	f	package:auto	typeref:typename:map[string]string
 getTeleportDests	rsp/cmd/replicant-travel.go	/^func getTeleportDests() ([]*models.Device, error) {$/;"	f	package:cmd	typeref:typename:([]*models.Device, error)
 goCmd	rsp/auto/prospect.go	/^func (pm *ProspectMachine) goCmd(cmd string, args map[string]any) (*models.CommandResp, error) {$/;"	f	struct:auto.ProspectMachine	typeref:typename:(*models.CommandResp, error)

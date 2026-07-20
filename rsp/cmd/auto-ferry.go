@@ -75,6 +75,8 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 	}
 	var dests []dest
 	home, _ := cmd.Flags().GetString("home")
+	// Get the distribution of resources at home so we can prioritize accordingly
+	priorities, err := getResourcePriorities(home)
 	for l, loc := range locs.Locations {
 		if string(l) == home || skip[l] {
 			continue
@@ -91,9 +93,26 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 		return cmp.Compare(b.count, a.count)
 	})
 	log("Resource pile found at %s: %d", dests[0].location, dests[0].count)
+	log("Priorities: %v", priorities)
 
 	return setDirective(atc.Code, "ferry", map[string]any{
-		"collect": dests[0].location,
-		"deliver": home,
+		"collect":  dests[0].location,
+		"deliver":  home,
+		"priority": priorities,
 	})
+}
+
+func getResourcePriorities(loc string) ([]string, error) {
+	var res []string
+	inv, err := rest.Location(loc)
+	if err != nil {
+		return res, err
+	}
+	slices.SortFunc(inv.Inventory, func(a, b *models.Inventory) int {
+		return cmp.Compare(a.Quantity, b.Quantity)
+	})
+	for _, i := range inv.Inventory {
+		res = append(res, i.ResourceType)
+	}
+	return res, nil
 }
