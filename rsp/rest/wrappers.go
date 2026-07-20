@@ -345,6 +345,17 @@ func RefreshDevices(filters map[string]string) ([]*models.Device, error) {
 		cur = ds.NextCursor
 	}
 
+	seen := make(map[string]bool)
+	if len(filters) == 0 {
+		log("Got full device list (%d), cleaning up cache", len(devs))
+		deleted, err := db.ExpireCache(seen)
+		if err != nil {
+			log("Error removing stale devices: %v", err)
+		} else {
+			log("Removed entries for %d devices", deleted)
+		}
+	}
+
 	return devs, nil
 }
 

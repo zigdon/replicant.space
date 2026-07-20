@@ -377,6 +377,7 @@ Execute	rsp/cmd/root.go	/^func Execute() {$/;"	f	package:cmd
 Expected	rsp/models/device.go	/^	Expected          float32 `json:"expected"`$/;"	m	struct:models.ProspectDetail	typeref:typename:float32
 ExperiencePoints	rsp/models/replicant.go	/^	ExperiencePoints    int           `json:"experience_points"`$/;"	m	struct:models.Replicant	typeref:typename:int
 ExperiencePointsTotal	rsp/models/account.go	/^	ExperiencePointsTotal int                   `json:"experience_points_total"`$/;"	m	struct:models.Account	typeref:typename:int
+ExpireCache	rsp/cache/db.go	/^func (db *Cache) ExpireCache(keep map[string]bool) (int64, error) {$/;"	f	struct:cache.Cache	typeref:typename:(int64, error)
 Explored	rsp/models/location.go	/^	Explored              bool           `json:"explored"`$/;"	m	struct:models.Star	typeref:typename:bool
 ExtractLocations	rsp/models/scan.go	/^func (s *Scan) ExtractLocations() []string {$/;"	f	struct:models.Scan	typeref:typename:[]string
 Features	rsp/models/blueprints.go	/^	Features         []string       `json:"features"`$/;"	m	struct:models.Blueprint	typeref:typename:[]string

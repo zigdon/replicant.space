@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/lib/pq" // To register the driver.
+	_ "github.com/lib/pq" // Register the driver
 
 	"github.com/zigdon/rsp/cfg"
 )
@@ -407,4 +407,15 @@ func (db *Cache) GetSector(x, y, z float32, cone, margin int) ([]string, error) 
 	}
 
 	return res, rows.Err()
+}
+
+func (db *Cache) ExpireCache(keep map[string]bool) (int64, error) {
+	res, err := db.DB.Exec(`
+		DELETE from json_devices
+		WHERE updated_ts < NOW() - INTERVAL '5 minutes';
+	`)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }

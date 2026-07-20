@@ -98,7 +98,7 @@ func getTeleportDests() ([]*models.Device, error) {
 			return nil, err
 		}
 		log("Searching for %s...", t)
-		devs, err := rest.Devices(map[string]string{"device_type": t})
+		devs, err := rest.RefreshDevices(map[string]string{"device_type": t})
 		if err != nil {
 			return nil, err
 		}
@@ -111,6 +111,10 @@ func getTeleportDests() ([]*models.Device, error) {
 	// Now check each cradle, and see which have an empty matrix
 	var res []*models.Device
 	for _, c := range cradles {
+		c, err := rest.RefreshDeviceInfo(c.Code)
+		if err != nil {
+			return nil, err
+		}
 		if c.StowedDevices == nil {
 			log("%s: Nothing stowed", c.Code.Alias())
 			continue
