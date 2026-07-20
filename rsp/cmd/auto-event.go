@@ -194,6 +194,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			for _, sp := range sps {
+				sp, err := rest.RefreshDeviceInfo(sp.Code)
+				if err != nil {
+					return err
+				}
 				if string(sp.Location) == home && len(sp.AttachedDevices) == 0 {
 					freeSPs = append(freeSPs, sp)
 				}
@@ -317,7 +321,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				if err != nil {
 					return err
 				}
-				log("devs: %v", devs)
+				log("%s: %s", k, devList(devs))
 				if len(devs) >= v {
 					pickUp = append(pickUp, devs[:v]...)
 					slots += v
@@ -331,13 +335,14 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					if err != nil {
 						return err
 					}
-					// _, err = rest.DeviceCommand[models.CommandResp](
-					// 	p, "enqueue_print", map[string]any{"device_type": k})
+					_, err = rest.DeviceCommand[models.CommandResp](
+						p, "enqueue_print", map[string]any{"device_type": k})
 					queue[p.Alias()] += bp.PrintTime.Duration()
 					log("Printing %s at %s", k, p.Alias())
 				}
 			}
 			log("missing: %v", missing)
+			log("pick up: %v", devList(pickUp))
 
 			// Find an empty platform at home, use it
 			if len(freeSPs) == 0 {
@@ -355,9 +360,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				if len(pickUp) == 0 {
 					break
 				}
-				avail := sp.AttachCapacity
-				if len(pickUp) == 0 {
-					break
+				avail := sp.AttachCapacity - len(sp.AttachedDevices)
+				if avail == 0 {
+					continue
 				}
 				if avail >= len(pickUp) {
 					log("Attaching %s to %s", strings.Join(devList(pickUp), ", "), sp.Code.Alias())
@@ -394,7 +399,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 
 	data = [][]string{}
 	for _, dev := range ep.Devices {
-		missing[dev.DeviceType] = dev.Count - dev.Current
+		missing[dev.DeviceType] = dev.Count + dev.Required - dev.Current
 		data = append(data, []string{dev.DeviceType, d(dev.Count), d(dev.Current)})
 	}
 	for _, r := range ep.Resources {
