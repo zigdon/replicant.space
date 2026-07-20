@@ -201,6 +201,34 @@ func waitPending(cmd *cobra.Command, args []string) error {
 		"stowed",
 		"tracking",
 	}
+	activeDevices := []string{
+		"ami_fleet_controller",
+		"ami_mining_controller",
+		"ami_survey_controller",
+		"ami_trade_controller",
+		"autofactory",
+		"belt_surveyor",
+		"cargo_freighter",
+		"cargo_lifter",
+		"cargo_vessel",
+		"galactic_observatory",
+		"heaven_vessel",
+		"maintenance_drone",
+		"mobile_fleet",
+		"propulsor",
+		"racing_vessel",
+		"service_bot",
+		"surge_carrier",
+		"surge_plate",
+		"survey_drone",
+		"system_hub",
+		"transport_drone",
+		"transport_hauler",
+		"ami_transport_controller",
+		"mining_drone",
+		"signal_booster",
+		"surge_platform",
+	}
 	for cn, h := range []string{
 		"Code",
 		"Type",
@@ -236,6 +264,9 @@ func waitPending(cmd *cobra.Command, args []string) error {
 			models.SortDevices(devs)
 			var r int
 			for _, d := range devs {
+				if !slices.Contains(activeDevices, d.Type) {
+					continue
+				}
 				if slices.ContainsFunc(boring, func(s string) bool {
 					return strings.HasPrefix(d.Status, s)
 				}) {
