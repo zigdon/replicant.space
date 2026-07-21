@@ -84,12 +84,30 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 
 	// Load the blueprints we know
 	bps := make(map[string]bool)
-	blueprints, err := db.ListIDs(cache.BlueprintsTable)
-	if err != nil {
+	modular := make(map[string]bool)
+	if blueprints, err := db.ListIDs(cache.BlueprintsTable); err != nil {
 		return err
+	} else {
+		for _, bp := range blueprints {
+			bps[bp.(string)] = true
+		}
 	}
-	for _, bp := range blueprints {
-		bps[bp.(string)] = true
+	if rows, err := db.DB.Query(`
+		SELECT blueprint_type
+		FROM blueprint_features
+		WHERE feature = 'modular'`); err != nil {
+		return err
+	} else {
+		for rows.Next() {
+			var t string
+			if err := rows.Scan(&t); err != nil {
+				return err
+			}
+			modular[t] = true
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
 	}
 
 	// Examine resolution options
@@ -206,9 +224,29 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				if !isEnRoute(sp) {
 					continue
 				}
-				for _, c := range sp.Cargo {
-					enRoute[c.ResourceType] += int(c.Quantity)
-					if _, ok := missing[c.ResourceType]; ok && sp.Travel.Arrives.Time().After(eta) {
+				if sp.Location == ev.Location {
+					var compressed []*models.CodeAlias
+					for _, ad := range sp.AttachedDevices {
+						if modular[ad.Type] {
+							compressed = append(compressed, ad.Code)
+						}
+					}
+					log("Detaching %d devices from %s", len(sp.AttachedDevices), sp.Code.Alias())
+					if _, err := rest.DeviceCommand[models.CommandResp](sp.Code, "detach", nil); err != nil {
+						return err
+					}
+					for _, cd := range compressed {
+						log("Unfurling %s...", cd.Alias())
+						res, err := rest.DeviceCommand[models.CommandResp](cd, "unfurl", nil)
+						if err != nil {
+							return err
+						}
+						log("... %s", res.Completes.Time())
+					}
+				}
+				for _, ad := range sp.AttachedDevices {
+					enRoute[ad.Type] += 1
+					if _, ok := missing[ad.Type]; ok && sp.Travel.Arrives.Time().After(eta) {
 						eta = sp.Travel.Arrives.Time()
 					}
 				}
@@ -345,9 +383,18 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				log("Nothing to pick up yet, waiting for print jobs to complete")
 				return nil
 			}
-			ids := make([]*models.CodeAlias, len(pickUp))
-			for n, d := range pickUp {
-				ids[n] = d.Code
+			var ids []*models.CodeAlias
+			for _, d := range pickUp {
+				if modular[d.Type] && d.Status == "idle" {
+					log("Compacting %s", d.Code.Alias())
+					if res, err := rest.DeviceCommand[models.CommandResp](d.Code, "compact", nil); err != nil {
+						return err
+					} else {
+						log("... %s", res.Completes.String())
+					}
+					continue
+				}
+				ids = append(ids, d.Code)
 			}
 			slices.SortFunc(freeSPs, func(a, b *models.Device) int {
 				return cmp.Compare(a.AttachCapacity, b.AttachCapacity)
