@@ -84,8 +84,7 @@ func (pm *ProspectMachine) deviceCmd(id *models.CodeAlias, cmd string, args map[
 		log("Would issue [%q, %v] to %q", cmd, args, id.Alias())
 		return &models.CommandResp{}, nil
 	}
-	log("Issuing [%q, %v] to %q", cmd, args, id.Alias())
-	return rest.DeviceCommand[models.CommandResp](id, cmd, args)
+	return deviceCommand(id, cmd, args)
 }
 
 func (pm *ProspectMachine) goCmd(cmd string, args map[string]any) (*models.CommandResp, error) {

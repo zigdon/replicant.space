@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -29,6 +30,8 @@ import (
 //   empty: head home, queue FRs
 //   resupplying: attach until full capacity
 //   full: follow cv
+
+const home = "MENKUNT-2-L4"
 
 type RelayMachine struct {
 	dryRun bool
@@ -108,9 +111,11 @@ func (rm *RelayMachine) UpdateState() error {
 	sysHasSpareFR := len(sysFRs) > 1
 
 	switch {
+	case rm.state == "cleanup" && sysHasSpareFR:
+		rm.state = "cleanup"
 	case rm.dev.Location == "" || status != "idle":
 		rm.state = "transit"
-	case rm.state == "transit" && sysFRRelaying:
+	case rm.state == "transit" && sysFRRelaying && !sysHasSpareFR:
 		rm.state = "leaving"
 	case rm.state == "transit" && !inL4:
 		rm.state = "incoming"
@@ -118,6 +123,8 @@ func (rm *RelayMachine) UpdateState() error {
 		rm.state = "deploying"
 	case rm.state == "deploying" && sysHasSpareFR:
 		rm.state = "cleanup"
+	case rm.state == "cleanup" && !sysHasSpareFR:
+		rm.state = "leaving"
 	case rm.state == "deploying" && !frInv:
 		rm.state = "empty"
 	case frInv && (rm.state == "empty" || rm.state == "deploying"):
@@ -154,14 +161,172 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			}
 			log("System objects found: %s", strings.Join(objs, ", "))
 		}
-		res, err := rest.DeviceCommand[models.CommandResp](rm.dev.Code, "travel", map[string]any{
+		res, err := deviceCommand(rm.dev.Code, "travel", map[string]any{
 			"destination": scan.EntryPoint,
 		})
-		return res.Arrives.Time(), err
+		eta = res.Arrives.Time()
 	case "deploying":
-
+		// Find an FR in our hold
+		var fr *models.CodeAlias
+		for _, d := range rm.dev.StowedDevices.Devices {
+			if d.Type != "ftl_relay" {
+				continue
+			}
+			fr = d.Code
+			break
+		}
+		if fr == nil {
+			return eta, fmt.Errorf("No FTL relays found in hold")
+		}
+		// Deploy
+		_, err := deviceCommand(fr, "deploy", nil)
+		if err != nil {
+			return eta, err
+		}
+		// Activate
+		_, err = deviceCommand(fr, "activate", nil)
+		if err != nil {
+			return eta, err
+		}
+		// Tag
+		_, err = rest.UpdateTags(fr, rest.AddTag, []string{"infrastructure"})
+		return eta, err
+	case "cleanup":
+		// Find spares in system
+		frs, err := rest.RefreshDevices(map[string]string{"location": rm.dev.Location.Star()})
+		if err != nil {
+			return eta, err
+		}
+		if len(frs) >= 1 {
+			frs = frs[1:]
+			// Pick up the local FRs first
+			var next string
+			for _, d := range frs {
+				if d.Location == rm.dev.Location {
+					_, err = deviceCommand(d.Code, "stow", map[string]any{
+						"target": rm.dev.Code,
+					})
+					if err != nil {
+						return eta, err
+					}
+				} else {
+					next = string(d.Location)
+				}
+			}
+			if next != "" {
+				log("Moving to %q to pick up more spare FRs", next)
+				res, err := deviceCommand(rm.dev.Code, "travel", map[string]any{
+					"destination": next,
+				})
+				if err != nil {
+					return eta, err
+				}
+				eta = res.Arrives.Time()
+			}
+		}
+	case "empty":
+		if rm.dev.Location != rm.supply.Location {
+			log("Waiting for resupply at %q", rm.dev.Location)
+		} else {
+			if len(rm.supply.StowedDevices.Devices) == 0 {
+				return eta, fmt.Errorf("Resupply vessage %q unexpectedly empty at %q",
+					rm.supply.Code.Alias(), rm.dev.Location)
+			}
+			var stowed = 0
+			for _, d := range rm.supply.StowedDevices.Devices {
+				_, err := deviceCommand(d.Code, "deploy", nil)
+				if err != nil {
+					return eta, err
+				}
+				_, err = deviceCommand(d.Code, "stow", map[string]any{"target": rm.dev.Code})
+				if err != nil {
+					return eta, err
+				}
+				stowed++
+			}
+			log("Picked up %d FRs, shipping resupply back home", stowed)
+			_, err := deviceCommand(rm.supply.Code, "travel", map[string]any{"destination": home})
+			if err != nil {
+				return eta, err
+			}
+			log("TODO: Queuing %d new FRs to be printed", rm.supply.StowCapacity)
+			// TODO make a generic queue command
+		}
+	case "leaving":
+		// plot the next hop
+		route, err := common.PlotTrip(string(rm.dev.Location), rm.dest, nil)
+		if err != nil {
+			return eta, err
+		}
+		var lost = true
+		for _, l := range route.Legs {
+			if l.From != string(rm.dev.Location) {
+				continue
+			}
+			lost = false
+			res, err := deviceCommand(rm.dev.Code, "travel", map[string]any{
+				"destination": l.To,
+			})
+			if err != nil {
+				return eta, err
+			}
+			eta = res.Arrives.Time()
+			break
+		}
+		if lost {
+			return eta, fmt.Errorf("Can't figure out the next step from %q to %q",
+				rm.dev.Location, rm.dest)
+		}
 	default:
 		return eta, fmt.Errorf("Unknown state: %q", rm.state)
+	}
+
+	// Handle supply vessal
+	switch rm.supply.Location {
+	case "":
+		log("Resupply platform in transit...")
+	case home:
+		slots := rm.supply.AttachCapacity - len(rm.supply.AttachedDevices)
+		homeFRs, err := rest.RefreshDevices(map[string]string{
+			"location":    home,
+			"device_type": "ftl_relay",
+		})
+		if err != nil {
+			return eta, err
+		}
+		if len(homeFRs) == 0 {
+			return eta, fmt.Errorf("No FRs available at home")
+		}
+		log("Loading %d FRs at home, %d available...", slots, len(homeFRs))
+		for slots > 0 && len(homeFRs) > 0 {
+			_, err := deviceCommand(rm.supply.Code, "stow", map[string]any{
+				"target": homeFRs[0].Code.String(),
+			})
+			if err != nil {
+				return eta, err
+			}
+			slots--
+			homeFRs = homeFRs[1:]
+		}
+		log("Shipping out to %q to deliver FRs", rm.dev.Location)
+		res, err := deviceCommand(rm.supply.Code, "travel", map[string]any{
+			"destination": rm.dev.Location,
+		})
+		if err != nil {
+			return eta, err
+		}
+		log("Supply ship in transit: %s (%s)", res.Arrives.Time(), time.Until(res.Arrives.Time()))
+	case rm.dev.Location:
+		log("Waiting for resupply at %q", rm.dev.Location)
+	default:
+		log("Following %s to %q", rm.dev.Code.Alias(), rm.dev.Location)
+		res, err := deviceCommand(rm.supply.Code, "travel", map[string]any{
+			"destination": rm.dev.Location,
+		})
+		if err != nil {
+			return eta, err
+		}
+		log("Supply ship in transit: %s (%s)", res.Arrives.Time(), time.Until(res.Arrives.Time()))
 	}
 	return eta, nil
 }

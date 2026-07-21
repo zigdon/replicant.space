@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zigdon/rsp/models"
+	"github.com/zigdon/rsp/rest"
 )
 
 // Find devices tagged with auto:<label>
@@ -40,6 +41,11 @@ func getTags(dev *models.Device) map[string]string {
 
 func log(tmpl string, args ...any) {
 	fmt.Printf(time.Now().Format(time.Stamp)+" - "+tmpl+"\n", args...)
+}
+
+func deviceCommand(id *models.CodeAlias, cmd string, args map[string]any) (*models.CommandResp, error) {
+	log("Issuing %q to %s: %v", cmd, id.Alias(), args)
+	return rest.DeviceCommand[models.CommandResp](id, cmd, args)
 }
 
 type Event struct {

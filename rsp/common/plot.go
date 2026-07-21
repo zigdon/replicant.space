@@ -28,6 +28,9 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	// Ignore repeats (unless this is a shorter way to get to them)
 	// Repeat until destination is found
 
+	if cfg == nil {
+		cfg = &PlotCfg{Hop: 7.5}
+	}
 	starSrc, err := models.NewStar(src)
 	if err != nil {
 		return nil, err
