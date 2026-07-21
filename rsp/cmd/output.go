@@ -49,6 +49,14 @@ func prettyPrintf(f io.Writer, i any) {
 	fmt.Fprintln(f, string(s))
 }
 
+func codeList(cs []*models.CodeAlias) []string {
+	res := make([]string, len(cs))
+	for i, c := range cs {
+		res[i] = c.Alias()
+	}
+	return res
+}
+
 func devList(cs []*models.Device) []string {
 	res := make([]string, len(cs))
 	for i, c := range cs {

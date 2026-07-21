@@ -225,19 +225,16 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					continue
 				}
 				if sp.Location == ev.Location {
-					var compressed []*models.CodeAlias
-					for _, ad := range sp.AttachedDevices {
-						if modular[ad.Type] {
-							compressed = append(compressed, ad.Code)
-						}
-					}
 					log("Detaching %d devices from %s", len(sp.AttachedDevices), sp.Code.Alias())
 					if _, err := rest.DeviceCommand[models.CommandResp](sp.Code, "detach", nil); err != nil {
 						return err
 					}
-					for _, cd := range compressed {
-						log("Unfurling %s...", cd.Alias())
-						res, err := rest.DeviceCommand[models.CommandResp](cd, "unfurl", nil)
+					for _, ad := range sp.AttachedDevices {
+						if !modular[ad.Type] || ad.Status != "compressed" {
+							continue
+						}
+						log("Unfurling %s...", ad.Code.Alias())
+						res, err := rest.DeviceCommand[models.CommandResp](ad.Code, "unfurl", nil)
 						if err != nil {
 							return err
 						}
@@ -246,6 +243,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				}
 				for _, ad := range sp.AttachedDevices {
 					enRoute[ad.Type] += 1
+					if sp.Travel == nil {
+						continue
+					}
 					if _, ok := missing[ad.Type]; ok && sp.Travel.Arrives.Time().After(eta) {
 						eta = sp.Travel.Arrives.Time()
 					}
@@ -379,6 +379,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			if len(freeSPs) == 0 {
 				return fmt.Errorf("No platforms available to deliver %v to %s", missing, ev.Location)
 			}
+			slices.SortFunc(freeSPs, func(a, b *models.Device) int {
+				return cmp.Compare(a.AttachCapacity, b.AttachCapacity)
+			})
+			log("available platforms: %v", devList(freeSPs))
 			if len(pickUp) == 0 {
 				log("Nothing to pick up yet, waiting for print jobs to complete")
 				return nil
@@ -396,9 +400,6 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				}
 				ids = append(ids, d.Code)
 			}
-			slices.SortFunc(freeSPs, func(a, b *models.Device) int {
-				return cmp.Compare(a.AttachCapacity, b.AttachCapacity)
-			})
 			for _, sp := range freeSPs {
 				if len(pickUp) == 0 {
 					break
@@ -408,7 +409,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					continue
 				}
 				if avail >= len(pickUp) {
-					log("Attaching %s to %s", strings.Join(devList(pickUp), ", "), sp.Code.Alias())
+					log("Attaching %s to %s", strings.Join(codeList(ids), ", "), sp.Code.Alias())
 					_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids})
 					if err != nil {
 						return err

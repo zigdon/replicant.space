@@ -1084,6 +1084,7 @@ cmd	rsp/cmd/root.go	/^package cmd$/;"	p
 cmd	rsp/cmd/table-wait.go	/^package cmd$/;"	p
 cmd	rsp/cmd/table.go	/^package cmd$/;"	p
 cmd	rsp/cmd/test.go	/^package cmd$/;"	p
+codeList	rsp/cmd/output.go	/^func codeList(cs []*models.CodeAlias) []string {$/;"	f	package:cmd	typeref:typename:[]string
 cols	rsp/cache/db.go	/^var cols = map[Tables][]string{$/;"	v	package:cache
 configCmd	rsp/cmd/root-config.go	/^var configCmd = &cobra.Command{$/;"	v	package:cmd
 constraints	rsp/cache/db.go	/^var constraints = map[Tables]string{$/;"	v	package:cache
