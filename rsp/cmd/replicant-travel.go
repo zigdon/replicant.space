@@ -84,7 +84,7 @@ var stopCmd = &cobra.Command{
 	},
 }
 
-func getTeleportDests() ([]*models.Device, error) {
+func getTeleportDests(loc string) ([]*models.Device, error) {
 	var cradles []*models.Device
 	rows, err := db.DB.Query(
 		`SELECT blueprint_type FROM blueprint_features WHERE feature = 'cradle';`)
@@ -98,12 +98,20 @@ func getTeleportDests() ([]*models.Device, error) {
 			return nil, err
 		}
 		log("Searching for %s...", t)
-		devs, err := rest.RefreshDevices(map[string]string{"device_type": t})
+		cfg := map[string]string{
+			"device_type": t,
+		}
+		if loc != "" {
+			cfg["location"] = loc
+		}
+		devs, err := rest.RefreshDevices(cfg)
 		if err != nil {
 			return nil, err
 		}
-		log("... %v", devList(devs))
-		cradles = append(cradles, devs...)
+		if len(devs) > 0 {
+			log("... %v", devList(devs))
+			cradles = append(cradles, devs...)
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -144,7 +152,7 @@ var teleportCmd = &cobra.Command{
 		target, _ := cmd.Flags().GetString("target")
 		if target == "" {
 			loc, _ := cmd.Flags().GetString("location")
-			dests, err := getTeleportDests()
+			dests, err := getTeleportDests(loc)
 			if err != nil {
 				return err
 			}
@@ -182,7 +190,7 @@ var teleportListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all teleport destinations",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dests, err := getTeleportDests()
+		dests, err := getTeleportDests("")
 		if err != nil {
 			return err
 		}

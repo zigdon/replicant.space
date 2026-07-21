@@ -44,7 +44,7 @@
 !_TAG_PARSER_VERSION!Sh	0.0	/current.age/
 !_TAG_PARSER_VERSION!Yaml	0.0	/current.age/
 !_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
-!_TAG_PROC_CWD	/home/zigdon/Projects/replicant.space/	//
+!_TAG_PROC_CWD	/home/zigdon/Projects/Replicant/	//
 !_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
@@ -1141,7 +1141,7 @@ getPosFromString	rsp/cmd/root-plot.go	/^func getPosFromString(dst string) (*mode
 getRID	rsp/cmd/root-replicant.go	/^func getRID(cmd *cobra.Command) (*models.CodeAlias, error) {$/;"	f	package:cmd	typeref:typename:(*models.CodeAlias, error)
 getResourcePriorities	rsp/cmd/auto-ferry.go	/^func getResourcePriorities(loc string) ([]string, error) {$/;"	f	package:cmd	typeref:typename:([]string, error)
 getTags	rsp/auto/state.go	/^func getTags(dev *models.Device) map[string]string {$/;"	f	package:auto	typeref:typename:map[string]string
-getTeleportDests	rsp/cmd/replicant-travel.go	/^func getTeleportDests() ([]*models.Device, error) {$/;"	f	package:cmd	typeref:typename:([]*models.Device, error)
+getTeleportDests	rsp/cmd/replicant-travel.go	/^func getTeleportDests(loc string) ([]*models.Device, error) {$/;"	f	package:cmd	typeref:typename:([]*models.Device, error)
 goCmd	rsp/auto/prospect.go	/^func (pm *ProspectMachine) goCmd(cmd string, args map[string]any) (*models.CommandResp, error) {$/;"	f	struct:auto.ProspectMachine	typeref:typename:(*models.CommandResp, error)
 humanize	rsp/cmd/output.go	/^func humanize(in string) string {$/;"	f	package:cmd	typeref:typename:string
 infoCmd	rsp/cmd/device-info.go	/^var infoCmd = &cobra.Command{$/;"	v	package:cmd
