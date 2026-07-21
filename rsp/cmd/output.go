@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -99,6 +100,20 @@ func list(s []string) string {
 		res = fmt.Sprintf("(%d) %s...", len(s), res[:50])
 	}
 	return res
+}
+
+func countList(in []string) string {
+	m := make(map[string]int)
+	for _, i := range in {
+		m[i]++
+	}
+	slices.Sort(in)
+	in = slices.Compact(in)
+	var res []string
+	for _, i := range in {
+		res = append(res, fmt.Sprintf("%d x %s", m[i], i))
+	}
+	return strings.Join(res, ", ")
 }
 
 func lines(s []string) string {
