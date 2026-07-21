@@ -116,9 +116,9 @@ func countList(in []string) string {
 		m[i]++
 	}
 	slices.Sort(in)
-	in = slices.Compact(in)
+	compacted := slices.Compact(in)
 	var res []string
-	for _, i := range in {
+	for _, i := range compacted {
 		res = append(res, fmt.Sprintf("%d x %s", m[i], i))
 	}
 	return strings.Join(res, ", ")

@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -28,6 +29,7 @@ func Execute() {
 	if err != nil {
 		log("Failed to connect to db: %v", err)
 	} else {
+		common.ConnectDB(db)
 		models.ConnectDB(db)
 		rest.ConnectDB(db)
 	}

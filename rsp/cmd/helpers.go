@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -176,52 +176,19 @@ func mkCommand[T any](parent *cobra.Command, name, short, command string, flags 
 }
 
 func aliasType(in string) (string, string) {
-	if db == nil {
-		return "", ""
-	}
-	return db.GetAliasAndType(in)
+	return common.AliasType(in)
 }
 
 func alias(in string) string {
-	if db == nil {
-		return in
-	}
-	// Check if there's already an alias
-	out := db.HasAlias(in)
-	if out != "" {
-		return out
-	}
-
-	// If it doesn't look like a code, don't try to look it up
-	if strings.ToUpper(in) != in {
-		return in
-	}
-
-	// No alias, get the device type before making one
-	deviceType, err := rest.GetType(in)
-	if err != nil || deviceType == "" {
-		return in
-	}
-	out, err = db.Alias(in, deviceType)
-	if err != nil {
-		log("Error creating alias for %q(%s): %v", in, deviceType, err)
-	}
-	return out
+	return common.Alias(in)
 }
 
 func aliases(in []*models.CodeAlias) []string {
-	res := make([]string, len(in))
-	for i, ca := range in {
-		res[i] = ca.Alias()
-	}
-	return res
+	return common.Aliases(in)
 }
 
 func unalias(in string) string {
-	if db == nil {
-		return in
-	}
-	return db.Dealias(in)
+	return common.Unalias(in)
 }
 
 func explode[T any](v T, loc models.LocationID) []string {
@@ -296,29 +263,34 @@ func explode[T any](v T, loc models.LocationID) []string {
 }
 
 func isResource(in string) bool {
-	return slices.Contains([]string{
-		"carbon",
-		"conductive",
-		"rares",
-		"silicates",
-		"structural",
-		"volatiles",
-	}, in)
+	return common.IsResource(in)
 }
 
-var bps map[string]*models.Blueprint
-
 func getBP(bp string) *models.Blueprint {
-	if bps == nil {
-		bps = make(map[string]*models.Blueprint)
-	}
-	if b, ok := bps[bp]; ok {
-		return b
-	}
-	b := &models.Blueprint{DeviceType: bp}
-	if err := b.Get(); err != nil {
-		panic(fmt.Sprintf("Can load blueprint for %s: %v", bp, err))
-	}
-	bps[bp] = b
-	return b
+	return common.GetBP(bp)
+}
+
+func getBool(cmd *cobra.Command, name string) bool {
+	f, _ := cmd.Flags().GetBool(name)
+	return f
+}
+
+func getString(cmd *cobra.Command, name string) string {
+	f, _ := cmd.Flags().GetString(name)
+	return f
+}
+
+func getStringSlice(cmd *cobra.Command, name string) []string {
+	f, _ := cmd.Flags().GetStringSlice(name)
+	return f
+}
+
+func getInt(cmd *cobra.Command, name string) int {
+	f, _ := cmd.Flags().GetInt(name)
+	return f
+}
+
+func getFloat32(cmd *cobra.Command, name string) float32 {
+	f, _ := cmd.Flags().GetFloat32(name)
+	return f
 }
