@@ -63,23 +63,40 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 
 	moveReplicant := func() error {
 		log("Event ready to complete...")
-		acc, err := rest.Account()
+		rid, _ := cmd.Flags().GetInt("replicant")
+		rep, err := rest.ReplicantID(rid)
 		if err != nil {
 			return err
 		}
-		for _, r := range acc.ReplicantList {
-			if r.CurrentLocation == ev.Location {
-				log("Completing event with %s...", r.Code.Alias())
-				return eventComplete(eID)
-			}
-			if r.CurrentLocation.Star() == ev.Location.Star() {
-				log("Moving %s to %s...", r.Code.Alias(), ev.Location)
-				_, err := rest.ReplicantTravel(
-					r.Code, string(ev.Location), nil, false)
-				return err
-			}
+		r, err := rest.Replicant(rep)
+		if err != nil {
+			return err
 		}
-		return fmt.Errorf("Need a replicant moved to %s to resolve the event", ev.Location)
+		if r.CurrentLocation == ev.Location {
+			log("Completing event with %s...", r.Code.Alias())
+			return eventComplete(eID)
+		}
+		if r.CurrentLocation.Star() == ev.Location.Star() {
+			log("Moving %s to %s...", r.Code.Alias(), ev.Location)
+			_, err := rest.ReplicantTravel(
+				r.Code, string(ev.Location), nil, false)
+			return err
+		}
+		log("Searching for teleport targets in %s", ev.Location)
+		dests, err := getTeleportDests(string(ev.Location))
+		if err != nil {
+			return err
+		}
+		if len(dests) == 0 {
+			return fmt.Errorf("No teleport target found at %s", ev.Location)
+		}
+		log("Attempting to teleport %s to %s", rep.Alias(), dests[0].StowedDevices.Devices[0].Code.Alias())
+		res, err := rest.ReplicantTeleport(rep, dests[0].StowedDevices.Devices[0].Code)
+		if err != nil {
+			return err
+		}
+		log("Replicant teleported: eta %s (%s)", res.Completes.Time(), time.Until(res.Completes.Time()))
+		return nil
 	}
 
 	// Load the blueprints we know
@@ -201,7 +218,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					}
 				}
 				log("Sending %s back home", cf.Code.Alias())
-				if err := travel(cf.Code, home); err != nil {
+				if _, err := travel(cf.Code, home); err != nil {
 					return err
 				}
 			}
@@ -247,7 +264,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						continue
 					}
 					if _, ok := missing[ad.Type]; ok && sp.Travel.Arrives.Time().After(eta) {
-						eta = sp.Travel.Arrives.Time()
+						if sp.Travel.Arrives.Time().After(eta) {
+							eta = sp.Travel.Arrives.Time()
+						}
 					}
 				}
 			}
@@ -318,9 +337,12 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				if err != nil {
 					return err
 				}
-				err = travel(cf.Code, string(ev.Location))
+				newEta, err := travel(cf.Code, string(ev.Location))
 				if err != nil {
 					return err
+				}
+				if newEta.After(eta) {
+					eta = newEta
 				}
 			}
 		}
@@ -414,9 +436,12 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					if err != nil {
 						return err
 					}
-					err = travel(sp.Code, string(ev.Location))
+					newEta, err := travel(sp.Code, string(ev.Location))
 					if err != nil {
 						return err
+					}
+					if newEta.After(eta) {
+						eta = newEta
 					}
 					break
 				} else {
@@ -425,9 +450,12 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					if err != nil {
 						return err
 					}
-					err = travel(sp.Code, string(ev.Location))
+					newEta, err := travel(sp.Code, string(ev.Location))
 					if err != nil {
 						return err
+					}
+					if newEta.After(eta) {
+						eta = newEta
 					}
 					pickUp = pickUp[avail:]
 				}
@@ -435,6 +463,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 
 		if len(missing) == 0 {
+			log("Deliveries complete")
 			return nil
 		}
 

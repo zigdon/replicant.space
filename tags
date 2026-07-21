@@ -774,6 +774,7 @@ Scanned	rsp/models/device.go	/^	Scanned              bool                `json:"
 Scanned	rsp/models/location.go	/^	Scanned             bool         `json:"scanned"`$/;"	m	struct:models.Planet	typeref:typename:bool
 Scanned	rsp/models/location.go	/^	Scanned      bool   `json:"scanned"`$/;"	m	struct:models.Moon	typeref:typename:bool
 SelectableUnlessEmpty	rsp/cmd/table.go	/^func SelectableUnlessEmpty(t string) (bool, string) {$/;"	f	package:cmd	typeref:typename:(bool, string)
+SetFetched	rsp/models/device.go	/^func (d *Device) SetFetched() {$/;"	f	struct:models.Device
 SetTags	rsp/rest/wrappers.go	/^	SetTags TagOp = "tags"$/;"	c	package:rest	typeref:type:TagOp
 Shop	rsp/models/trades.go	/^type Shop struct {$/;"	s	package:models
 ShopName	rsp/models/trades.go	/^	ShopName           string   `json:"shop_name"`$/;"	m	struct:models.Shop	typeref:typename:string
@@ -1305,7 +1306,7 @@ teleportCmd	rsp/cmd/replicant-travel.go	/^var teleportCmd = &cobra.Command{$/;"	
 teleportListCmd	rsp/cmd/replicant-travel.go	/^var teleportListCmd = &cobra.Command{$/;"	v	package:cmd
 testCmd	rsp/cmd/test.go	/^var testCmd = &cobra.Command{$/;"	v	package:cmd
 timeout	rsp/auto/state.go	/^	timeout time.Duration$/;"	m	struct:auto.EventQueue	typeref:typename:time.Duration
-travel	rsp/cmd/root-auto.go	/^func travel(id *models.CodeAlias, location string) error {$/;"	f	package:cmd	typeref:typename:error
+travel	rsp/cmd/root-auto.go	/^func travel(id *models.CodeAlias, location string) (time.Time, error) {$/;"	f	package:cmd	typeref:typename:(time.Time, error)
 travelCmd	rsp/cmd/replicant-travel.go	/^var travelCmd = &cobra.Command{$/;"	v	package:cmd
 ts	rsp/models/helpers.go	/^	ts   time.Time$/;"	m	struct:models.JSONTime	typeref:typename:time.Time
 ts	rsp/rest/api.go	/^	ts  time.Time$/;"	m	struct:rest.cacheEntry	typeref:typename:time.Time

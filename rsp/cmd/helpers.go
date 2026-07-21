@@ -253,7 +253,7 @@ func explode[T any](v T, loc models.LocationID) []string {
 			if loc == "" {
 				panic(fmt.Errorf("Can't get * from unknown location"))
 			}
-			devs, err := rest.Devices(map[string]string{
+			devs, err := rest.RefreshDevices(map[string]string{
 				"device_type": devType,
 				"location":    string(loc),
 			})
@@ -287,9 +287,9 @@ func explode[T any](v T, loc models.LocationID) []string {
 		res = append(res, s)
 	}
 
-	if len(res) > 100 {
-		log("Returning the first 100 targets of %d", len(res))
-		return res[:100]
+	if len(res) > 200 {
+		log("Returning the first 200 targets of %d", len(res))
+		return res[:200]
 	}
 
 	return res

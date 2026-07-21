@@ -189,6 +189,7 @@ func (pd *DeviceUpdate) Apply() *Device {
 	d.Tags = pd.Tags
 	d.Travel = pd.Travel
 	d.Unfurl = pd.Unfurl
+	d.Cache()
 	return d
 }
 
@@ -263,15 +264,16 @@ func (d *Device) Fetched() time.Time {
 	return d.fetchedAt.full
 }
 
+func (d *Device) SetFetched() {
+	d.fetchedAt.full = time.Now()
+	d.Cache()
+}
+
 func (d *Device) Updated() time.Time {
 	return d.fetchedAt.update
 }
 
 func (d *Device) Fill() error {
-	if d.fetchedAt.full.IsZero() {
-		d.fetchedAt.full = time.Now()
-		d.fetchedAt.update = time.Now()
-	}
 	if strings.Contains(d.Status, "repairing (") {
 		target := d.Status[strings.Index(d.Status, "(")+1 : strings.Index(d.Status, ")")]
 		s, err := db.Alias(target, d.Type)
@@ -334,6 +336,7 @@ func (d *Device) Get() error {
 	}
 
 	pd, err := Parse[Device](data)
+	pd.fetchedAt = d.fetchedAt
 	*d = *pd
 	return err
 }

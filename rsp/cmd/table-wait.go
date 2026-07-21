@@ -36,7 +36,7 @@ func (e *ETA) Short() string {
 }
 
 func getETA(d *models.Device) *ETA {
-	now := d.Fetched()
+	now := d.Updated()
 	if now.IsZero() {
 		log("no fetched stamp on %s", d.Code.Alias())
 		now = time.Now()

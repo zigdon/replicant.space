@@ -65,7 +65,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 		// Ship it
 		if dryRun {
 			log("Would ship %s to %s", ship.Code.Alias(), loc)
-		} else if err := travel(ship.Code, loc); err != nil {
+		} else if _, err := travel(ship.Code, loc); err != nil {
 			return err
 		}
 
@@ -106,7 +106,8 @@ func autoRent(cmd *cobra.Command, args []string) error {
 		if dryRun {
 			log("Would ship %s to %s", info.Code.Alias(), home)
 		} else {
-			errs = append(errs, travel(info.Code, home))
+			_, err := travel(info.Code, home)
+			errs = append(errs, err)
 			log("Shiping %s to %s", info.Code.Alias(), home)
 		}
 	}

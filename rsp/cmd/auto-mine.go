@@ -506,13 +506,13 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if len(frs) > 0 {
 		fr = frs[0]
 		if fr.Location != s.EntryPoint {
-			if err = travel(fr.Code, string(s.EntryPoint)); err != nil {
+			if _, err = travel(fr.Code, string(s.EntryPoint)); err != nil {
 				errs = append(errs, err)
 			}
 		}
 	}
 	for _, d := range []*models.CodeAlias{amc, asc, sd.Code} {
-		if err := travel(d, locName); err != nil {
+		if _, err := travel(d, locName); err != nil {
 			errs = append(errs, err)
 		}
 	}

@@ -434,7 +434,9 @@ func RefreshDeviceInfo(id *models.CodeAlias) (*models.Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	return models.Parse[models.Device](res)
+	dev, err := models.Parse[models.Device](res)
+	dev.SetFetched()
+	return dev, err
 }
 
 func CachedDeviceInfo(id *models.CodeAlias, useCache bool) (*models.Device, error) {
@@ -448,11 +450,11 @@ func CachedDeviceInfo(id *models.CodeAlias, useCache bool) (*models.Device, erro
 		return RefreshDeviceInfo(id)
 	}
 	if time.Since(d.Fetched()) <= time.Minute {
-		log("**: Using cache for %q", id.Alias())
+		log("**: Using cache for %q (%s)", id.Alias(), time.Since(d.Fetched()))
 		return d, nil
 	}
 
-	log("**: Using cache for %q", id.Alias())
+	log("**: Refreshing cache for %q", id.Alias())
 	return RefreshDeviceInfo(id)
 }
 

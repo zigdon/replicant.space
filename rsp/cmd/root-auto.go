@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -96,6 +97,7 @@ func init() {
 	autoEventCmd.Flags().String("id", "", "Event ID to work towards")
 	autoEventCmd.Flags().String("home", "MENKUNT-2-L4", "Home system")
 	autoEventCmd.Flags().IntP("criteria", "c", 0, "Which of multiple event criteria should be used")
+	autoEventCmd.Flags().IntP("replicant", "r", 4, "Which replicant is completing events")
 	autoEventCmd.MarkFlagRequired("event_id")
 }
 
@@ -118,22 +120,24 @@ func resetInfo(d *models.CodeAlias) {
 	infos.Delete(d)
 }
 
-func travel(id *models.CodeAlias, location string) error {
+func travel(id *models.CodeAlias, location string) (time.Time, error) {
+	var eta time.Time
 	info, err := getInfo(id)
 	if err != nil {
-		return fmt.Errorf("Can't get %s info: %v", id.Alias(), err)
+		return eta, fmt.Errorf("Can't get %s info: %v", id.Alias(), err)
 	}
 	if string(info.Location) != location {
 		res, err := rest.DeviceCommand[models.CommandResp](id, "travel", map[string]any{
 			"destination": location,
 		})
 		if err != nil {
-			return fmt.Errorf("Failed to send %s from %q to %q: %v", id.Alias(), info.Location, location, err)
+			return eta, fmt.Errorf("Failed to send %s from %q to %q: %v", id.Alias(), info.Location, location, err)
 		}
+		eta = res.Arrives.Time()
 		log("Shipped %s to %s: ETA %s", id.Alias(), location, res.TotalTime.String())
 	}
 	resetInfo(id)
-	return nil
+	return eta, nil
 }
 
 func setDirective(id *models.CodeAlias, directive string, cfg map[string]any) error {
