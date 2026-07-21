@@ -217,6 +217,9 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	var toPrint []batch
 	var simulate func(string, int) error
 	simulate = func(name string, qty int) error {
+		if qty <= 0 {
+			return nil
+		}
 		toPrint = append(toPrint, batch{name: name, qty: qty})
 		bp := getBP(name)
 		log("Simulating printing of %d %s", qty, name)
@@ -327,8 +330,8 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 
 	data = [][]string{}
 	for _, p := range printers {
-		pl := plan[p.Alias()]
-		if len(pl.toQueue) == 0 {
+		pl, ok := plan[p.Alias()]
+		if !ok || len(pl.toQueue) == 0 {
 			continue
 		}
 		var delay string
@@ -339,6 +342,9 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 			p.Alias(), countList(pl.toQueue), delay, dt(pl.eta),
 		})
 		for _, tq := range pl.toQueue {
+			if tq == "" {
+				continue
+			}
 			log("printing %q on %q", tq, p.Alias())
 			if tq == name {
 				_, err = rest.DeviceCommand[models.CommandResp](p, "enqueue_print", cfg)
