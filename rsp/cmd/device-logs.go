@@ -15,11 +15,11 @@ var deviceLogsCmd = &cobra.Command{
 	Aliases: []string{"logs"},
 	Short:   "Read the device logs",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, _ := cmd.Flags().GetString("device")
-		width, _ := cmd.Flags().GetInt("width")
-		oldest, _ := cmd.Flags().GetBool("oldest")
-		limit, _ := cmd.Flags().GetInt("number")
-		page, _ := cmd.Flags().GetInt("page")
+		id := getString(cmd, "device")
+		width := getInt(cmd, "width")
+		oldest := getBool(cmd, "oldest")
+		limit := getInt(cmd, "number")
+		page := getInt(cmd, "page")
 		logs, err := rest.DeviceLogs(models.NewCodeAlias(id), !oldest, page, limit)
 		if err != nil {
 			return err
@@ -29,7 +29,7 @@ var deviceLogsCmd = &cobra.Command{
 			slices.Reverse(logs.Events)
 		}
 
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(logs)
 			return nil
 		}

@@ -101,8 +101,8 @@ func sectorStars(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Missing required args: plot vector <star or location>")
 	}
 
-	cone, _ := cmd.Flags().GetInt("cone")
-	margin, _ := cmd.Flags().GetInt("margin")
+	cone := getInt(cmd, "cone")
+	margin := getInt(cmd, "margin")
 
 	dPos, err := getPosFromString(args[0])
 	if err != nil {
@@ -137,7 +137,7 @@ func neighbourStars(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("Missing required args: plot neighbours <star>")
 	}
-	r, _ := cmd.Flags().GetFloat32("radius")
+	r := getFloat32(cmd, "radius")
 	src, err := models.NewStar(args[0])
 	if err != nil {
 		return err

@@ -23,20 +23,20 @@ var msgCmd = &cobra.Command{
 
 func msgList(cmd *cobra.Command, args []string) error {
 	var partial bool
-	ids, _ := cmd.Flags().GetIntSlice("ids")
+	ids := getIntSlice(cmd, "ids")
 	if len(ids) > 0 {
 		partial = true
 	}
-	width, _ := cmd.Flags().GetInt("width")
-	cursor, _ := cmd.Flags().GetInt("cursor")
-	number, _ := cmd.Flags().GetInt("number")
-	latest, _ := cmd.Flags().GetBool("latest")
-	readToo, _ := cmd.Flags().GetBool("read")
+	width := getInt(cmd, "width")
+	cursor := getInt(cmd, "cursor")
+	number := getInt(cmd, "number")
+	latest := getBool(cmd, "latest")
+	readToo := getBool(cmd, "read")
 	data, err := rest.Messages(cursor, number, latest, !readToo)
 	if err != nil {
 		return fmt.Errorf("Error getting status: %v", err)
 	}
-	if raw, _ := cmd.Flags().GetBool("raw"); raw {
+	if raw := getBool(cmd, "raw"); raw {
 		prettyPrint(data)
 	} else {
 		var msgs [][]string
@@ -55,7 +55,7 @@ func msgList(cmd *cobra.Command, args []string) error {
 		}
 		printTable([]string{"ID", "Type", "Title", "Body", "Read", "Created"}, msgs)
 
-		if mark, _ := cmd.Flags().GetBool("mark"); partial || mark {
+		if mark := getBool(cmd, "mark"); partial || mark {
 			log("Marking messages read: %v", ids)
 			if err := rest.MarkRead(ids); err != nil {
 				log("Error marking messages read: %v", err)
@@ -97,14 +97,14 @@ var bobCmd = &cobra.Command{
 			return fmt.Errorf("Failed to find an FTL relay in range")
 		}
 
-		cursor, _ := cmd.Flags().GetInt("cursor")
-		number, _ := cmd.Flags().GetInt("number")
-		latest, _ := cmd.Flags().GetBool("latest")
-		npcs, _ := cmd.Flags().GetBool("npcs")
-		width, _ := cmd.Flags().GetInt("width")
-		ids, _ := cmd.Flags().GetBool("replicant_ids")
-		locs, _ := cmd.Flags().GetBool("replicant_location")
-		channels, _ := cmd.Flags().GetStringSlice("channels")
+		cursor := getInt(cmd, "cursor")
+		number := getInt(cmd, "number")
+		latest := getBool(cmd, "latest")
+		npcs := getBool(cmd, "npcs")
+		width := getInt(cmd, "width")
+		ids := getBool(cmd, "replicant_ids")
+		locs := getBool(cmd, "replicant_location")
+		channels := getStringSlice(cmd, "channels")
 		data, err := rest.Bobnet(relayID, cursor, number, latest, npcs)
 		if err != nil {
 			return fmt.Errorf("Error getting bobnet messages: %v", err)

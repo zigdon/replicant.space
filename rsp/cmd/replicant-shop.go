@@ -26,7 +26,7 @@ var allShopCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(res)
 			return nil
 		}
@@ -53,12 +53,12 @@ var shopTradesCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List trades of a specific shop",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		sid, _ := cmd.Flags().GetString("shop")
+		sid := getString(cmd, "shop")
 		res, err := rest.Trades(sid)
 		if err != nil {
 			return err
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(res)
 			return nil
 		}
@@ -92,7 +92,7 @@ var executeTradeCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Replicant not found: %v", err)
 		}
-		tid, _ := cmd.Flags().GetString("trade")
+		tid := getString(cmd, "trade")
 		// Find the shop controller for this trade
 		shops, err := rest.Traders(rID)
 		if err != nil {

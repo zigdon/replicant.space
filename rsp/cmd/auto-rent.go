@@ -16,9 +16,9 @@ func autoRent(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	atcStr, _ := cmd.Flags().GetString("atc")
-	home, _ := cmd.Flags().GetString("home")
-	dryRun, _ := cmd.Flags().GetBool("dry_run")
+	atcStr := getString(cmd, "atc")
+	home := getString(cmd, "home")
+	dryRun := getBool(cmd, "dry_run")
 	atc, err := getInfo(models.NewCodeAlias(atcStr))
 	if err != nil {
 		return err

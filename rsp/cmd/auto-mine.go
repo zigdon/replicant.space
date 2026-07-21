@@ -29,7 +29,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return star, ok
 	}
 	// Validate the location
-	locName, _ := cmd.Flags().GetString("location")
+	locName := getString(cmd, "location")
 	loc, err := rest.Location(locName)
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		"mining_drone":          3,
 		"belt_surveyor":         1,
 	}
-	skip, _ := cmd.Flags().GetStringSlice("skip")
+	skip := getStringSlice(cmd, "skip")
 	for _, sk := range skip {
 		log("Skipping %q", sk)
 		delete(missing, sk)
@@ -62,9 +62,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get printer locations
-	home, _ := cmd.Flags().GetString("home")
+	home := getString(cmd, "home")
 	locs := make(map[models.LocationID]bool)
-	printerStrs, _ := cmd.Flags().GetStringSlice("factory")
+	printerStrs := getStringSlice(cmd, "factory")
 	var printers []*models.CodeAlias
 	if len(printerStrs) == 0 {
 		// Just get all the home factories
@@ -195,7 +195,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 	printTable([]string{"Device", "Target", "Found", "Repurposed", "Missing", "Extra", "Members"}, data)
 
-	dryRun, _ := cmd.Flags().GetBool("dry_run")
+	dryRun := getBool(cmd, "dry_run")
 
 	// Enqueue a build
 	buildTimes := make(map[string]time.Duration)
@@ -216,7 +216,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	extra := make(map[string]time.Duration)
 	data = [][]string{}
 	var done time.Time
-	if noPrint, _ := cmd.Flags().GetBool("no_print"); !dryRun && !noPrint {
+	if noPrint := getBool(cmd, "no_print"); !dryRun && !noPrint {
 		for devType, qty := range missing {
 			for qty > 0 {
 				factory, err := rest.FindPrinter(printers, extra)

@@ -14,14 +14,14 @@ import (
 var deliveryCmd = &cobra.Command{
 	Use: "deliver",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, _ := cmd.Flags().GetString("device")
-		route, _ := cmd.Flags().GetString("route")
+		id := getString(cmd, "device")
+		route := getString(cmd, "route")
 		if !strings.Contains(route, ":") {
 			return fmt.Errorf("--route must be of the form 'from:to', got %q", route)
 		}
 		bits := strings.Split(route, ":")
 
-		rs, _ := cmd.Flags().GetStringSlice("resources")
+		rs := getStringSlice(cmd, "resources")
 		resMap := make(map[string]int)
 		for _, r := range rs {
 			if !strings.Contains(r, ":") {
@@ -51,7 +51,7 @@ var deliveryCmd = &cobra.Command{
 			return fmt.Errorf("Can't set directive: %v", err)
 		}
 
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(res)
 			return nil
 		}
@@ -67,17 +67,17 @@ var deliveryCmd = &cobra.Command{
 var surveyCmd = &cobra.Command{
 	Use: "survey_system",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, _ := cmd.Flags().GetString("device")
+		id := getString(cmd, "device")
 
 		cfgPlanets := "all"
-		if noPlanets, _ := cmd.Flags().GetBool("no_planets"); noPlanets {
+		if noPlanets := getBool(cmd, "no_planets"); noPlanets {
 			cfgPlanets = "none"
 		}
 		cfgMoons := "all"
-		if noMoons, _ := cmd.Flags().GetBool("no_moons"); noMoons {
+		if noMoons := getBool(cmd, "no_moons"); noMoons {
 			cfgMoons = "none"
 		}
-		noRecall, _ := cmd.Flags().GetBool("no_recall")
+		noRecall := getBool(cmd, "no_recall")
 		cfg := map[string]any{
 			"directive": "survey_system",
 			"configuration": map[string]any{
@@ -91,7 +91,7 @@ var surveyCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Can't set directive: %v", err)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(res)
 			return nil
 		}

@@ -44,7 +44,7 @@ var deviceListCmd = &cobra.Command{
 				filter["device_type"] = t
 			}
 		}
-		refresh, _ := cmd.Flags().GetBool("refresh")
+		refresh := getBool(cmd, "refresh")
 		devs, err := rest.CachedDevices(filter, !refresh)
 		if err != nil {
 			return err
@@ -54,7 +54,7 @@ var deviceListCmd = &cobra.Command{
 		}
 
 		var origin *models.Position
-		if src, _ := cmd.Flags().GetString("distance"); src != "" {
+		if src := getString(cmd, "distance"); src != "" {
 			if db.Dealias(src) != src {
 				// It's a device
 				if o, err := getInfo(models.NewCodeAlias(src)); err == nil {
@@ -72,14 +72,14 @@ var deviceListCmd = &cobra.Command{
 		}
 
 		var skipped map[string]int
-		ignore, _ := cmd.Flags().GetBool("ignore_tags")
-		only, _ := cmd.Flags().GetStringSlice("only_tags")
-		filterTags, _ := cmd.Flags().GetStringSlice("filter_tags")
-		merge, _ := cmd.Flags().GetBool("merge")
+		ignore := getBool(cmd, "ignore_tags")
+		only := getStringSlice(cmd, "only_tags")
+		filterTags := getStringSlice(cmd, "filter_tags")
+		merge := getBool(cmd, "merge")
 		if !ignore {
 			devs, skipped = filterDevices(devs, filterTags, only)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(devs)
 			return nil
 		}

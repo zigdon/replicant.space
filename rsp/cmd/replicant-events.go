@@ -17,18 +17,18 @@ var eventCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Replicant not found: %v", err)
 		}
-		width, _ := cmd.Flags().GetInt("width")
-		cursor, _ := cmd.Flags().GetInt("cursor")
-		number, _ := cmd.Flags().GetInt("number")
-		latest, _ := cmd.Flags().GetBool("latest")
-		eventType, _ := cmd.Flags().GetString("event_type")
-		deviceType, _ := cmd.Flags().GetString("device_type")
-		deviceCode, _ := cmd.Flags().GetString("device_code")
+		width := getInt(cmd, "width")
+		cursor := getInt(cmd, "cursor")
+		number := getInt(cmd, "number")
+		latest := getBool(cmd, "latest")
+		eventType := getString(cmd, "event_type")
+		deviceType := getString(cmd, "device_type")
+		deviceCode := getString(cmd, "device_code")
 		data, err := rest.ReplicantEvents(rID, cursor, number, latest, eventType, deviceType, deviceCode)
 		if err != nil {
 			return fmt.Errorf("Error getting event log: %v", err)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(data)
 		} else {
 			var events [][]string

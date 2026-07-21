@@ -21,9 +21,9 @@ var travelCmd = &cobra.Command{
 		if len(args) == 0 || args[0] == "" {
 			return fmt.Errorf("A destination is required")
 		}
-		dryRun, _ := cmd.Flags().GetBool("dry_run")
-		via, _ := cmd.Flags().GetStringSlice("via")
-		autoVia, _ := cmd.Flags().GetBool("auto_via")
+		dryRun := getBool(cmd, "dry_run")
+		via := getStringSlice(cmd, "via")
+		autoVia := getBool(cmd, "auto_via")
 		dest := args[0]
 		if len(via) == 0 && autoVia {
 			_, err := models.NewStar(dest)
@@ -36,7 +36,7 @@ var travelCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Error starting trip: %v", err)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(res)
 		} else {
 			printTable([]string{
@@ -149,9 +149,9 @@ var teleportCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Replicant not found: %v", err)
 		}
-		target, _ := cmd.Flags().GetString("target")
+		target := getString(cmd, "target")
 		if target == "" {
-			loc, _ := cmd.Flags().GetString("location")
+			loc := getString(cmd, "location")
 			dests, err := getTeleportDests(loc)
 			if err != nil {
 				return err

@@ -15,7 +15,7 @@ func autoProspect(cmd *cobra.Command, args []string) error {
 	// If a device was specified, process only that one. Otherwise, loop over
 	// all the observatories.
 	var devs []*models.Device
-	devIDs, _ := cmd.Flags().GetStringSlice("device")
+	devIDs := getStringSlice(cmd, "device")
 	if len(devIDs) == 0 {
 		var err error
 		devs, err = rest.Devices(map[string]string{"device_type": "galactic_observatory"})
@@ -41,7 +41,7 @@ func autoProspect(cmd *cobra.Command, args []string) error {
 	}
 
 	var sms = make(map[*models.CodeAlias]auto.Machine)
-	dryRun, _ := cmd.Flags().GetBool("dry_run")
+	dryRun := getBool(cmd, "dry_run")
 	for _, d := range devs {
 		sms[d.Code] = &auto.ProspectMachine{}
 		if err := sms[d.Code].Start(d, dryRun); err != nil {

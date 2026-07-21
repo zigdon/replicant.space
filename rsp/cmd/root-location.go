@@ -25,13 +25,13 @@ var locationCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Failed to get location %q: %v", loc, err)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(res)
 			return nil
 		}
 
-		getInv, _ := cmd.Flags().GetBool("inventory")
-		filter, _ := cmd.Flags().GetString("location")
+		getInv := getBool(cmd, "inventory")
+		filter := getString(cmd, "location")
 
 		var data [][]string
 		var locs []string

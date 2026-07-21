@@ -19,19 +19,19 @@ var blueprintsCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Failed to get blueprints: %v", err)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(res)
 			return nil
 		}
 		var blues [][]string
 		var errs []error
 		for _, b := range res.Blueprints {
-			if filter, _ := cmd.Flags().GetString("filter"); filter != "" {
+			if filter := getString(cmd, "filter"); filter != "" {
 				if !strings.Contains(b.DeviceType, filter) {
 					continue
 				}
 			}
-			if feature, _ := cmd.Flags().GetString("feature"); feature != "" {
+			if feature := getString(cmd, "feature"); feature != "" {
 				if !slices.Contains(b.Features, feature) {
 					continue
 				}

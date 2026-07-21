@@ -1161,6 +1161,7 @@ getFloat32	rsp/cmd/helpers.go	/^func getFloat32(cmd *cobra.Command, name string)
 getHomeFactories	rsp/cmd/root-print.go	/^func getHomeFactories(home string) ([]*models.CodeAlias, error) {$/;"	f	package:cmd	typeref:typename:([]*models.CodeAlias, error)
 getInfo	rsp/cmd/root-auto.go	/^func getInfo(d *models.CodeAlias) (*models.Device, error) {$/;"	f	package:cmd	typeref:typename:(*models.Device, error)
 getInt	rsp/cmd/helpers.go	/^func getInt(cmd *cobra.Command, name string) int {$/;"	f	package:cmd	typeref:typename:int
+getIntSlice	rsp/cmd/helpers.go	/^func getIntSlice(cmd *cobra.Command, name string) []int {$/;"	f	package:cmd	typeref:typename:[]int
 getPosFromString	rsp/cmd/root-plot.go	/^func getPosFromString(dst string) (*models.Position, error) {$/;"	f	package:cmd	typeref:typename:(*models.Position, error)
 getRID	rsp/cmd/root-replicant.go	/^func getRID(cmd *cobra.Command) (*models.CodeAlias, error) {$/;"	f	package:cmd	typeref:typename:(*models.CodeAlias, error)
 getResourcePriorities	rsp/cmd/auto-ferry.go	/^func getResourcePriorities(loc string) ([]string, error) {$/;"	f	package:cmd	typeref:typename:([]string, error)

@@ -38,7 +38,7 @@ func Execute() {
 	if err != nil {
 		die(err.Error())
 	}
-	if msg, _ := rootCmd.Flags().GetBool("msg"); msg {
+	if msg := getBool(rootCmd, "msg"); msg {
 		if rest.UnreadMessages > 0 {
 			msgs, err := rest.Messages(0, rest.UnreadMessages, true, true)
 			if err != nil {

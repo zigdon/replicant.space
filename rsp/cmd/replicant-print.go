@@ -20,8 +20,8 @@ var printCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Replicant not found: %v", err)
 		}
-		cancel, _ := cmd.Flags().GetBool("cancel")
-		clear, _ := cmd.Flags().GetBool("clear")
+		cancel := getBool(cmd, "cancel")
+		clear := getBool(cmd, "clear")
 		modes := 0
 		if cancel {
 			modes++
@@ -53,7 +53,7 @@ var printCmd = &cobra.Command{
 				return fmt.Errorf("Failed to enqueue %q: %v", arg, err)
 			}
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(res)
 			return nil
 		}

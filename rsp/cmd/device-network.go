@@ -14,13 +14,13 @@ var deviceNetworkCmd = &cobra.Command{
 	Use:   "network",
 	Short: "Show devices networked together",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, _ := cmd.Flags().GetString("device")
+		id := getString(cmd, "device")
 		ca := models.NewCodeAlias(id)
 		res, err := rest.DeviceNetwork(ca)
 		if err != nil {
 			return err
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(res)
 			return nil
 		}
@@ -28,7 +28,7 @@ var deviceNetworkCmd = &cobra.Command{
 			[]string{"Status", "Range LY"},
 			[][]string{{res.Status, f(res.RangeLy)}},
 		)
-		ref, _ := cmd.Flags().GetString("reference")
+		ref := getString(cmd, "reference")
 		var star *models.Star
 		if ref == "" {
 			di, err := getInfo(ca)

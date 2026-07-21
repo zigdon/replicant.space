@@ -23,7 +23,7 @@ func replicantScan(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("Error getting replicant details: %v", err)
 	}
-	if raw, _ := cmd.Flags().GetBool("raw"); raw {
+	if raw := getBool(cmd, "raw"); raw {
 		prettyPrint(scan)
 		return nil
 	}

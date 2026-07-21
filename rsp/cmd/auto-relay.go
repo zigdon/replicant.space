@@ -19,8 +19,8 @@ import (
 // Activate it
 
 func autoRelay(cmd *cobra.Command, args []string) error {
-	locName, _ := cmd.Flags().GetString("location")
-	home, _ := cmd.Flags().GetString("home")
+	locName := getString(cmd, "location")
+	home := getString(cmd, "home")
 	devs, err := getFTLRelays(locName)
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func autoFR(cmd *cobra.Command, args []string) error {
 	// - Deploy
 	// - Activate
 	// - Tag
-	rID, _ := cmd.Flags().GetInt("replicant")
+	rID := getInt(cmd, "replicant")
 	r, err := rest.Replicant(models.NewCodeAlias(fmt.Sprintf("r-%d", rID)))
 	if err != nil {
 		return err

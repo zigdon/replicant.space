@@ -39,7 +39,7 @@ var eventCompleteCmd = &cobra.Command{
 	Use:   "complete",
 	Short: "Trigger event completion",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		eventID, _ := cmd.Flags().GetString("id")
+		eventID := getString(cmd, "id")
 		return eventComplete(eventID)
 	},
 }
@@ -48,15 +48,15 @@ var eventsCmd = &cobra.Command{
 	Use:   "events",
 	Short: "See all your current ongoing events",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		noDetails, _ := cmd.Flags().GetBool("list")
-		eventID, _ := cmd.Flags().GetString("id")
-		width, _ := cmd.Flags().GetInt("width")
+		noDetails := getBool(cmd, "list")
+		eventID := getString(cmd, "id")
+		width := getInt(cmd, "width")
 		style := lg.NewStyle().Width(width)
 		data, err := rest.Events()
 		if err != nil {
 			return fmt.Errorf("Error getting events: %v", err)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(data)
 			return nil
 		}
@@ -79,9 +79,9 @@ var megaContributeCmd = &cobra.Command{
 	Use:   "contribute",
 	Short: "Contribute to a megastructure",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, _ := cmd.Flags().GetString("id")
-		ds, _ := cmd.Flags().GetStringSlice("device")
-		raw, _ := cmd.Flags().GetBool("raw")
+		id := getString(cmd, "id")
+		ds := getStringSlice(cmd, "device")
+		raw := getBool(cmd, "raw")
 		var devs []*models.CodeAlias
 		for _, d := range ds {
 			ids := explode(d, models.LocationID(id))

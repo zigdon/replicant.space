@@ -17,7 +17,7 @@ var accountCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		emailUpt := make(map[string]bool)
 		webUpt := make(map[string]bool)
-		emails, _ := cmd.Flags().GetStringSlice("email")
+		emails := getStringSlice(cmd, "email")
 		for _, e := range emails {
 			if !strings.Contains(e, ":") {
 				return fmt.Errorf("Invalid setting %q. Pass type:(on|off)", e)
@@ -25,7 +25,7 @@ var accountCmd = &cobra.Command{
 			bits := strings.Split(e, ":")
 			emailUpt[bits[0]] = bits[1] == "on"
 		}
-		webs, _ := cmd.Flags().GetStringSlice("webhook")
+		webs := getStringSlice(cmd, "webhook")
 		for _, e := range webs {
 			if !strings.Contains(e, ":") {
 				return fmt.Errorf("Invalid setting %q. Pass type:(on|off)", e)
@@ -33,7 +33,7 @@ var accountCmd = &cobra.Command{
 			bits := strings.Split(e, ":")
 			webUpt[bits[0]] = bits[1] == "on"
 		}
-		if coop, _ := cmd.Flags().GetString("cooperation"); coop != "" {
+		if coop := getString(cmd, "cooperation"); coop != "" {
 			data := &models.AccountUpdate{
 				ReplicantCooperation: coop,
 			}
@@ -66,7 +66,7 @@ var accountCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Error getting status: %v", err)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(acc)
 			return nil
 		}

@@ -18,12 +18,12 @@ var addTagCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a tag to a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, _ := cmd.Flags().GetString("device")
+		id := getString(cmd, "device")
 		res, err := rest.UpdateTags(models.NewCodeAlias(id), rest.AddTag, args)
 		if err != nil {
 			return err
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(res)
 			return nil
 		}
@@ -43,12 +43,12 @@ var delTagCmd = &cobra.Command{
 	Aliases: []string{"remove"},
 	Short:   "Remove a tag from a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, _ := cmd.Flags().GetString("device")
+		id := getString(cmd, "device")
 		res, err := rest.UpdateTags(models.NewCodeAlias(id), rest.DelTag, args)
 		if err != nil {
 			return err
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(res)
 			return nil
 		}

@@ -290,6 +290,11 @@ func getInt(cmd *cobra.Command, name string) int {
 	return f
 }
 
+func getIntSlice(cmd *cobra.Command, name string) []int {
+	f, _ := cmd.Flags().GetIntSlice(name)
+	return f
+}
+
 func getFloat32(cmd *cobra.Command, name string) float32 {
 	f, _ := cmd.Flags().GetFloat32(name)
 	return f

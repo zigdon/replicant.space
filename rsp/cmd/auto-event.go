@@ -33,7 +33,7 @@ import (
 
 func autoEvent(cmd *cobra.Command, args []string) error {
 	// Load event details
-	eID, _ := cmd.Flags().GetString("id")
+	eID := getString(cmd, "id")
 	evs, err := rest.Events()
 	if err != nil {
 		return err
@@ -63,7 +63,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 
 	moveReplicant := func() error {
 		log("Event ready to complete...")
-		rid, _ := cmd.Flags().GetInt("replicant")
+		rid := getInt(cmd, "replicant")
 		rep, err := rest.ReplicantID(rid)
 		if err != nil {
 			return err
@@ -154,7 +154,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	}
 	var ep *models.EventProgressOption
 	if len(eps) > 1 {
-		cid, _ := cmd.Flags().GetInt("criteria")
+		cid := getInt(cmd, "criteria")
 		if cid == 0 {
 			paths := new(strings.Builder)
 			printTablef(paths, []string{"ID", "Resources", "Devices"}, data)
@@ -167,7 +167,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 
 	// Check what is already there
 	log("Checking inventory at %s", ev.Location)
-	home, _ := cmd.Flags().GetString("home")
+	home := getString(cmd, "home")
 	missing := make(map[string]int)
 	deliver := func() error {
 		log("Finding available freighters...")

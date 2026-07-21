@@ -15,7 +15,7 @@ import (
 // Set new directive
 
 func autoFerry(cmd *cobra.Command, args []string) error {
-	atcStr, _ := cmd.Flags().GetString("atc")
+	atcStr := getString(cmd, "atc")
 	atc, err := getInfo(models.NewCodeAlias(atcStr))
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 		count    int
 	}
 	var dests []dest
-	home, _ := cmd.Flags().GetString("home")
+	home := getString(cmd, "home")
 	// Get the distribution of resources at home so we can prioritize accordingly
 	priorities, err := getResourcePriorities(home)
 	for l, loc := range locs.Locations {

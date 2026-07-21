@@ -52,8 +52,8 @@ func getHomeFactories(home string) ([]*models.CodeAlias, error) {
 }
 
 func rootPrintList(cmd *cobra.Command, args []string) error {
-	loc, _ := cmd.Flags().GetString("location")
-	refresh, _ := cmd.Flags().GetBool("refresh")
+	loc := getString(cmd, "location")
+	refresh := getBool(cmd, "refresh")
 	printers, err := rest.CachedDevices(
 		map[string]string{"device_type": "autofactory"}, !refresh)
 	if err != nil {
@@ -166,7 +166,7 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		name = full
 	}
 
-	home, _ := cmd.Flags().GetString("home")
+	home := getString(cmd, "home")
 	printers, err := getHomeFactories(home)
 	if err != nil {
 		return err
@@ -197,7 +197,7 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	copies, _ := cmd.Flags().GetInt("repeat")
+	copies := getInt(cmd, "repeat")
 	var data [][]string
 	bp := getBP(name)
 	log("Print time, per copy: %s", bp.PrintTime.Duration())
@@ -312,8 +312,8 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	controller, _ := cmd.Flags().GetString("controller")
-	onComplete, _ := cmd.Flags().GetString("on_complete")
+	controller := getString(cmd, "controller")
+	onComplete := getString(cmd, "on_complete")
 	cfg := map[string]any{
 		"device_type": bp.DeviceType,
 	}

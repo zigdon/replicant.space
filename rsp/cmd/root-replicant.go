@@ -9,7 +9,7 @@ import (
 var replicantCmd = &cobra.Command{
 	Use:   "replicant",
 	Short: "Get replicant details",
-	RunE: replicantInfoCmd.RunE,
+	RunE:  replicantInfoCmd.RunE,
 }
 
 func init() {
@@ -19,11 +19,11 @@ func init() {
 }
 
 func getRID(cmd *cobra.Command) (*models.CodeAlias, error) {
-	rID, _ := cmd.Flags().GetString("code")
+	rID := getString(cmd, "code")
 	if rID != "" {
 		return models.NewCodeAlias(rID), nil
 	}
 
-	id, _ := cmd.Flags().GetInt("id")
+	id := getInt(cmd, "id")
 	return rest.ReplicantID(id)
 }

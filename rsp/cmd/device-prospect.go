@@ -21,14 +21,14 @@ func init() {
 }
 
 func prospect(cmd *cobra.Command, args []string) error {
-	id, _ := cmd.Flags().GetString("device")
+	id := getString(cmd, "device")
 	dev, err := rest.DeviceInfo(models.NewCodeAlias(id))
 	if err != nil {
 		return fmt.Errorf("Failed to get info for %q: %v", id, err)
 	}
 
-	sol, _ := cmd.Flags().GetBool("sol")
-	dir, _ := cmd.Flags().GetString("target")
+	sol := getBool(cmd, "sol")
+	dir := getString(cmd, "target")
 	if !sol && dir == "" {
 		log("Starting auto-direction prospect")
 		res, err := rest.Prospect(dev.Code, nil)

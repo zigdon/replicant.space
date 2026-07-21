@@ -21,13 +21,13 @@ var starsCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Replicant not found: %v", err)
 		}
-		page, _ := cmd.Flags().GetInt("page")
-		cnt, _ := cmd.Flags().GetInt("count")
+		page := getInt(cmd, "page")
+		cnt := getInt(cmd, "count")
 		resp, err := rest.ReplicantCensus(rID, cnt, page)
 		if err != nil {
 			return fmt.Errorf("Error running stellar census: %v", err)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(resp)
 		} else {
 			var target *models.Position
@@ -37,7 +37,7 @@ var starsCmd = &cobra.Command{
 				resp.ReplicantPosition.String(), d(resp.TotalStars),
 				fmt.Sprintf("%d/%d", page, resp.TotalPages),
 			}}
-			dest, _ := cmd.Flags().GetString("destination")
+			dest := getString(cmd, "destination")
 			if dest != "" {
 				target, err = models.ParsePosition(dest)
 				if err != nil {
@@ -50,7 +50,7 @@ var starsCmd = &cobra.Command{
 			var stars [][]string
 			dist := make(map[models.LocationID]float32)
 			for _, s := range resp.Stars {
-				if f, _ := cmd.Flags().GetString("filter"); f != "" {
+				if f := getString(cmd, "filter"); f != "" {
 					if !strings.Contains(strings.ToLower(string(s.Designation)), strings.ToLower(f)) {
 						continue
 					}

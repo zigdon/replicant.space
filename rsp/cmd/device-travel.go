@@ -15,21 +15,21 @@ var deviceTravelCmd = &cobra.Command{
 		if len(args) == 0 || args[0] == "" {
 			return fmt.Errorf("Destination is required for travel, pass as arg")
 		}
-		id, _ := cmd.Flags().GetString("device")
+		id := getString(cmd, "device")
 		cfg := map[string]any{
 			"destination": args[0],
 		}
-		if dryRun, _ := cmd.Flags().GetBool("dry_run"); dryRun {
+		if dryRun := getBool(cmd, "dry_run"); dryRun {
 			cfg["dry_run"] = true
 		}
-		if via, _ := cmd.Flags().GetStringSlice("via"); len(via) > 0 {
+		if via := getStringSlice(cmd, "via"); len(via) > 0 {
 			cfg["via"] = via
 		}
 		resp, err := rest.DeviceCommand[models.CommandResp](models.NewCodeAlias(id), "travel", cfg)
 		if err != nil {
 			return fmt.Errorf("Failed to initiate travel for %q: %v", id, err)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(resp)
 			return nil
 

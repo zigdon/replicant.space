@@ -16,14 +16,14 @@ var infoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Show detailed information about a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, _ := cmd.Flags().GetString("device")
+		id := getString(cmd, "device")
 
-		refresh, _ := cmd.Flags().GetBool("refresh")
+		refresh := getBool(cmd, "refresh")
 		dev, err := rest.CachedDeviceInfo(models.NewCodeAlias(id), !refresh)
 		if err != nil {
 			return fmt.Errorf("Failed to get info for %q: %v", id, err)
 		}
-		if raw, _ := cmd.Flags().GetBool("raw"); raw {
+		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(dev)
 			return nil
 		}
