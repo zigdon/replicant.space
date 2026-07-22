@@ -251,9 +251,10 @@ func (pr *PrintResp) Notification() *Notification {
 		return nil
 	}
 	return &Notification{
-		Start: pr.Started.ts,
-		End:   pr.Completes.ts,
-		Text:  fmt.Sprintf("Finished printing %s", pr.DeviceType),
+		Start:  pr.Started.ts,
+		End:    pr.Completes.ts,
+		Text:   fmt.Sprintf("Finished printing %s", pr.DeviceType),
+		Object: pr,
 	}
 }
 

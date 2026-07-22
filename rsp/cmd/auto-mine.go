@@ -277,6 +277,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			End:    done,
 			Device: "Mining fleet",
 			Text:   fmt.Sprintf("Fleet ready for %q", locName),
+			Object: fleet,
 		}
 		n.Save()
 	}
@@ -410,6 +411,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 					End:    res.Arrives.Time(),
 					Device: "Mining fleet",
 					Text:   fmt.Sprintf("Fleet arrived at %q", locName),
+					Object: fleet,
 				}
 				n.Save()
 				return nil

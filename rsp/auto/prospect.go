@@ -331,6 +331,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 			End:    eta,
 			Device: pm.dev.Code.Alias(),
 			Text:   fmt.Sprintf("Processing of %s state done.", pm.state),
+			Object: pm,
 		}
 		if err := n.Save(); err != nil {
 			log("Error creating notification: %v", err)

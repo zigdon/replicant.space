@@ -400,6 +400,7 @@ func (cr *CommandResp) Notification() *Notification {
 			End:    cr.Arrives.ts,
 			Device: cr.DeviceCode.String(),
 			Text:   fmt.Sprintf("Arrived at %s", cr.Destination),
+			Object: cr,
 		}
 	}
 	if cr.Started != nil && cr.Completes != nil {
@@ -408,6 +409,7 @@ func (cr *CommandResp) Notification() *Notification {
 			End:    cr.Completes.ts,
 			Device: cr.DeviceCode.String(),
 			Text:   "Done",
+			Object: cr,
 		}
 	}
 	now := time.Now()
@@ -417,6 +419,7 @@ func (cr *CommandResp) Notification() *Notification {
 			End:    now.Add(cr.Eta.td),
 			Device: cr.DeviceCode.String(),
 			Text:   "Done",
+			Object: cr,
 		}
 	}
 	if cr.TotalTime != nil {
@@ -425,6 +428,7 @@ func (cr *CommandResp) Notification() *Notification {
 			End:    now.Add(cr.TotalTime.td),
 			Device: cr.DeviceCode.String(),
 			Text:   "Done",
+			Object: cr,
 		}
 	}
 	return nil

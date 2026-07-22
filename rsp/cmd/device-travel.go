@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
-	"github.com/zigdon/rsp/rest"
 )
 
 var deviceTravelCmd = &cobra.Command{
@@ -15,33 +16,16 @@ var deviceTravelCmd = &cobra.Command{
 		if len(args) == 0 || args[0] == "" {
 			return fmt.Errorf("Destination is required for travel, pass as arg")
 		}
-		id := getString(cmd, "device")
-		cfg := map[string]any{
-			"destination": args[0],
-		}
-		if dryRun := getBool(cmd, "dry_run"); dryRun {
-			cfg["dry_run"] = true
-		}
-		if via := getStringSlice(cmd, "via"); len(via) > 0 {
-			cfg["via"] = via
-		}
-		resp, err := rest.DeviceCommand[models.CommandResp](models.NewCodeAlias(id), "travel", cfg)
+		dest := args[0]
+		id := models.NewCodeAlias(getString(cmd, "device"))
+		dryRun := getBool(cmd, "dry_run")
+		via := getStringSlice(cmd, "via")
+		eta, err := common.Travel(id, dest, dryRun, via...)
 		if err != nil {
 			return fmt.Errorf("Failed to initiate travel for %q: %v", id, err)
 		}
-		if raw := getBool(cmd, "raw"); raw {
-			prettyPrint(resp)
-			return nil
+		log("In transit, ETA: %s (%s)", eta, time.Until(eta))
 
-		}
-
-		var origin, dest []string
-		origin = append(origin, resp.Origin)
-		origin = append(origin, t(resp.Departed.Time()))
-		dest = append(dest, resp.Destination)
-		dest = append(dest, t(resp.Arrives.Time()))
-		printTable([]string{"Status", "Departed", "Destination", "Total Time"},
-			[][]string{{resp.Status, lines(origin), lines(dest), resp.TotalTime.String()}})
 		return nil
 	},
 }

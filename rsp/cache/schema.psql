@@ -100,7 +100,8 @@ CREATE TABLE IF NOT EXISTS notifications(
   end_ts TIMESTAMPTZ NOT NULL,
   device TEXT NULL,
   text TEXT NOT NULL,
-  read BOOLEAN
+  read BOOLEAN,
+  object JSONB
 );
 
 CREATE TABLE IF NOT EXISTS messages(

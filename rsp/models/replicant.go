@@ -56,6 +56,7 @@ func (t *Teleport) Notification() *Notification {
 		End:    t.Completes.ts.Add(t.Offline.td),
 		Device: "Replicant",
 		Text:   fmt.Sprintf("Online in %s at %s", t.TargetMatrixCode.Alias(), t.DestinationStar),
+		Object: t,
 	}
 }
 
@@ -77,12 +78,12 @@ type Travel struct {
 }
 
 func (t *Travel) Notification() *Notification {
-	log("setting replicant travel notification")
 	return &Notification{
 		Start:  t.Departed.ts,
 		End:    t.Arrives.ts,
 		Device: "Replicant",
 		Text:   fmt.Sprintf("Arrived at %s", t.Destination),
+		Object: t,
 	}
 }
 

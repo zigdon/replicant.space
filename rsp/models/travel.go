@@ -55,6 +55,7 @@ func (t *Trip) Notification() *Notification {
 		End:    t.Arrives.ts,
 		Device: d,
 		Text:   fmt.Sprintf("Arrived at %s", t.Destination),
+		Object: t,
 	}
 }
 func (t *Trip) Short() string {
@@ -146,8 +147,8 @@ func (j *Journey) Cache() error {
 
 	if err := db.Update(cache.JourneyTable, map[string]any{
 		"id":         j.ID,
-		"origin":      j.Source,
-		"dest":        j.Dest,
+		"origin":     j.Source,
+		"dest":       j.Dest,
 		"max_hop":    j.MaxHop,
 		"calculated": j.Calculated,
 	}); err != nil {
@@ -195,7 +196,6 @@ func (j *Journey) Get() error {
 	if err := row.Scan(&j.ID, &j.Source, &j.Dest, &j.MaxHop, &j.Calculated); err != nil {
 		return err
 	}
-
 
 	rows, err := db.DB.Query(`
         SELECT src, dest, dist_src, dist_dest, step
