@@ -23,15 +23,7 @@ var travelCmd = &cobra.Command{
 		}
 		dryRun := getBool(cmd, "dry_run")
 		via := getStringSlice(cmd, "via")
-		autoVia := getBool(cmd, "auto_via")
 		dest := args[0]
-		if len(via) == 0 && autoVia {
-			_, err := models.NewStar(dest)
-			if err != nil {
-				return err
-			}
-			// hub, err := db.FindNearestHub
-		}
 		res, err := rest.ReplicantTravel(rID, dest, via, dryRun)
 		if err != nil {
 			return fmt.Errorf("Error starting trip: %v", err)
@@ -212,7 +204,6 @@ func init() {
 	replicantCmd.AddCommand(travelCmd)
 	travelCmd.Flags().BoolP("dry_run", "n", false, "Only preview the route")
 	travelCmd.Flags().StringSliceP("via", "v", []string{}, "Specify an explicit route")
-	travelCmd.Flags().Bool("auto_via", false, "Automatically use a hub waypoint when possible")
 	replicantCmd.AddCommand(stopCmd)
 
 	replicantCmd.AddCommand(teleportCmd)

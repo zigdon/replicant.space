@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
-	"github.com/zigdon/rsp/rest"
 )
 
 var plotCmd = &cobra.Command{
@@ -190,31 +189,11 @@ func nearestHub(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("Missing required args: plot hub STAR")
 	}
-	// Update the db with our hubs
-	hubs, err := rest.Devices(map[string]string{
-		"device_type": "system_hub",
-	})
-	locs := make(map[string]string)
-	for _, h := range hubs {
-		if h.Status != "relaying" {
-			log("Ignoring inactive hub %s at %s", h.Code.Alias(), h.Location)
-			continue
-		}
-		star := h.Location.Star()
-		locs[star] = h.Code.Alias()
-		if _, err := db.DB.Exec(`UPDATE stars SET has_my_hub=true WHERE designation = $1`, star); err != nil {
-			return fmt.Errorf("Can't update %s with hub: %v", star, err)
-		}
-	}
 
-	s, err := models.NewStar(args[0])
+	code, star, dist, err := common.NearestHub(args[0])
 	if err != nil {
 		return err
 	}
-	nearest, dist, err := db.FindNearestHub(s.Position.X, s.Position.Y, s.Position.Z)
-	if err != nil {
-		return fmt.Errorf("Can't find nearest hub: %v", err)
-	}
-	log("Nearest hub: %s at %s (%.2fly away)", locs[nearest], nearest, dist)
+	log("Nearest hub: %s at %s (%.2fly away)", code, star, dist)
 	return nil
 }

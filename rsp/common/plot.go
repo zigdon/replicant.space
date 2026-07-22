@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/zigdon/rsp/models"
+	"github.com/zigdon/rsp/rest"
 )
 
 type PlotCfg struct {
@@ -223,4 +224,33 @@ func TripStepCandidate(start string, src, dst *models.Position, radius float32) 
 	errs = append(errs, rows.Err())
 
 	return res, errors.Join(errs...)
+}
+
+func NearestHub(star string) (string, string, float32, error) {
+	// Update the db with our hubs
+	hubs, err := rest.RefreshDevices(map[string]string{
+		"device_type": "system_hub",
+	})
+	locs := make(map[string]string)
+	for _, h := range hubs {
+		if h.Status != "relaying" {
+			Log("Ignoring inactive hub %s at %s", h.Code.Alias(), h.Location)
+			continue
+		}
+		star := h.Location.Star()
+		locs[star] = h.Code.Alias()
+		if _, err := db.DB.Exec(`UPDATE stars SET has_my_hub=true WHERE designation = $1`, star); err != nil {
+			return "", "", 0, fmt.Errorf("Can't update %s with hub: %v", star, err)
+		}
+	}
+
+	s, err := models.NewStar(star)
+	if err != nil {
+		return "", "", 0, err
+	}
+	nearest, dist, err := db.FindNearestHub(s.Position.X, s.Position.Y, s.Position.Z)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("Can't find nearest hub: %v", err)
+	}
+	return locs[nearest], nearest, dist, nil
 }

@@ -12,10 +12,9 @@ import (
 	lg "charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/rivo/tview"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 )
-
-var LogFh io.Writer = os.Stderr
 
 func newLogWindow() *tview.TextView {
 	lw := tview.NewTextView()
@@ -23,16 +22,12 @@ func newLogWindow() *tview.TextView {
 	lw.SetChangedFunc(func() {
 		lw.ScrollToEnd()
 	})
-	LogFh = lw
+	common.LogFh = lw
 	return lw
 }
 
 func log(tmpl string, args ...any) {
-	date := time.Now().Format(time.DateTime) + " - "
-	if !strings.HasSuffix(tmpl, "\n") {
-		tmpl += "\n"
-	}
-	fmt.Fprintf(LogFh, date+tmpl, args...)
+	common.Log(tmpl, args...)
 }
 
 func die(tmpl string, args ...any) {
@@ -181,6 +176,9 @@ func rm(data map[string]int) string {
 }
 
 func dt(t time.Duration) string {
+	if t == 0 {
+		return ""
+	}
 	tmpl := "in %s"
 	if t < 0 {
 		tmpl = "%s ago"
