@@ -265,6 +265,9 @@ func (d *Device) Fetched() time.Time {
 }
 
 func (d *Device) SetFetched() {
+	if d == nil {
+		return
+	}
 	d.fetchedAt.full = time.Now()
 	d.Cache()
 }
