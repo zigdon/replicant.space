@@ -15,10 +15,6 @@ import (
 	"github.com/zigdon/rsp/cfg"
 )
 
-const (
-	logFile = "/tmp/rsp-query.log"
-)
-
 //go:embed schema.psql
 var schema string
 
@@ -35,13 +31,6 @@ func log(tmpl string, args ...any) {
 		}
 	}
 	line := fmt.Sprintf(ts+" "+tmpl+"\n", args...)
-	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Can't open to %q: %v\n", logFile, err)
-	} else {
-		f.WriteString(line)
-		f.Close()
-	}
 	if os.Getenv("DEBUG_DB") != "" {
 		fmt.Fprint(os.Stderr, line)
 	}
