@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -21,31 +23,20 @@ var travelCmd = &cobra.Command{
 		if len(args) == 0 || args[0] == "" {
 			return fmt.Errorf("A destination is required")
 		}
+		rep, err := rest.Replicant(rID)
+		if err != nil {
+			return err
+		}
 		dryRun := getBool(cmd, "dry_run")
 		via := getStringSlice(cmd, "via")
 		dest := args[0]
-		res, err := rest.ReplicantTravel(rID, dest, via, dryRun)
+
+		ves := rep.HostedDeviceCode
+		eta, err := common.Travel(ves, dest, dryRun, via...)
 		if err != nil {
-			return fmt.Errorf("Error starting trip: %v", err)
+			return err
 		}
-		if raw := getBool(cmd, "raw"); raw {
-			prettyPrint(res)
-		} else {
-			printTable([]string{
-				"Origin", "Destination", "Status",
-				"Duration", "Departed", "Arrives",
-			}, [][]string{{
-				string(res.Origin), string(res.Destination), res.Status,
-				res.TotalTime.String(), t(res.Departed.Time()), t(res.Arrives.Time()),
-			}})
-			var ls [][]string
-			for _, l := range res.Route {
-				ls = append(ls, []string{
-					d(l.Leg), string(l.From), string(l.To), l.Type, l.Time.String(),
-				})
-			}
-			printTable([]string{"Leg", "From", "To", "Type", "Duration"}, ls)
-		}
+		log("Travel initiated, ETA: %s (%s)", eta, time.Until(eta))
 		return nil
 	},
 }

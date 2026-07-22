@@ -45,11 +45,12 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 		cfg["dry_run"] = true
 		res, err := rest.DeviceCommand[models.CommandResp](id, "travel", cfg)
 		if err != nil {
-			return eta, err
-		}
-		opts["auto"] = opt{
-			t: res.TotalTime.Duration(),
-			v: nil,
+			Log("Auto-route failed: %v", err)
+		} else {
+			opts["auto"] = opt{
+				t: res.TotalTime.Duration(),
+				v: nil,
+			}
 		}
 		// Check the route "direct" (but only if we're going to the system edge)
 		cfg["dry_run"] = true
@@ -60,11 +61,12 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 		}
 		res, err = rest.DeviceCommand[models.CommandResp](id, "travel", cfg)
 		if err != nil {
-			return eta, err
-		}
-		opts["direct"] = opt{
-			t: res.TotalTime.Duration(),
-			v: cfg["via"],
+			Log("Direct-route failed: %v", err)
+		} else {
+			opts["direct"] = opt{
+				t: res.TotalTime.Duration(),
+				v: cfg["via"],
+			}
 		}
 		// Now check via the nearest hub
 		// - If its at our destination system, no need to 'via'
@@ -82,19 +84,24 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 
 		res, err = rest.DeviceCommand[models.CommandResp](id, "travel", cfg)
 		if err != nil {
-			return eta, err
-		}
-		opts["hub"] = opt{
-			t: res.TotalTime.Duration(),
-			v: cfg["via"],
+			Log("Hub-route failed: %v", err)
+		} else {
+			opts["hub"] = opt{
+				t: res.TotalTime.Duration(),
+				v: cfg["via"],
+			}
 		}
 
 		// Now compare our options
 		var best = "auto"
 		for _, t := range []string{"auto", "direct", "hub"} {
-			Log("Routing mode: %s: %v %s", t, opts[t].v, opts[t].t)
-			if opts[t].t > 0 && opts[t].t < opts[best].t {
-				Log("Faster by %v", opts[best].t-opts[t].t)
+			opt, ok := opts[t]
+			if !ok {
+				continue
+			}
+			Log("Routing mode: %s: %v %s", t, opt.v, opt.t)
+			if opts[t].t > 0 && opt.t < opts[best].t {
+				Log("Faster by %v", opts[best].t-opt.t)
 				best = t
 			}
 		}

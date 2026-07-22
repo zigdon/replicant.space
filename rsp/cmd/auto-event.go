@@ -34,6 +34,7 @@ import (
 func autoEvent(cmd *cobra.Command, args []string) error {
 	// Load event details
 	eID := getString(cmd, "id")
+	dryRun := getBool(cmd, "dry_run")
 	evs, err := rest.Events()
 	if err != nil {
 		return err
@@ -78,6 +79,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 		if r.CurrentLocation.Star() == ev.Location.Star() {
 			log("Moving %s to %s...", r.Code.Alias(), ev.Location)
+			if dryRun {
+				return nil
+			}
 			_, err := rest.ReplicantTravel(
 				r.Code, string(ev.Location), nil, false)
 			return err
@@ -91,6 +95,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("No teleport target found at %s", ev.Location)
 		}
 		log("Attempting to teleport %s to %s", rep.Alias(), dests[0].StowedDevices.Devices[0].Code.Alias())
+		if dryRun {
+			return nil
+		}
 		res, err := rest.ReplicantTeleport(rep, dests[0].StowedDevices.Devices[0].Code)
 		if err != nil {
 			return err
@@ -209,17 +216,21 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			} else {
 				if len(cf.Cargo) > 0 {
 					log("Unloading cargo from %s: %v", cf.Code.Alias(), cf.Cargo)
-					_, err := rest.DeviceCommand[models.CommandResp](cf.Code, "deposit_resources", nil)
-					if err != nil {
-						return err
+					if !dryRun {
+						_, err := rest.DeviceCommand[models.CommandResp](cf.Code, "deposit_resources", nil)
+						if err != nil {
+							return err
+						}
 					}
 					for _, c := range cf.Cargo {
 						missing[c.ResourceType] -= int(c.Quantity)
 					}
 				}
 				log("Sending %s back home", cf.Code.Alias())
-				if _, err := travel(cf.Code, home); err != nil {
-					return err
+				if !dryRun {
+					if _, err := travel(cf.Code, home); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -243,19 +254,23 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				}
 				if sp.Location == ev.Location {
 					log("Detaching %d devices from %s", len(sp.AttachedDevices), sp.Code.Alias())
-					if _, err := rest.DeviceCommand[models.CommandResp](sp.Code, "detach", nil); err != nil {
-						return err
+					if !dryRun {
+						if _, err := rest.DeviceCommand[models.CommandResp](sp.Code, "detach", nil); err != nil {
+							return err
+						}
 					}
 					for _, ad := range sp.AttachedDevices {
 						if !modular[ad.Type] || ad.Status != "compressed" {
 							continue
 						}
 						log("Unfurling %s...", ad.Code.Alias())
-						res, err := rest.DeviceCommand[models.CommandResp](ad.Code, "unfurl", nil)
-						if err != nil {
-							return err
+						if !dryRun {
+							res, err := rest.DeviceCommand[models.CommandResp](ad.Code, "unfurl", nil)
+							if err != nil {
+								return err
+							}
+							log("... %s", res.Completes.Time())
 						}
-						log("... %s", res.Completes.Time())
 					}
 				}
 				for _, ad := range sp.AttachedDevices {
@@ -331,18 +346,24 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				if len(get) == 0 {
 					break
 				}
-				_, err := rest.DeviceCommand[models.CommandResp](cf.Code, "collect_resources", map[string]any{
-					"resources": get,
-				})
-				if err != nil {
-					return err
+				log("%s collecting resources: %v", cf.Code.Alias(), get)
+				if !dryRun {
+					_, err := rest.DeviceCommand[models.CommandResp](cf.Code, "collect_resources", map[string]any{
+						"resources": get,
+					})
+					if err != nil {
+						return err
+					}
 				}
-				newEta, err := travel(cf.Code, string(ev.Location))
-				if err != nil {
-					return err
-				}
-				if newEta.After(eta) {
-					eta = newEta
+				log("%s shipping to %s", cf.Code.Alias(), ev.Location)
+				if !dryRun {
+					newEta, err := travel(cf.Code, string(ev.Location))
+					if err != nil {
+						return err
+					}
+					if newEta.After(eta) {
+						eta = newEta
+					}
 				}
 			}
 		}
@@ -386,8 +407,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 							return err
 						}
 						log("Printing %s at %s", k, p.Alias())
-						_, err = rest.DeviceCommand[models.CommandResp](
-							p, "enqueue_print", map[string]any{"device_type": k})
+						if !dryRun {
+							_, err = rest.DeviceCommand[models.CommandResp](
+								p, "enqueue_print", map[string]any{"device_type": k})
+							}
 						queue[p.String()] += bp.PrintTime.Duration()
 						missing[k]--
 					}
@@ -413,6 +436,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			for _, d := range pickUp {
 				if modular[d.Type] && d.Status == "idle" {
 					log("Compacting %s", d.Code.Alias())
+					if dryRun {
+						continue
+					}
 					if res, err := rest.DeviceCommand[models.CommandResp](d.Code, "compact", nil); err != nil {
 						return err
 					} else {
@@ -432,30 +458,40 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				}
 				if avail >= len(pickUp) {
 					log("Attaching %s to %s", strings.Join(codeList(ids), ", "), sp.Code.Alias())
-					_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids})
-					if err != nil {
-						return err
+					if !dryRun {
+						_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids})
+						if err != nil {
+							return err
+						}
 					}
-					newEta, err := travel(sp.Code, string(ev.Location))
-					if err != nil {
-						return err
-					}
-					if newEta.After(eta) {
-						eta = newEta
+					log("%s shipping to %s", sp.Code.Alias(), ev.Location)
+					if !dryRun {
+						newEta, err := travel(sp.Code, string(ev.Location))
+						if err != nil {
+							return err
+						}
+						if newEta.After(eta) {
+							eta = newEta
+						}
 					}
 					break
 				} else {
 					log("Attaching %s to %s", strings.Join(devList(pickUp[:avail]), ", "), sp.Code.Alias())
-					_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids[:avail]})
-					if err != nil {
-						return err
+					if !dryRun {
+						_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids[:avail]})
+						if err != nil {
+							return err
+						}
 					}
-					newEta, err := travel(sp.Code, string(ev.Location))
-					if err != nil {
-						return err
-					}
-					if newEta.After(eta) {
-						eta = newEta
+					log("%s shipping to %s", sp.Code.Alias(), ev.Location)
+					if !dryRun {
+						newEta, err := travel(sp.Code, string(ev.Location))
+						if err != nil {
+							return err
+						}
+						if newEta.After(eta) {
+							eta = newEta
+						}
 					}
 					pickUp = pickUp[avail:]
 				}
