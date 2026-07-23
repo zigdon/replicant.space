@@ -39,7 +39,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	sPos := starSrc.Position
 
 	var dPos *models.Position
-	if strings.Contains(dst, ",") {
+	if strings.ContainsAny(dst, ",.") {
 		pos, err := models.ParsePosition(dst)
 		if err != nil {
 			return nil, err

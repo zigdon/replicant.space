@@ -63,7 +63,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 
 	// Get printer locations
 	home := getString(cmd, "home")
-	locs := make(map[models.LocationID]bool)
 	printerStrs := getStringSlice(cmd, "factory")
 	var printers []*models.CodeAlias
 	if len(printerStrs) == 0 {
@@ -85,24 +84,34 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if len(printerStrs) == 0 {
 		return fmt.Errorf("No autofactories found")
 	}
+
+	// See if there are any devices already in the print ueues
+	fleet := make(map[string][]*models.Device)
+	tag := fmt.Sprintf("mine-%s", strings.ToLower(string(loc.Location)))
 	var pAliases []string
 	for _, f := range printerStrs {
 		dev, err := getInfo(models.NewCodeAlias(f))
 		if err != nil {
 			return err
 		}
-		locs[dev.Location] = true
 		printers = append(printers, dev.Code)
 		pAliases = append(pAliases, dev.Code.Alias())
+		if dev.Printing != nil {
+			if slices.Contains(dev.Printing.Tags, tag) {
+				log("Found %s being printed at %s", dev.Printing.DeviceType, f)
+				missing[dev.Printing.DeviceType]--
+			}
+		}
+		for _, d := range dev.PrintQueue {
+			if slices.Contains(d.Tags, tag) {
+				log("Found %s in the %s queue", d.Type, f)
+				missing[dev.Printing.DeviceType]--
+			}
+		}
 	}
 	log("Printers found: %v", pAliases)
 
-	// Get the existing or idle fleet
-	fleet := make(map[string][]*models.Device)
-	tag := fmt.Sprintf("mine-%s", strings.ToLower(string(loc.Location)))
 	tagged, err := rest.GetTagged(tag)
-
-	dryRun := getBool(cmd, "dry_run")
 
 	// Find what is missing
 	amis := make(map[string]*models.CodeAlias)
@@ -124,12 +133,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 			stats[t].extra += 1
 			log("Found a spare tagged %s: %s", t, d.Code.Alias())
-			if !dryRun {
-				_, err := rest.UpdateTags(d.Code, rest.DelTag, []string{tag})
-				if err != nil {
-					log("Error removing tag %q from %s: %v", tag, d.Code.Alias())
-				}
-			}
 			continue
 		}
 
@@ -140,13 +143,19 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	// See if we can repurpose idle devices
 	var devs []*models.Device
 	for k := range fleet {
-		ds, err := rest.Devices(map[string]string{"device_type": k})
+		ds, err := rest.Devices(map[string]string{"device_type": k, "location": home})
+		if err != nil {
+			return err
+		}
+		devs = append(devs, ds...)
+		ds, err = rest.Devices(map[string]string{"device_type": k, "location": loc.Location.Star()})
 		if err != nil {
 			return err
 		}
 		devs = append(devs, ds...)
 	}
 
+	// Get the existing or idle fleet
 	for _, d := range devs {
 		// Special case for relays - if there's one working in the system, we
 		// don't need another.
@@ -161,9 +170,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if slices.ContainsFunc(d.Tags, func(t string) bool {
 			return strings.HasPrefix(t, "mine-")
 		}) {
-			continue
-		}
-		if _, ok := locs[d.Location]; !ok {
 			continue
 		}
 		if d.Status != "idle" && d.Status != "inactive" {
@@ -202,6 +208,8 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		})
 	}
 	printTable([]string{"Device", "Target", "Found", "Repurposed", "Missing", "Extra", "Members"}, data)
+
+	dryRun := getBool(cmd, "dry_run")
 
 	// Enqueue a build
 	buildTimes := make(map[string]time.Duration)
