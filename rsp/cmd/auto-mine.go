@@ -102,6 +102,8 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	tag := fmt.Sprintf("mine-%s", strings.ToLower(string(loc.Location)))
 	tagged, err := rest.GetTagged(tag)
 
+	dryRun := getBool(cmd, "dry_run")
+
 	// Find what is missing
 	amis := make(map[string]*models.CodeAlias)
 	for _, d := range tagged.Devices {
@@ -122,6 +124,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 			stats[t].extra += 1
 			log("Found a spare tagged %s: %s", t, d.Code.Alias())
+			if !dryRun {
+				_, err := rest.UpdateTags(d.Code, rest.DelTag, []string{tag})
+				if err != nil {
+					log("Error removing tag %q from %s: %v", tag, d.Code.Alias())
+				}
+			}
 			continue
 		}
 
@@ -194,8 +202,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		})
 	}
 	printTable([]string{"Device", "Target", "Found", "Repurposed", "Missing", "Extra", "Members"}, data)
-
-	dryRun := getBool(cmd, "dry_run")
 
 	// Enqueue a build
 	buildTimes := make(map[string]time.Duration)
