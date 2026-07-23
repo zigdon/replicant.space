@@ -29,6 +29,7 @@ func init() {
 	rootPrintCmd.Flags().IntP("repeat", "r", 1, "How many copies should be printed")
 	rootPrintCmd.Flags().StringP("controller", "c", "", "What controller should be assigned")
 	rootPrintCmd.Flags().String("on_complete", "", "What commands to execute once done")
+	rootPrintCmd.Flags().BoolP("dry_run", "n", false, "Don't actually print, only plan")
 
 	rootPrintCmd.AddCommand(rootPrintListCmd)
 	rootPrintListCmd.Flags().String("location", "", "Show only factories in this location")
@@ -338,11 +339,16 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		if pl.delay > 0 {
 			delay = dt(pl.delay)
 		}
+		queue := append([]string{}, pl.toQueue...)
 		data = append(data, []string{
-			p.Alias(), countList(pl.toQueue), delay, dt(pl.eta),
+			p.Alias(), countList(queue), delay, dt(pl.eta),
 		})
 		for _, tq := range pl.toQueue {
 			if tq == "" {
+				continue
+			}
+			if getBool(cmd, "dry_run") {
+				log("would print %q on %q", tq, p.Alias())
 				continue
 			}
 			log("printing %q on %q", tq, p.Alias())
