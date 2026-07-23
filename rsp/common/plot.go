@@ -74,6 +74,8 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 		Log("Loading cached route from %s:", j.Calculated.Format(time.Stamp))
 		return j, nil
 	}
+	// We're going to recalculate the legs, nuke what we already had.
+	j.Legs = j.Legs[:0]
 
 	waypoints := map[string]*models.JourneyLeg{
 		src: {
@@ -163,6 +165,14 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 		}
 
 		if waypoints[cur].To == dst {
+			for {
+				j.Legs = append(j.Legs, waypoints[cur])
+				if cur == src {
+					break
+				}
+				cur = waypoints[cur].From
+			}
+
 			return j, j.Cache()
 		}
 

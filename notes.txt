@@ -1,0 +1,3 @@
+Signal Alpha: coordinates (175, 85, 30)
+Signal Beta: coordinates (155, -215, -140)
+Signal Gamma: coordinates (-350, 160, -80)

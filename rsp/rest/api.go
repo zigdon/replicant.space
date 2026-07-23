@@ -27,7 +27,14 @@ const (
 var (
 	client         http.Client
 	UnreadMessages int
+	debug          bool
 )
+
+func init() {
+	if os.Getenv("DEBUG_API") != "" {
+		debug = true
+	}
+}
 
 func log(tmpl string, args ...any) {
 	ts := time.Now().Format(time.Stamp)
@@ -39,7 +46,7 @@ func log(tmpl string, args ...any) {
 		f.WriteString(line)
 		f.Close()
 	}
-	if os.Getenv("DEBUG_API") != "" {
+	if debug {
 		fmt.Fprint(os.Stderr, line)
 	}
 }
@@ -100,7 +107,7 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if len(body) < 1000 {
+	if len(body) < 1000 || debug {
 		log("-> %d\n%s", len(body), string(body))
 	} else {
 		log("-> %d (truncated)\n%s", len(body), string(body[:1000]))

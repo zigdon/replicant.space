@@ -28,7 +28,7 @@ var plotCmd = &cobra.Command{
 		if trip == nil {
 			return nil
 		}
-		data := [][]string{[]string{trip.Source, trip.Dest, "-", "-"},
+		data := [][]string{{trip.Source, trip.Dest, "-", "-"},
 			{"", "", "", ""}}
 		for _, l := range trip.Legs {
 			data = append(data, []string{

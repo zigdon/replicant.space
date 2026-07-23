@@ -600,6 +600,7 @@ Notify	rsp/models/device.go	/^	Notify     map[string]string `json:"notify"`$/;"	
 Notify	rsp/models/replicant.go	/^	Notify     struct {$/;"	m	struct:models.PrintQueue	typeref:typename:struct { Device string `json:"device"`; Email bool `json:"email"`; Webhook bool `json:"webhook"`; }
 NotifyDetails	rsp/models/account.go	/^type NotifyDetails struct {$/;"	s	package:models
 Num	rsp/models/helpers.go	/^func (a *CodeAlias) Num() int {$/;"	f	struct:models.CodeAlias	typeref:typename:int
+Object	rsp/models/events.go	/^	Object any$/;"	m	struct:models.Notification	typeref:typename:any
 Object	rsp/models/location.go	/^	Object              *Object                         `json:"object"`$/;"	m	struct:models.Location	typeref:typename:*Object
 Object	rsp/models/scan.go	/^type Object struct {$/;"	s	package:models
 ObjectType	rsp/models/scan.go	/^	ObjectType           string                 `json:"object_type"`$/;"	m	struct:models.Object	typeref:typename:string
@@ -1114,6 +1115,7 @@ db	rsp/cmd/root.go	/^var db *cache.Cache$/;"	v	package:cmd	typeref:typename:*cac
 db	rsp/common/helpers.go	/^var db *cache.Cache$/;"	v	package:common	typeref:typename:*cache.Cache
 db	rsp/models/helpers.go	/^var db *cache.Cache$/;"	v	package:models	typeref:typename:*cache.Cache
 db	rsp/rest/wrappers.go	/^var db *cache.Cache$/;"	v	package:rest	typeref:typename:*cache.Cache
+debug	rsp/rest/api.go	/^	debug          bool$/;"	v	package:rest	typeref:typename:bool
 defaultTags	rsp/cmd/table.go	/^var defaultTags = []string{"infrastructure", "mine", "matrix"}$/;"	v	package:cmd
 delTagCmd	rsp/cmd/device-tags.go	/^var delTagCmd = &cobra.Command{$/;"	v	package:cmd
 deliveryCmd	rsp/cmd/device-directive.go	/^var deliveryCmd = &cobra.Command{$/;"	v	package:cmd
@@ -1210,6 +1212,7 @@ init	rsp/cmd/root.go	/^func init() {$/;"	f	package:cmd
 init	rsp/cmd/table-wait.go	/^func init() {$/;"	f	package:cmd
 init	rsp/cmd/table.go	/^func init() {$/;"	f	package:cmd
 init	rsp/cmd/test.go	/^func init() {$/;"	f	package:cmd
+init	rsp/rest/api.go	/^func init() {$/;"	f	package:rest
 intFlag	rsp/cmd/helpers.go	/^	intFlag   bool$/;"	m	struct:cmd.flagDesc	typeref:typename:bool
 isResource	rsp/cmd/helpers.go	/^func isResource(in string) bool {$/;"	f	package:cmd	typeref:typename:bool
 jsonKey	rsp/cmd/helpers.go	/^	jsonKey   string$/;"	m	struct:cmd.flagDesc	typeref:typename:string

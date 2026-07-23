@@ -134,6 +134,8 @@ func (j *Journey) Cache() error {
 			}
 			if err := row.Scan(&j.ID); err == nil {
 				log("Setting new ID: %d", j.ID)
+			} else {
+				return err
 			}
 		}
 	}
@@ -155,23 +157,15 @@ func (j *Journey) Cache() error {
 		return fmt.Errorf("Error caching journey: %v", err)
 	}
 
-	// Reload so we get the auto-assigned ID. Save the existing legs so we can
-	// cache them.
-	legs := make([]*JourneyLeg, len(j.Legs))
-	copy(legs, j.Legs)
-	if j.ID == 0 {
-		if err := j.Get(); err != nil {
-			return fmt.Errorf("Error reloading journey: %v", err)
-		}
-	}
-
+	var prev *JourneyLeg
 	var errs []error
-	for i, jl := range legs {
+	for i, jl := range j.Legs {
 		jl.JourneyID = j.ID
 		if jl.From == "" && i > 0 {
-			jl.From = legs[i-1].To
+			jl.From = prev.To
 		}
 		errs = append(errs, jl.Cache())
+		prev = jl
 	}
 
 	return errors.Join(errs...)
