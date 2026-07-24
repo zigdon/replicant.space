@@ -78,6 +78,8 @@ func autoState(cmd *cobra.Command, args []string) error {
 		log("Waiting for next process event: %s",
 			time.Until(eq.Next()).Truncate(time.Second))
 		eq.Wait()
+		// Wait just a little longer
+		time.Sleep(5 * time.Second)
 	}
 	return nil
 }
