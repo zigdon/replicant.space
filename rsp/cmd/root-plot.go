@@ -69,6 +69,7 @@ func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
 	plotCmd.Flags().BoolP("recalculate", "c", false, "Ignore any cached routes")
+	plotCmd.Flags().Bool("partial", true, "Allow extracting a partial route from a longer one")
 	plotCmd.PersistentFlags().Bool("debug", false, "Output additional debugging data")
 
 	plotCmd.AddCommand(nearestCmd)

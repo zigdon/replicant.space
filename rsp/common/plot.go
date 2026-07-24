@@ -16,6 +16,7 @@ type PlotCfg struct {
 	Debug       bool
 	Hop         float32
 	Recalculate bool
+	Partial     bool
 }
 
 func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
@@ -30,13 +31,14 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	// Repeat until destination is found
 
 	if cfg == nil {
-		cfg = &PlotCfg{Hop: 7.5}
+		cfg = &PlotCfg{Hop: 7.5, Partial: true}
 	}
 	starSrc, err := models.NewStar(src)
 	if err != nil {
 		return nil, err
 	}
 	sPos := starSrc.Position
+	src = starSrc.Designation.Star()
 
 	var dPos *models.Position
 	if strings.ContainsAny(dst, ",.") {
@@ -75,6 +77,61 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 		Log("Loading cached route from %s:", j.Calculated.Format(time.Stamp))
 		return j, nil
 	}
+	// If we don't have a route, and we're not explicitly recalculating, see if
+	// we can reuse an existing route.
+	if cfg.Partial {
+		// See if there's a route that includes both starting and ending point
+		row := db.DB.QueryRow(`
+			SELECT journey_id FROM cached_journey_steps
+			WHERE src = $1 OR dest = $1
+			INTERSECT
+			SELECT journey_id FROM cached_journey_steps
+			WHERE src = $2 OR dest = $2`, src, dst)
+		var jid int
+		if err := row.Scan(&jid); err != nil {
+			return nil, fmt.Errorf("Can't reuse an old journey (%s-%s): %v", src, dst, err)
+		}
+		Log("Fount partial route from %s to %s in JID %d", src, dst, jid)
+		rows, err := db.DB.Query(`
+			SELECT src, dest, step
+			FROM cached_journey_steps
+			WHERE journey_id = $1
+			ORDER BY step`, jid)
+		if err != nil {
+			return nil, fmt.Errorf("Can't get partial journey: %v", err)
+		}
+		var started bool
+		for rows.Next() {
+			l := new(models.JourneyLeg)
+			if err := rows.Scan(&l.From, &l.To, &l.Step); err != nil {
+				return nil, fmt.Errorf("Can't load step: %v", err)
+			}
+			if l.From == src || l.From == dst {
+				started = true
+			}
+			if !started {
+				Log("Skipping %s->%s", l.From, l.To)
+				continue
+			}
+			Log("Adding %s->%s", l.From, l.To)
+			j.Legs = append(j.Legs, l)
+			if l.To == src || l.To == dst {
+				break
+			}
+		}
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("Error scanning partial journey: %v", err)
+		}
+		if j.Legs[0].From != src {
+			slices.Reverse(j.Legs)
+			for i := range j.Legs {
+				j.Legs[i].From, j.Legs[i].To = j.Legs[i].To, j.Legs[i].From
+			}
+		}
+		Log("Using route extracted from JID: %d", jid)
+		return j, j.Cache()
+	}
+
 	// We're going to recalculate the legs, nuke what we already had.
 	j.Legs = j.Legs[:0]
 
@@ -168,13 +225,15 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 		if waypoints[cur].To == dst {
 			for {
 				j.Legs = append(j.Legs, waypoints[cur])
-				if cur == src {
+				if waypoints[cur].From == src {
 					break
 				}
 				cur = waypoints[cur].From
 			}
+			err := j.Cache()
+			slices.Reverse(j.Legs)
 
-			return j, j.Cache()
+			return j, err
 		}
 
 		if len(nextQueue) == 0 {

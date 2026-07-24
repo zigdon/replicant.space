@@ -74,7 +74,8 @@ func (eq *EventQueue) AddEvent(name, desc string, when time.Time, callback func(
 		callback: callback,
 	}
 	eq.queue = append(eq.queue, e)
-	log("Added event %q: %s", e.name, e.when.Format(time.Stamp))
+	log("Added event %q: %s (%s)", e.name, e.when.Format(time.Stamp),
+		time.Until(e.when).Truncate(time.Second))
 	slices.SortFunc(eq.queue, func(a, b *Event) int {
 		return cmp.Compare(a.when.Unix(), b.when.Unix())
 	})

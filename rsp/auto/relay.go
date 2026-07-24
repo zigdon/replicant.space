@@ -318,7 +318,8 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		if err != nil {
 			return eta, err
 		}
-		log("Supply ship in transit: %s (%s)", eta, time.Until(eta))
+		log("Supply ship in transit: %s (%s)", eta.Truncate(time.Second),
+			time.Until(eta).Truncate(time.Second))
 	case rm.dev.Location:
 		log("Waiting for resupply at %q", rm.dev.Location)
 	default:
