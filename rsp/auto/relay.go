@@ -79,6 +79,12 @@ func (rm *RelayMachine) UpdateState() error {
 	rm.dev = dev
 	status := rm.dev.Status
 
+	supply, err := rest.RefreshDeviceInfo(rm.supply.Code)
+	if err != nil {
+		return fmt.Errorf("Can't refresh info for supply ship %q: %v", rm.supply.Code.Alias(), err)
+	}
+	rm.supply = supply
+
 	// State flags
 	var sysFRs []*models.Device // FRs in system
 	var sysFRRelaying bool      // FRs operational
@@ -268,14 +274,17 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 		var lost = true
 		for _, l := range route.Legs {
-			if l.From != string(rm.dev.Location) {
+			log("Checking %s", l.String())
+			if l.From != rm.dev.Location.Star() {
 				continue
 			}
+			log("%s->%s (cur: %s)", l.From, l.To, rm.dev.Location)
 			lost = false
 			eta, err = common.Travel(rm.dev.Code, l.To, rm.dryRun)
 			if err != nil {
 				return eta, err
 			}
+			rm.dev.Location = models.LocationID(l.To)
 			break
 		}
 		if lost {

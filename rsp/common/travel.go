@@ -19,6 +19,20 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 		Log("%s is already at %s", id.Alias(), loc)
 		return eta, nil
 	}
+	if string(location) == location.Star() {
+		star, err := models.NewStar(loc)
+		if err != nil {
+			return eta, fmt.Errorf("Can't load %s: %v", loc, err)
+		}
+		if info.Location == star.EntryPoint {
+			Log("%s is already at the entry point of %s", id.Alias(), loc)
+			return eta, nil
+		}
+	}
+	if info.Location.Star() == location.Star() {
+		Log("%s is already in system", id.Alias())
+		via = []string{"-"}
+	}
 	cfg := map[string]any{
 		"destination": location,
 	}
