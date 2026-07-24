@@ -279,6 +279,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 	}
 
 	dups := make(map[string][]*models.Device)
+	dists := make(map[string]float32)
 	for _, d := range devs {
 		loc := d.GetPosition()
 		status := d.Status
@@ -332,6 +333,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 		}
 		if reference != nil {
 			if loc != nil {
+				dists[string(d.Location)] = loc.Distance(reference)
 				line = append(line, f(loc.Distance(reference)))
 			} else {
 				line = append(line, "")
@@ -347,12 +349,18 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 			l[11] = ""
 		}
 	}
-	slices.SortFunc(data, func(a, b []string) int {
-		return cmp.Or(
-			cmp.Compare(a[0], b[0]),
-			cmp.Compare(a[1], b[1]),
-		)
-	})
+	if reference == nil {
+		slices.SortFunc(data, func(a, b []string) int {
+			return cmp.Or(
+				cmp.Compare(a[0], b[0]),
+				cmp.Compare(a[1], b[1]),
+			)
+		})
+	} else {
+		slices.SortFunc(data, func(a, b []string) int {
+			return cmp.Compare(dists[a[3]], dists[b[3]])
+		})
+	}
 	headers := []string{
 		"Type",
 		"Code",

@@ -355,7 +355,6 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 				log("would print %q on %q", tq, p.Alias())
 				continue
 			}
-			log("printing %q on %q", tq, p.Alias())
 			if tq == name {
 				_, err = rest.DeviceCommand[models.CommandResp](p, "enqueue_print", cfg)
 			} else {

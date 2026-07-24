@@ -16,6 +16,22 @@ func autoRent(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	mds, err := rest.Devices(map[string]string{
+		"device_type": "maintenance_drone",
+	})
+	mtds := make(map[string]*models.Device)
+	for _, d := range mds {
+		if d.AttachedToDeviceCode != nil {
+			continue
+		}
+		if mtds[string(d.Location)] != nil && mtds[string(d.Location)].Status == "coordinating" {
+			continue
+		}
+		mtds[string(d.Location)] = d
+	}
+	if err != nil {
+		return err
+	}
 	atcStr := getString(cmd, "atc")
 	home := getString(cmd, "home")
 	dryRun := getBool(cmd, "dry_run")
@@ -82,6 +98,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 
 	// Find our ships that are not at home, deposit their cargo, and call back
 	var errs []error
+	incoming := make(map[string]map[string]int)
 	for _, cf := range atc.ControlledDevices {
 		info, err := getInfo(cf.Code)
 		if err != nil {
@@ -90,6 +107,15 @@ func autoRent(cmd *cobra.Command, args []string) error {
 		}
 		if string(info.Location) == home {
 			continue
+		}
+		if info.Travel != nil {
+			dest := string(info.Travel.Destination)
+			if incoming[dest] == nil {
+				incoming[dest] = make(map[string]int)
+			}
+			for _, c := range info.Cargo {
+				incoming[dest][c.ResourceType] += int(c.Quantity)
+			}
 		}
 		if info.Status != "idle" {
 			continue
@@ -115,9 +141,24 @@ func autoRent(cmd *cobra.Command, args []string) error {
 	// Check hubs for missing resources, find a ship at home, load it, and send
 	// it over
 	for _, sh := range hubs {
+		sh, err := rest.DeviceInfo(sh.Code)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("Can't refresh info for %q: %v", sh.Code, err))
+		}
 		if sh.Status != "relaying" {
 			log("%s @ %s not online", sh.Code.Alias(), sh.Location)
 			continue
+		}
+		if st, ok := mtds[string(sh.Location)]; !ok {
+			errs = append(errs, fmt.Errorf("No maintenance drone found at %s for %s", sh.Location, sh.Code.Alias()))
+		} else if st.Status != "coordinating" {
+			err := setDirective(st.Code, "patrol", nil)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("Failed to set %q to patrol: %v", st.Code.Alias(), err))
+			}
+		}
+		if len(sh.UpkeepRequirements) == 0 {
+			errs = append(errs, fmt.Errorf("Missing rent requirements for %s", sh.Code.Alias()))
 		}
 		inv, err := rest.Location(string(sh.Location))
 		if err != nil {
