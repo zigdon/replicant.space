@@ -247,7 +247,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			}
 			var stowed = 0
 			for _, d := range rm.supply.StowedDevices.Devices {
-				_, err := deviceCommand(d.Code, "deploy", nil)
+				_, err := deviceCommand(rm.supply.Code, "detach", map[string]any{"target": d.Code.Alias()})
 				if err != nil {
 					return eta, err
 				}
@@ -313,8 +313,8 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 		log("Loading %d FRs at home, %d available...", slots, len(homeFRs))
 		for slots > 0 && len(homeFRs) > 0 {
-			_, err := deviceCommand(homeFRs[0].Code, "stow", map[string]any{
-				"target": rm.supply.Code.String(),
+			_, err := deviceCommand(rm.supply.Code, "attach", map[string]any{
+				"target": homeFRs[0].Code,
 			})
 			if err != nil {
 				return eta, err

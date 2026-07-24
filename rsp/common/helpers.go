@@ -18,7 +18,7 @@ var bps map[string]*models.Blueprint
 var LogFh io.Writer = os.Stderr
 
 func Log(tmpl string, args ...any) {
-	date := time.Now().Format(time.DateTime) + " - "
+	date := time.Now().Format(time.Stamp) + " - "
 	if !strings.HasSuffix(tmpl, "\n") {
 		tmpl += "\n"
 	}

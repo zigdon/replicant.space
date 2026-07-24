@@ -110,10 +110,8 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 				started = true
 			}
 			if !started {
-				Log("Skipping %s->%s", l.From, l.To)
 				continue
 			}
-			Log("Adding %s->%s", l.From, l.To)
 			j.Legs = append(j.Legs, l)
 			if l.To == src || l.To == dst {
 				break
@@ -129,7 +127,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 			}
 		}
 		Log("Using route extracted from JID: %d", jid)
-		return j, j.Cache()
+		return j, nil
 	}
 
 	// We're going to recalculate the legs, nuke what we already had.
