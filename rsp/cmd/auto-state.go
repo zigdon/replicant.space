@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -11,24 +12,19 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
-func autoProspect(cmd *cobra.Command, args []string) error {
-	// If a device was specified, process only that one. Otherwise, loop over
-	// all the observatories.
+func autoState(cmd *cobra.Command, args []string) error {
+	// If devices were specified, process those. Otherwise, loop over
+	// all the defined states
 	var devs []*models.Device
-	devIDs := getStringSlice(cmd, "device")
-	if len(devIDs) == 0 {
+	if len(args) == 0 {
 		var err error
-		devs, err = rest.Devices(map[string]string{"device_type": "galactic_observatory"})
+		res, err := rest.GetTagged("auto")
 		if err != nil {
 			return err
 		}
-		pas, err := rest.Devices(map[string]string{"device_type": "parallax_array"})
-		if err != nil {
-			return err
-		}
-		devs = append(devs, pas...)
+		devs = append(devs, res.Devices...)
 	} else {
-		for _, d := range devIDs {
+		for _, d := range args {
 			i, err := getInfo(models.NewCodeAlias(d))
 			if err != nil {
 				return err
@@ -37,13 +33,19 @@ func autoProspect(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if len(devs) == 0 {
-		return fmt.Errorf("No observatories found")
+		return fmt.Errorf("No devices tagged 'auto' found.")
 	}
 
 	var sms = make(map[*models.CodeAlias]auto.Machine)
 	dryRun := getBool(cmd, "dry_run")
 	for _, d := range devs {
-		sms[d.Code] = &auto.ProspectMachine{}
+		if slices.Contains(d.Tags, "auto:prospect") {
+			sms[d.Code] = &auto.ProspectMachine{}
+		} else if slices.Contains(d.Tags, "auto:relay") {
+			sms[d.Code] = &auto.RelayMachine{}
+		} else {
+			return fmt.Errorf("Unknown state machine for %q: %v", d.Code.Alias(), d.Tags)
+		}
 		if err := sms[d.Code].Start(d, dryRun); err != nil {
 			return err
 		}

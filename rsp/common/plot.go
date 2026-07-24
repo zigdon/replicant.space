@@ -55,6 +55,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 			return nil, err
 		}
 		dPos = nStar.Position
+		dst = nStar.Designation.Star()
 	} else {
 		starDst, err := models.NewStar(dst)
 		if err != nil {

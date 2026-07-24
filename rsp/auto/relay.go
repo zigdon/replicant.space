@@ -44,7 +44,7 @@ type RelayMachine struct {
 func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 	// Make sure the device is a replicant
 	if !slices.Contains([]string{"heaven_vessel", "racing_vessel", "cargo_vessel"}, d.Type) {
-		return fmt.Errorf("%s is not a vessel", d.Code.Alias())
+		return fmt.Errorf("%s is not a vessel: %q", d.Code.Alias(), d.Type)
 	}
 	rm.dev = d
 	rm.dryRun = dryRun
@@ -53,10 +53,15 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 		return fmt.Errorf("Relay destination not tagged on %s", d.Code.Alias())
 	}
 	rm.dest = dest
+	state := getTags(rm.dev)["state"]
+	if state == "" {
+		return fmt.Errorf("State not tagged on %s", d.Code.Alias())
+	}
+	rm.state = state
 
 	p, err := rest.GetTagged(fmt.Sprintf("supply:%s", d.Code.Alias()))
 	if err != nil {
-		return err
+		return fmt.Errorf("Can't get tagged supply ship: %v", err)
 	}
 	if len(p.Devices) != 1 {
 		return fmt.Errorf("Can't find exactly one device tagged supply:%s, found %d", d.Code.Alias(), len(p.Devices))
@@ -69,7 +74,7 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 func (rm *RelayMachine) UpdateState() error {
 	dev, err := rest.RefreshDeviceInfo(rm.dev.Code)
 	if err != nil {
-		return err
+		return fmt.Errorf("Can't refresh info for %q: %v", rm.dev.Code.Alias(), err)
 	}
 	rm.dev = dev
 	status := rm.dev.Status
@@ -87,7 +92,7 @@ func (rm *RelayMachine) UpdateState() error {
 	// Check the current location
 	if rm.dev.Location != "" {
 		var star *models.Star
-		star, err = models.NewStar(string(rm.dev.Location.Star()))
+		star, err = models.NewStar(rm.dev.Location.Star())
 		if err != nil {
 			return err
 		}
@@ -98,7 +103,7 @@ func (rm *RelayMachine) UpdateState() error {
 				"location":    string(star.Designation),
 			})
 			if err != nil {
-				return err
+				return fmt.Errorf("Can't get ftl relays at %q: %v", star.Designation, err)
 			}
 			for _, fr := range sysFRs {
 				if fr.Status == "relaying" {
@@ -111,6 +116,7 @@ func (rm *RelayMachine) UpdateState() error {
 	sysHasSpareFR := len(sysFRs) > 1
 
 	switch {
+	case rm.state == "leaving":
 	case rm.state == "cleanup" && sysHasSpareFR:
 		rm.state = "cleanup"
 	case rm.dev.Location == "" || status != "idle":
@@ -130,8 +136,9 @@ func (rm *RelayMachine) UpdateState() error {
 	case frInv && (rm.state == "empty" || rm.state == "deploying"):
 		rm.state = "leaving"
 	default:
-		return fmt.Errorf("Unknown state (%s): FRs: ship %v, sys %d (relaying: %v)",
-			rm.dev.Code.Alias(), frInv, len(sysFRs), sysFRRelaying)
+		return fmt.Errorf(
+			"Unknown state (%s): state: %q, FRs: ship %v, sys %d (relaying: %v)",
+			rm.dev.Code.Alias(), rm.state, frInv, len(sysFRs), sysFRRelaying)
 	}
 	return nil
 }
@@ -149,7 +156,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 		scan, err := rest.ReplicantScan(rm.dev.Code)
 		if err != nil {
-			return eta, err
+			return eta, fmt.Errorf("Can't trigger scan at %q: %v", rm.dev.Location, err)
 		}
 		if scan.AsteroidBelt.Present {
 			log("Asteroid belt detected: %v", scan.AsteroidBelt.Belts)
@@ -190,12 +197,12 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 		// Tag
 		_, err = rest.UpdateTags(fr, rest.AddTag, []string{"infrastructure"})
-		return eta, err
+		return eta, fmt.Errorf("Can't update tags on %q: %v", fr.Alias(), err)
 	case "cleanup":
 		// Find spares in system
 		frs, err := rest.RefreshDevices(map[string]string{"location": rm.dev.Location.Star()})
 		if err != nil {
-			return eta, err
+			return eta, fmt.Errorf("Can't find system spares: %v", err)
 		}
 		if len(frs) >= 1 {
 			frs = frs[1:]
@@ -245,7 +252,8 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				stowed++
 			}
 			log("Picked up %d FRs, shipping resupply back home", stowed)
-			_, err := deviceCommand(rm.supply.Code, "travel", map[string]any{"destination": home})
+			var err error
+			eta, err = common.Travel(rm.supply.Code, home, rm.dryRun)
 			if err != nil {
 				return eta, err
 			}
@@ -264,13 +272,10 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				continue
 			}
 			lost = false
-			res, err := deviceCommand(rm.dev.Code, "travel", map[string]any{
-				"destination": l.To,
-			})
+			eta, err = common.Travel(rm.dev.Code, l.To, rm.dryRun)
 			if err != nil {
 				return eta, err
 			}
-			eta = res.Arrives.Time()
 			break
 		}
 		if lost {
@@ -292,7 +297,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			"device_type": "ftl_relay",
 		})
 		if err != nil {
-			return eta, err
+			return eta, fmt.Errorf("Can't find ftl relays at %q: %v", home, err)
 		}
 		if len(homeFRs) == 0 {
 			return eta, fmt.Errorf("No FRs available at home")
@@ -309,24 +314,20 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			homeFRs = homeFRs[1:]
 		}
 		log("Shipping out to %q to deliver FRs", rm.dev.Location)
-		res, err := deviceCommand(rm.supply.Code, "travel", map[string]any{
-			"destination": rm.dev.Location,
-		})
+		eta, err := common.Travel(rm.supply.Code, string(rm.dev.Location), rm.dryRun)
 		if err != nil {
 			return eta, err
 		}
-		log("Supply ship in transit: %s (%s)", res.Arrives.Time(), time.Until(res.Arrives.Time()))
+		log("Supply ship in transit: %s (%s)", eta, time.Until(eta))
 	case rm.dev.Location:
 		log("Waiting for resupply at %q", rm.dev.Location)
 	default:
 		log("Following %s to %q", rm.dev.Code.Alias(), rm.dev.Location)
-		res, err := deviceCommand(rm.supply.Code, "travel", map[string]any{
-			"destination": rm.dev.Location,
-		})
+		eta, err := common.Travel(rm.supply.Code, string(rm.dev.Location), rm.dryRun)
 		if err != nil {
 			return eta, err
 		}
-		log("Supply ship in transit: %s (%s)", res.Arrives.Time(), time.Until(res.Arrives.Time()))
+		log("Supply ship in transit: %s (%s)", eta, time.Until(eta))
 	}
 	return eta, nil
 }

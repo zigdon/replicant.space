@@ -82,7 +82,11 @@ type StarCatalog struct {
 
 func NewStar(id string) (*Star, error) {
 	s := &Star{Designation: LocationID(id)}
-	return s, s.Get()
+	err := s.Get()
+	if err != nil {
+		return s, fmt.Errorf("Can't load star %q: %v", id, err)
+	}
+	return s, nil
 }
 
 type Star struct {
@@ -151,7 +155,7 @@ func (s *Star) Get() error {
 	if s.Designation == "" {
 		return fmt.Errorf("Can't load unknown star")
 	}
-	scan, err := db.Get(cache.StarsTable, string(s.Designation))
+	scan, err := db.Get(cache.StarsTable, s.Designation.Star())
 	if err != nil {
 		return fmt.Errorf("Error querying cache: %v", err)
 	}

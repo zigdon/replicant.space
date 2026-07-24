@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -27,16 +28,10 @@ var autoFerryCmd = &cobra.Command{
 	RunE:  autoFerry,
 }
 
-var autoProspectCmd = &cobra.Command{
-	Use:   "prospect",
-	Short: "Continue prospecting towards predetermined goals",
-	RunE:  autoProspect,
-}
-
-var autoRelayCmd = &cobra.Command{
-	Use:   "relay",
-	Short: "Set up relay network",
-	RunE:  autoRelay,
+var autoStateCmd = &cobra.Command{
+	Use:   "state",
+	Short: "Progress the current state machines",
+	RunE:  autoState,
 }
 
 var autoRentCmd = &cobra.Command{
@@ -76,17 +71,13 @@ func init() {
 	autoFerryCmd.Flags().String("home", "MENKUNT-2-L4", "Destination for ferrying")
 	autoFerryCmd.Flags().StringP("atc", "t", "atc-1", "Transport controller to use")
 
-	autoCmd.AddCommand(autoRelayCmd)
-	autoRelayCmd.Flags().String("home", "MENKUNT", "Home system")
-
 	autoCmd.AddCommand(autoFRCmd)
 	autoFRCmd.Flags().IntP("replicant", "r", 0, "Which replicant is deploying the FR")
 	autoFRCmd.Flags().Bool("dry_run", true, "When set, only describe what will be done")
 	autoFRCmd.MarkFlagRequired("replicant")
 
-	autoCmd.AddCommand(autoProspectCmd)
-	autoProspectCmd.Flags().StringSliceP("device", "d", []string{}, "Devices to use, leave blank for all")
-	autoProspectCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
+	autoCmd.AddCommand(autoStateCmd)
+	autoStateCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
 
 	autoCmd.AddCommand(autoRentCmd)
 	autoRentCmd.Flags().StringP("atc", "t", "atc-3", "ATC controlling cargo transports")
@@ -128,16 +119,12 @@ func travel(id *models.CodeAlias, location string) (time.Time, error) {
 		return eta, fmt.Errorf("Can't get %s info: %v", id.Alias(), err)
 	}
 	if string(info.Location) != location {
-		res, err := rest.DeviceCommand[models.CommandResp](id, "travel", map[string]any{
-			"destination": location,
-		})
+		eta, err := common.Travel(id, location, false)
 		if err != nil {
 			return eta, fmt.Errorf("Failed to send %s from %q to %q: %v", id.Alias(), info.Location, location, err)
 		}
-		eta = res.Arrives.Time()
-		log("Shipped %s to %s: ETA %s", id.Alias(), location, res.TotalTime.String())
+		log("Shipped %s to %s: ETA %s (%s)", id.Alias(), location, eta.Truncate(time.Second), time.Until(eta).Truncate(time.Second))
 	}
-	resetInfo(id)
 	return eta, nil
 }
 

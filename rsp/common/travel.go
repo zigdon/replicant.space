@@ -38,7 +38,7 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 		// Find the nearest hub
 		_, star, dist, err := NearestHub(location.Star())
 		if err != nil {
-			return eta, err
+			return eta, fmt.Errorf("Can't find nearest hub to %q: %v", location.Star(), err)
 		}
 		Log("Nearest hub: %s (%.2f ly from %s)", star, dist, location.Star())
 		// Check the route via the auto routing chip
@@ -117,6 +117,6 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 		return eta, fmt.Errorf("Failed to send %s from %q to %q: %v", id.Alias(), info.Location, location, err)
 	}
 	eta = res.Arrives.Time()
-	Log("Shipped %s to %s: ETA %s", id.Alias(), location, res.TotalTime.String())
+	Log("Shipped %s to %s: ETA %s", id.Alias(), location, res.TotalTime.Duration().Truncate(time.Second))
 	return eta, nil
 }

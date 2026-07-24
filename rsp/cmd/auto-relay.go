@@ -3,67 +3,11 @@ package cmd
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
-
-// Check if the destination already has a working relay
-// - If yes, check that it's in the home network
-// - If it isn't, plot the relay path from home, and rerun with the next step
-//   that is missing a relay.
-// If there wasn't a working relay, find an idle one (or print one)
-// Transport it to the destination system
-// Activate it
-
-func autoRelay(cmd *cobra.Command, args []string) error {
-	locName := getString(cmd, "location")
-	home := getString(cmd, "home")
-	devs, err := getFTLRelays(locName)
-	if err != nil {
-		return err
-	}
-	if len(devs) == 0 {
-		return missingRelay(locName)
-	}
-	var valid bool
-	var extras []*models.Device
-	for _, d := range devs {
-		if valid { // We already found a relay on the home network, just clean up extras
-			extras = append(extras, d)
-			continue
-		}
-		net, err := rest.DeviceNetwork(d.Code)
-		if err != nil {
-			return err
-		}
-		for _, n := range net.Connections {
-			if n.Star == home {
-				valid = true
-				break
-			}
-		}
-		if valid {
-			continue
-		}
-		extras = append(extras, d)
-	}
-	if !valid {
-		log("None of the relays at %s are in the home network", locName)
-		return activateRelay(locName, devs[0])
-	}
-	if len(extras) > 0 {
-		var es []string
-		for _, e := range extras {
-			es = append(es, e.Code.Alias())
-		}
-		log("Found %d extra relays: %s", len(extras), strings.Join(es, ", "))
-		return returnExtraRelays(devs)
-	}
-	return nil
-}
 
 func autoFR(cmd *cobra.Command, args []string) error {
 	// Simple version:

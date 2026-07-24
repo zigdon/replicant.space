@@ -47,6 +47,10 @@ func getHomeFactories(home string) ([]*models.CodeAlias, error) {
 	log("%d factories found", len(factories))
 	var printers []*models.CodeAlias
 	for _, f := range factories {
+		if slices.Contains([]string{"compacted", "compacting", "unfurling"}, f.Status) {
+			log("Skipping %s: %s", f.Code.Alias(), f.Status)
+			continue
+		}
 		printers = append(printers, f.Code)
 	}
 	return printers, nil
