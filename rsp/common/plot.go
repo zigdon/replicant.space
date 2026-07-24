@@ -302,7 +302,6 @@ func NearestHub(star string) (string, string, float32, error) {
 	locs := make(map[string]string)
 	for _, h := range hubs {
 		if h.Status != "relaying" {
-			Log("Ignoring inactive hub %s at %s", h.Code.Alias(), h.Location)
 			continue
 		}
 		star := h.Location.Star()
