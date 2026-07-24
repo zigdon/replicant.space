@@ -75,7 +75,8 @@ func autoState(cmd *cobra.Command, args []string) error {
 		if dryRun {
 			break
 		}
-		log("Waiting for next process event: %s", time.Until(eq.Next()))
+		log("Waiting for next process event: %s",
+			time.Until(eq.Next()).Truncate(time.Second))
 		eq.Wait()
 	}
 	return nil

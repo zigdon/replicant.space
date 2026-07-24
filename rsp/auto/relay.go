@@ -312,15 +312,16 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			return eta, fmt.Errorf("No FRs available at home")
 		}
 		log("Loading %d FRs at home, %d available...", slots, len(homeFRs))
-		for slots > 0 && len(homeFRs) > 0 {
+		if slots > 0 && len(homeFRs) > 0 {
+			if slots < len(homeFRs) {
+				homeFRs = homeFRs[:slots]
+			}
 			_, err := deviceCommand(rm.supply.Code, "attach", map[string]any{
-				"target": homeFRs[0].Code,
+				"target": homeFRs,
 			})
 			if err != nil {
 				return eta, err
 			}
-			slots--
-			homeFRs = homeFRs[1:]
 		}
 		log("Shipping out to %q to deliver FRs", rm.dev.Location)
 		eta, err := common.Travel(rm.supply.Code, string(rm.dev.Location), rm.dryRun)

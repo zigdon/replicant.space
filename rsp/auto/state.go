@@ -46,7 +46,10 @@ func log(tmpl string, args ...any) {
 func deviceCommand(id *models.CodeAlias, cmd string, args map[string]any) (*models.CommandResp, error) {
 	log("Issuing %q to %s: %v", cmd, id.Alias(), args)
 	res, err := rest.DeviceCommand[models.CommandResp](id, cmd, args)
-	return res, fmt.Errorf("Error sending %q command to %q: %v", cmd, id.Alias(), err)
+	if err != nil {
+		return res, fmt.Errorf("Error sending %q command to %q: %v", cmd, id.Alias(), err)
+	}
+	return res, nil
 }
 
 type Event struct {
