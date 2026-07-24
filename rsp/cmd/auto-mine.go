@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -409,20 +410,20 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			if string(carrier.Location) != dest {
 				if carrier.Travel != nil {
 					log("%s already in transit to %q, ETA %s",
-						carrier.Code.Alias(), carrier.Travel.Destination, carrier.Travel.Arrives.String())
+						carrier.Code.Alias(), carrier.Travel.Destination,
+						carrier.Travel.Arrives.String())
 					return nil
 				}
 				log("Sending %s to %s", carrier.Code.Alias(), dest)
-				res, err := rest.DeviceCommand[models.CommandResp](carrier.Code, "travel", map[string]any{"destination": dest})
+				eta, err := common.Travel(carrier.Code, dest, false)
 				if err != nil {
-					if !strings.Contains(err.Error(), "Already at destination") {
-						return err
-					}
+					return err
 				}
-				log("Carrier in transit, eta %s", res.TotalTime.String())
+				log("Carrier in transit, eta %s (%s)",
+					eta.Truncate(time.Second), time.Until(eta).Truncate(time.Second))
 				n := &models.Notification{
 					Start:  time.Now(),
-					End:    res.Arrives.Time(),
+					End:    eta,
 					Device: "Mining fleet",
 					Text:   fmt.Sprintf("Fleet arrived at %q", locName),
 					Object: fleet,
@@ -441,11 +442,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 
 			// Ship em
-			res, err := rest.DeviceCommand[models.CommandResp](carrier.Code, "travel", map[string]any{"destination": locName})
+			eta, err := common.Travel(carrier.Code, locName, false)
 			if err != nil {
 				return err
 			}
-			log("Carrier in transit, eta %s", res.TotalTime.String())
+			log("Carrier in transit, eta %s (%s)",
+				eta.Truncate(time.Second), time.Until(eta).Truncate(time.Second))
 			return nil
 		}
 	}
