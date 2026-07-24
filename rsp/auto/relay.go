@@ -313,8 +313,8 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 		log("Loading %d FRs at home, %d available...", slots, len(homeFRs))
 		for slots > 0 && len(homeFRs) > 0 {
-			_, err := deviceCommand(rm.supply.Code, "stow", map[string]any{
-				"target": homeFRs[0].Code.String(),
+			_, err := deviceCommand(homeFRs[0].Code, "stow", map[string]any{
+				"target": rm.supply.Code.String(),
 			})
 			if err != nil {
 				return eta, err
