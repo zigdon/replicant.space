@@ -81,53 +81,10 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	// we can reuse an existing route.
 	if cfg.Partial {
 		// See if there's a route that includes both starting and ending point
-		row := db.DB.QueryRow(`
-			SELECT journey_id FROM cached_journey_steps
-			WHERE src = $1 OR dest = $1
-			INTERSECT
-			SELECT journey_id FROM cached_journey_steps
-			WHERE src = $2 OR dest = $2`, src, dst)
-		var jid int
-		if err := row.Scan(&jid); err != nil {
-			return nil, fmt.Errorf("Can't reuse an old journey (%s-%s): %v", src, dst, err)
+		j, err := GetPartialJourney(j)
+		if err == nil && len(j.Legs) > 0 {
+			return j, nil
 		}
-		Log("Fount partial route from %s to %s in JID %d", src, dst, jid)
-		rows, err := db.DB.Query(`
-			SELECT src, dest, step
-			FROM cached_journey_steps
-			WHERE journey_id = $1
-			ORDER BY step`, jid)
-		if err != nil {
-			return nil, fmt.Errorf("Can't get partial journey: %v", err)
-		}
-		var started bool
-		for rows.Next() {
-			l := new(models.JourneyLeg)
-			if err := rows.Scan(&l.From, &l.To, &l.Step); err != nil {
-				return nil, fmt.Errorf("Can't load step: %v", err)
-			}
-			if l.From == src || l.From == dst {
-				started = true
-			}
-			if !started {
-				continue
-			}
-			j.Legs = append(j.Legs, l)
-			if l.To == src || l.To == dst {
-				break
-			}
-		}
-		if err := rows.Err(); err != nil {
-			return nil, fmt.Errorf("Error scanning partial journey: %v", err)
-		}
-		if j.Legs[0].From != src {
-			slices.Reverse(j.Legs)
-			for i := range j.Legs {
-				j.Legs[i].From, j.Legs[i].To = j.Legs[i].To, j.Legs[i].From
-			}
-		}
-		Log("Using route extracted from JID: %d", jid)
-		return j, nil
 	}
 
 	// We're going to recalculate the legs, nuke what we already had.
@@ -320,4 +277,57 @@ func NearestHub(star string) (string, string, float32, error) {
 		return "", "", 0, fmt.Errorf("Can't find nearest hub: %v", err)
 	}
 	return locs[nearest], nearest, dist, nil
+}
+
+func GetPartialJourney(j *models.Journey) (*models.Journey, error) {
+	src := j.Source
+	dst := j.Dest
+	row := db.DB.QueryRow(`
+			SELECT journey_id FROM cached_journey_steps
+			WHERE src = $1 OR dest = $1
+			INTERSECT
+			SELECT journey_id FROM cached_journey_steps
+			WHERE src = $2 OR dest = $2`, src, dst)
+	var jid int
+	if err := row.Scan(&jid); err != nil {
+		Log("Can't find a partial journey (%s-%s): %v", src, dst, err)
+		return j, nil
+	}
+	Log("Fount partial route from %s to %s in JID %d", src, dst, jid)
+	rows, err := db.DB.Query(`
+			SELECT src, dest, step
+			FROM cached_journey_steps
+			WHERE journey_id = $1
+			ORDER BY step`, jid)
+	if err != nil {
+		return j, fmt.Errorf("Can't get partial journey: %v", err)
+	}
+	var started bool
+	for rows.Next() {
+		l := new(models.JourneyLeg)
+		if err := rows.Scan(&l.From, &l.To, &l.Step); err != nil {
+			return j, fmt.Errorf("Can't load step: %v", err)
+		}
+		if l.From == src || l.From == dst {
+			started = true
+		}
+		if !started {
+			continue
+		}
+		j.Legs = append(j.Legs, l)
+		if l.To == src || l.To == dst {
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return j, fmt.Errorf("Error scanning partial journey: %v", err)
+	}
+	if j.Legs[0].From != src {
+		slices.Reverse(j.Legs)
+		for i := range j.Legs {
+			j.Legs[i].From, j.Legs[i].To = j.Legs[i].To, j.Legs[i].From
+		}
+	}
+	Log("Using route extracted from JID: %d", jid)
+	return j, nil
 }

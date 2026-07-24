@@ -69,7 +69,7 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 	}
 
 	rm.dryRun = dryRun
-	dest := getTags(rm.dev)["relay"]
+	dest := strings.ToUpper(getTags(rm.dev)["relay"])
 	if dest == "" {
 		return fmt.Errorf("Relay destination not tagged on %s", d.Code.Alias())
 	}
@@ -185,7 +185,7 @@ func (rm *RelayMachine) UpdateState() error {
 }
 
 func (rm *RelayMachine) Process() (time.Time, error) {
-	eta := time.Now().Add(time.Second)
+	eta := time.Now().Add(30 * time.Second)
 	if err := rm.UpdateState(); err != nil {
 		return eta, err
 	}
@@ -380,15 +380,22 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		log("Resupply platform in transit...")
 	case home:
 		slots := rm.supply.AttachCapacity - len(rm.supply.AttachedDevices)
-		homeFRs, err := rest.RefreshDevices(map[string]string{
+		devs, err := rest.RefreshDevices(map[string]string{
 			"location":    home,
 			"device_type": "ftl_relay",
 		})
 		if err != nil {
 			return eta, fmt.Errorf("Can't find ftl relays at %q: %v", home, err)
 		}
+		var homeFRs []*models.Device
+		for _, d := range devs {
+			if d.AttachedToDeviceCode != nil {
+				continue
+			}
+			homeFRs = append(homeFRs, d)
+		}
 		if len(homeFRs) == 0 {
-			return eta, fmt.Errorf("No FRs available at home")
+			log("No FRs available at home")
 		}
 		log("Loading %d FRs at home, %d available...", slots, len(homeFRs))
 		if slots > 0 && len(homeFRs) > 0 {
@@ -399,20 +406,28 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			for n := range homeFRs {
 				ids[n] = homeFRs[n].Code.Alias()
 			}
-			_, err := deviceCommand(rm.supply.Code, "attach", map[string]any{
-				"targets": ids,
-			})
+			if rm.dryRun {
+				log("Would attach to supply %s: %v", rm.supply.Code.Alias(), ids)
+			} else {
+				_, err := deviceCommand(rm.supply.Code, "attach", map[string]any{
+					"targets": ids,
+				})
+				if err != nil {
+					return eta, err
+				}
+			}
+		}
+		if len(rm.supply.AttachedDevices) > 0 {
+			log("Shipping out to %q to deliver FRs", rm.dev.Location)
+			eta, err := common.Travel(rm.supply.Code, string(rm.dev.Location), rm.dryRun)
 			if err != nil {
 				return eta, err
 			}
+			log("Supply ship in transit: %s (%s)", eta.Truncate(time.Second),
+				time.Until(eta).Truncate(time.Second))
+		} else {
+			log("Supply ship waiting for new relays -- consider printing some")
 		}
-		log("Shipping out to %q to deliver FRs", rm.dev.Location)
-		eta, err := common.Travel(rm.supply.Code, string(rm.dev.Location), rm.dryRun)
-		if err != nil {
-			return eta, err
-		}
-		log("Supply ship in transit: %s (%s)", eta.Truncate(time.Second),
-			time.Until(eta).Truncate(time.Second))
 	case rm.dev.Location:
 		log("Waiting for resupply at %q", rm.dev.Location)
 	default:

@@ -19,11 +19,11 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 		Log("%s is already at %s", id.Alias(), loc)
 		return eta, nil
 	}
+	star, err := models.NewStar(loc)
+	if err != nil {
+		return eta, fmt.Errorf("Can't load %s: %v", loc, err)
+	}
 	if string(location) == location.Star() {
-		star, err := models.NewStar(loc)
-		if err != nil {
-			return eta, fmt.Errorf("Can't load %s: %v", loc, err)
-		}
 		if info.Location == star.EntryPoint {
 			Log("%s is already at the entry point of %s", id.Alias(), loc)
 			return eta, nil
@@ -36,6 +36,9 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 	cfg := map[string]any{
 		"destination": location,
 	}
+	Log("Plotting travel: %s -> %s (%.2fly)",
+		info.Location.Star(), location.Star(),
+		info.GetPosition().Distance(star.Position))
 	// Allow forcing direct travel, if we need that for some reason
 	if len(via) == 1 && via[0] == "-" {
 		Log("Direct travel requested, not applying auto-route")

@@ -53,9 +53,10 @@ func deviceCommand(id *models.CodeAlias, cmd string, args map[string]any) (*mode
 }
 
 type Event struct {
-	when       time.Time
-	name, desc string
-	callback   func() error
+	When       time.Time
+	Name, Desc string
+	Callback   func() error
+	Data       any
 }
 
 type EventQueue struct {
@@ -69,35 +70,41 @@ func NewEventQueue(to time.Duration) *EventQueue {
 	}
 }
 
-func (eq *EventQueue) AddEvent(name, desc string, when time.Time, callback func() error) {
+func (eq *EventQueue) AddEvent(name, desc string, when time.Time, callback func() error, data any) {
 	e := &Event{
-		name:     name,
-		desc:     desc,
-		when:     when,
-		callback: callback,
+		Name:     name,
+		Desc:     desc,
+		When:     when,
+		Callback: callback,
+		Data:     data,
 	}
 	eq.queue = append(eq.queue, e)
-	log("Added event %q: %s (%s)", e.name, e.when.Format(time.Stamp),
-		time.Until(e.when).Truncate(time.Second))
+	log("Added event %q: %s (%s)", e.Name, e.When.Format(time.Stamp),
+		time.Until(e.When).Truncate(time.Second))
 	slices.SortFunc(eq.queue, func(a, b *Event) int {
-		return cmp.Compare(a.when.Unix(), b.when.Unix())
+		return cmp.Compare(a.When.Unix(), b.When.Unix())
 	})
 }
 
 func (eq *EventQueue) Next() time.Time {
-	for len(eq.queue) > 0 && eq.queue[0].when.Before(time.Now()) {
+	for len(eq.queue) > 0 && eq.queue[0].When.Before(time.Now()) {
 		eq.queue = eq.queue[1:]
 	}
 	if len(eq.queue) == 0 {
 		return time.Now().Add(eq.timeout)
 	}
-	if time.Until(eq.queue[0].when) > eq.timeout {
+	if time.Until(eq.queue[0].When) > eq.timeout {
 		return time.Now().Add(eq.timeout)
 	}
-	return eq.queue[0].when
+	return eq.queue[0].When
 }
 
-func (eq *EventQueue) Wait() {
+func (eq *EventQueue) Wait() *Event {
+	if len(eq.queue) == 0 {
+		log("No more events")
+		return nil
+	}
 	t := time.NewTimer(time.Until(eq.Next()))
 	<-t.C
+	return eq.queue[0]
 }

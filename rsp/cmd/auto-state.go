@@ -22,7 +22,13 @@ func autoState(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		devs = append(devs, res.Devices...)
+		for _, d := range res.Devices {
+			i, err := getInfo(d.Code)
+			if err != nil {
+				return err
+			}
+			devs = append(devs, i)
+		}
 	} else {
 		for _, d := range args {
 			i, err := getInfo(models.NewCodeAlias(d))
@@ -40,8 +46,10 @@ func autoState(cmd *cobra.Command, args []string) error {
 	dryRun := getBool(cmd, "dry_run")
 	for _, d := range devs {
 		if slices.Contains(d.Tags, "auto:prospect") {
+			log("%s: prospect -> %v", d.Code.Alias(), d.Tags)
 			sms[d.Code] = &auto.ProspectMachine{}
 		} else if slices.Contains(d.Tags, "auto:relay") {
+			log("%s: relay -> %v", d.Code.Alias(), d.Tags)
 			sms[d.Code] = &auto.RelayMachine{}
 		} else {
 			return fmt.Errorf("Unknown state machine for %q: %v", d.Code.Alias(), d.Tags)
@@ -52,34 +60,47 @@ func autoState(cmd *cobra.Command, args []string) error {
 	}
 
 	eq := auto.NewEventQueue(5 * time.Minute)
+	var errs []error
+	var runStep func(d *models.CodeAlias, m auto.Machine) error
+	runStep = func(d *models.CodeAlias, m auto.Machine) error {
+		t, err := m.Process()
+		if err != nil {
+			errs = append(errs, err)
+		} else if t.IsZero() {
+			errs = append(errs, fmt.Errorf("%s: No time for next step", d.Alias()))
+		} else {
+			eq.AddEvent(
+				d.Alias(),
+				fmt.Sprintf("%s: State machine wait is done", d.Alias()),
+				t, func() error {
+					return runStep(d, m)
+				}, nil,
+			)
+		}
+		return nil
+	}
+	for d, m := range sms {
+		log("===================================")
+		log("%s: Starting machine", d.Alias())
+		errs = append(errs, runStep(d, m))
+	}
+	if err := errors.Join(errs...); err != nil {
+		return err
+	}
 	for {
-		var errs []error
-		for d, m := range sms {
-			log("%s: Processing machine", d.Alias())
-			t, err := m.Process()
-			if err != nil {
-				errs = append(errs, err)
-			} else if t.IsZero() {
-				errs = append(errs, fmt.Errorf("%s: No time for next step", d.Alias()))
-			} else {
-				eq.AddEvent(
-					d.Alias(),
-					fmt.Sprintf("%s: State machine wait is done", d.Alias()),
-					t, nil,
-				)
-			}
-		}
-		if err := errors.Join(errs...); err != nil {
-			log("Errors: %v", err)
-		}
-		if dryRun {
-			break
-		}
 		log("Waiting for next process event: %s",
 			time.Until(eq.Next()).Truncate(time.Second))
-		eq.Wait()
+		ev := eq.Wait()
+		if ev == nil {
+			return fmt.Errorf("No more events in the queue")
+		}
 		// Wait just a little longer
 		time.Sleep(5 * time.Second)
+
+		log("===================================")
+		log("%s: Processing machine", ev.Name)
+		if err := ev.Callback(); err != nil {
+			log("Processing error: %v", err)
+		}
 	}
-	return nil
 }
