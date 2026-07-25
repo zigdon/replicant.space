@@ -19,15 +19,25 @@ func autoRent(cmd *cobra.Command, args []string) error {
 	mds, err := rest.Devices(map[string]string{
 		"device_type": "maintenance_drone",
 	})
+	if err != nil {
+		return err
+	}
+	sbs, err := rest.Devices(map[string]string{
+		"device_type": "service_bot",
+	})
+	if err != nil {
+		return err
+	}
+	mds = append(mds, sbs...)
 	mtds := make(map[string]*models.Device)
 	for _, d := range mds {
 		if d.AttachedToDeviceCode != nil {
 			continue
 		}
-		if mtds[string(d.Location)] != nil && mtds[string(d.Location)].Status == "coordinating" {
+		if mtds[d.Location.Star()] != nil && mtds[d.Location.Star()].Status == "coordinating" {
 			continue
 		}
-		mtds[string(d.Location)] = d
+		mtds[d.Location.Star()] = d
 	}
 	if err != nil {
 		return err
@@ -149,10 +159,14 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			log("%s @ %s not online", sh.Code.Alias(), sh.Location)
 			continue
 		}
-		if st, ok := mtds[string(sh.Location)]; !ok {
+		if st, ok := mtds[sh.Location.Star()]; !ok {
 			errs = append(errs, fmt.Errorf("No maintenance drone found at %s for %s", sh.Location, sh.Code.Alias()))
 		} else if st.Status != "coordinating" {
-			err := setDirective(st.Code, "patrol", nil)
+			dir := "patrol"
+			if st.Type == "service_bot" {
+				dir = "service"
+			}
+			err := setDirective(st.Code, dir, nil)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("Failed to set %q to patrol: %v", st.Code.Alias(), err))
 			}

@@ -126,6 +126,9 @@ func (s *Star) Fill() error {
 }
 
 func (s *Star) Cache() error {
+	if s == nil {
+		return nil
+	}
 	cur := &Star{Designation: s.Designation}
 	if err := cur.Get(); err == nil {
 		if cur.EstimatedPlanets > 0 && cur.EstimatedPlanets != s.EstimatedPlanets {
