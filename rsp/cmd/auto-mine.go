@@ -90,6 +90,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	fleet := make(map[string][]*models.Device)
 	tag := fmt.Sprintf("mine-%s", strings.ToLower(string(loc.Location)))
 	var pAliases []string
+	var printPending bool
 	for _, f := range printerStrs {
 		dev, err := getInfo(models.NewCodeAlias(f))
 		if err != nil {
@@ -101,12 +102,14 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			if slices.Contains(dev.Printing.Tags, tag) {
 				log("Found %s being printed at %s", dev.Printing.DeviceType, f)
 				missing[dev.Printing.DeviceType]--
+				printPending = true
 			}
 		}
 		for _, d := range dev.PrintQueue {
 			if slices.Contains(d.Tags, tag) {
 				log("Found %s in the %s queue", d.Type, f)
 				missing[dev.Printing.DeviceType]--
+				printPending = true
 			}
 		}
 	}
@@ -302,6 +305,11 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		printTable([]string{
 			"Factory", "Type", "Status", "Queue Posititon",
 		}, data)
+		return nil
+	}
+
+	if printPending {
+		log("Waiting for devices enqueued earlier")
 		return nil
 	}
 

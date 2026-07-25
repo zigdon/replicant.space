@@ -160,7 +160,7 @@ func (pd *DeviceUpdate) Apply() *Device {
 	d := &Device{Code: pd.Code}
 	// Try to fetch the saved data, if we have any. If not, fill in the
 	// immutable fields too.
-	if err := d.Get(); err != nil {
+	if err := d.Get(); err != nil || d.Type == "" {
 		d.AvailableCommands = pd.AvailableCommands
 		d.AvailableDirectives = pd.AvailableDirectives
 		d.Created = pd.Created
