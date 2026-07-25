@@ -274,16 +274,19 @@ func (p *Planet) Cache() error {
 	if p == nil {
 		return nil
 	}
-	return db.Update(cache.PlanetsTable, map[string]any{
+	data := map[string]any{
 		"designation": p.Designation,
 		"star":        p.Star,
 		"name":        p.Name,
-		"life_stage":  p.LifeStage,
 		"moons":       p.MoonCount,
 		"rings":       p.Rings,
 		"scanned":     p.Scanned,
 		"type":        p.Type,
-	})
+	}
+	if p.LifeStage != "" {
+		data["life_stage"] = p.LifeStage
+	}
+	return db.Update(cache.PlanetsTable, data)
 }
 
 func (p *Planet) Get() error {

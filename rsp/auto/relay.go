@@ -95,6 +95,10 @@ func (rm *RelayMachine) UpdateState() error {
 	rm.dev = dev
 	status := rm.dev.Status
 
+	if rm.dev.Location.Star() == rm.dest {
+		return fmt.Errorf("Relay destination reached: %s", rm.dev.Location)
+	}
+
 	supply, err := rest.RefreshDeviceInfo(rm.supply.Code)
 	if err != nil {
 		return fmt.Errorf("Can't refresh info for supply ship %q: %v", rm.supply.Code.Alias(), err)
@@ -192,6 +196,11 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 	nextState := rm.state
 	log("State: %s", rm.state)
 	switch rm.state {
+	case "done":
+		log("*******************************************")
+		log("* RELAY COMPLETE: reached %s", rm.dest)
+		log("*******************************************")
+		return eta, fmt.Errorf("*** Relay to %s complete ***", rm.dest)
 	case "transit":
 		if t := rm.dev.Travel; t != nil {
 			eta = t.Arrives.Time()
