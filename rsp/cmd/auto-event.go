@@ -63,6 +63,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	tag := fmt.Sprintf("event:%s", strings.ToLower(ev.Designation))
+
 	teleportReplicant := func(r *models.Replicant) error {
 		if r.CurrentLocation == ev.Location {
 			log("Completing event with %s...", r.Code.Alias())
@@ -186,11 +188,19 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	home := getString(cmd, "home")
 	missing := make(map[string]int)
 	deliver := func() error {
-		log("Finding available freighters...")
-		cfs, err := rest.Devices(map[string]string{"device_type": "cargo_freighter"})
-		if err != nil {
-			return err
+		var needRes, needDev bool
+		for k, v := range missing {
+			if v <= 0 {
+				delete(missing, k)
+				continue
+			}
+			if isResource(k) {
+				needRes = true
+			} else {
+				needDev = true
+			}
 		}
+
 		enRoute := make(map[string]int)
 		isEnRoute := func(d *models.Device) bool {
 			if d.Travel == nil {
@@ -199,109 +209,118 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				return d.Travel.Destination == ev.Location
 			}
 		}
-		var eta time.Time
-		var freeCFs, freeSPs []*models.Device
-		for _, cf := range cfs {
-			cf, err := rest.DeviceInfo(cf.Code)
-			if err != nil {
-				return err
-			}
-			if string(cf.Location) == home && len(cf.Cargo) == 0 {
-				freeCFs = append(freeCFs, cf)
-				continue
-			}
-			if !isEnRoute(cf) {
-				continue
-			}
-			if cf.Location != ev.Location {
-				log("%s is on the way to %s", cf.Code.Alias(), ev.Location)
-				for _, c := range cf.Cargo {
-					log("... %.0f x %s", c.Quantity, c.ResourceType)
-					enRoute[c.ResourceType] += int(c.Quantity)
-					if _, ok := missing[c.ResourceType]; ok && cf.Travel != nil && cf.Travel.Arrives.Time().After(eta) {
-						eta = cf.Travel.Arrives.Time()
-					}
-				}
-			} else {
-				if len(cf.Cargo) > 0 {
-					log("Unloading cargo from %s: %v", cf.Code.Alias(), cf.Cargo)
-					if !dryRun {
-						_, err := rest.DeviceCommand[models.CommandResp](cf.Code, "deposit_resources", nil)
-						if err != nil {
-							return err
-						}
-					}
-					for _, c := range cf.Cargo {
-						missing[c.ResourceType] -= int(c.Quantity)
-					}
-				}
-				log("Sending %s back home", cf.Code.Alias())
-				if !dryRun {
-					if _, err := travel(cf.Code, home); err != nil {
-						return err
-					}
-				}
-			}
-		}
 
-		log("Finding available platforms...")
-		for _, t := range []string{"surge_plate", "surge_platform", "mobile_fleet"} {
-			sps, err := rest.Devices(map[string]string{"device_type": t})
+		var freeCFs, freeSPs []*models.Device
+		var eta time.Time
+		if needRes {
+			log("Finding available freighters...")
+			cfs, err := rest.Devices(map[string]string{"device_type": "cargo_freighter"})
 			if err != nil {
 				return err
 			}
-			for _, sp := range sps {
-				sp, err := rest.DeviceInfo(sp.Code)
+			for _, cf := range cfs {
+				cf, err := rest.DeviceInfo(cf.Code)
 				if err != nil {
 					return err
 				}
-				if string(sp.Location) == home && len(sp.AttachedDevices) == 0 {
-					freeSPs = append(freeSPs, sp)
-				}
-				if !isEnRoute(sp) {
+				if string(cf.Location) == home && len(cf.Cargo) == 0 {
+					freeCFs = append(freeCFs, cf)
 					continue
 				}
-				if sp.Location == ev.Location {
-					log("Detaching %d devices from %s", len(sp.AttachedDevices), sp.Code.Alias())
-					if !dryRun {
-						if _, err := rest.DeviceCommand[models.CommandResp](sp.Code, "detach", nil); err != nil {
-							return err
-						}
-						if _, err := travel(sp.Code, home); err != nil {
-							return err
+				if !isEnRoute(cf) {
+					continue
+				}
+				if cf.Location != ev.Location {
+					log("%s is on the way to %s", cf.Code.Alias(), ev.Location)
+					for _, c := range cf.Cargo {
+						log("... %.0f x %s", c.Quantity, c.ResourceType)
+						enRoute[c.ResourceType] += int(c.Quantity)
+						if _, ok := missing[c.ResourceType]; ok && cf.Travel != nil && cf.Travel.Arrives.Time().After(eta) {
+							eta = cf.Travel.Arrives.Time()
 						}
 					}
-					for _, ad := range sp.AttachedDevices {
-						if !modular[ad.Type] || ad.Status != "compressed" {
-							continue
-						}
-						log("Unfurling %s...", ad.Code.Alias())
+				} else {
+					if len(cf.Cargo) > 0 {
+						log("Unloading cargo from %s: %v", cf.Code.Alias(), cf.Cargo)
 						if !dryRun {
-							res, err := rest.DeviceCommand[models.CommandResp](ad.Code, "unfurl", nil)
+							_, err := rest.DeviceCommand[models.CommandResp](cf.Code, "deposit_resources", nil)
 							if err != nil {
 								return err
 							}
-							log("... %s", res.Completes.Time())
+						}
+						for _, c := range cf.Cargo {
+							missing[c.ResourceType] -= int(c.Quantity)
 						}
 					}
-				}
-				for _, ad := range sp.AttachedDevices {
-					enRoute[ad.Type] += 1
-					if sp.Travel == nil {
-						continue
-					}
-					if _, ok := missing[ad.Type]; ok && sp.Travel.Arrives.Time().After(eta) {
-						if sp.Travel.Arrives.Time().After(eta) {
-							eta = sp.Travel.Arrives.Time()
+					log("Sending %s back home", cf.Code.Alias())
+					if !dryRun {
+						if _, err := travel(cf.Code, home); err != nil {
+							return err
 						}
 					}
 				}
 			}
 		}
 
-		var needRes, needDev bool
+		if needDev {
+			log("Finding available platforms...")
+			for _, t := range []string{"surge_platform", "mobile_fleet"} {
+				sps, err := rest.Devices(map[string]string{"device_type": t})
+				if err != nil {
+					return err
+				}
+				for _, sp := range sps {
+					sp, err := rest.DeviceInfo(sp.Code)
+					if err != nil {
+						return err
+					}
+					if string(sp.Location) == home && len(sp.AttachedDevices) == 0 {
+						freeSPs = append(freeSPs, sp)
+					}
+					if !isEnRoute(sp) {
+						continue
+					}
+					if sp.Location == ev.Location {
+						log("Detaching %d devices from %s", len(sp.AttachedDevices), sp.Code.Alias())
+						if !dryRun {
+							if _, err := rest.DeviceCommand[models.CommandResp](sp.Code, "detach", nil); err != nil {
+								return err
+							}
+							if _, err := travel(sp.Code, home); err != nil {
+								return err
+							}
+						}
+						for _, ad := range sp.AttachedDevices {
+							if !modular[ad.Type] || ad.Status != "compressed" {
+								continue
+							}
+							log("Unfurling %s...", ad.Code.Alias())
+							if !dryRun {
+								res, err := rest.DeviceCommand[models.CommandResp](ad.Code, "unfurl", nil)
+								if err != nil {
+									return err
+								}
+								log("... %s", res.Completes.Time())
+							}
+						}
+					}
+					for _, ad := range sp.AttachedDevices {
+						enRoute[ad.Type] += 1
+						if sp.Travel == nil {
+							continue
+						}
+						if _, ok := missing[ad.Type]; ok && sp.Travel.Arrives.Time().After(eta) {
+							if sp.Travel.Arrives.Time().After(eta) {
+								eta = sp.Travel.Arrives.Time()
+							}
+						}
+					}
+				}
+			}
+		}
+
 		for k, v := range missing {
-			if v-enRoute[k] < 0 {
+			if v-enRoute[k] <= 0 {
 				log("%d x %s already en-route", enRoute[k], k)
 				delete(missing, k)
 				continue
@@ -381,53 +400,74 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 
 		if needDev {
-			printers, err := getHomeFactories(home)
+			// Collect the devices already available
+			var pickUp []*models.Device
+			tagged, err := rest.GetTagged(tag)
 			if err != nil {
 				return err
 			}
-
-			// See if we have the devices we need
-			var pickUp []*models.Device
-			queue := make(map[string]time.Duration)
-			for k, v := range missing {
-				if isResource(k) {
-					continue
+			log("Searching for existing devices...")
+			for _, d := range tagged.Devices {
+				log("... %s at %s", d.Code.Alias(), d.Location)
+				missing[d.Type]--
+				if string(d.Location) == home {
+					pickUp = append(pickUp, d)
 				}
-				log("Searching for %d new %ss", v, k)
-				devs, err := rest.Devices(map[string]string{
-					"location":    home,
-					"device_type": k,
-				})
+			}
+
+			// See what is currently being printed
+			log("Searching for printed devices...")
+			printers, err := getHomeFactories(home)
+			queue := make(map[string]time.Duration)
+			if err != nil {
+				return err
+			}
+			for _, p := range printers {
+				info, err := rest.DeviceInfo(p)
 				if err != nil {
 					return err
 				}
-				log("%s: want %d, found %d %s", k, v, len(devs), devList(devs))
-				if len(devs) >= v {
-					log("Have enough %s: %d", k, len(devs))
-					pickUp = append(pickUp, devs[:v]...)
-					delete(missing, k)
-				} else {
-					log("Picking up %d %ss", len(devs), k)
-					bp := getBP(k)
-					pickUp = append(pickUp, devs...)
-					missing[k] -= len(devs)
-
-					log("Still missing %d %ss", missing[k], k)
-					for missing[k] > 0 {
-						p, err := rest.FindPrinter(printers, queue)
-						if err != nil {
-							return err
-						}
-						log("Printing %s at %s", k, p.Alias())
-						if !dryRun {
-							_, err = rest.DeviceCommand[models.CommandResp](
-								p, "enqueue_print", map[string]any{"device_type": k})
-						}
-						queue[p.String()] += bp.PrintTime.Duration()
-						missing[k]--
-					}
-					delete(missing, k)
+				if info.Printing != nil && slices.Contains(info.Printing.Tags, tag) {
+					log("... %s is printing %s", p.Alias(), info.Printing.DeviceType)
+					queue[p.String()] += info.Printing.Eta.Duration()
+					missing[info.Printing.DeviceType]--
 				}
+				for _, pq := range info.PrintQueue {
+					if slices.Contains(info.Printing.Tags, tag) {
+						log("... %s has %s queued", p.Alias(), pq.Type)
+						bp := getBP(pq.Type)
+						queue[p.String()] += bp.PrintTime.Duration()
+						missing[pq.Type]--
+					}
+				}
+			}
+
+			// See if we have the devices we need
+			for k := range missing {
+				if isResource(k) {
+					continue
+				}
+
+				log("Still missing %d %ss", missing[k], k)
+				for missing[k] > 0 {
+					p, err := rest.FindPrinter(printers, queue)
+					if err != nil {
+						return err
+					}
+					log("Printing %s at %s", k, p.Alias())
+					if !dryRun {
+						_, err = rest.DeviceCommand[models.CommandResp](
+							p, "enqueue_print", map[string]any{
+								"device_type": k,
+								"tags":        []string{tag},
+							})
+					}
+
+					bp := getBP(k)
+					queue[p.String()] += bp.PrintTime.Duration()
+					missing[k]--
+				}
+				delete(missing, k)
 			}
 			log("missing: %v", missing)
 			log("pick up: %v", devList(pickUp))
