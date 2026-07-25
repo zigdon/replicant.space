@@ -65,6 +65,12 @@ var sectorStarsCmd = &cobra.Command{
 	RunE:  sectorStars,
 }
 
+var plotDistanceCmd = &cobra.Command{
+	Use:   "distance",
+	Short: "Measure the distance between two points",
+	RunE:  plotDistance,
+}
+
 func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
@@ -74,6 +80,7 @@ func init() {
 
 	plotCmd.AddCommand(nearestCmd)
 	plotCmd.AddCommand(nearestHubCmd)
+	plotCmd.AddCommand(plotDistanceCmd)
 
 	plotCmd.AddCommand(neighboursCmd)
 	neighboursCmd.Flags().Float32P("radius", "r", 7.5, "Radius for search")
@@ -82,6 +89,19 @@ func init() {
 	sectorStarsCmd.Flags().StringP("source", "s", "SOL", "Vector source, STAR or x,y,z")
 	sectorStarsCmd.Flags().IntP("cone", "c", 1, "Radius of the cone, as a percentage of each vector element")
 	sectorStarsCmd.Flags().IntP("margin", "m", 5, "Depth of the sector, as a percentage of the distance from origin")
+}
+
+func plotDistance(cmd *cobra.Command, args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("src and dst are required")
+	}
+	src, dst := args[0], args[1]
+	dist, err := common.Distance(src, dst)
+	if err != nil {
+		return err
+	}
+	log("Distance between %s and %s: %.2fly", src, dst, dist)
+	return nil
 }
 
 func getPosFromString(dst string) (*models.Position, error) {

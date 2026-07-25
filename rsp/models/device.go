@@ -292,7 +292,10 @@ func (d *Device) Fill() error {
 }
 
 func (d *Device) GetPosition() *Position {
-	if db == nil || d.Location == "" {
+	if d == nil || db == nil {
+		return nil
+	}
+	if d.Location == "" {
 		return nil
 	}
 	s, err := NewStar(string(d.Location.Star()))

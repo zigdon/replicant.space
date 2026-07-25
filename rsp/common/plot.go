@@ -334,3 +334,28 @@ func GetPartialJourney(j *models.Journey) (*models.Journey, error) {
 	Log("Using route extracted from JID: %d", jid)
 	return j, nil
 }
+
+func Distance(src, dst string) (float32, error) {
+	// Get the position of a star, or a device
+	getPos := func(o string) (*models.Position, error) {
+		if s, err := models.NewStar(models.LocationID(o).Star()); err == nil {
+			return s.Position, nil
+		}
+		dev, err := rest.DeviceInfo(models.NewCodeAlias(o))
+		if err != nil {
+			return nil, err
+		}
+		return dev.GetPosition(), nil
+	}
+
+	posA, err := getPos(src)
+	if err != nil {
+		return 0, err
+	}
+	posB, err := getPos(dst)
+	if err != nil {
+		return 0, err
+	}
+
+	return posA.Distance(posB), nil
+}
