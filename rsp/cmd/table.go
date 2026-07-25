@@ -28,8 +28,6 @@ func NewCell(selectable bool, t string) *tview.TableCell {
 	return tview.NewTableCell(t).SetSelectable(selectable)
 }
 
-var defaultTags = []string{"infrastructure", "mine", "matrix"}
-
 func runTable(cmd *cobra.Command, args []string) error {
 	logWin := newLogWindow()
 	table, err := getDeviceTable()
@@ -53,7 +51,12 @@ func getDeviceTable() (*tview.Table, error) {
 	for _, d := range devs {
 		d.Alias()
 	}
-	devs, _ = filterDevices(devs, defaultTags, nil)
+	filterFn := map[string]models.DeviceFilter{
+		"tags":   models.DeviceFilterTags([]string{"infrastructure"}, nil),
+		"matrix": models.DeviceFilterMatrix(),
+		"mine":   models.DeviceFilterMine(),
+	}
+	devs, _ = filterDevices(devs, filterFn)
 	slices.SortFunc(devs, func(a, b *models.Device) int {
 		return models.CompareAliases(a.Code, b.Code)
 	})

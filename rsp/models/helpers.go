@@ -3,6 +3,7 @@ package models
 import (
 	"cmp"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -336,4 +337,53 @@ func ProgressTime(width int, start, end time.Time) string {
 		strings.Repeat("⬛", width-cnt),
 		end.Sub(now).Round(time.Millisecond).String(),
 		100*pct)
+}
+
+type DeviceFilter func(*Device) bool
+
+func DeviceFilterTags(reject, require []string) DeviceFilter {
+	mustHave := make(map[string]bool)
+	for _, t := range require {
+		mustHave[t] = true
+	}
+	mustNotHave := make(map[string]bool)
+	for _, t := range reject {
+		mustNotHave[t] = true
+	}
+	return func(d *Device) bool {
+		var pass bool
+		if len(mustHave) == 0 {
+			pass = true
+		}
+		for _, t := range d.Tags {
+			if mustNotHave[t] {
+				return false
+			}
+			if mustHave[t] {
+				pass = true
+			}
+		}
+		return pass
+	}
+}
+
+func DeviceFilterMatrix() DeviceFilter {
+	return func(d *Device) bool {
+		return !strings.Contains(d.Type, "matrix") || (d.Status != "stowed" && d.Status != "idle")
+	}
+}
+
+func DeviceFilterMine() DeviceFilter {
+	return func(d *Device) bool {
+		return len(d.Tags) == 0 || slices.ContainsFunc(
+			d.Tags, func(s string) bool {
+				// No location, e.g. in transit, keep
+				if d.Location == "" {
+					return true
+				}
+				// If the location doesn't match the mining tag, keep
+				loc := strings.ToLower(string(d.Location))
+				return s != fmt.Sprintf("mine-%s", loc)
+			})
+	}
 }
