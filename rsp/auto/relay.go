@@ -111,7 +111,7 @@ func (rm *RelayMachine) UpdateState() error {
 	inL4 := strings.Contains(string(rm.dev.Location), "L4")
 
 	// Check FR inventory
-	frInv := slices.ContainsFunc(rm.dev.StowedDevices.Devices, func(d *models.StowedDevice) bool {
+	frInv := slices.ContainsFunc(rm.dev.StowedDevices.Devices, func(d *models.DevicePointer) bool {
 		return d.Type == "ftl_relay"
 	})
 

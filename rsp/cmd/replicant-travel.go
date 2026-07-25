@@ -111,7 +111,7 @@ func getTeleportDests(loc string) ([]*models.Device, error) {
 			log("%s: Nothing stowed", c.Code.Alias())
 			continue
 		}
-		if !slices.ContainsFunc(c.StowedDevices.Devices, func(d *models.StowedDevice) bool {
+		if !slices.ContainsFunc(c.StowedDevices.Devices, func(d *models.DevicePointer) bool {
 			if d.Type == "empty_replicant_matrix" {
 				return true
 			}

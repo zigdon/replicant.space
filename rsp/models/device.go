@@ -28,13 +28,13 @@ type ControlledDevice struct {
 	Status   string     `json:"status"`
 }
 
-type StowedDevice struct {
+type DevicePointer struct {
 	Code *CodeAlias `json:"device_code"`
 	Type string     `json:"device_type"`
 }
 
 type StowedDevices struct {
-	Devices []*StowedDevice `json:"devices"`
+	Devices []*DevicePointer `json:"devices"`
 }
 
 func (sd *StowedDevices) UnmarshalJSON(data []byte) error {
@@ -44,12 +44,12 @@ func (sd *StowedDevices) UnmarshalJSON(data []byte) error {
 	}
 	// Failing that, try just a list of strings
 	var ids []string
-	sd.Devices = make([]*StowedDevice, 0)
+	sd.Devices = make([]*DevicePointer, 0)
 	if err := json.Unmarshal(data, &ids); err != nil {
 		return err
 	}
 	for _, id := range ids {
-		sd.Devices = append(sd.Devices, &StowedDevice{Code: NewCodeAlias(id)})
+		sd.Devices = append(sd.Devices, &DevicePointer{Code: NewCodeAlias(id)})
 	}
 	return nil
 }
