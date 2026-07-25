@@ -195,6 +195,9 @@ func (b *Belt) String() string {
 }
 
 func (b *Belt) Cache() error {
+	if b == nil {
+		return nil
+	}
 	var errs []error
 	errs = append(errs, db.Update(cache.BeltsTable, map[string]any{
 		"designation": b.Designation,
@@ -268,6 +271,9 @@ type Planet struct {
 }
 
 func (p *Planet) Cache() error {
+	if p == nil {
+		return nil
+	}
 	return db.Update(cache.PlanetsTable, map[string]any{
 		"designation": p.Designation,
 		"star":        p.Star,
@@ -305,6 +311,9 @@ type Moon struct {
 }
 
 func (m *Moon) Cache() error {
+	if m == nil {
+		return nil
+	}
 	return db.Update(cache.MoonsTable, map[string]any{
 		"designation": m.Designation,
 		"name":        m.Name,
@@ -363,4 +372,44 @@ type Location struct {
 	Star                *Star                           `json:"star"`
 	SystemScanned       bool                            `json:"system_scanned"`
 	Type                string                          `json:"location_type"`
+}
+
+func (l *Location) Cache() error {
+	var errs []error
+	var objs []Cachable
+	for _, c := range []Cachable{l.Belt, l.Moon, l.Planet, l.Star} {
+		if c == nil {
+			continue
+		}
+		objs = append(objs, c)
+	}
+	for _, b := range l.AsteroidBelt.Belts {
+		if b == nil {
+			continue
+		}
+		b.Star = l.Star.Designation
+		objs = append(objs, b)
+	}
+	for _, m := range l.Moons {
+		if m == nil {
+			continue
+		}
+		m.Star = l.Star.Designation
+		objs = append(objs, m)
+	}
+	for _, p := range l.Planets {
+		if p == nil {
+			continue
+		}
+		p.Star = l.Star.Designation
+		objs = append(objs, p)
+	}
+	for _, o := range objs {
+		errs = append(errs, o.Cache())
+	}
+	return errors.Join(errs...)
+}
+
+func (l *Location) Get() error {
+	return fmt.Errorf("Not implemented")
 }
