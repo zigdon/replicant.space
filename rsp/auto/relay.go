@@ -302,12 +302,12 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		if rm.dev.Location != rm.supply.Location {
 			log("Waiting for resupply at %q", rm.dev.Location)
 		} else {
-			if len(rm.supply.StowedDevices.Devices) == 0 {
+			if len(rm.supply.AttachedDevices) == 0 {
 				return eta, fmt.Errorf("Resupply vessage %q unexpectedly empty at %q",
 					rm.supply.Code.Alias(), rm.dev.Location)
 			}
 			var stowed = 0
-			for _, d := range rm.supply.StowedDevices.Devices {
+			for _, d := range rm.supply.AttachedDevices {
 				_, err := deviceCommand(rm.supply.Code, "detach", map[string]any{"target": d.Code.Alias()})
 				if err != nil {
 					return eta, err
