@@ -258,6 +258,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						if _, err := rest.DeviceCommand[models.CommandResp](sp.Code, "detach", nil); err != nil {
 							return err
 						}
+						if _, err := travel(sp.Code, home); err != nil {
+							return err
+						}
 					}
 					for _, ad := range sp.AttachedDevices {
 						if !modular[ad.Type] || ad.Status != "compressed" {
@@ -410,7 +413,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						if !dryRun {
 							_, err = rest.DeviceCommand[models.CommandResp](
 								p, "enqueue_print", map[string]any{"device_type": k})
-							}
+						}
 						queue[p.String()] += bp.PrintTime.Duration()
 						missing[k]--
 					}
