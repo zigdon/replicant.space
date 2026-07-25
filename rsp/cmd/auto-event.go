@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -62,17 +63,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	moveReplicant := func() error {
-		log("Event ready to complete...")
-		rid := getInt(cmd, "replicant")
-		rep, err := rest.ReplicantID(rid)
-		if err != nil {
-			return err
-		}
-		r, err := rest.Replicant(rep)
-		if err != nil {
-			return err
-		}
+	teleportReplicant := func(r *models.Replicant) error {
 		if r.CurrentLocation == ev.Location {
 			log("Completing event with %s...", r.Code.Alias())
 			return eventComplete(eID)
@@ -94,16 +85,34 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		if len(dests) == 0 {
 			return fmt.Errorf("No teleport target found at %s", ev.Location)
 		}
-		log("Attempting to teleport %s to %s", rep.Alias(), dests[0].StowedDevices.Devices[0].Code.Alias())
+		log("Attempting to teleport %s to %s", r.Code.Alias(), dests[0].StowedDevices.Devices[0].Code.Alias())
 		if dryRun {
 			return nil
 		}
-		res, err := rest.ReplicantTeleport(rep, dests[0].StowedDevices.Devices[0].Code)
+		res, err := rest.ReplicantTeleport(r.Code, dests[0].StowedDevices.Devices[0].Code)
 		if err != nil {
 			return err
 		}
-		log("Replicant teleported: eta %s (%s)", res.Completes.Time(), time.Until(res.Completes.Time()))
+		log("Replicant teleported, waiting... eta %s (%s)", res.Completes.Time(), time.Until(res.Completes.Time()))
+		time.Sleep(time.Until(res.Completes.Time()) + 5*time.Second)
 		return nil
+	}
+
+	resolveEvent := func() error {
+		acc, err := rest.Account()
+		if err != nil {
+			return err
+		}
+		for _, r := range acc.ReplicantList {
+			if r.Status != "stationary" {
+				log("%s is not available: %s", r.Code.Alias(), r.Status)
+				continue
+			}
+			if r.Location == ev.Location {
+				return eventComplete(eID)
+			}
+		}
+		return fmt.Errorf("No replicant available")
 	}
 
 	// Load the blueprints we know
@@ -537,20 +546,48 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		return deliver()
 	}
 
-	// Requirements all met, get a replicant there
+	// Requirements all met, try and resolve the event
+	log("Event ready to complete...")
+	if err := resolveEvent(); err == nil {
+		log("Done.")
+		return nil
+	}
+
+	// Otherwise, teleport a replicant there
+	rid := getInt(cmd, "replicant")
+	rep, err := rest.ReplicantID(rid)
+	if err != nil {
+		return err
+	}
+	r, err := rest.Replicant(rep)
+	if err != nil {
+		return err
+	}
+	if err := teleportReplicant(r); err == nil {
+		return resolveEvent()
+	}
+
+	// Otherwise, see who's nearby
 	acc, err := rest.Account()
 	if err != nil {
 		return err
 	}
+	data = [][]string{}
 	for _, r := range acc.ReplicantList {
-		if r.Location == ev.Location {
-			return eventComplete(eID)
+		var loc string
+		if r.Travel == nil {
+			loc = string(r.CurrentLocation)
+		} else {
+			loc = fmt.Sprintf("-> (%s) %s", r.Travel.Eta.Duration().Truncate(time.Second), r.Travel.Destination)
+		}
+		dist, err := common.Distance(loc, ev.Location.Star())
+		if err != nil {
+			data = append(data, []string{r.Code.Alias(), loc, err.Error()})
+		} else {
+			data = append(data, []string{r.Code.Alias(), loc, f(dist)})
 		}
 	}
-
-	if err := moveReplicant(); err != nil {
-		return err
-	}
+	printTable([]string{"Replicant", "Location", "Distance"}, data)
 
 	return nil
 }

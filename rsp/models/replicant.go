@@ -154,6 +154,9 @@ func (r *Replicant) Fill() error {
 		)
 	})
 	slices.Sort(r.AttachedDevices)
+	if r.CurrentStar == "" && r.CurrentLocation != "" {
+		r.CurrentStar = r.CurrentLocation.Star()
+	}
 	return nil
 }
 

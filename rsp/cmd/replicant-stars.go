@@ -12,117 +12,118 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
-// scanCmd represents the scan command
-var starsCmd = &cobra.Command{
+var replicantStarsCmd = &cobra.Command{
 	Use:   "stars",
 	Short: "List the nearest stars",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		rID, err := getRID(cmd)
-		if err != nil {
-			return fmt.Errorf("Replicant not found: %v", err)
-		}
-		page := getInt(cmd, "page")
-		cnt := getInt(cmd, "count")
-		resp, err := rest.ReplicantCensus(rID, cnt, page)
-		if err != nil {
-			return fmt.Errorf("Error running stellar census: %v", err)
-		}
-		if raw := getBool(cmd, "raw"); raw {
-			prettyPrint(resp)
-		} else {
-			var target *models.Position
-			var err error
-			headers := []string{"Location", "Total Stars", "Page"}
-			data := [][]string{{
-				resp.ReplicantPosition.String(), d(resp.TotalStars),
-				fmt.Sprintf("%d/%d", page, resp.TotalPages),
-			}}
-			dest := getString(cmd, "destination")
-			if dest != "" {
-				target, err = models.ParsePosition(dest)
-				if err != nil {
-					return err
-				}
-				headers = append(headers, "Destination")
-				data[0] = append(data[0], target.String())
+	RunE:  replicantStars,
+}
+
+func replicantStars(cmd *cobra.Command, args []string) error {
+	rID, err := getRID(cmd)
+	if err != nil {
+		return fmt.Errorf("Replicant not found: %v", err)
+	}
+	page := getInt(cmd, "page")
+	cnt := getInt(cmd, "count")
+	resp, err := rest.ReplicantCensus(rID, cnt, page)
+	if err != nil {
+		return fmt.Errorf("Error running stellar census: %v", err)
+	}
+	if raw := getBool(cmd, "raw"); raw {
+		prettyPrint(resp)
+	} else {
+		var target *models.Position
+		var err error
+		headers := []string{"Location", "Total Stars", "Page"}
+		data := [][]string{{
+			resp.ReplicantPosition.String(), d(resp.TotalStars),
+			fmt.Sprintf("%d/%d", page, resp.TotalPages),
+		}}
+		dest := getString(cmd, "destination")
+		if dest != "" {
+			target, err = models.ParsePosition(dest)
+			if err != nil {
+				return err
 			}
-			printTable(headers, data)
-			var stars [][]string
-			dist := make(map[models.LocationID]float32)
-			for _, s := range resp.Stars {
-				if f := getString(cmd, "filter"); f != "" {
-					if !strings.Contains(strings.ToLower(string(s.Designation)), strings.ToLower(f)) {
-						continue
+			headers = append(headers, "Destination")
+			data[0] = append(data[0], target.String())
+		}
+		printTable(headers, data)
+		var stars [][]string
+		dist := make(map[models.LocationID]float32)
+		for _, s := range resp.Stars {
+			if f := getString(cmd, "filter"); f != "" {
+				if !strings.Contains(strings.ToLower(string(s.Designation)), strings.ToLower(f)) {
+					continue
+				}
+			}
+
+			// See if we have actual scans in the cache.
+			var hasCache string
+			row := db.DB.QueryRow(`SELECT COUNT(designation) FROM planets WHERE star = $1`, s.Designation)
+			if row.Err() == nil {
+				var planets int
+				row.Scan(&planets)
+				if planets > 0 {
+					hasCache = "*"
+					if planets != s.EstimatedPlanets {
+						hasCache = fmt.Sprintf("* (%d)", s.EstimatedPlanets)
+						s.EstimatedPlanets = planets
 					}
 				}
-
-				// See if we have actual scans in the cache.
-				var hasCache string
-				row := db.DB.QueryRow(`SELECT COUNT(designation) FROM planets WHERE star = $1`, s.Designation)
-				if row.Err() == nil {
-					var planets int
-					row.Scan(&planets)
-					if planets > 0 {
-						hasCache = "*"
-						if planets != s.EstimatedPlanets {
-							hasCache = fmt.Sprintf("* (%d)", s.EstimatedPlanets)
-							s.EstimatedPlanets = planets
-						}
-					}
-				}
-
-				data := []string{
-					string(s.Designation),
-					string(s.EntryPoint),
-					d(s.EstimatedPlanets) + hasCache,
-					f(s.DistanceFromReplicant),
-					s.EstimatedTravelTime.Duration().String(),
-					s.SpectralType,
-					b(s.Explored),
-					b(s.HasLife),
-					s.Position.String(),
-				}
-				if dest != "" {
-					dist[s.Designation] = s.Position.Distance(target)
-					data = append(data, f(dist[s.Designation]))
-				}
-				if err := db.Update(cache.StarsTable, map[string]any{
-					"designation":   s.Designation,
-					"entry_point":   s.EntryPoint,
-					"est_planets":   s.EstimatedPlanets,
-					"explored":      s.Explored,
-					"has_hub":       false,
-					"has_life":      s.HasLife,
-					"name":          s.Name,
-					"position_x":    s.Position.X,
-					"position_y":    s.Position.Y,
-					"position_z":    s.Position.Z,
-					"spectral_type": s.SpectralType,
-				}); err != nil {
-					log("Error updating cache for %q: %v", s.Designation, err)
-				}
-				stars = append(stars, data)
 			}
-			headers = []string{
-				"Designation", "Entry Point", "Est Planets", "Distance",
-				"ETA", "Spectral Type", "Explored", "Has Life", "Location",
+
+			data := []string{
+				string(s.Designation),
+				string(s.EntryPoint),
+				d(s.EstimatedPlanets) + hasCache,
+				f(s.DistanceFromReplicant),
+				s.EstimatedTravelTime.Duration().String(),
+				s.SpectralType,
+				b(s.Explored),
+				b(s.HasLife),
+				s.Position.String(),
 			}
 			if dest != "" {
-				headers = append(headers, "To destination")
-				slices.SortFunc(stars, func(a, b []string) int {
-					return cmp.Compare(dist[models.LocationID(a[0])], dist[models.LocationID(b[0])])
-				})
+				dist[s.Designation] = s.Position.Distance(target)
+				data = append(data, f(dist[s.Designation]))
 			}
-			printTable(headers, stars)
+			if err := db.Update(cache.StarsTable, map[string]any{
+				"designation":   s.Designation,
+				"entry_point":   s.EntryPoint,
+				"est_planets":   s.EstimatedPlanets,
+				"explored":      s.Explored,
+				"has_hub":       false,
+				"has_life":      s.HasLife,
+				"name":          s.Name,
+				"position_x":    s.Position.X,
+				"position_y":    s.Position.Y,
+				"position_z":    s.Position.Z,
+				"spectral_type": s.SpectralType,
+			}); err != nil {
+				log("Error updating cache for %q: %v", s.Designation, err)
+			}
+			stars = append(stars, data)
 		}
-		return nil
-	},
+		headers = []string{
+			"Designation", "Entry Point", "Est Planets", "Distance",
+			"ETA", "Spectral Type", "Explored", "Has Life", "Location",
+		}
+		if dest != "" {
+			headers = append(headers, "To destination")
+			slices.SortFunc(stars, func(a, b []string) int {
+				return cmp.Compare(dist[models.LocationID(a[0])], dist[models.LocationID(b[0])])
+			})
+		}
+		printTable(headers, stars)
+	}
+	return nil
 }
 
 func init() {
-	replicantCmd.AddCommand(starsCmd)
-	starsCmd.Flags().IntP("page", "p", 0, "Census page to fetch")
-	starsCmd.Flags().IntP("count", "n", 10, "Entries per page")
-	starsCmd.Flags().StringP("filter", "f", "", "Filter star names")
-	starsCmd.Flags().StringP("destination", "d", "", "Show distance from specified x,y,z coordinate")
+	replicantCmd.AddCommand(replicantStarsCmd)
+	replicantStarsCmd.Flags().IntP("page", "p", 0, "Census page to fetch")
+	replicantStarsCmd.Flags().IntP("count", "n", 10, "Entries per page")
+	replicantStarsCmd.Flags().StringP("filter", "f", "", "Filter star names")
+	replicantStarsCmd.Flags().StringP("destination", "d", "", "Show distance from specified x,y,z coordinate")
 }
