@@ -13,8 +13,9 @@ import (
 )
 
 var travelCmd = &cobra.Command{
-	Use:   "travel",
-	Short: "Instruct a replicant to relocate",
+	Use:               "travel",
+	Short:             "Instruct a replicant to relocate",
+	ValidArgsFunction: completeStarsAndPlanets,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		rID, err := getRID(cmd)
 		if err != nil {

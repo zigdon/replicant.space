@@ -71,36 +71,3 @@ func autoFR(cmd *cobra.Command, args []string) error {
 	log("Tagged %s", fr.Code.Alias())
 	return nil
 }
-
-func activateRelay(loc string, d *models.Device) error {
-	log("Position and activate a relay (%s) in %s", d.Code.Alias(), loc)
-	return nil
-}
-
-func missingRelay(loc string) error {
-	log("Need to find/make a relay for %s", loc)
-	return nil
-}
-
-func returnExtraRelays(devs []*models.Device) error {
-	log("Return/recycle %d extra relays", len(devs))
-	return nil
-}
-
-func getFTLRelays(loc string) ([]*models.Device, error) {
-	ds, err := rest.Devices(nil)
-	var devs []*models.Device
-	if err != nil {
-		return nil, err
-	}
-	for _, d := range ds {
-		if d.Type != "ftl_relay" {
-			continue
-		}
-		if d.Location.Star() == loc {
-			devs = append(devs, d)
-		}
-	}
-
-	return devs, nil
-}

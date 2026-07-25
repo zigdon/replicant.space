@@ -14,8 +14,9 @@ import (
 
 // locationCmd represents the location command
 var locationCmd = &cobra.Command{
-	Use:   "location",
-	Short: "List the contents of a location",
+	Use:               "location",
+	Short:             "List the contents of a location",
+	ValidArgsFunction: completeStars,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var loc string
 		if len(args) > 0 {

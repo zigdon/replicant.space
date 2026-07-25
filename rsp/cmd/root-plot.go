@@ -10,8 +10,9 @@ import (
 )
 
 var plotCmd = &cobra.Command{
-	Use:   "plot",
-	Short: "Plan a multi-hop trip",
+	Use:               "plot",
+	Short:             "Plan a multi-hop trip",
+	ValidArgsFunction: completeStars,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 2 {
 			return fmt.Errorf("Source and destination are required: plot <src> <dst>")
@@ -48,27 +49,31 @@ var nearestCmd = &cobra.Command{
 }
 
 var nearestHubCmd = &cobra.Command{
-	Use:   "hub",
-	Short: "Find the nearest star with our system hub to a specified destination",
-	RunE:  nearestHub,
+	Use:               "hub",
+	Short:             "Find the nearest star with our system hub to a specified destination",
+	ValidArgsFunction: completeStars,
+	RunE:              nearestHub,
 }
 
 var neighboursCmd = &cobra.Command{
-	Use:   "neighbours",
-	Short: "List the nearest stars in a radius",
-	RunE:  neighbourStars,
+	Use:               "neighbours",
+	Short:             "List the nearest stars in a radius",
+	ValidArgsFunction: completeStars,
+	RunE:              neighbourStars,
 }
 
 var sectorStarsCmd = &cobra.Command{
-	Use:   "sector",
-	Short: "List the stars in a specific vector of the galaxy",
-	RunE:  sectorStars,
+	Use:               "sector",
+	Short:             "List the stars in a specific vector of the galaxy",
+	ValidArgsFunction: completeStars,
+	RunE:              sectorStars,
 }
 
 var plotDistanceCmd = &cobra.Command{
-	Use:   "distance",
-	Short: "Measure the distance between two points",
-	RunE:  plotDistance,
+	Use:               "distance",
+	Short:             "Measure the distance between two points",
+	ValidArgsFunction: completeStars,
+	RunE:              plotDistance,
 }
 
 func init() {
