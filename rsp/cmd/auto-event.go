@@ -106,6 +106,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		for _, r := range acc.ReplicantList {
+			if r, err = rest.Replicant(r.Code); err != nil {
+				return err
+			}
 			if r.Status != "stationary" {
 				log("%s is not available: %s", r.Code.Alias(), r.Status)
 				continue

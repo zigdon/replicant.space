@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -23,23 +24,24 @@ func completeStars(_ *cobra.Command, _ []string, toComplete string) ([]string, c
 	}
 
 	rows, err := db.DB.Query(`
-		SELECT designation, explored, has_life
+		SELECT designation, explored, has_life, entry_point
 		FROM stars
 		WHERE starts_with(designation, $1)
-	`, toComplete)
+	`, strings.ToUpper(toComplete))
 	if err != nil {
 		log("Can't query prefix %q: %v", toComplete, err)
 		return res, cobra.ShellCompDirectiveNoFileComp
 	}
 	var errs []error
 	for rows.Next() {
-		var d string
+		var d, ep string
 		var e, l bool
-		if err := rows.Scan(&d, &e, &l); err != nil {
+		if err := rows.Scan(&d, &e, &l, &ep); err != nil {
 			errs = append(errs, err)
 			continue
 		}
 		res = append(res, fmt.Sprintf("%s\tExplored: %v, Has life: %v", d, e, l))
+		res = append(res, fmt.Sprintf("%s\tEntry point", ep))
 	}
 	errs = append(errs, rows.Err())
 
@@ -61,7 +63,7 @@ func completePlanets(_ *cobra.Command, _ []string, toComplete string) ([]string,
 		SELECT designation, life_stage, scanned
 		FROM planets
 		WHERE starts_with(designation, $1)
-	`, toComplete)
+	`, strings.ToUpper(toComplete))
 	if err != nil {
 		log("Can't query prefix %q: %v", toComplete, err)
 		return res, cobra.ShellCompDirectiveNoFileComp
