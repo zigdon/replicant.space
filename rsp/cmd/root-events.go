@@ -262,16 +262,16 @@ func formatDev(devs []*models.EventDevice, resBreakdown bool) string {
 	dev := make(map[string]int)
 	for _, d := range devs {
 		dt := d.DeviceType
-		out = append(out, fmt.Sprintf("%d x %s", d.Count+d.Required, dt))
+		out = append(out, fmt.Sprintf("%d x %s", d.Required, dt))
 		if !resBreakdown {
 			continue
 		}
 		subres, subdev := bpRes(dt)
 		for r, q := range subres {
-			res[r] += q * d.Count
+			res[r] += q * d.Required
 		}
 		for r, q := range subdev {
-			dev[r] += q * d.Count
+			dev[r] += q * d.Required
 		}
 	}
 	var rs []string

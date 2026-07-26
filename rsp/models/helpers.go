@@ -39,15 +39,6 @@ func fillTime(ts string, dest *time.Time) error {
 	return nil
 }
 
-func fillDuration(secs float32, dest *time.Duration) error {
-	parsed, err := time.ParseDuration(fmt.Sprintf("%.2fs", secs))
-	if err != nil {
-		return err
-	}
-	*dest = parsed
-	return nil
-}
-
 func log(tmpl string, args ...any) {
 	fmt.Printf(time.Now().Format(time.Stamp)+" - "+tmpl+"\n", args...)
 }

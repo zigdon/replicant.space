@@ -147,7 +147,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	// See if we can repurpose idle devices
 	var devs []*models.Device
 	log("Searching for idle devices...")
-	for k := range fleet {
+	for k := range missing {
 		log("... %s", k)
 		ds, err := rest.Devices(map[string]string{"device_type": k, "location": home})
 		if err != nil {

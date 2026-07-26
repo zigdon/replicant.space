@@ -2,6 +2,9 @@ package models
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/zigdon/rsp/cache"
@@ -9,17 +12,32 @@ import (
 
 // Game events
 type EventDevice struct {
-	Count      int    `json:"count"`
+	Count_     int    `json:"count"`
 	Current    int    `json:"current"`
 	DeviceType string `json:"device_type"`
 	Met        bool   `json:"met"`
 	Required   int    `json:"required"`
 }
 
+func (ed *EventDevice) Fill() error {
+	if ed.Count_ > 0 {
+		ed.Required += ed.Count_
+	}
+	return nil
+}
+
 type EventCriteria struct {
 	Devices   []*EventDevice `json:"devices"`
 	Name      string         `json:"name"`
 	Resources map[string]int `json:"resources"`
+}
+
+func (ec *EventCriteria) Fill() error {
+	var errs []error
+	for _, d := range ec.Devices {
+		errs = append(errs, d.Fill())
+	}
+	return errors.Join(errs...)
 }
 
 func (ec *EventCriteria) Short() string {
@@ -48,11 +66,27 @@ type EventProgressOption struct {
 	Resources []*EventProgressResourceOption `json:"resources"`
 }
 
+func (epo *EventProgressOption) Fill() error {
+	var errs []error
+	for _, ed := range epo.Devices {
+		errs = append(errs, ed.Fill())
+	}
+	return errors.Join(errs...)
+}
+
 type EventProgress struct {
 	Met              bool                   `json:"met"`
 	MetOption        string                 `json:"met_option"`
 	Options          []*EventProgressOption `json:"options"`
 	ReplicantPresent bool                   `json:"replicant_present"`
+}
+
+func (ep *EventProgress) Fill() error {
+	var errs []error
+	for _, o := range ep.Options {
+		errs = append(errs, o.Fill())
+	}
+	return errors.Join(errs...)
 }
 
 type EventReward struct {
@@ -80,9 +114,28 @@ type Event struct {
 	Type             string           `json:"event_type"`
 }
 
+func (e *Event) Fill() error {
+	var errs []error
+	for _, c := range e.Criteria {
+		errs = append(errs, c.Fill())
+	}
+	if e.Progress != nil {
+		errs = append(errs, e.Progress.Fill())
+	}
+	return errors.Join(errs...)
+}
+
 type Events struct {
 	Events     []*Event `json:"events"`
 	NextCursor int      `json:"next_cursor"`
+}
+
+func (es *Events) Fill() error {
+	var errs []error
+	for _, e := range es.Events {
+		errs = append(errs, e.Fill())
+	}
+	return errors.Join(errs...)
 }
 
 type AcceptedContribution struct {

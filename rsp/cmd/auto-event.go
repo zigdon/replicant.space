@@ -457,7 +457,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					if err != nil {
 						return err
 					}
-					log("Printing %s at %s", k, p.Alias())
+					bp := getBP(k)
+					queue[p.String()] += bp.PrintTime.Duration()
+					log("Printing %s at %s, eta: %s (%s)", k, p.Alias(),
+						queue[p.String()], time.Now().Add(queue[p.String()]))
 					if !dryRun {
 						_, err = rest.DeviceCommand[models.CommandResp](
 							p, "enqueue_print", map[string]any{
@@ -466,8 +469,6 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 							})
 					}
 
-					bp := getBP(k)
-					queue[p.String()] += bp.PrintTime.Duration()
 					missing[k]--
 				}
 				delete(missing, k)
@@ -607,7 +608,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if err := teleportReplicant(r); err == nil {
-		return resolveEvent()
+		return eventComplete(eID)
 	}
 
 	// Otherwise, see who's nearby
@@ -617,13 +618,16 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	}
 	data = [][]string{}
 	for _, r := range acc.ReplicantList {
-		var loc string
+		var src, loc string
 		if r.Travel == nil {
 			loc = string(r.CurrentLocation)
+			src = loc
 		} else {
+			src = r.Travel.Destination
 			loc = fmt.Sprintf("-> (%s) %s", r.Travel.Eta.Duration().Truncate(time.Second), r.Travel.Destination)
 		}
-		dist, err := common.Distance(loc, ev.Location.Star())
+		log("r: %s = %q -> %q", r.Code.Alias(), src, loc)
+		dist, err := common.Distance(src, ev.Location.Star())
 		if err != nil {
 			data = append(data, []string{r.Code.Alias(), loc, err.Error()})
 		} else {
