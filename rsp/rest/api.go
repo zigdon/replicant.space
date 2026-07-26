@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -155,6 +156,68 @@ func Post(path string, data []byte, args ...any) ([]byte, error) {
 
 func Get(path string, args ...any) ([]byte, error) {
 	return do("GET", path, nil, args...)
+}
+
+func ReadStream(handler func(ev map[string]string) error) error {
+	streamURL := "events/stream"
+	req, err := http.NewRequest(http.MethodGet, streamURL, nil)
+	if err != nil {
+		return fmt.Errorf("Failed create stream request: %v", err)
+	}
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Cache-Control", "no-cache")
+
+	log("Conecting to stream...")
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("Failed to connect to stream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Unexpected status code: %d", resp.StatusCode)
+	}
+
+	log("Connected! Listening for incoming events...")
+
+	scanner := bufio.NewScanner(resp.Body)
+	var currentEvent map[string]string
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// End of event block
+		if line == "" {
+			if len(currentEvent) != 0 {
+				// Process or dispatch the completed event
+				handler(currentEvent)
+				// Reset the event container
+				currentEvent = make(map[string]string)
+			}
+			continue
+		}
+
+		// Handle keep-alive messages
+		if strings.HasPrefix(line, ":") {
+			continue
+		}
+		k, v, ok := strings.Cut(line, ": ")
+		if !ok {
+			return fmt.Errorf("Bad event line: %q", line)
+		}
+		if _, ok := currentEvent[k]; ok {
+			// Append to existing values
+			currentEvent[k] += "\n"+v
+		} else {
+			currentEvent[k] = v
+		}
+
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("Stream read error: %v", err)
+		}
+	}
+
+	return fmt.Errorf("Stream ended?!")
 }
 
 // Cache

@@ -138,5 +138,12 @@ CREATE TABLE IF NOT EXISTS json_devices(
   updated_ts TIMESTAMPTZ,
   location TEXT,
   type TEXT,
+  status TEXT,
+  data JSONB
+);
+
+CREATE TABLE IF NOT EXISTS event_stream(
+  id TEXT PRIMARY KEY,
+  event TEXT,
   data JSONB
 );

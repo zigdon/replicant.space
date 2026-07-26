@@ -316,6 +316,7 @@ func (d *Device) Cache() error {
 		"updated_ts": d.Updated(),
 		"location":   d.Location,
 		"type":       d.Type,
+		"status":     d.Status,
 		"data":       data,
 	})
 	return err
