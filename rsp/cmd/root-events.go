@@ -154,9 +154,11 @@ func init() {
 	eventsCmd.Flags().IntP("width", "w", 50, "Wrap message body to this width")
 	eventsCmd.Flags().String("id", "", "Show only this event")
 	eventsCmd.Flags().BoolP("list", "l", false, "Show only event list, no details")
+	eventsCmd.RegisterFlagCompletionFunc("id", completeEventIDs)
 
 	eventsCmd.AddCommand(eventCompleteCmd)
 	eventCompleteCmd.Flags().String("id", "", "Show only this event")
+	eventsCmd.RegisterFlagCompletionFunc("id", completeEventIDs)
 	eventCompleteCmd.MarkFlagRequired("id")
 
 	rootCmd.AddCommand(megaContributeCmd)

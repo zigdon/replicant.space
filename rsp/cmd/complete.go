@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/rest"
 )
 
 func completeStarsAndPlanets(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -97,4 +98,54 @@ func completePlanets(_ *cobra.Command, _ []string, toComplete string) ([]string,
 	}
 
 	return res, cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeEventIDs(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	var res []string
+	data, err := rest.Events()
+	if err != nil {
+		log("error getting events: %v", err)
+		return res, cobra.ShellCompDirectiveError
+	}
+	ids := make(map[string]string)
+	for _, e := range data.Events {
+		id := e.Designation
+		ids[id] = e.Title
+	}
+
+	for id, name := range ids {
+		res = append(res, fmt.Sprintf("%s\t%s", id, name))
+	}
+	return res, cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeEventCriteria(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	var res []string
+	data, err := rest.Events()
+	if err != nil {
+		log("Error getting events: %v", err)
+		return res, cobra.ShellCompDirectiveError
+	}
+	id := getString(cmd, "id")
+	if id == "" {
+		return res, cobra.ShellCompDirectiveNoFileComp
+	}
+	var crits []string
+	for _, e := range data.Events {
+		if e.Designation != id {
+			continue
+		}
+		for _, c := range e.Criteria {
+			crits = append(crits, c.Short())
+		}
+	}
+
+	if len(crits) == 0 {
+		return res, cobra.ShellCompDirectiveError
+	}
+	for n, c := range crits {
+		res = append(res, fmt.Sprintf("%d\t%s", n+1, c))
+	}
+	return res, cobra.ShellCompDirectiveNoFileComp
+
 }

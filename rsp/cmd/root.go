@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"slices"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -38,7 +40,7 @@ func Execute() {
 	if err != nil {
 		die(err.Error())
 	}
-	if msg := getBool(rootCmd, "msg"); msg {
+	if msg := getBool(rootCmd, "msg"); !slices.Contains(os.Args, "__complete") && msg {
 		if rest.UnreadMessages > 0 {
 			msgs, err := rest.Messages(0, rest.UnreadMessages, true, true)
 			if err != nil {

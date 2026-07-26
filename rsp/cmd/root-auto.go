@@ -90,7 +90,8 @@ func init() {
 	autoEventCmd.Flags().IntP("criteria", "c", 0, "Which of multiple event criteria should be used")
 	autoEventCmd.Flags().IntP("replicant", "r", 4, "Which replicant is completing events")
 	autoEventCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
-	autoEventCmd.MarkFlagRequired("event_id")
+	autoEventCmd.RegisterFlagCompletionFunc("id", completeEventIDs)
+	autoEventCmd.RegisterFlagCompletionFunc("criteria", completeEventCriteria)
 }
 
 var infos sync.Map

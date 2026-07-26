@@ -22,6 +22,18 @@ type EventCriteria struct {
 	Resources map[string]int `json:"resources"`
 }
 
+func (ec *EventCriteria) Short() string {
+	var res []string
+	for _, d := range ec.Devices {
+		res = append(res, fmt.Sprintf("%d/%dx%s", d.Current, d.Required, d.DeviceType))
+	}
+	for k, v := range ec.Resources {
+		res = append(res, fmt.Sprintf("%dx%s", v, k))
+	}
+
+	return fmt.Sprintf("%s: %s", ec.Name, strings.Join(res, ", "))
+}
+
 type EventProgressResourceOption struct {
 	Current      float32 `json:"current"`
 	Met          bool    `json:"met"`
