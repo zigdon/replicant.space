@@ -1,24 +1,28 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
-	"github.com/zigdon/rsp/common"
-	"github.com/zigdon/rsp/models"
+	"github.com/zigdon/rsp/rest"
 )
 
 var testCmd = &cobra.Command{
 	Use: "test",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		dev := args[0]
-		dest := args[1]
-		eta, err := common.Travel(models.NewCodeAlias(dev), dest, true)
-		fmt.Printf("eta: %v, err: %v\n", eta, err)
-		return err
-	},
+	RunE: readStream,
 }
 
 func init() {
 	rootCmd.AddCommand(testCmd)
+}
+
+func readStream(cmd *cobra.Command, args []string) error {
+	handle := func(ev map[string]string) error {
+		prettyPrint(ev)
+		return nil
+	}
+
+	if err := rest.ReadStream(handle); err != nil {
+		return err
+	}
+
+	return nil
 }

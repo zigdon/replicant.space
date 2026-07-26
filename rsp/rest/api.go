@@ -159,13 +159,18 @@ func Get(path string, args ...any) ([]byte, error) {
 }
 
 func ReadStream(handler func(ev map[string]string) error) error {
-	streamURL := "events/stream"
+	cfg, err := cfg.ReadCfg()
+	if err != nil {
+		return err
+	}
+	streamURL := base + "/events/stream"
 	req, err := http.NewRequest(http.MethodGet, streamURL, nil)
 	if err != nil {
 		return fmt.Errorf("Failed create stream request: %v", err)
 	}
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Authorization", "Bearer " + cfg.APIKey)
 
 	log("Conecting to stream...")
 	resp, err := client.Do(req)
@@ -181,7 +186,7 @@ func ReadStream(handler func(ev map[string]string) error) error {
 	log("Connected! Listening for incoming events...")
 
 	scanner := bufio.NewScanner(resp.Body)
-	var currentEvent map[string]string
+	currentEvent := make(map[string]string)
 
 	for scanner.Scan() {
 		line := scanner.Text()
