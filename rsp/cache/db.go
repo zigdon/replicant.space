@@ -39,23 +39,24 @@ func log(tmpl string, args ...any) {
 type Tables string
 
 const (
-	StarsTable             Tables = "stars"
-	PlanetsTable           Tables = "planets"
-	MoonsTable             Tables = "moons"
-	BeltsTable             Tables = "belts"
-	BeltResTable           Tables = "belt_resources"
 	AliasTable             Tables = "aliases"
 	AliasTypesTable        Tables = "alias_types"
-	BlueprintsTable        Tables = "blueprints"
-	BlueprintResTable      Tables = "blueprint_resources"
+	BeltResTable           Tables = "belt_resources"
+	BeltsTable             Tables = "belts"
 	BlueprintCmpTable      Tables = "blueprint_components"
 	BlueprintDirsTable     Tables = "blueprint_directives"
 	BlueprintFeaturesTable Tables = "blueprint_features"
-	NotificationTable      Tables = "notifications"
-	MsgTable               Tables = "messages"
-	JourneyTable           Tables = "cached_journey"
-	JourneyStepsTable      Tables = "cached_journey_steps"
+	BlueprintResTable      Tables = "blueprint_resources"
+	BlueprintsTable        Tables = "blueprints"
+	EventsTable            Tables = "event_stream"
 	JSONDevices            Tables = "json_devices"
+	JourneyStepsTable      Tables = "cached_journey_steps"
+	JourneyTable           Tables = "cached_journey"
+	MoonsTable             Tables = "moons"
+	MsgTable               Tables = "messages"
+	NotificationTable      Tables = "notifications"
+	PlanetsTable           Tables = "planets"
+	StarsTable             Tables = "stars"
 )
 
 var cols = map[Tables][]string{
@@ -93,6 +94,8 @@ var cols = map[Tables][]string{
 		"journey_id", "src", "dest", "dist_src", "dist_dest"},
 	JSONDevices: {
 		"code", "updated_ts", "location", "data"},
+	EventsTable: {
+		"id", "category", "created", "code", "event", "location", "data"},
 }
 
 var constraints = map[Tables]string{
@@ -103,6 +106,7 @@ var constraints = map[Tables]string{
 	BlueprintFeaturesTable: "blueprint_type, feature",
 	BlueprintResTable:      "blueprint_type, type",
 	BlueprintsTable:        "type",
+	EventsTable:            "id",
 	JSONDevices:            "code",
 	JourneyStepsTable:      "journey_id, step",
 	JourneyTable:           "id",

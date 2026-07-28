@@ -21,7 +21,6 @@ func init() {
 func readStream(cmd *cobra.Command, args []string) error {
 	handle := func(ev map[string]string) error {
 		fmt.Println()
-		prettyPrint(ev)
 		env, err := models.Parse[models.StreamEnvelope]([]byte(ev["data"]))
 		if err != nil {
 			log("Error parsing %v: %v", ev, err)
@@ -34,13 +33,15 @@ func readStream(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		switch env.Event {
-		case "ami.mining.digest":
-			ed, err := models.Parse[models.StreamAmiDigest](payload)
+		case "ami.mining.digest", "ami.survey.digest", "ami.transport.digest":
+			ev, err := models.Parse[models.StreamAmiDigest](payload)
 			if err != nil {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-			log("Parsed %q:\n%#v", env.Category, ed)
+			log("%v", ev)
+			printTable(ev.Columns(), ev.Lines())
+
 		default:
 			log("Unknown event type: %q", ev["event"])
 			prettyPrint(ev)

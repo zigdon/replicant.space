@@ -3,8 +3,19 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
+
+	"github.com/zigdon/rsp/cache"
 )
+
+func d(n int) string {
+	return fmt.Sprintf("%d", n)
+}
+
+func v(i any) string {
+	return fmt.Sprintf("%v", i)
+}
 
 type StreamEnvelope struct {
 	Category      string         `json:"category"`
@@ -18,11 +29,35 @@ type StreamEnvelope struct {
 	Version       int            `json:"version"`
 }
 
+func (se *StreamEnvelope) Cache() error {
+	if se == nil || db == nil {
+		return nil
+	}
+
+	data, err := json.Marshal(se.Payload)
+	if err != nil {
+		return err
+	}
+
+	return db.Update(cache.EventsTable, map[string]any{
+		"id":       0,
+		"category": se.Category,
+		"created":  se.Created.Time(),
+		"code":     se.DeviceCode.String(),
+		"event":    se.Event,
+		"location": string(se.Location),
+		"data":     data,
+	})
+}
+
+func (se *StreamEnvelope) Get() error {
+	return nil
+}
+
 func (se *StreamEnvelope) Header() string {
-	return fmt.Sprintf("%s %20s %8s %20s %s",
-		se.Created.Time().Format(time.Kitchen),
-		se.Event, se.DeviceCode.Alias(),
-		string(se.Location), se.Star)
+	return fmt.Sprintf("%s %20s %8s %s",
+		se.Created.Time().Format(time.Kitchen), se.Event,
+		se.DeviceCode.Alias(), string(se.Location))
 }
 
 type StreamAmiDigest struct {
@@ -41,11 +76,36 @@ type StreamAmiDigest struct {
 	} `json:"activity"`
 }
 
+func (sad *StreamAmiDigest) Columns() []string {
+	return sad.Report.Columns()
+}
+
+func (sad *StreamAmiDigest) Lines() [][]string {
+	return sad.Report.Lines()
+}
+
 type AmiReport struct {
 	Mining   *AmiMiningReport
 	Survey   *AmiSurveyReport
 	Ferry    *AmiFerryReport
 	Delivery *AmiDeliveryReport
+}
+
+func (ar *AmiReport) Columns() []string {
+	if ar.Mining != nil {
+		return ar.Mining.Columns()
+	}
+	if ar.Ferry != nil {
+		return ar.Ferry.Columns()
+	}
+	return []string{}
+}
+
+func (ar *AmiReport) Lines() [][]string {
+	if ar.Mining != nil {
+		return ar.Mining.Lines()
+	}
+	return [][]string{}
 }
 
 func (ar *AmiReport) UnmarshalJSON(data []byte) error {
@@ -54,16 +114,16 @@ func (ar *AmiReport) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if _, ok := pp["shortfalls"]; ok {
-		return json.Unmarshal(data, ar.Delivery)
+		return json.Unmarshal(data, &ar.Delivery)
 	}
 	if _, ok := pp["deliver"]; ok {
-		return json.Unmarshal(data, ar.Ferry)
+		return json.Unmarshal(data, &ar.Ferry)
 	}
-	if _, ok := pp["assigned_this_tick"]; ok {
-		return json.Unmarshal(data, ar.Survey)
+	if _, ok := pp["progress"]; ok {
+		return json.Unmarshal(data, &ar.Survey)
 	}
 	if _, ok := pp["resources"]; ok {
-		return json.Unmarshal(data, ar.Mining)
+		return json.Unmarshal(data, &ar.Mining)
 	}
 	return fmt.Errorf("Can't parse AMI report: %+v", pp)
 }
@@ -76,6 +136,27 @@ type AmiMiningReport struct {
 		Desired   int  `json:"desired"`
 		Exhausted bool `json:"exhausted"`
 	} `json:"resources"`
+}
+
+func (amr *AmiMiningReport) Columns() []string {
+	return []string{"Resource", "Actual", "Capacity", "Desired", "Exhausted"}
+}
+
+func (amr *AmiMiningReport) Lines() [][]string {
+	var res [][]string
+	var names []string
+	for r := range amr.Resources {
+		names = append(names, r)
+	}
+	slices.Sort(names)
+	for _, n := range names {
+		l := amr.Resources[n]
+		res = append(res, []string{
+			n, d(l.Actual), d(l.Capacity), d(l.Desired), v(l.Exhausted),
+		})
+	}
+
+	return res
 }
 
 type AmiSurveyReport struct {
@@ -99,6 +180,16 @@ type AmiFerryReport struct {
 		Loading    int `json:"loading"`
 		Waiting    int `json:"waiting"`
 	} `json:"fleet"`
+}
+
+func (afr *AmiFerryReport) Columns() []string {
+	return []string{"From", "To", "Capacity", "Carried", "Delivering", "Loading", "Waiting"}
+}
+
+func (afr *AmiFerryReport) Lines() [][]string {
+	return [][]string{{string(afr.Collect), string(afr.Deliver),
+		d(afr.CargoCapacity), d(afr.CargoCarried),
+		d(afr.Fleet.Delivering), d(afr.Fleet.Loading), d(afr.Fleet.Waiting)}}
 }
 
 type AmiDeliveryReport struct {

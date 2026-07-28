@@ -144,7 +144,11 @@ CREATE TABLE IF NOT EXISTS json_devices(
 );
 
 CREATE TABLE IF NOT EXISTS event_stream(
-  id TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY,
+  category TEXT,
+  created TIMESTAMPTZ,
+  code TEXT,
   event TEXT,
+  location TEXT,
   data JSONB
 );
