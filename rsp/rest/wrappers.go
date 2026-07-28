@@ -642,7 +642,7 @@ func ReloadStars() (string, error) {
 	seen := make(map[models.LocationID]*models.Star)
 	rows, err := db.DB.Query(`
 		SELECT designation, name, est_planets, spectral_type, has_life,
-			position_x, position_y, position_z, has_hub, entry_point
+			position_x, position_y, position_z, has_hub, entry_point, region
 		FROM stars`)
 	if err != nil {
 		return res(), err
@@ -653,7 +653,8 @@ func ReloadStars() (string, error) {
 		s := new(models.Star)
 		var x, y, z float32
 		err := rows.Scan(&s.Designation, &s.Name, &s.EstimatedPlanets,
-			&s.SpectralType, &s.HasLife, &x, &y, &z, &s.HasHub, &s.EntryPoint)
+			&s.SpectralType, &s.HasLife, &x, &y, &z, &s.HasHub,
+			&s.EntryPoint, &s.Region)
 		if err != nil {
 			return res(), err
 		}
@@ -689,6 +690,9 @@ func ReloadStars() (string, error) {
 		}
 		if a.SpectralType != b.SpectralType {
 			log("%q: spectral type updated: %q -> %q", a.Designation, a.SpectralType, b.SpectralType)
+			return true
+		}
+		if a.Region != b.Region {
 			return true
 		}
 		return false

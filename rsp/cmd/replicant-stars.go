@@ -83,6 +83,7 @@ func replicantStars(cmd *cobra.Command, args []string) error {
 				b(s.Explored),
 				b(s.HasLife),
 				s.Position.String(),
+				s.Region,
 			}
 			if dest != "" {
 				dist[s.Designation] = s.Position.Distance(target)
@@ -100,6 +101,7 @@ func replicantStars(cmd *cobra.Command, args []string) error {
 				"position_y":    s.Position.Y,
 				"position_z":    s.Position.Z,
 				"spectral_type": s.SpectralType,
+				"region":        s.Region,
 			}); err != nil {
 				log("Error updating cache for %q: %v", s.Designation, err)
 			}
@@ -108,11 +110,14 @@ func replicantStars(cmd *cobra.Command, args []string) error {
 		headers = []string{
 			"Designation", "Entry Point", "Est Planets", "Distance",
 			"ETA", "Spectral Type", "Explored", "Has Life", "Location",
+			"Region",
 		}
 		if dest != "" {
 			headers = append(headers, "To destination")
 			slices.SortFunc(stars, func(a, b []string) int {
-				return cmp.Compare(dist[models.LocationID(a[0])], dist[models.LocationID(b[0])])
+				return cmp.Compare(
+					dist[models.LocationID(a[0])],
+					dist[models.LocationID(b[0])])
 			})
 		}
 		printTable(headers, stars)

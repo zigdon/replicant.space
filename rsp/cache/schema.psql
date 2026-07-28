@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS stars (
   position_y NUMERIC(6,2) NOT NULL,
   position_z NUMERIC(6,2) NOT NULL,
   has_hub BOOLEAN,
-  has_my_hub BOOLEAN
+  has_my_hub BOOLEAN NOT NULL DEFAULT false,
+  region TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS planets (

@@ -103,7 +103,8 @@ type Star struct {
 		InnerAu float32 `json:"inner_au"`
 		OuterAu float32 `json:"outer_au"`
 	} `json:"habitable_zone"`
-	HasHub          bool      `json:"has_hub"`
+	HasHub          bool `json:"has_hub"`
+	HasMyHub        bool
 	HasLife         bool      `json:"has_life"`
 	LuminositySolar float32   `json:"luminositysolar"`
 	MassSolar       float32   `json:"mass_solar"`
@@ -113,6 +114,7 @@ type Star struct {
 	SpectralType    string    `json:"spectral_type"`
 	StellarClass    string    `json:"stellar_class"`
 	TemperatureK    int       `json:"temperature_k"`
+	Region          string    `json:"region"`
 }
 
 func (s *Star) Fill() error {
@@ -148,6 +150,7 @@ func (s *Star) Cache() error {
 		"position_y":    s.Position.Y,
 		"position_z":    s.Position.Z,
 		"spectral_type": s.SpectralType,
+		"region":        s.Region,
 	})
 }
 
@@ -168,7 +171,7 @@ func (s *Star) Get() error {
 	}
 	if err := scan(&s.Designation, &s.Name, &s.EntryPoint, &s.EstimatedPlanets,
 		&s.SpectralType, &s.Explored, &s.HasLife, &s.Position.X, &s.Position.Y,
-		&s.Position.Z); err != nil {
+		&s.Position.Z, &s.HasHub, &s.HasMyHub, &s.Region); err != nil {
 		return err
 	}
 	return s.Fill()
@@ -378,6 +381,14 @@ type Location struct {
 	Star                *Star                           `json:"star"`
 	SystemScanned       bool                            `json:"system_scanned"`
 	Type                string                          `json:"location_type"`
+}
+
+func (l *Location) Fill() error {
+	if l.EntryPoint != "" {
+		l.Star.EntryPoint = l.EntryPoint
+	}
+
+	return nil
 }
 
 func (l *Location) Cache() error {
