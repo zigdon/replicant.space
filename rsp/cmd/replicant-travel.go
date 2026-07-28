@@ -70,8 +70,12 @@ var stopCmd = &cobra.Command{
 
 func getTeleportDests(loc string) ([]*models.Device, error) {
 	var cradles []*models.Device
-	rows, err := db.DB.Query(
-		`SELECT blueprint_type FROM blueprint_features WHERE feature = 'cradle';`)
+	// By accident, we prefer shorter names than longer - hub > vessel > matrix
+	rows, err := db.DB.Query(`
+	  SELECT blueprint_type
+	  FROM blueprint_features
+	  WHERE feature = 'cradle'
+	  ORDER BY length(blueprint_type);`)
 	if err != nil {
 		return nil, err
 	}

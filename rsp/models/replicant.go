@@ -63,11 +63,11 @@ func (t *Teleport) Notification() *Notification {
 type Travel struct {
 	Arrives         *JSONTime      `json:"arrives_at"`
 	Departed        *JSONTime      `json:"departed_at"`
-	Destination     string         `json:"destination"`
+	Destination     LocationID     `json:"destination"`
 	DestinationName string         `json:"destination_name"`
 	DestinationType string         `json:"destination_type"`
 	Eta             *JSONTimeDelta `json:"eta_seconds"`
-	Origin          string         `json:"origin"`
+	Origin          LocationID     `json:"origin"`
 	OriginName      string         `json:"origin_name"`
 	ProgressPercent float32        `json:"progress_percent"`
 	Route           []*TripLeg     `json:"route"`

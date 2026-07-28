@@ -411,7 +411,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			}
 			log("Searching for existing devices...")
 			for _, d := range tagged.Devices {
-				log("... %s at %s", d.Code.Alias(), d.Location)
+				log("... %s (%s) at %s", d.Code.Alias(), d.Type, d.Location)
 				missing[d.Type]--
 				if string(d.Location) == home {
 					pickUp = append(pickUp, d)
@@ -620,11 +620,13 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	for _, r := range acc.ReplicantList {
 		var src, loc string
 		if r.Travel == nil {
-			loc = string(r.CurrentLocation)
+			loc = r.CurrentLocation.Star()
 			src = loc
-		} else {
-			src = r.Travel.Destination
+		} else if r.Travel != nil {
+			src = r.Travel.Destination.Star()
 			loc = fmt.Sprintf("-> (%s) %s", r.Travel.Eta.Duration().Truncate(time.Second), r.Travel.Destination)
+		} else {
+			continue
 		}
 		log("r: %s = %q -> %q", r.Code.Alias(), src, loc)
 		dist, err := common.Distance(src, ev.Location.Star())

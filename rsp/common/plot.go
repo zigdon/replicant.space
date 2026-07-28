@@ -348,6 +348,10 @@ func Distance(src, dst string) (float32, error) {
 		return dev.GetPosition(), nil
 	}
 
+	if src == "" || dst == "" {
+		return 0, fmt.Errorf("Can't get distance to nowhere (%q->%q)", src, dst)
+	}
+
 	posA, err := getPos(src)
 	if err != nil {
 		return 0, err

@@ -46,6 +46,12 @@ var autoFRCmd = &cobra.Command{
 	RunE:  autoFR,
 }
 
+var autoFBCmd = &cobra.Command{
+	Use:   "fb",
+	Short: "Deploy and tag a new FTL beacon",
+	RunE:  autoFB,
+}
+
 var autoEventCmd = &cobra.Command{
 	Use:   "event",
 	Short: "Build and deliver event requirements",
@@ -75,6 +81,13 @@ func init() {
 	autoFRCmd.Flags().IntP("replicant", "r", 0, "Which replicant is deploying the FR")
 	autoFRCmd.Flags().Bool("dry_run", true, "When set, only describe what will be done")
 	autoFRCmd.MarkFlagRequired("replicant")
+
+	autoCmd.AddCommand(autoFBCmd)
+	autoFBCmd.Flags().StringP("planet", "p", "", "Which planet should have a beacon")
+	autoFBCmd.Flags().IntP("replicant", "r", 0, "Which replicant is deploying the FR")
+	autoFBCmd.Flags().Bool("dry_run", true, "When set, only describe what will be done")
+	autoFBCmd.MarkFlagRequired("replicant")
+	autoFBCmd.MarkFlagRequired("planet")
 
 	autoCmd.AddCommand(autoStateCmd)
 	autoStateCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")

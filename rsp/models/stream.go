@@ -1,12 +1,118 @@
 package models
 
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
 type StreamEnvelope struct {
-	Category   string     `json:"category"`
-	Created    *JSONTime  `json:"created_at"`
-	DeviceCode *CodeAlias `json:"device_code"`
-	Star       LocationID `json:"star"`
-	Location   LocationID `json:"location"`
-	Payload    string     `json:"payload"`
+	Category      string         `json:"category"`
+	Created       *JSONTime      `json:"created_at"`
+	DeviceCode    *CodeAlias     `json:"device_code"`
+	Event         string         `json:"event"`
+	Location      LocationID     `json:"location"`
+	Payload       map[string]any `json:"payload"`
+	ReplicantCode *CodeAlias     `json:"replicant_code"`
+	Star          LocationID     `json:"star"`
+	Version       int            `json:"version"`
+}
+
+func (se *StreamEnvelope) Header() string {
+	return fmt.Sprintf("%s %20s %8s %20s %s",
+		se.Created.Time().Format(time.Kitchen),
+		se.Event, se.DeviceCode.Alias(),
+		string(se.Location), se.Star)
+}
+
+type StreamAmiDigest struct {
+	Directive string     `json:"directive"`
+	Report    *AmiReport `json:"report"`
+	Activity  struct {
+		Event_count int            `json:"event_count"`
+		Counts      map[string]int `json:"counts"`
+		Window      []*JSONTime    `json:"window"`
+		Devices     []struct {
+			DeviceCode *CodeAlias `json:"device_code"`
+			Status     string     `json:"status"`
+			Events     int        `json:"events"`
+			LastEvent  string     `json:"last_event"`
+		} `json:"devices"`
+	} `json:"activity"`
+}
+
+type AmiReport struct {
+	Mining   *AmiMiningReport
+	Survey   *AmiSurveyReport
+	Ferry    *AmiFerryReport
+	Delivery *AmiDeliveryReport
+}
+
+func (ar *AmiReport) UnmarshalJSON(data []byte) error {
+	var pp map[string]any
+	if err := json.Unmarshal(data, &pp); err != nil {
+		return err
+	}
+	if _, ok := pp["shortfalls"]; ok {
+		return json.Unmarshal(data, ar.Delivery)
+	}
+	if _, ok := pp["deliver"]; ok {
+		return json.Unmarshal(data, ar.Ferry)
+	}
+	if _, ok := pp["assigned_this_tick"]; ok {
+		return json.Unmarshal(data, ar.Survey)
+	}
+	if _, ok := pp["resources"]; ok {
+		return json.Unmarshal(data, ar.Mining)
+	}
+	return fmt.Errorf("Can't parse AMI report: %+v", pp)
+}
+
+type AmiMiningReport struct {
+	Location  LocationID `json:"location"`
+	Resources map[string]struct {
+		Actual    int  `json:"actual"`
+		Capacity  int  `json:"capacity"`
+		Desired   int  `json:"desired"`
+		Exhausted bool `json:"exhausted"`
+	} `json:"resources"`
+}
+
+type AmiSurveyReport struct {
+	AssignedThisTick int `json:"assigned_this_tick"`
+	Busy             int `json:"busy"`
+	Idle             int `json:"idle"`
+	Progress         struct {
+		Remaining int `json:"remaining"`
+		Scanned   int `json:"scanned"`
+		Total     int `json:"total"`
+	} `json:"progress"`
+}
+
+type AmiFerryReport struct {
+	CargoCapacity int        `json:"cargo_capacity"`
+	CargoCarried  int        `json:"cargo_carried"`
+	Collect       LocationID `json:"collect"`
+	Deliver       LocationID `json:"deliver"`
+	Fleet         struct {
+		Delivering int `json:"delivering"`
+		Loading    int `json:"loading"`
+		Waiting    int `json:"waiting"`
+	} `json:"fleet"`
+}
+
+type AmiDeliveryReport struct {
+	CargoCapacity int        `json:"cargo_capacity"`
+	CargoCarried  int        `json:"cargo_carried"`
+	Collect       LocationID `json:"collect"`
+	Deliver       LocationID `json:"deliver"`
+	Fleet         struct {
+		Delivering int `json:"delivering"`
+		Loading    int `json:"loading"`
+		Waiting    int `json:"waiting"`
+	} `json:"fleet"`
+	Requirement map[string]int `json:"requirement"`
+	Shortfalls  map[string]int `json:"shortfalls"`
 }
 
 type StreamAmiAdopted struct {
