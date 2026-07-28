@@ -30,6 +30,7 @@ func init() {
 	rootPrintCmd.Flags().StringP("controller", "c", "", "What controller should be assigned")
 	rootPrintCmd.Flags().String("on_complete", "", "What commands to execute once done")
 	rootPrintCmd.Flags().BoolP("dry_run", "n", false, "Don't actually print, only plan")
+	rootPrintCmd.Flags().Bool("use_inventory", true, "Skip printing existing components")
 
 	rootPrintCmd.AddCommand(rootPrintListCmd)
 	rootPrintListCmd.Flags().String("location", "", "Show only factories in this location")
@@ -221,6 +222,7 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	}
 	var toPrint []batch
 	var simulate func(string, int) error
+	printCost := make(map[string]int)
 	simulate = func(name string, qty int) error {
 		if qty <= 0 {
 			return nil
@@ -230,6 +232,7 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		log("Simulating printing of %d %s", qty, name)
 		for r, q := range bp.Resources {
 			log("... need %d x %s", q*qty, r)
+			printCost[r] += q * qty
 			if inventory[r] < q*qty {
 				return fmt.Errorf("Not enough %s for printing %d %s: have %d, need %d",
 					r, qty, name, inventory[r], q*qty)
@@ -238,7 +241,10 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		}
 		for c, q := range bp.Components {
 			log("... need %d x %s", q*qty, c)
-			missing := q*qty - inventory[c]
+			missing := q * qty
+			if getBool(cmd, "use_inventory") {
+				missing -= inventory[c]
+			}
 			if missing > 0 {
 				if err := simulate(c, missing); err != nil {
 					return err
@@ -255,6 +261,10 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	slices.Reverse(toPrint)
 	for _, p := range toPrint {
 		log("  %d x %s", p.qty, p.name)
+	}
+	log("Total cost:")
+	for k, v := range printCost {
+		log("  %d x %s", v, k)
 	}
 
 	// Check each printer for available print slots, and eta
