@@ -299,3 +299,16 @@ func getFloat32(cmd *cobra.Command, name string) float32 {
 	f, _ := cmd.Flags().GetFloat32(name)
 	return f
 }
+
+func getMap(cmd *cobra.Command, name string) map[string]string {
+	fs, _ := cmd.Flags().GetStringSlice(name)
+	res := make(map[string]string)
+	for _, f := range fs {
+		k, v, ok := strings.Cut(f, ":")
+		if !ok {
+			panic(fmt.Sprintf("Invalid map flag %q for --%q", f, name))
+		}
+		res[k] = v
+	}
+	return res
+}

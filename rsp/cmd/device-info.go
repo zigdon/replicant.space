@@ -39,10 +39,14 @@ var infoCmd = &cobra.Command{
 			cargo = append([]string{fmt.Sprintf("%.2f/%d (%.0f%%)",
 				totalCargo, dev.CargoCapacity, totalCargo/float32(dev.CargoCapacity)*100)}, cargo...)
 		}
+		status := dev.Status
+		if !dev.InControlRange {
+			status += "\n(out of range)"
+		}
 		printTable(
 			[]string{"Code", "Type", "Location", "Status", "Attached", "Controller",
 				"Replicant", "Ops Capacity", "Cargo"},
-			[][]string{{code, dev.Type, string(dev.Location), dev.Status,
+			[][]string{{code, dev.Type, string(dev.Location), status,
 				dev.AttachedToDeviceCode.Alias(),
 				dev.ControllerDeviceCode.Alias(), dev.ReplicantCode.Alias(),
 				f(dev.OperationalCapacity),

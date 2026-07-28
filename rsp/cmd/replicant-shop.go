@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/models"
@@ -66,20 +68,8 @@ var shopTradesCmd = &cobra.Command{
 			fmt.Println("No trades found.")
 			return nil
 		}
-		var data [][]string
-		for _, t := range res.Trades {
-			data = append(data, []string{
-				t.Name, t.Code, d(t.CurrentStock),
-				m(t.Criteria.Resources), m(t.Criteria.Devices),
-				m(t.Rewards.Resources), m(t.Rewards.Devices),
-			})
-		}
-
 		fmt.Printf("Trades listed for %s:\n", sid)
-		printTable([]string{
-			"Name", "Code", "Stock", "Resource cost", "Device cost",
-			"Resource rewards", "Device rewards",
-		}, data)
+		printTrades(res.Trades)
 		return nil
 	},
 }
@@ -131,6 +121,57 @@ var executeTradeCmd = &cobra.Command{
 	},
 }
 
+var addTradeCmd = &cobra.Command{
+	Use:   "add",
+	Short: "Offer a new trade",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		sid := getString(cmd, "shop")
+		name := getString(cmd, "name")
+		stock := getInt(cmd, "stock")
+		costR := getMap(cmd, "cost_res")
+		costD := getMap(cmd, "cost_dev")
+		sellR := getMap(cmd, "sell_res")
+		sellD := getMap(cmd, "sell_dev")
+
+		var errs []error
+		mkStrIntMap := func(in map[string]string) map[string]int {
+			res := make(map[string]int)
+			for k, v := range in {
+				n, err := strconv.Atoi(v)
+				if err != nil {
+					errs = append(errs, err)
+					continue
+				}
+				res[k] = n
+			}
+			return res
+		}
+		cfg := map[string]any{
+			"name":  name,
+			"stock": stock,
+			"criteria": map[string]any{
+				"resources": mkStrIntMap(costR),
+				"devices":   mkStrIntMap(costD),
+			},
+			"rewards": map[string]any{
+				"resources": mkStrIntMap(sellR),
+				"devices":   mkStrIntMap(sellD),
+			},
+		}
+		if len(errs) > 0 {
+			return errors.Join(errs...)
+		}
+		res, err := rest.Sell(models.NewCodeAlias(sid), cfg)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Trade posted")
+		printTrades([]*models.Trade{res})
+		return nil
+	},
+}
+
 func init() {
 	replicantCmd.AddCommand(shopCmd)
 	shopCmd.AddCommand(allShopCmd)
@@ -141,4 +182,20 @@ func init() {
 	shopCmd.AddCommand(executeTradeCmd)
 	executeTradeCmd.Flags().StringP("trade", "t", "", "Trade ID")
 	executeTradeCmd.MarkFlagRequired("trade")
+}
+
+func printTrades(trades []*models.Trade) {
+	var data [][]string
+	for _, t := range trades {
+		data = append(data, []string{
+			wrap(t.Name, 20), t.Code, d(t.CurrentStock),
+			m(t.Criteria.Resources), m(t.Criteria.Devices),
+			m(t.Rewards.Resources), m(t.Rewards.Devices),
+		})
+	}
+
+	printTable([]string{
+		"Name", "Code", "Stock", "Resource cost", "Device cost",
+		"Resource rewards", "Device rewards",
+	}, data)
 }

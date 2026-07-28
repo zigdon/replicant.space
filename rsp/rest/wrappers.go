@@ -621,6 +621,15 @@ func Trade(rid, tid string) (*models.Shop, error) {
 	return models.Parse[models.Shop](res)
 }
 
+func Sell(id *models.CodeAlias, cfg map[string]any) (*models.Trade, error) {
+	data, _ := json.Marshal(cfg)
+	res, err := Post("devices/%s/trades", data, id)
+	if err != nil {
+		return nil, err
+	}
+	return models.Parse[models.Trade](res)
+}
+
 // Aliens
 func Species() (*models.Species, error) {
 	res, err := cacheGET("", 0, "species")

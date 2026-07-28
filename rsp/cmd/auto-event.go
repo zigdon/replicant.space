@@ -436,7 +436,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					missing[info.Printing.DeviceType]--
 				}
 				for _, pq := range info.PrintQueue {
-					if slices.Contains(info.Printing.Tags, tag) {
+					if slices.Contains(pq.Tags, tag) {
 						log("... %s has %s queued", p.Alias(), pq.Type)
 						bp := getBP(pq.Type)
 						queue[p.String()] += bp.PrintTime.Duration()
