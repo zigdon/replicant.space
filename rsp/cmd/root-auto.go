@@ -58,6 +58,12 @@ var autoEventCmd = &cobra.Command{
 	RunE:  autoEvent,
 }
 
+var autoRockCmd = &cobra.Command{
+	Use:   "rock",
+	Short: "List all known incoming objects",
+	RunE:  autoRock,
+}
+
 func init() {
 	rootCmd.AddCommand(autoCmd)
 
@@ -105,6 +111,8 @@ func init() {
 	autoEventCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
 	autoEventCmd.RegisterFlagCompletionFunc("id", completeEventIDs)
 	autoEventCmd.RegisterFlagCompletionFunc("criteria", completeEventCriteria)
+
+	autoCmd.AddCommand(autoRockCmd)
 }
 
 var infos sync.Map
