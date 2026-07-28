@@ -35,11 +35,18 @@ var deviceListCmd = &cobra.Command{
 				filter["device_type"] = v
 			case "owner":
 				filter["replicant_code"] = db.Dealias(v)
+			case "tag":
+				filter["tag"] = db.Dealias(v)
 			case "destination":
 				postFilter["destination"] = v
 			default:
 				return fmt.Errorf("Unknown filter %s", a)
 			}
+		}
+		only := getStringSlice(cmd, "only_tags")
+		if _, ok := filter["tag"]; len(only) > 0 && !ok {
+			// If we are requiring tags, don't bother pulling the full device list
+			filter["tag"] = only[0]
 		}
 		if f, ok := filter["device_type"]; ok {
 			// Accept prefixes for types
@@ -72,7 +79,6 @@ var deviceListCmd = &cobra.Command{
 
 		var skipped map[string]int
 		ignore := getBool(cmd, "ignore_tags")
-		only := getStringSlice(cmd, "only_tags")
 		filterTags := getStringSlice(cmd, "filter_tags")
 		var filterFn map[string]models.DeviceFilter
 		if !ignore {
@@ -248,13 +254,14 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 	for _, d := range devs {
 		loc := d.GetPosition()
 		status := d.Status
-		var eta string
+		var eta, dest string
 		if strings.Contains(status, "repairing (") {
 			target := status[strings.Index(status, "(")+1 : strings.Index(status, ")")]
 			status = fmt.Sprintf("repairing (%s)", alias(target))
 			eta = fmt.Sprintf("%.0f%% %s", d.Repair.ProgressPercent, d.Repair.Eta.String())
 		} else if d.Travel != nil {
 			eta = fmt.Sprintf("%.0f%% %s", d.Travel.ProgressPercent, d.Travel.Eta.String())
+			dest = string(d.Travel.Route[len(d.Travel.Route)-1].To)
 		} else if d.Prospect != nil {
 			eta = fmt.Sprintf("%.0f%% %s",
 				d.Prospect.ProgressPercent, time.Until(d.Prospect.Completes.Time()).Truncate(time.Second))
@@ -289,6 +296,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 			string(d.Location),
 			p(d.OperationalCapacity),
 			status,
+			dest,
 			eta,
 			d.StowedInDeviceCode.Alias() + d.AttachedToDeviceCode.Alias(),
 			list(d.Tags),
@@ -307,11 +315,11 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 		data = append(data, line)
 	}
 	for _, l := range data {
-		dp := len(dups[l[11]])
+		dp := len(dups[l[12]])
 		if dp > 1 {
-			l[11] = d(dp)
+			l[12] = d(dp)
 		} else {
-			l[11] = ""
+			l[12] = ""
 		}
 	}
 	if reference == nil {
@@ -333,6 +341,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 		"Location",
 		"Ops %",
 		"Status",
+		"Destination",
 		"ETA",
 		"With",
 		"Tags",

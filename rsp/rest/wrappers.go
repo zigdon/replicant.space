@@ -253,9 +253,11 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 		return RefreshDevices(filters)
 	}
 
-	validCols := []string{"device_type", "location", "replicant_code"}
+	validCols := []string{"device_type", "location", "replicant_code", "tag"}
 	q := "SELECT code, data FROM json_devices"
 	var vals []any
+	// select code, type, location, status from json_devices where data->>'tags' = '["event:llyrhawr-4-evt-005"]';
+
 	if len(filters) > 0 {
 		q += " WHERE "
 		var limits []string
@@ -266,6 +268,9 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 			if k == "location" {
 				limits = append(limits, fmt.Sprintf("%s LIKE $%d", k, len(vals)+1))
 				vals = append(vals, v+"%")
+			} else if k == "tag" {
+				limits = append(limits, fmt.Sprintf("data->>'tags' = '[$%d]'", len(vals)+1))
+				vals = append(vals, v)
 			} else {
 				limits = append(limits, fmt.Sprintf("%s = $%d", k, len(vals)+1))
 				vals = append(vals, v)
