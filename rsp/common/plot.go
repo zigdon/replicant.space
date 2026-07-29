@@ -341,7 +341,15 @@ func Distance(src, dst string) (float32, error) {
 		if s, err := models.NewStar(models.LocationID(o).Star()); err == nil {
 			return s.Position, nil
 		}
-		dev, err := rest.DeviceInfo(models.NewCodeAlias(o))
+		ca := models.NewCodeAlias(o)
+		if ca.Type() == "r" {
+			res, err := rest.Replicant(ca)
+			if err != nil {
+				return nil, err
+			}
+			ca = res.HostedDeviceCode
+		}
+		dev, err := rest.DeviceInfo(ca)
 		if err != nil {
 			return nil, err
 		}

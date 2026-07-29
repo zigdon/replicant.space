@@ -629,13 +629,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		if r.Travel == nil {
 			loc = r.CurrentLocation.Star()
 			src = loc
-		} else if r.Travel != nil {
+		} else {
 			src = r.Travel.Destination.Star()
 			loc = fmt.Sprintf("-> (%s) %s", r.Travel.Eta.Duration(), r.Travel.Destination)
-		} else {
-			continue
 		}
-		log("r: %s = %q -> %q", r.Code.Alias(), src, loc)
 		dist, err := common.Distance(src, ev.Location.Star())
 		if err != nil {
 			data = append(data, []string{r.Code.Alias(), loc, err.Error()})

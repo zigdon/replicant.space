@@ -209,14 +209,16 @@ func (a *CodeAlias) Type() string {
 	if a.alias == a.orig {
 		return ""
 	}
-	return a.alias[:strings.Index(a.alias, "-")]
+	t, _, _ := strings.Cut(a.alias, "-")
+	return t
 }
 
 func (a *CodeAlias) Num() int {
 	if a.alias == a.orig {
 		return 0
 	}
-	n, err := strconv.Atoi(a.alias[strings.Index(a.alias, "-")+1:])
+	_, id, _ := strings.Cut(a.alias, "-")
+	n, err := strconv.Atoi(id)
 	if err != nil {
 		fmt.Printf("Failed to get number of %q: %v\n", a.alias, err)
 		return 0

@@ -22,14 +22,15 @@ var replicantInfoCmd = &cobra.Command{
 			return fmt.Errorf("Error getting replicant: %v", err)
 		}
 		if raw := getBool(cmd, "raw"); raw {
-			prettyPrint(&repl)
+			prettyPrint(repl)
 			return nil
 		}
 		printTable([]string{
-			"Name", "Code", "Location", "XP", "Description", "Status",
+			"Name", "Code", "Location", "XP", "Description", "Status", "Vessel",
 		}, [][]string{{
 			repl.Name, repl.Code.Alias(), string(repl.Location),
 			d(repl.ExperiencePoints), repl.Description, repl.Status,
+			repl.HostedDeviceCode.Alias(),
 		}})
 		if repl.Travel != nil {
 			trip := repl.Travel
