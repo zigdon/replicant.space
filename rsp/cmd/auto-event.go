@@ -194,7 +194,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		if len(etas) == 0 {
 			return time.Time{}
 		}
-		max := etas[1]
+		max := etas[0]
 		for _, e := range etas {
 			if e.After(max) {
 				max = e
