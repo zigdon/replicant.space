@@ -17,9 +17,6 @@ func autoRock(cmd *cobra.Command, args []string) error {
 	var errs []error
 	var objs []*models.Object
 	for _, sh := range shs {
-		if sh.Status != "relaying" {
-			continue
-		}
 		logs, err := rest.DeviceLogs(sh.Code, true, 0, 50)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("Error getting logs from %q: %v", sh.Code.Alias(), err))
@@ -46,7 +43,6 @@ func autoRock(cmd *cobra.Command, args []string) error {
 
 	var data [][]string
 	for _, o := range objs {
-		prettyPrint(o)
 		data = append(data, []string{
 			string(o.Designation), o.SizeClass, t(o.ImpactEta.Time()), o.Status,
 			d(o.ActivePlates), f(o.CurrentThrustPerHour),

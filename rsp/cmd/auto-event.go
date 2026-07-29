@@ -490,66 +490,73 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			}
 			var ids []*models.CodeAlias
 			for _, d := range pickUp {
-				if modular[d.Type] && d.Status == "idle" {
-					log("Compacting %s", d.Code.Alias())
-					if dryRun {
+				if modular[d.Type] {
+					if d.Status == "idle" {
+						log("Compacting %s", d.Code.Alias())
+						if dryRun {
+							continue
+						}
+						if res, err := rest.DeviceCommand[models.CommandResp](d.Code, "compact", nil); err != nil {
+							return err
+						} else {
+							log("... %s (%s)", res.Completes.Format(), time.Until(res.Completes.Time()))
+						}
+						continue
+					} else if d.Status == "compacting" {
+						log("Waiting for %s to compact: %s", d.Code.Alias(), time.Until(d.Compact.Completes.Time()))
 						continue
 					}
-					if res, err := rest.DeviceCommand[models.CommandResp](d.Code, "compact", nil); err != nil {
-						return err
-					} else {
-						log("... %s", res.Completes.String())
-					}
-					continue
 				}
 				ids = append(ids, d.Code)
 			}
-			for _, sp := range freeSPs {
-				if len(pickUp) == 0 {
-					break
-				}
-				avail := sp.AttachCapacity - len(sp.AttachedDevices)
-				if avail == 0 {
-					continue
-				}
-				if avail >= len(pickUp) {
-					log("Attaching %s to %s", strings.Join(codeList(ids), ", "), sp.Code.Alias())
-					if !dryRun {
-						_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids})
-						if err != nil {
-							return err
-						}
+			if len(ids) > 0 {
+				for _, sp := range freeSPs {
+					if len(pickUp) == 0 {
+						break
 					}
-					log("%s shipping to %s", sp.Code.Alias(), ev.Location)
-					if !dryRun {
-						newEta, err := travel(sp.Code, string(ev.Location))
-						if err != nil {
-							return err
-						}
-						if newEta.After(eta) {
-							eta = newEta
-						}
+					avail := sp.AttachCapacity - len(sp.AttachedDevices)
+					if avail == 0 {
+						continue
 					}
-					break
-				} else {
-					log("Attaching %s to %s", strings.Join(devList(pickUp[:avail]), ", "), sp.Code.Alias())
-					if !dryRun {
-						_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids[:avail]})
-						if err != nil {
-							return err
+					if avail >= len(pickUp) {
+						log("Attaching %s to %s", strings.Join(codeList(ids), ", "), sp.Code.Alias())
+						if !dryRun {
+							_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids})
+							if err != nil {
+								return err
+							}
 						}
+						log("%s shipping to %s", sp.Code.Alias(), ev.Location)
+						if !dryRun {
+							newEta, err := travel(sp.Code, string(ev.Location))
+							if err != nil {
+								return err
+							}
+							if newEta.After(eta) {
+								eta = newEta
+							}
+						}
+						break
+					} else {
+						log("Attaching %s to %s", strings.Join(devList(pickUp[:avail]), ", "), sp.Code.Alias())
+						if !dryRun {
+							_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids[:avail]})
+							if err != nil {
+								return err
+							}
+						}
+						log("%s shipping to %s", sp.Code.Alias(), ev.Location)
+						if !dryRun {
+							newEta, err := travel(sp.Code, string(ev.Location))
+							if err != nil {
+								return err
+							}
+							if newEta.After(eta) {
+								eta = newEta
+							}
+						}
+						pickUp = pickUp[avail:]
 					}
-					log("%s shipping to %s", sp.Code.Alias(), ev.Location)
-					if !dryRun {
-						newEta, err := travel(sp.Code, string(ev.Location))
-						if err != nil {
-							return err
-						}
-						if newEta.After(eta) {
-							eta = newEta
-						}
-					}
-					pickUp = pickUp[avail:]
 				}
 			}
 		}
