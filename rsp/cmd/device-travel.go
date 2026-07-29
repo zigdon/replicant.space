@@ -24,7 +24,7 @@ var deviceTravelCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("Failed to initiate travel for %q: %v", id, err)
 		}
-		log("In transit, ETA: %s (%s)", eta, time.Until(eta).Truncate(time.Second))
+		log("In transit, ETA: %s (%s)", eta, time.Until(eta))
 
 		return nil
 	},

@@ -432,8 +432,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			if err != nil {
 				return eta, err
 			}
-			log("Supply ship in transit: %s (%s)", eta.Truncate(time.Second),
-				time.Until(eta).Truncate(time.Second))
+			log("Supply ship in transit: %s (%s)", eta, time.Until(eta))
 		} else {
 			log("Supply ship waiting for new relays -- consider printing some")
 		}

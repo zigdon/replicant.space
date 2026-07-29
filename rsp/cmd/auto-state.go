@@ -88,8 +88,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	for {
-		log("Waiting for next process event: %s",
-			time.Until(eq.Next()).Truncate(time.Second))
+		log("Waiting for next process event: %s", time.Until(eq.Next()))
 		ev := eq.Wait()
 		if ev == nil {
 			return fmt.Errorf("No more events in the queue")

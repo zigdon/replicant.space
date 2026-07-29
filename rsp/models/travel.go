@@ -125,7 +125,6 @@ func (j *Journey) Cache() error {
 	row := db.DB.QueryRow(`SELECT id FROM cached_journey WHERE origin = $1 AND dest = $2`, j.Source, j.Dest)
 	if row.Err() == nil {
 		if err := row.Scan(&j.ID); err == nil {
-			log("Loaded existing ID: %d", j.ID)
 		} else {
 			// Find the next ID
 			row := db.DB.QueryRow(`SELECT max(id)+1 from cached_journey`)
@@ -133,7 +132,6 @@ func (j *Journey) Cache() error {
 				return row.Err()
 			}
 			if err := row.Scan(&j.ID); err == nil {
-				log("Setting new ID: %d", j.ID)
 			} else {
 				return err
 			}

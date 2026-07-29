@@ -88,11 +88,26 @@ var aliasAddCmd = &cobra.Command{
 	},
 }
 
+var aliasRenameCmd = &cobra.Command{
+	Use:   "rename",
+	Short: "Change the alias of a device",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) != 2 {
+			return fmt.Errorf("Missing arguments: rsp alias rename <old> <new>")
+		}
+		oldAlias, newAlias := args[0], args[1]
+		_, err := db.DB.Exec("UPDATE aliases SET name = $1 WHERE name = $2", newAlias, oldAlias)
+		if err != nil {
+			return err
+		}
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(cacheCmd)
 	cacheCmd.AddCommand(cacheInitCmd)
-	cacheInitCmd.Flags().Bool("create", false,
-		"Be willing to create a new db if none is found")
+	cacheInitCmd.Flags().Bool("create", false, "Be willing to create a new db if none is found")
 	cacheCmd.AddCommand(reloadStarsCmd)
 	cacheCmd.AddCommand(statsCmd)
 	cacheCmd.AddCommand(updateSchemaCmd)
@@ -103,6 +118,7 @@ func init() {
 
 	cacheCmd.AddCommand(aliasCmd)
 	aliasCmd.AddCommand(aliasAddCmd)
+	aliasCmd.AddCommand(aliasRenameCmd)
 }
 
 func resetUniverse(cmd *cobra.Command, args []string) error {

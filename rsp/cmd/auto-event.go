@@ -631,7 +631,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			src = loc
 		} else if r.Travel != nil {
 			src = r.Travel.Destination.Star()
-			loc = fmt.Sprintf("-> (%s) %s", r.Travel.Eta.Duration().Truncate(time.Second), r.Travel.Destination)
+			loc = fmt.Sprintf("-> (%s) %s", r.Travel.Eta.Duration(), r.Travel.Destination)
 		} else {
 			continue
 		}

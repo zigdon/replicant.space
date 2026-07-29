@@ -37,7 +37,7 @@ var travelCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		log("Travel initiated, ETA: %s (%s)", eta, time.Until(eta).Truncate(time.Second))
+		log("Travel initiated, ETA: %s (%s)", eta, time.Until(eta))
 		return nil
 	},
 }

@@ -291,7 +291,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	if !done.IsZero() {
-		log("Print queue ETA: %s (in %s)", done.Format(time.Stamp), time.Until(done).Truncate(time.Second))
+		log("Print queue ETA: %s (in %s)", done.Format(time.Stamp), time.Until(done))
 		n := &models.Notification{
 			Start:  time.Now(),
 			End:    done,
@@ -429,8 +429,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				if err != nil {
 					return err
 				}
-				log("Carrier in transit, eta %s (%s)",
-					eta.Truncate(time.Second), time.Until(eta).Truncate(time.Second))
+				log("Carrier in transit, eta %s (%s)", eta, time.Until(eta))
 				n := &models.Notification{
 					Start:  time.Now(),
 					End:    eta,
@@ -456,8 +455,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			log("Carrier in transit, eta %s (%s)",
-				eta.Truncate(time.Second), time.Until(eta).Truncate(time.Second))
+			log("Carrier in transit, eta %s (%s)", eta, time.Until(eta))
 			return nil
 		}
 	}

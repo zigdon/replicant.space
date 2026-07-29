@@ -35,12 +35,8 @@ func fillTime(ts string, dest *time.Time) error {
 	if err != nil {
 		return err
 	}
-	*dest = parsed
+	*dest = parsed.Truncate(time.Second)
 	return nil
-}
-
-func log(tmpl string, args ...any) {
-	fmt.Printf(time.Now().Format(time.Stamp)+" - "+tmpl+"\n", args...)
 }
 
 type Cachable interface {
@@ -103,7 +99,7 @@ func (jtd *JSONTimeDelta) UnmarshalJSON(data []byte) error {
 	} else {
 		return err
 	}
-	*jtd = JSONTimeDelta{float32(td.Seconds()), td}
+	*jtd = JSONTimeDelta{float32(td.Seconds()), td.Truncate(time.Second)}
 	return nil
 }
 
@@ -143,7 +139,7 @@ func (jt *JSONTime) UnmarshalJSON(data []byte) error {
 	}
 	var ts time.Time
 	err := fillTime(orig, &ts)
-	*jt = JSONTime{orig, ts}
+	*jt = JSONTime{orig, ts.Truncate(time.Second)}
 	return err
 }
 
@@ -168,11 +164,11 @@ func (jt *JSONTime) Format() string {
 	now := time.Now()
 	var eta string
 	if jt.ts.Before(now) {
-		eta = fmt.Sprintf("%s ago", now.Sub(jt.ts).Round(time.Second).String())
+		eta = fmt.Sprintf("%s ago", now.Sub(jt.ts).Truncate(time.Second).String())
 	} else {
-		eta = fmt.Sprintf("in %s", jt.ts.Sub(now).Round(time.Second).String())
+		eta = fmt.Sprintf("in %s", jt.ts.Sub(now).Truncate(time.Second).String())
 	}
-	return fmt.Sprintf("%s (%s)", jt.ts.Format(time.DateTime), eta)
+	return fmt.Sprintf("%s (%s)", jt.ts.Format(time.Stamp), eta)
 }
 
 func (jt *JSONTime) Time() time.Time {

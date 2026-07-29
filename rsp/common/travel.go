@@ -131,11 +131,11 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 	cfg["dry_run"] = dryRun
 	res, err := rest.DeviceCommand[models.CommandResp](id, "travel", cfg)
 	if err != nil {
-		return eta, fmt.Errorf("Failed to send %s from %q to %q: %v", id.Alias(), info.Location, location, err)
+		return eta, fmt.Errorf("Failed to send %s from %q to %q: %v",
+			id.Alias(), info.Location, location, err)
 	}
 	eta = res.Arrives.Time()
 	Log("Shipped %s to %s: ETA %s (%s)", id.Alias(), location,
-		time.Now().Add(res.TotalTime.Duration()).Truncate(time.Second),
-		res.TotalTime.Duration().Truncate(time.Second))
+		time.Now().Add(res.TotalTime.Duration()), res.TotalTime.Duration())
 	return eta, nil
 }

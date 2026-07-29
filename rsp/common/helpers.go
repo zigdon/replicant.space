@@ -18,6 +18,16 @@ var bps map[string]*models.Blueprint
 var LogFh io.Writer = os.Stderr
 
 func Log(tmpl string, args ...any) {
+	for n, a := range args {
+		switch a := a.(type) {
+		case time.Time:
+			args[n] = a.Truncate(time.Second).Format(time.Stamp)
+		case time.Duration:
+			args[n] = a.Truncate(time.Second)
+		case *models.CodeAlias:
+			args[n] = a.Alias()
+		}
+	}
 	date := time.Now().Format(time.Stamp) + " - "
 	if !strings.HasSuffix(tmpl, "\n") {
 		tmpl += "\n"
