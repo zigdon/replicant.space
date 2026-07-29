@@ -65,13 +65,13 @@ var deviceListCmd = &cobra.Command{
 
 		var origin *models.Position
 		if src := getString(cmd, "distance"); src != "" {
-			if o, err := getInfo(models.NewCodeAlias(src)); err == nil {
-				origin = o.GetPosition()
-				log("Distance from device %s: %s", o.Code.Alias(), origin)
-			} else if oStar, err := models.NewStar(src); err == nil {
+			if oStar, err := models.NewStar(src); err == nil {
 				// It's a location (probably)
 				origin = oStar.Position
 				log("Distance from star %s: %s", src, origin)
+			} else if o, err := getInfo(models.NewCodeAlias(src)); err == nil {
+				origin = o.GetPosition()
+				log("Distance from device %s: %s", o.Code.Alias(), origin)
 			} else {
 				log("Unknown origin %s: %v", src, err)
 			}

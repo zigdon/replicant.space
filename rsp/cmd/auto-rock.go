@@ -26,7 +26,6 @@ func autoRock(cmd *cobra.Command, args []string) error {
 			if e.EventType != "system_object_detected" {
 				continue
 			}
-			log("%s: %s", sh.Code.Alias(), e.Message)
 			id := e.Payload["object_designation"].(string)
 			info, err := rest.Location(id)
 			if err != nil {
@@ -41,18 +40,46 @@ func autoRock(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	getLocs := func(t string) (map[string][]*models.CodeAlias, error) {
+		ps, err := rest.Devices(map[string]string{"device_type": t})
+		if err != nil {
+			return nil, err
+		}
+		locs := make(map[string][]*models.CodeAlias)
+		for _, p := range ps {
+			locs[string(p.Location)] = append(locs[string(p.Location)], p.Code)
+		}
+		return locs, err
+	}
+	pLocs, err := getLocs("propulsor")
+	if err != nil {
+		return err
+	}
+	mLocs, err := getLocs("mobile_fleet")
+	if err != nil {
+		return err
+	}
+
 	var data [][]string
 	for _, o := range objs {
+		var mf string
+		if loc := mLocs[string(o.Designation)]; len(loc) > 0 {
+			mf = loc[0].Alias()
+		}
+		if o.Status != "active" && mf == "" && len(pLocs[string(o.Designation)]) == 0 {
+			continue
+		}
 		data = append(data, []string{
 			string(o.Designation), o.SizeClass, t(o.ImpactEta.Time()), o.Status,
 			d(o.ActivePlates), f(o.CurrentThrustPerHour),
 			f(o.RequiredStrength), p(o.ImpactLikelihood),
+			d(len(pLocs[string(o.Designation)])), mf,
 		})
 	}
 
 	printTable([]string{
 		"Designation", "Size", "ETA", "Status", "Active Plates", "Current TPH",
-		"Requirered PTH", "Impact Likelyhood",
+		"Requirered PTH", "Impact Likelyhood", "Propulsors", "Carrier",
 	}, data)
 
 	return nil

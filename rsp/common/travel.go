@@ -134,8 +134,7 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 		return eta, fmt.Errorf("Failed to send %s from %q to %q: %v",
 			id.Alias(), info.Location, location, err)
 	}
-	eta = res.Arrives.Time()
-	Log("Shipped %s to %s: ETA %s (%s)", id.Alias(), location,
-		time.Now().Add(res.TotalTime.Duration()), res.TotalTime.Duration())
+	eta = time.Now().Add(res.TotalTime.Duration())
+	Log("Shipped %s to %s: ETA %s (%s)", id, location, eta, res.TotalTime.Duration())
 	return eta, nil
 }

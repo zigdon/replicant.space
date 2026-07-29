@@ -145,7 +145,6 @@ func travel(id *models.CodeAlias, location string) (time.Time, error) {
 		if err != nil {
 			return eta, fmt.Errorf("Failed to send %s from %q to %q: %v", id.Alias(), info.Location, location, err)
 		}
-		log("Shipped %s to %s: ETA %s (%s)", id.Alias(), location, eta, time.Until(eta))
 	}
 	return eta, nil
 }

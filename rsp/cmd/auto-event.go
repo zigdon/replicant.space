@@ -190,7 +190,21 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	log("Checking inventory at %s", ev.Location)
 	home := getString(cmd, "home")
 	missing := make(map[string]int)
+	maxEta := func(etas []time.Time) time.Time {
+		if len(etas) == 0 {
+			return time.Time{}
+		}
+		max := etas[1]
+		for _, e := range etas {
+			if e.After(max) {
+				max = e
+			}
+		}
+		return max
+	}
 	deliver := func() (time.Time, error) {
+		// Keep track of all the ETAs, with now as the "last resort".
+		etas := []time.Time{time.Now()}
 		var needRes, needDev bool
 		for k, v := range missing {
 			if v <= 0 {
@@ -214,17 +228,16 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 
 		var freeCFs, freeSPs []*models.Device
-		var eta time.Time
 		if needRes {
 			log("Finding available freighters...")
 			cfs, err := rest.Devices(map[string]string{"device_type": "cargo_freighter"})
 			if err != nil {
-				return eta, err
+				return etas[0], err
 			}
 			for _, cf := range cfs {
 				cf, err := rest.DeviceInfo(cf.Code)
 				if err != nil {
-					return eta, err
+					return etas[0], err
 				}
 				if string(cf.Location) == home && len(cf.Cargo) == 0 {
 					freeCFs = append(freeCFs, cf)
@@ -238,8 +251,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					for _, c := range cf.Cargo {
 						log("... %.0f x %s", c.Quantity, c.ResourceType)
 						enRoute[c.ResourceType] += int(c.Quantity)
-						if _, ok := missing[c.ResourceType]; ok && cf.Travel != nil && cf.Travel.Arrives.Time().After(eta) {
-							eta = cf.Travel.Arrives.Time()
+						if _, ok := missing[c.ResourceType]; ok && cf.Travel != nil {
+							etas = append(etas, cf.Travel.Arrives.Time())
 						}
 					}
 				} else {
@@ -248,7 +261,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						if !dryRun {
 							_, err := rest.DeviceCommand[models.CommandResp](cf.Code, "deposit_resources", nil)
 							if err != nil {
-								return eta, err
+								return etas[0], err
 							}
 						}
 						for _, c := range cf.Cargo {
@@ -261,7 +274,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					log("Sending %s back home", cf.Code.Alias())
 					if !dryRun {
 						if _, err := travel(cf.Code, home); err != nil {
-							return eta, err
+							return etas[0], err
 						}
 					}
 				}
@@ -273,12 +286,12 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			for _, t := range []string{"surge_platform", "mobile_fleet"} {
 				sps, err := rest.Devices(map[string]string{"device_type": t})
 				if err != nil {
-					return eta, err
+					return etas[0], err
 				}
 				for _, sp := range sps {
 					sp, err := rest.DeviceInfo(sp.Code)
 					if err != nil {
-						return eta, err
+						return etas[0], err
 					}
 					if string(sp.Location) == home && len(sp.AttachedDevices) == 0 {
 						freeSPs = append(freeSPs, sp)
@@ -290,10 +303,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						log("Detaching %d devices from %s", len(sp.AttachedDevices), sp.Code.Alias())
 						if !dryRun {
 							if _, err := rest.DeviceCommand[models.CommandResp](sp.Code, "detach", nil); err != nil {
-								return eta, err
+								return etas[0], err
 							}
 							if _, err := travel(sp.Code, home); err != nil {
-								return eta, err
+								return etas[0], err
 							}
 						}
 						for _, ad := range sp.AttachedDevices {
@@ -304,7 +317,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 							if !dryRun {
 								res, err := rest.DeviceCommand[models.CommandResp](ad.Code, "unfurl", nil)
 								if err != nil {
-									return eta, err
+									return etas[0], err
 								}
 								log("... %s", res.Completes.Time())
 							}
@@ -315,10 +328,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						if sp.Travel == nil {
 							continue
 						}
-						if _, ok := missing[ad.Type]; ok && sp.Travel.Arrives.Time().After(eta) {
-							if sp.Travel.Arrives.Time().After(eta) {
-								eta = sp.Travel.Arrives.Time()
-							}
+						if _, ok := missing[ad.Type]; ok {
+							etas = append(etas, sp.Travel.Arrives.Time())
 						}
 					}
 				}
@@ -338,7 +349,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if len(missing) == 0 {
-			if !eta.IsZero() {
+			eta := maxEta(etas)
+			if len(etas) > 1 {
 				log("All required resources are already en-route, ETA %s (%s)", eta, time.Until(eta))
 			}
 			return eta, nil
@@ -347,7 +359,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		if needRes {
 			// Find an empty cf at home, use it
 			if len(freeCFs) == 0 {
-				return eta, fmt.Errorf("No freighters available to deliver %v to %s", missing, ev.Location)
+				return etas[0], fmt.Errorf("No freighters available to deliver %v to %s", missing, ev.Location)
 			}
 			for _, cf := range freeCFs {
 				if len(missing) == 0 {
@@ -391,18 +403,16 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						"resources": get,
 					})
 					if err != nil {
-						return eta, err
+						return etas[0], err
 					}
 				}
 				log("%s shipping to %s", cf.Code.Alias(), ev.Location)
 				if !dryRun {
 					newEta, err := travel(cf.Code, string(ev.Location))
 					if err != nil {
-						return eta, err
+						return etas[0], err
 					}
-					if newEta.After(eta) {
-						eta = newEta
-					}
+					etas = append(etas, newEta)
 				}
 			}
 		}
@@ -412,7 +422,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			var pickUp []*models.Device
 			tagged, err := rest.GetTagged(tag)
 			if err != nil {
-				return eta, err
+				return etas[0], err
 			}
 			log("Searching for existing devices...")
 			for _, d := range tagged.Devices {
@@ -430,12 +440,12 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			printers, err := getHomeFactories(home)
 			queue := make(map[string]time.Duration)
 			if err != nil {
-				return eta, err
+				return etas[0], err
 			}
 			for _, p := range printers {
 				info, err := rest.DeviceInfo(p)
 				if err != nil {
-					return eta, err
+					return etas[0], err
 				}
 				if info.Printing != nil && slices.Contains(info.Printing.Tags, tag) {
 					log("... %s is printing %s", p.Alias(), info.Printing.DeviceType)
@@ -462,16 +472,14 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				for missing[k] > 0 {
 					p, err := rest.FindPrinter(printers, queue)
 					if err != nil {
-						return eta, err
+						return etas[0], err
 					}
 					bp := getBP(k)
 					queue[p.String()] += bp.PrintTime.Duration()
 					printETA := time.Now().Add(queue[p.String()])
 					log("Printing %s at %s, eta: %s (%s)", k, p.Alias(),
 						queue[p.String()], printETA)
-					if printETA.After(eta) {
-						eta = printETA
-					}
+					etas = append(etas, printETA)
 					if !dryRun {
 						_, err = rest.DeviceCommand[models.CommandResp](
 							p, "enqueue_print", map[string]any{
@@ -489,7 +497,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 
 			// Find an empty platform at home, use it
 			if len(freeSPs) == 0 {
-				return eta, fmt.Errorf("No platforms available to deliver %v to %s", missing, ev.Location)
+				return etas[0], fmt.Errorf("No platforms available to deliver %v to %s", missing, ev.Location)
 			}
 			slices.SortFunc(freeSPs, func(a, b *models.Device) int {
 				return cmp.Compare(a.AttachCapacity, b.AttachCapacity)
@@ -497,7 +505,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			log("available platforms: %v", devList(freeSPs))
 			if len(pickUp) == 0 {
 				log("Nothing to pick up yet, waiting for print jobs to complete")
-				return eta, nil
+				return maxEta(etas), nil
 			}
 			var ids []*models.CodeAlias
 			for _, d := range pickUp {
@@ -508,7 +516,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 							continue
 						}
 						if res, err := rest.DeviceCommand[models.CommandResp](d.Code, "compact", nil); err != nil {
-							return eta, err
+							return etas[0], err
 						} else {
 							log("... %s (%s)", res.Completes.Format(), time.Until(res.Completes.Time()))
 						}
@@ -534,18 +542,16 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						if !dryRun {
 							_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids})
 							if err != nil {
-								return eta, err
+								return etas[0], err
 							}
 						}
 						log("%s shipping to %s", sp.Code.Alias(), ev.Location)
 						if !dryRun {
 							newEta, err := travel(sp.Code, string(ev.Location))
 							if err != nil {
-								return eta, err
+								return etas[0], err
 							}
-							if newEta.After(eta) {
-								eta = newEta
-							}
+							etas = append(etas, newEta)
 						}
 						break
 					} else {
@@ -553,18 +559,16 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						if !dryRun {
 							_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids[:avail]})
 							if err != nil {
-								return eta, err
+								return etas[0], err
 							}
 						}
 						log("%s shipping to %s", sp.Code.Alias(), ev.Location)
 						if !dryRun {
 							newEta, err := travel(sp.Code, string(ev.Location))
 							if err != nil {
-								return eta, err
+								return etas[0], err
 							}
-							if newEta.After(eta) {
-								eta = newEta
-							}
+							etas = append(etas, newEta)
 						}
 						pickUp = pickUp[avail:]
 					}
@@ -572,7 +576,12 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		if len(missing) == 0 {
+		log("ETAs:")
+		for _, eta := range etas {
+			log("  %s (%s)", eta, time.Until(eta))
+		}
+		eta := maxEta(etas)
+		if len(missing) == 0 && time.Now().After(eta) {
 			log("Deliveries complete")
 			return eta, nil
 		}
