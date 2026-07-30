@@ -141,7 +141,7 @@ func travel(id *models.CodeAlias, location string) (time.Time, error) {
 		return eta, fmt.Errorf("Can't get %s info: %v", id.Alias(), err)
 	}
 	if string(info.Location) != location {
-		eta, err := common.Travel(id, location, false)
+		eta, err = common.Travel(id, location, false)
 		if err != nil {
 			return eta, fmt.Errorf("Failed to send %s from %q to %q: %v", id.Alias(), info.Location, location, err)
 		}

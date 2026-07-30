@@ -76,6 +76,11 @@ func humanize(in string) string {
 		return in
 	}
 	var out string
+	var neg bool
+	if in[0] == '-' {
+		neg = true
+		in = in[1:]
+	}
 	d := strings.Index(in, ".")
 	if d >= 0 {
 		out = in[d:]
@@ -86,6 +91,9 @@ func humanize(in string) string {
 		in = in[:len(in)-3]
 	}
 	out = in + out
+	if neg {
+		return "-" + out
+	}
 	return out
 }
 
