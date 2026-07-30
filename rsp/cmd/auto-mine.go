@@ -25,30 +25,41 @@ import (
 // Set ami policy
 
 func autoMine(cmd *cobra.Command, args []string) error {
-	getStar := func(loc string) (string, bool) {
-		star, _, ok := strings.Cut(loc, "-")
-		return star, ok
-	}
 	// Validate the location
 	locName := getString(cmd, "location")
 	loc, err := rest.Location(locName)
 	if err != nil {
 		return err
 	}
-	star, ok := getStar(locName)
-	if !ok {
-		return fmt.Errorf("Can't figure out the star from %q", locName)
+	density := loc.AsteroidBelt.Belts[0].Density
+	star := loc.Location.Star()
+	log("Destination system: %s (%s)", star, density)
+
+	scaling := map[string]int{
+		"sparse":   1,
+		"moderate": 4,
+		"dense":    10,
 	}
-	log("Destination system: %s", star)
+	scale := getInt(cmd, "scale")
+	if scale == 0 {
+		var ok bool
+		scale, ok = scaling[density]
+		if !ok {
+			return fmt.Errorf("Unknown density %q, can't figure out scale", density)
+		}
+	}
 
 	// Define the desired fleet shape
 	missing := map[string]int{
 		"ami_mining_controller": 1,
 		"ami_survey_controller": 1,
 		"service_bot":           1,
-		"mining_drone":          3,
-		"belt_surveyor":         1,
+		"mining_drone":          5,
+		"belt_surveyor":         2,
 	}
+	missing["mining_drone"] *= scale
+	log("Using %d mining drones", missing["mining_drones"])
+
 	skip := getStringSlice(cmd, "skip")
 	for _, sk := range skip {
 		log("Skipping %q", sk)

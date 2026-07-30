@@ -264,14 +264,12 @@ func msgTable(cmd *cobra.Command, args []string) error {
 			return
 		}
 		msg := ref.(*models.Message)
-		msgWin.Clear().SetTitle(msg.Title)
-		printTablef(msgWin, []string{
-			"Created", "Type", "ID", "Title",
-		}, [][]string{{
-			t(msg.Created.Time()), msg.Type, d(msg.ID), msg.Title,
-		}})
-		printTablef(msgWin, []string{"Body"}, [][]string{{
-			wrap(msg.Body, 80)}})
+		msgWin.Clear().SetTitle(fmt.Sprintf("  %s  ", msg.Title))
+		fmt.Fprintf(msgWin, "%s (%s ago) %-20s\n\n",
+			msg.Created.Time().Truncate(time.Second).Format(time.Stamp),
+			time.Since(msg.Created.Time()).Truncate(time.Second), msg.Type,
+		)
+		fmt.Fprintf(msgWin, "%s", msg.Body)
 	}
 	markReadCell := func(row, col int) {
 		ref := listWin.GetCell(row, 0).GetReference()
@@ -312,6 +310,7 @@ func msgTable(cmd *cobra.Command, args []string) error {
 	listWin.SetSelectionChangedFunc(displayCell).
 		SetBorder(true)
 	titleStyle := tcell.StyleDefault.Underline(true)
+	listWin.SetBorderPadding(1, 1, 1, 1)
 	listWin.SetSelectedFunc(markReadCell).
 		SetCell(0, 0, NewCell(false, "When").SetAlign(tview.AlignCenter).SetStyle(titleStyle)).
 		SetCell(0, 1, NewCell(false, "Type").SetAlign(tview.AlignCenter).SetStyle(titleStyle)).
@@ -319,7 +318,7 @@ func msgTable(cmd *cobra.Command, args []string) error {
 		SetFixed(1, 0)
 
 	logWin := newLogWindow()
-	msgWin.SetBorder(true)
+	msgWin.SetBorder(true).SetBorderPadding(2, 2, 2, 2)
 	layout := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(tview.NewFlex().

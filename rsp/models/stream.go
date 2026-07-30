@@ -3,7 +3,6 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/zigdon/rsp/cache"
@@ -76,36 +75,11 @@ type StreamAmiDigest struct {
 	} `json:"activity"`
 }
 
-func (sad *StreamAmiDigest) Columns() []string {
-	return sad.Report.Columns()
-}
-
-func (sad *StreamAmiDigest) Lines() [][]string {
-	return sad.Report.Lines()
-}
-
 type AmiReport struct {
 	Mining   *AmiMiningReport
 	Survey   *AmiSurveyReport
 	Ferry    *AmiFerryReport
 	Delivery *AmiDeliveryReport
-}
-
-func (ar *AmiReport) Columns() []string {
-	if ar.Mining != nil {
-		return ar.Mining.Columns()
-	}
-	if ar.Ferry != nil {
-		return ar.Ferry.Columns()
-	}
-	return []string{}
-}
-
-func (ar *AmiReport) Lines() [][]string {
-	if ar.Mining != nil {
-		return ar.Mining.Lines()
-	}
-	return [][]string{}
 }
 
 func (ar *AmiReport) UnmarshalJSON(data []byte) error {
@@ -138,27 +112,6 @@ type AmiMiningReport struct {
 	} `json:"resources"`
 }
 
-func (amr *AmiMiningReport) Columns() []string {
-	return []string{"Resource", "Actual", "Capacity", "Desired", "Exhausted"}
-}
-
-func (amr *AmiMiningReport) Lines() [][]string {
-	var res [][]string
-	var names []string
-	for r := range amr.Resources {
-		names = append(names, r)
-	}
-	slices.Sort(names)
-	for _, n := range names {
-		l := amr.Resources[n]
-		res = append(res, []string{
-			n, d(l.Actual), d(l.Capacity), d(l.Desired), v(l.Exhausted),
-		})
-	}
-
-	return res
-}
-
 type AmiSurveyReport struct {
 	AssignedThisTick int `json:"assigned_this_tick"`
 	Busy             int `json:"busy"`
@@ -180,16 +133,6 @@ type AmiFerryReport struct {
 		Loading    int `json:"loading"`
 		Waiting    int `json:"waiting"`
 	} `json:"fleet"`
-}
-
-func (afr *AmiFerryReport) Columns() []string {
-	return []string{"From", "To", "Capacity", "Carried", "Delivering", "Loading", "Waiting"}
-}
-
-func (afr *AmiFerryReport) Lines() [][]string {
-	return [][]string{{string(afr.Collect), string(afr.Deliver),
-		d(afr.CargoCapacity), d(afr.CargoCarried),
-		d(afr.Fleet.Delivering), d(afr.Fleet.Loading), d(afr.Fleet.Waiting)}}
 }
 
 type AmiDeliveryReport struct {

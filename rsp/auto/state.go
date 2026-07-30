@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -40,7 +41,7 @@ func getTags(dev *models.Device) map[string]string {
 }
 
 func log(tmpl string, args ...any) {
-	fmt.Printf(time.Now().Format(time.Stamp)+" - "+tmpl+"\n", args...)
+	common.Log(tmpl, args...)
 }
 
 func deviceCommand(id *models.CodeAlias, cmd string, args map[string]any) (*models.CommandResp, error) {
