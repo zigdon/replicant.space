@@ -47,13 +47,14 @@ func (dm *DivertMachine) Start(d *models.Device, dryRun bool) error {
 		break
 	}
 	if dm.mtd == nil && dm.dev.Location != "" {
-		mtds, err := rest.Devices(map[string]string{"location": dm.dev.Location.Star(), "device_type": "maintenance_drone", "tag": "rocks"})
+		mtds, err := rest.Devices(map[string]string{"location": dm.dev.Location.Star(), "device_type": "maintenance_drone", "tag": fmt.Sprintf("support:%s", dm.dev.Code.Alias())})
 		if err != nil {
 			return err
 		}
-		if len(mtds) > 0 {
-			dm.mtd = mtds[0]
+		if len(mtds) == 0 {
+			return fmt.Errorf("Could not find mtd for %q at %q", dm.dev.Code.Alias(), dm.dev.Location.Star())
 		}
+		dm.mtd = mtds[0]
 	}
 	if dm.mtd == nil {
 		return fmt.Errorf("Can't find a mtd for %s @ %s", dm.dev.Code.Alias(), dm.dev.Location)
@@ -196,6 +197,9 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 			ids = append(ids, p.Code.String())
 		}
 		if len(ids) > 0 {
+			if len(ids) > 30 {
+				ids = ids[:30]
+			}
 			res, err := deviceCommand(dm.dev.Code, "attach", map[string]any{"targets": ids}, dm.dryRun)
 			if err != nil {
 				return eta, err
@@ -215,8 +219,10 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 				return eta, err
 			}
 			nextState = "departing"
+			eta = time.Now()
 		} else {
 			nextState = "departing"
+			eta = time.Now()
 		}
 	case "departing":
 		rocks, err := common.GetRocks()
@@ -224,7 +230,7 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		// Check where other fleets are heading, to avoid clustering
-		mfs, err := rest.Devices(map[string]string{"device_type": "mobile_fleet", "tag": "rocks"})
+		mfs, err := rest.RefreshDevices(map[string]string{"device_type": "mobile_fleet", "tag": "rocks"})
 		if err != nil {
 			return eta, err
 		}
