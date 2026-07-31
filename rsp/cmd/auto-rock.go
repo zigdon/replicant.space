@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
+	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/common"
@@ -11,6 +13,7 @@ import (
 )
 
 func autoRock(cmd *cobra.Command, args []string) error {
+	log("Finding hubs...")
 	shs, err := rest.Devices(map[string]string{"device_type": "system_hub"})
 	if err != nil {
 		return err
@@ -18,29 +21,43 @@ func autoRock(cmd *cobra.Command, args []string) error {
 
 	var errs []error
 	var objs []*models.Object
+	log("Loading logs...")
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for _, sh := range shs {
-		logs, err := rest.DeviceLogs(sh.Code, true, 0, 50)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("Error getting logs from %q: %v", sh.Code.Alias(), err))
-			continue
-		}
-		for _, e := range logs.Events {
-			if e.EventType != "system_object_detected" {
-				continue
-			}
-			id := e.Payload["object_designation"].(string)
-			info, err := rest.Location(id)
+		wg.Go(func() {
+			fmt.Print(".")
+			logs, err := rest.DeviceLogs(sh.Code, true, 0, 50)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("Can't get info for %q: %v", id, err))
-				continue
+				errs = append(errs, fmt.Errorf("Error getting logs from %q: %v", sh.Code.Alias(), err))
+				return
 			}
-			if info.Object == nil {
-				errs = append(errs, fmt.Errorf("Info for %q does not include object: %v", id, info))
-				continue
+			for _, e := range logs.Events {
+				if e.EventType != "system_object_detected" {
+					continue
+				}
+				id := e.Payload["object_designation"].(string)
+				info, err := rest.Location(id)
+				if err != nil {
+					mu.Lock()
+					errs = append(errs, fmt.Errorf("Can't get info for %q: %v", id, err))
+					mu.Unlock()
+					continue
+				}
+				if info.Object == nil {
+					mu.Lock()
+					errs = append(errs, fmt.Errorf("Info for %q does not include object: %v", id, info))
+					mu.Unlock()
+					continue
+				}
+				mu.Lock()
+				objs = append(objs, info.Object)
+				mu.Unlock()
 			}
-			objs = append(objs, info.Object)
-		}
+		})
 	}
+	wg.Wait()
+	fmt.Println()
 
 	getLocs := func(t string) (map[string][]*models.CodeAlias, error) {
 		ps, err := rest.Devices(map[string]string{"device_type": t})
@@ -65,6 +82,9 @@ func autoRock(cmd *cobra.Command, args []string) error {
 	var data [][]string
 	var done []string
 	var next []string
+	slices.SortFunc(objs, func(a, b *models.Object) int {
+		return cmp.Compare(a.Designation.Star(), b.Designation.Star())
+	})
 	for _, o := range objs {
 		var mf string
 		if loc := mLocs[string(o.Designation)]; len(loc) > 0 {
