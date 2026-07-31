@@ -51,7 +51,7 @@ func ParsePosition(coords string) (*Position, error) {
 }
 
 func (p *Position) Distance(to *Position) float32 {
-	if to == nil {
+	if p == nil || to == nil {
 		return 0
 	}
 	return float32(math.Sqrt(

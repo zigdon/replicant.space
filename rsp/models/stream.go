@@ -93,7 +93,7 @@ func (ar *AmiReport) UnmarshalJSON(data []byte) error {
 	if _, ok := pp["deliver"]; ok {
 		return json.Unmarshal(data, &ar.Ferry)
 	}
-	if _, ok := pp["progress"]; ok {
+	if _, ok := pp["scans"]; ok {
 		return json.Unmarshal(data, &ar.Survey)
 	}
 	if _, ok := pp["resources"]; ok {

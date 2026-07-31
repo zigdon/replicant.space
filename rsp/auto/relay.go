@@ -226,7 +226,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		if rm.dev.Location != scan.EntryPoint {
 			res, err := deviceCommand(rm.dev.Code, "travel", map[string]any{
 				"destination": scan.EntryPoint,
-			})
+			}, rm.dryRun)
 			eta = res.Arrives.Time()
 			if err != nil {
 				return eta, err
@@ -249,24 +249,20 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			log("Out of relays")
 			nextState = "empty"
 		} else {
-			if rm.dryRun {
-				log("Would deploy, activate, and tag %s", fr.Alias())
-			} else {
-				// Deploy
-				_, err := deviceCommand(fr, "deploy", nil)
-				if err != nil {
-					return eta, err
-				}
-				// Activate
-				_, err = deviceCommand(fr, "activate", nil)
-				if err != nil {
-					return eta, err
-				}
-				// Tag
-				_, err = rest.UpdateTags(fr, rest.AddTag, []string{"infrastructure"})
-				if err != nil {
-					return eta, fmt.Errorf("Can't update tags on %q: %v", fr.Alias(), err)
-				}
+			// Deploy
+			_, err := deviceCommand(fr, "deploy", nil, rm.dryRun)
+			if err != nil {
+				return eta, err
+			}
+			// Activate
+			_, err = deviceCommand(fr, "activate", nil, rm.dryRun)
+			if err != nil {
+				return eta, err
+			}
+			// Tag
+			_, err = rest.UpdateTags(fr, rest.AddTag, []string{"infrastructure"})
+			if err != nil {
+				return eta, fmt.Errorf("Can't update tags on %q: %v", fr.Alias(), err)
 			}
 			log("Relay deployed at %s", rm.dev.Location)
 			nextState = "cleanup"
@@ -285,7 +281,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				if d.Location == rm.dev.Location {
 					_, err = deviceCommand(d.Code, "stow", map[string]any{
 						"target": rm.dev.Code,
-					})
+					}, rm.dryRun)
 					if err != nil {
 						return eta, err
 					}
@@ -297,7 +293,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				log("Moving to %q to pick up more spare FRs", next)
 				res, err := deviceCommand(rm.dev.Code, "travel", map[string]any{
 					"destination": next,
-				})
+				}, rm.dryRun)
 				if err != nil {
 					return eta, err
 				}
@@ -317,11 +313,13 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			}
 			var stowed = 0
 			for _, d := range rm.supply.AttachedDevices {
-				_, err := deviceCommand(rm.supply.Code, "detach", map[string]any{"target": d.Code.Alias()})
+				_, err := deviceCommand(rm.supply.Code, "detach",
+					map[string]any{"target": d.Code.Alias()}, rm.dryRun)
 				if err != nil {
 					return eta, err
 				}
-				_, err = deviceCommand(d.Code, "stow", map[string]any{"target": rm.dev.Code})
+				_, err = deviceCommand(d.Code, "stow",
+					map[string]any{"target": rm.dev.Code}, rm.dryRun)
 				if err != nil {
 					return eta, err
 				}
@@ -415,15 +413,11 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			for n := range homeFRs {
 				ids[n] = homeFRs[n].Code.Alias()
 			}
-			if rm.dryRun {
-				log("Would attach to supply %s: %v", rm.supply.Code.Alias(), ids)
-			} else {
-				_, err := deviceCommand(rm.supply.Code, "attach", map[string]any{
-					"targets": ids,
-				})
-				if err != nil {
-					return eta, err
-				}
+			_, err := deviceCommand(rm.supply.Code, "attach", map[string]any{
+				"targets": ids,
+			}, rm.dryRun)
+			if err != nil {
+				return eta, err
 			}
 		}
 		if len(rm.supply.AttachedDevices) > 0 {

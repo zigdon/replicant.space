@@ -354,6 +354,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			}
 			log("Searching for existing devices...")
 			for _, d := range tagged.Devices {
+				if slices.Contains([]string{"cargo_freighter", "mobile_fleet", "surge_platform"}, d.Type) {
+					continue
+				}
 				log("... %s (%s) at %s", d.Code.Alias(), d.Type, d.Location)
 				missing[d.Type].Need--
 				if string(d.Location) == home {

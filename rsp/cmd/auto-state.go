@@ -51,6 +51,9 @@ func autoState(cmd *cobra.Command, args []string) error {
 		} else if slices.Contains(d.Tags, "auto:relay") {
 			log("%s: relay -> %v", d.Code.Alias(), d.Tags)
 			sms[d.Code] = &auto.RelayMachine{}
+		} else if slices.Contains(d.Tags, "auto:divert") {
+			log("%s: divert -> %v", d.Code.Alias(), d.Tags)
+			sms[d.Code] = &auto.DivertMachine{}
 		} else {
 			return fmt.Errorf("Unknown state machine for %q: %v", d.Code.Alias(), d.Tags)
 		}
@@ -71,7 +74,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 		} else {
 			eq.AddEvent(
 				d.Alias(),
-				fmt.Sprintf("%s: State machine wait is done", d.Alias()),
+				fmt.Sprintf("%s: State machine %T wait is done", d.Alias(), m),
 				t, func() error {
 					return runStep(d, m)
 				}, nil,
@@ -89,6 +92,12 @@ func autoState(cmd *cobra.Command, args []string) error {
 	}
 	for {
 		log("Waiting for next process event: %s", time.Until(eq.Next()))
+		evs := eq.List()
+		var data [][]string
+		for _, e := range evs {
+			data = append(data, []string{e.When.Format(time.Stamp), e.Name, e.Desc})
+		}
+		printTable([]string{"When", "Who", "What"}, data)
 		ev := eq.Wait()
 		if ev == nil {
 			return fmt.Errorf("No more events in the queue")

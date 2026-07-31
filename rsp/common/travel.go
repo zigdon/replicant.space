@@ -135,6 +135,10 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 			id.Alias(), info.Location, location, err)
 	}
 	eta = time.Now().Add(res.TotalTime.Duration())
-	Log("Shipped %s to %s: ETA %s (%s)", id, location, eta, res.TotalTime.Duration())
+	if dryRun {
+		Log("[DRYRUN] Shipped %s to %s: ETA %s (%s)", id, location, eta, res.TotalTime.Duration())
+	} else {
+		Log("Shipped %s to %s: ETA %s (%s)", id, location, eta, res.TotalTime.Duration())
+	}
 	return eta, nil
 }

@@ -26,6 +26,8 @@ func Log(tmpl string, args ...any) {
 			args[n] = a.Truncate(time.Second)
 		case *models.CodeAlias:
 			args[n] = a.Alias()
+		case *models.Device:
+			args[n] = a.Code.Alias()
 		}
 	}
 	date := time.Now().Format(time.Stamp) + " - "

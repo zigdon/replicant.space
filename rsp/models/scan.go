@@ -2,7 +2,9 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"sort"
+	"time"
 )
 
 type Destination struct {
@@ -56,6 +58,12 @@ type Object struct {
 	Stage                string                 `json:"stage"`
 	StarDesignation      LocationID             `json:"star_designation"`
 	Status               string                 `json:"status"`
+}
+
+func (o *Object) Short() string {
+	return fmt.Sprintf("%s (%s, %.2f/%.2f), ETA %s (%s)",
+		o.Designation, o.SizeClass, o.CurrentThrustPerHour, o.RequiredStrength,
+		o.ImpactEta.Time(), time.Until(o.ImpactEta.Time()).Truncate(time.Second))
 }
 
 type LocationEvent struct {

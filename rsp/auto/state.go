@@ -44,7 +44,11 @@ func log(tmpl string, args ...any) {
 	common.Log(tmpl, args...)
 }
 
-func deviceCommand(id *models.CodeAlias, cmd string, args map[string]any) (*models.CommandResp, error) {
+func deviceCommand(id *models.CodeAlias, cmd string, args map[string]any, dryRun bool) (*models.CommandResp, error) {
+	if dryRun {
+		log("[DRYRUN] Issuing %q to %s: %v", cmd, id.Alias(), args)
+		return new(models.CommandResp), nil
+	}
 	log("Issuing %q to %s: %v", cmd, id.Alias(), args)
 	res, err := rest.DeviceCommand[models.CommandResp](id, cmd, args)
 	if err != nil {
@@ -87,9 +91,6 @@ func (eq *EventQueue) AddEvent(name, desc string, when time.Time, callback func(
 }
 
 func (eq *EventQueue) Next() time.Time {
-	for len(eq.queue) > 0 && eq.queue[0].When.Before(time.Now()) {
-		eq.queue = eq.queue[1:]
-	}
 	if len(eq.queue) == 0 {
 		return time.Now().Add(eq.timeout)
 	}
@@ -106,5 +107,11 @@ func (eq *EventQueue) Wait() *Event {
 	}
 	t := time.NewTimer(time.Until(eq.Next()))
 	<-t.C
-	return eq.queue[0]
+	ev := eq.queue[0]
+	eq.queue = eq.queue[1:]
+	return ev
+}
+
+func (eq *EventQueue) List() []*Event {
+	return eq.queue
 }

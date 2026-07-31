@@ -79,24 +79,12 @@ func (pm *ProspectMachine) Start(d *models.Device, dryRun bool) error {
 	return pm.UpdateState()
 }
 
-func (pm *ProspectMachine) deviceCmd(id *models.CodeAlias, cmd string, args map[string]any) (*models.CommandResp, error) {
-	if pm.dryRun {
-		log("Would issue [%q, %v] to %q", cmd, args, id.Alias())
-		return &models.CommandResp{}, nil
-	}
-	return deviceCommand(id, cmd, args)
-}
-
-func (pm *ProspectMachine) goCmd(cmd string, args map[string]any) (*models.CommandResp, error) {
-	return pm.deviceCmd(pm.dev.Code, cmd, args)
-}
-
 func (pm *ProspectMachine) platform(cmd string, arg string) (*models.CommandResp, error) {
 	switch cmd {
 	case "travel":
-		return pm.deviceCmd(pm.plat.Code, "travel", map[string]any{"destination": arg})
+		return deviceCommand(pm.plat.Code, "travel", map[string]any{"destination": arg}, pm.dryRun)
 	case "attach", "detach":
-		return pm.deviceCmd(pm.plat.Code, cmd, map[string]any{"device": arg})
+		return deviceCommand(pm.plat.Code, cmd, map[string]any{"device": arg}, pm.dryRun)
 	}
 
 	return nil, fmt.Errorf("Unknown platform command %q", cmd)
@@ -244,7 +232,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		nextTag = "teardown"
 		eta = pm.dev.Prospect.Completes.Time()
 	case "finished":
-		res, err := pm.goCmd("compact", nil)
+		res, err := deviceCommand(pm.dev.Code, "compact", nil, pm.dryRun)
 		if err != nil {
 			return eta, err
 		}
@@ -298,7 +286,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 				return eta, err
 			}
 		}
-		res, err := pm.goCmd("unfurl", nil)
+		res, err := deviceCommand(pm.dev.Code, "unfurl", nil, pm.dryRun)
 		if err != nil {
 			return eta, err
 		}
@@ -310,7 +298,8 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		// Wait
 	case "starting":
 		delta := pm.dest.Delta(pm.dev.GetPosition())
-		_, err := pm.goCmd("prospect", map[string]any{"direction": []float32{delta.X, delta.Y, delta.Z}})
+		_, err := deviceCommand(pm.dev.Code, "prospect",
+			map[string]any{"direction": []float32{delta.X, delta.Y, delta.Z}}, pm.dryRun)
 		if err != nil {
 			return eta, err
 		}
