@@ -27,11 +27,18 @@ import (
 func autoMine(cmd *cobra.Command, args []string) error {
 	// Validate the location
 	locName := getString(cmd, "location")
-	loc, err := rest.Location(models.LocationID(locName).Star())
+	loc, err := rest.Location(locName)
 	if err != nil {
 		return err
 	}
-	density := loc.AsteroidBelt.Belts[0].Density
+	var density string
+	if loc.AsteroidBelt != nil {
+		density = loc.AsteroidBelt.Belts[0].Density
+	} else if loc.Belt != nil {
+		density = loc.Belt.Density
+	} else {
+		return fmt.Errorf("Can't get the density of %q", locName)
+	}
 	star := loc.Location.Star()
 	log("Destination system: %s (%s)", star, density)
 
@@ -128,6 +135,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	log("Printers found: %v", pAliases)
 
 	tagged, err := rest.GetTagged(tag)
+	if err != nil {
+		return err
+	}
+	log("Found %d devices tagged %q: %v", len(tagged.Devices), tag, tagged.Devices)
 
 	// Find what is missing
 	amis := make(map[string]*models.CodeAlias)
@@ -174,6 +185,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get the existing or idle fleet
+	dryRun := getBool(cmd, "dry_run")
 	for _, d := range devs {
 		// Special case for relays - if there's one working in the system, we
 		// don't need another.
@@ -200,10 +212,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			stats[t].idle += 1
 			missing[t] -= 1
 			fleet[t] = append(fleet[t], d)
-			log("Tagging idle %s (%s)", t, d.Code.String())
-			_, err := rest.UpdateTags(d.Code, rest.AddTag, []string{tag})
-			if err != nil {
-				return err
+			if !dryRun {
+				log("Tagging idle %s (%s)", t, d.Code.String())
+				_, err := rest.UpdateTags(d.Code, rest.AddTag, []string{tag})
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -226,8 +240,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		})
 	}
 	printTable([]string{"Device", "Target", "Found", "Repurposed", "Missing", "Extra", "Members"}, data)
-
-	dryRun := getBool(cmd, "dry_run")
 
 	// Enqueue a build
 	buildTimes := make(map[string]time.Duration)
@@ -269,14 +281,16 @@ func autoMine(cmd *cobra.Command, args []string) error {
 					}
 				}
 				log("Printing %q at %q...", devType, factory.Alias())
-				res, err := rest.DeviceCommand[models.CommandResp](factory, "enqueue_print", cfg)
-				if err != nil {
-					return err
+				if !dryRun {
+					res, err := rest.DeviceCommand[models.CommandResp](factory, "enqueue_print", cfg)
+					if err != nil {
+						return err
+					}
+					data = append(data, []string{
+						factory.Alias(), devType, res.Status, d(res.QueueLength + 1),
+					})
 				}
 				extra[factory.String()] += buildTimes[devType]
-				data = append(data, []string{
-					factory.Alias(), devType, res.Status, d(res.QueueLength + 1),
-				})
 				qty -= 1
 				if fi, err := getInfo(factory); err == nil {
 					if eta, err := rest.GetPrintQueueETA(fi); err == nil {

@@ -356,7 +356,7 @@ type LocationSummary struct {
 }
 
 type Location struct {
-	AsteroidBelt struct {
+	AsteroidBelt *struct {
 		Belts   []*Belt `json:"belts"`
 		Present bool    `json:"present"`
 	} `json:"asteroid_belt"`
@@ -400,12 +400,14 @@ func (l *Location) Cache() error {
 		}
 		objs = append(objs, c)
 	}
-	for _, b := range l.AsteroidBelt.Belts {
-		if b == nil {
-			continue
+	if l.AsteroidBelt != nil {
+		for _, b := range l.AsteroidBelt.Belts {
+			if b == nil {
+				continue
+			}
+			b.Star = l.Star.Designation
+			objs = append(objs, b)
 		}
-		b.Star = l.Star.Designation
-		objs = append(objs, b)
 	}
 	for _, m := range l.Moons {
 		if m == nil {

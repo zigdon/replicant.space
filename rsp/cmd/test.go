@@ -25,7 +25,11 @@ func readStream(cmd *cobra.Command, args []string) error {
 	type util struct {
 		Actual, Capacity int
 	}
-	log("%20s: %s", "Location", strings.Join(resources, "\t"))
+	var titles []string
+	for _, r := range resources {
+		titles = append(titles, r[:3])
+	}
+	log("%20s: %s", "Location", strings.Join(titles, "\t"))
 
 	handle := func(ev map[string]string) error {
 		env, err := models.Parse[models.StreamEnvelope]([]byte(ev["data"]))
