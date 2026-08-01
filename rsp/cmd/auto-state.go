@@ -16,55 +16,67 @@ func autoState(cmd *cobra.Command, args []string) error {
 	// If devices were specified, process those. Otherwise, loop over
 	// all the defined states
 	var devs []*models.Device
-	if len(args) == 0 {
-		var err error
-		res, err := rest.GetTagged("auto")
-		if err != nil {
-			return err
-		}
-		for _, d := range res.Devices {
-			i, err := getInfo(d.Code)
-			if err != nil {
-				return err
-			}
-			devs = append(devs, i)
-		}
-	} else {
-		for _, d := range args {
-			i, err := getInfo(models.NewCodeAlias(d))
-			if err != nil {
-				return err
-			}
-			devs = append(devs, i)
-		}
-	}
-	if len(devs) == 0 {
-		return fmt.Errorf("No devices tagged 'auto' found.")
-	}
-
-	var sms = make(map[*models.CodeAlias]auto.Machine)
+	var sms = make(map[string]auto.Machine)
 	dryRun := getBool(cmd, "dry_run")
-	for _, d := range devs {
-		if slices.Contains(d.Tags, "auto:prospect") {
-			log("%s: prospect -> %v", d.Code.Alias(), d.Tags)
-			sms[d.Code] = &auto.ProspectMachine{}
-		} else if slices.Contains(d.Tags, "auto:relay") {
-			log("%s: relay -> %v", d.Code.Alias(), d.Tags)
-			sms[d.Code] = &auto.RelayMachine{}
-		} else if slices.Contains(d.Tags, "auto:divert") {
-			log("%s: divert -> %v", d.Code.Alias(), d.Tags)
-			sms[d.Code] = &auto.DivertMachine{}
-		} else {
-			return fmt.Errorf("Unknown state machine for %q: %v", d.Code.Alias(), d.Tags)
-		}
-		if err := sms[d.Code].Start(d, dryRun); err != nil {
-			return err
-		}
-	}
-
 	eq := auto.NewEventQueue(5 * time.Minute)
 	var errs []error
 	var runStep func(d *models.CodeAlias, m auto.Machine) error
+	findSMs := func() error {
+		if len(args) == 0 {
+			var err error
+			res, err := rest.GetTagged("auto")
+			if err != nil {
+				return err
+			}
+			for _, d := range res.Devices {
+				i, err := getInfo(d.Code)
+				if err != nil {
+					return err
+				}
+				devs = append(devs, i)
+			}
+		} else {
+			for _, d := range args {
+				i, err := getInfo(models.NewCodeAlias(d))
+				if err != nil {
+					return err
+				}
+				devs = append(devs, i)
+			}
+		}
+		if len(devs) == 0 {
+			return fmt.Errorf("No devices tagged 'auto' found.")
+		}
+
+		for _, d := range devs {
+			alias := d.Code.Alias()
+			if _, ok := sms[alias]; ok {
+				continue
+			}
+			log("** New machine: %s (%v)", d, d.Tags)
+			if slices.Contains(d.Tags, "auto:prospect") {
+				log("%s: prospect -> %v", d.Code.Alias(), d.Tags)
+				sms[alias] = &auto.ProspectMachine{}
+			} else if slices.Contains(d.Tags, "auto:relay") {
+				log("%s: relay -> %v", d.Code.Alias(), d.Tags)
+				sms[alias] = &auto.RelayMachine{}
+			} else if slices.Contains(d.Tags, "auto:divert") {
+				log("%s: divert -> %v", d.Code.Alias(), d.Tags)
+				sms[alias] = &auto.DivertMachine{}
+			} else {
+				errs = append(errs, fmt.Errorf("Unknown state machine for %q: %v", d.Code.Alias(), d.Tags))
+			}
+			log("===================================")
+			log("%s: Starting machine", d.Code.Alias())
+			if err := sms[alias].Start(d, dryRun); err != nil {
+				errs = append(errs, fmt.Errorf("Removing state maching %q: %v", d.Code, err))
+				delete(sms, alias)
+				continue
+			}
+			errs = append(errs, runStep(d.Code, sms[alias]))
+		}
+		return errors.Join(errs...)
+	}
 	runStep = func(d *models.CodeAlias, m auto.Machine) error {
 		t, err := m.Process()
 		if err != nil {
@@ -82,22 +94,17 @@ func autoState(cmd *cobra.Command, args []string) error {
 		}
 		return nil
 	}
-	for d, m := range sms {
-		log("===================================")
-		log("%s: Starting machine", d.Alias())
-		errs = append(errs, runStep(d, m))
-	}
-	if err := errors.Join(errs...); err != nil {
-		return err
-	}
 	for {
-		log("Waiting for next process event: %s", time.Until(eq.Next()))
+		if err := findSMs(); err != nil {
+			log("Error finding new state machines: %v", err)
+		}
 		evs := eq.List()
 		var data [][]string
 		for _, e := range evs {
 			data = append(data, []string{e.When.Format(time.Stamp), e.Name, e.Desc})
 		}
 		printTable([]string{"When", "Who", "What"}, data)
+		log("Waiting for next process event: %s", time.Until(eq.Next()))
 		ev := eq.Wait()
 		if ev == nil {
 			return fmt.Errorf("No more events in the queue")
@@ -110,5 +117,10 @@ func autoState(cmd *cobra.Command, args []string) error {
 		if err := ev.Callback(); err != nil {
 			log("Processing error: %v", err)
 		}
+		if len(args) > 0 {
+			log("Stopping after one iteration")
+			break
+		}
 	}
+	return nil
 }
