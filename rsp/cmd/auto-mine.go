@@ -27,7 +27,7 @@ import (
 func autoMine(cmd *cobra.Command, args []string) error {
 	// Validate the location
 	locName := getString(cmd, "location")
-	loc, err := rest.Location(locName)
+	loc, err := rest.Location(models.LocationID(locName).Star())
 	if err != nil {
 		return err
 	}
@@ -47,6 +47,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		if !ok {
 			return fmt.Errorf("Unknown density %q, can't figure out scale", density)
 		}
+		log("Density: %s (x %d)", density, scale)
 	}
 
 	// Define the desired fleet shape
@@ -58,7 +59,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		"belt_surveyor":         2,
 	}
 	missing["mining_drone"] *= scale
-	log("Using %d mining drones", missing["mining_drones"])
+	log("Using %d mining drones", missing["mining_drone"])
 
 	skip := getStringSlice(cmd, "skip")
 	for _, sk := range skip {
@@ -313,6 +314,9 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		n.Save()
 	}
 
+	if _, err := db.DB.Exec("UPDATE belts SET mining=true WHERE designation=$1", locName); err != nil {
+		log("Error updating the belts table: %v", err)
+	}
 	if len(data) > 0 {
 		log("Waiting for missing devices:")
 		printTable([]string{

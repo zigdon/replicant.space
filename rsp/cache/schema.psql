@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS moons (
 CREATE TABLE IF NOT EXISTS belts (
   designation TEXT PRIMARY KEY,
   star TEXT NOT NULL REFERENCES stars(designation),
-  density TEXT NOT NULL
+  density TEXT NOT NULL,
+  mining BOOLEAN
 );
 
 CREATE TABLE IF NOT EXISTS belt_resources (

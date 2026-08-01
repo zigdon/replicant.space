@@ -9,15 +9,6 @@ import (
 	"github.com/zigdon/rsp/models"
 )
 
-func fill[T []E, E models.Fillable](s []E) error {
-	for _, e := range s {
-		if err := e.Fill(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func GetPrintQueueETA(dev *models.Device) (time.Duration, error) {
 	if dev.Printing == nil && len(dev.PrintQueue) == 0 {
 		return 0, nil

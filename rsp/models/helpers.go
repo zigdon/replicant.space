@@ -2,6 +2,7 @@ package models
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -25,6 +26,14 @@ func psqlDuration(in string) (time.Duration, error) {
 
 type Fillable interface {
 	Fill() error
+}
+
+func fill[T []E, E Fillable](s []E) error {
+	var errs []error
+	for _, e := range s {
+		errs = append(errs, e.Fill())
+	}
+	return errors.Join(errs...)
 }
 
 func fillTime(ts string, dest *time.Time) error {

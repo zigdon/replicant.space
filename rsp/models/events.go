@@ -33,11 +33,7 @@ type EventCriteria struct {
 }
 
 func (ec *EventCriteria) Fill() error {
-	var errs []error
-	for _, d := range ec.Devices {
-		errs = append(errs, d.Fill())
-	}
-	return errors.Join(errs...)
+	return fill(ec.Devices)
 }
 
 func (ec *EventCriteria) Short() string {
@@ -67,11 +63,7 @@ type EventProgressOption struct {
 }
 
 func (epo *EventProgressOption) Fill() error {
-	var errs []error
-	for _, ed := range epo.Devices {
-		errs = append(errs, ed.Fill())
-	}
-	return errors.Join(errs...)
+	return fill(epo.Devices)
 }
 
 type EventProgress struct {
@@ -82,11 +74,7 @@ type EventProgress struct {
 }
 
 func (ep *EventProgress) Fill() error {
-	var errs []error
-	for _, o := range ep.Options {
-		errs = append(errs, o.Fill())
-	}
-	return errors.Join(errs...)
+	return fill(ep.Options)
 }
 
 type EventReward struct {
@@ -116,9 +104,7 @@ type Event struct {
 
 func (e *Event) Fill() error {
 	var errs []error
-	for _, c := range e.Criteria {
-		errs = append(errs, c.Fill())
-	}
+	errs = append(errs, fill(e.Criteria))
 	if e.Progress != nil {
 		errs = append(errs, e.Progress.Fill())
 	}
@@ -131,11 +117,7 @@ type Events struct {
 }
 
 func (es *Events) Fill() error {
-	var errs []error
-	for _, e := range es.Events {
-		errs = append(errs, e.Fill())
-	}
-	return errors.Join(errs...)
+	return fill(es.Events)
 }
 
 type AcceptedContribution struct {

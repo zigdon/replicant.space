@@ -56,10 +56,5 @@ func (ss *Shops) Fill() error {
 	slices.SortFunc(ss.Traders, func(a, b *Shop) int {
 		return cmp.Compare(a.ControllerCode, b.ControllerCode)
 	})
-	for _, s := range ss.Traders {
-		if err := s.Fill(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return fill(ss.Traders)
 }
