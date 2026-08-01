@@ -109,14 +109,16 @@ var locationCmd = &cobra.Command{
 				fmt.Sprintf("%d/%d (%d%%)", res.PlanetsScanned, res.PlanetsTotal, pp),
 				fmt.Sprintf("%d/%d (%d%%)", res.MoonsScanned, res.MoonsTotal, mp),
 			}})
-			if res.AsteroidBelt.Present {
-				data = [][]any{}
-				for _, b := range res.AsteroidBelt.Belts {
-					data = append(data, []any{
-						b.Designation, b.Density, m(b.Resources),
-					})
+			if res.AsteroidBelt != nil {
+				if res.AsteroidBelt.Present {
+					data = [][]any{}
+					for _, b := range res.AsteroidBelt.Belts {
+						data = append(data, []any{
+							b.Designation, b.Density, m(b.Resources),
+						})
+					}
+					printTable([]string{"Belt", "Density", "Resources"}, data)
 				}
-				printTable([]string{"Belt", "Density", "Resources"}, data)
 			}
 			data = [][]any{}
 			for _, p := range res.Planets {

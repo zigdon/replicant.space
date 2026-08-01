@@ -8,14 +8,6 @@ import (
 	"github.com/zigdon/rsp/cache"
 )
 
-func d(n int) string {
-	return fmt.Sprintf("%d", n)
-}
-
-func v(i any) string {
-	return fmt.Sprintf("%v", i)
-}
-
 type StreamEnvelope struct {
 	Category      string         `json:"category"`
 	Created       *JSONTime      `json:"created_at"`
@@ -76,10 +68,11 @@ type StreamAmiDigest struct {
 }
 
 type AmiReport struct {
-	Mining   *AmiMiningReport
-	Survey   *AmiSurveyReport
-	Ferry    *AmiFerryReport
-	Delivery *AmiDeliveryReport
+	Mining     *AmiMiningReport
+	SysSurvey  *AmiSystemSurveyReport
+	BeltSurvey *AmiBeltSurveyReport
+	Ferry      *AmiFerryReport
+	Delivery   *AmiDeliveryReport
 }
 
 func (ar *AmiReport) UnmarshalJSON(data []byte) error {
@@ -93,8 +86,11 @@ func (ar *AmiReport) UnmarshalJSON(data []byte) error {
 	if _, ok := pp["deliver"]; ok {
 		return json.Unmarshal(data, &ar.Ferry)
 	}
+	if _, ok := pp["belt"]; ok {
+		return json.Unmarshal(data, &ar.BeltSurvey)
+	}
 	if _, ok := pp["scans"]; ok {
-		return json.Unmarshal(data, &ar.Survey)
+		return json.Unmarshal(data, &ar.SysSurvey)
 	}
 	if _, ok := pp["resources"]; ok {
 		return json.Unmarshal(data, &ar.Mining)
@@ -112,7 +108,18 @@ type AmiMiningReport struct {
 	} `json:"resources"`
 }
 
-type AmiSurveyReport struct {
+type AmiBeltSurveyReport struct {
+	ActiveSites    int    `json:"active_sites"`
+	Belt           string `json:"belt"`
+	Cruising       int    `json:"cruising"`
+	Idle           int    `json:"idle"`
+	MaxSites       int    `json:"max_sites"`
+	Scans          []any  `json:"scans"`
+	Searching      int    `json:"searching"`
+	TotalResources int    `json:"total_resources_available"`
+}
+
+type AmiSystemSurveyReport struct {
 	AssignedThisTick int `json:"assigned_this_tick"`
 	Busy             int `json:"busy"`
 	Idle             int `json:"idle"`

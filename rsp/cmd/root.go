@@ -104,7 +104,7 @@ var outputTable = map[string]func(data any) ([]string, [][]any){
 				"Code", "Location", "Star", "Belt", "Status",
 				"ETA", "Started", "Ends"},
 			[][]any{{
-				resp, resp.Location, resp.Star,
+				resp.DeviceCode, resp.Location, resp.Star,
 				resp.Belt, resp.Status, resp.Eta.Duration(),
 				resp.Started.Time(), resp.Completes.Time(),
 			}}
