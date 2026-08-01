@@ -74,15 +74,32 @@ func MarkRead(ids []int) error {
 	return err
 }
 
-func Bobnet(relayID string, cursor, limit int, latest, npcs bool) (*models.Bobs, error) {
+func Bobnet(relayID *models.CodeAlias, cursor, limit int, latest, npcs bool) (*models.Bobs, error) {
 	res, err := Get("devices/%s/messages?cursor=%d&limit=%d&latest=%v&include_npcs=%v",
-		relayID, cursor, limit, latest, npcs,
+		relayID.String(), cursor, limit, latest, npcs,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	return models.Parse[models.Bobs](res)
+}
+
+func BobSend(relay *models.CodeAlias, channel, text string) (*models.Bob, error) {
+	if !strings.HasPrefix(channel, "#") {
+		return nil, fmt.Errorf("Channel name must start with a #, got %q", channel)
+	}
+	cfg := map[string]string{
+		"command": "message",
+		"channel": channel,
+		"text":    text,
+	}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	res, err := Post("devices/%s", data, relay.String())
+	return models.Parse[models.Bob](res)
 }
 
 func Events() (*models.Events, error) {
@@ -265,13 +282,14 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 			if !slices.Contains(validCols, k) {
 				return nil, fmt.Errorf("Invalid filter %q, must be one of %v", k, validCols)
 			}
-			if k == "location" {
+			switch k {
+			case "location":
 				limits = append(limits, fmt.Sprintf("%s LIKE $%d", k, len(vals)+1))
 				vals = append(vals, v+"%")
-			} else if k == "tag" {
+			case "tag":
 				limits = append(limits, fmt.Sprintf("data->>'tags' = '[$%d]'", len(vals)+1))
 				vals = append(vals, v)
-			} else {
+			default:
 				limits = append(limits, fmt.Sprintf("%s = $%d", k, len(vals)+1))
 				vals = append(vals, v)
 			}

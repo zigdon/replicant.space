@@ -70,68 +70,52 @@ var bobCmd = &cobra.Command{
 	Use:   "bob",
 	Short: "Read messages from bobnet",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Find a relay we can use
-		acc, err := rest.Account()
-		if err != nil {
-			return err
-		}
-
-		var relayID string
-		for _, r := range acc.Replicants {
-			devices, err := rest.ReplicantDevices(r.Code, "")
-			if err != nil {
-				continue
-			}
-			for _, d := range devices {
-				if d.Type != "ftl_relay" || d.Status != "relaying" || !d.InControlRange {
-					continue
-				}
-				relayID = d.Code.String()
-				break
-			}
-			if relayID != "" {
-				break
-			}
-		}
-
-		if relayID == "" {
-			return fmt.Errorf("Failed to find an FTL relay in range")
-		}
-
+		relayID := models.NewCodeAlias(getString(cmd, "relay"))
 		cursor := getInt(cmd, "cursor")
 		number := getInt(cmd, "number")
 		latest := getBool(cmd, "latest")
 		npcs := getBool(cmd, "npcs")
-		width := getInt(cmd, "width")
-		ids := getBool(cmd, "replicant_ids")
-		locs := getBool(cmd, "replicant_location")
-		channels := getStringSlice(cmd, "channels")
 		data, err := rest.Bobnet(relayID, cursor, number, latest, npcs)
 		if err != nil {
 			return fmt.Errorf("Error getting bobnet messages: %v", err)
 		}
-		headers := []string{"Channel", "Name", "Time", "Message"}
-		var lines [][]any
-		slices.Reverse(data.Messages)
-		for _, d := range data.Messages {
-			if len(channels) > 0 && !slices.Contains(channels, d.Channel) {
-				continue
-			}
-			var who string
-			if ids || locs {
-				d.ReplicantCode = "#" + d.ReplicantCode
-				d.CurrentStar = "@" + d.CurrentStar
-				who = fmt.Sprintf("%s (%s%s)", d.ReplicantName, d.ReplicantCode, d.CurrentStar)
-			} else {
-				who = d.ReplicantName
-			}
-			lines = append(lines, []any{
-				d.Channel, who, d.Time.Time(), wrap(d.Message, width),
-			})
-		}
-		printTable(headers, lines)
+		printBobMsgs(cmd, data.Messages)
 		return nil
 	},
+}
+
+func printBobMsgs(cmd *cobra.Command, msgs []*models.Bob) {
+	width := getInt(cmd, "width")
+	ids := getBool(cmd, "replicant_ids")
+	locs := getBool(cmd, "replicant_location")
+	channels := getStringSlice(cmd, "channels")
+	headers := []string{"Channel", "Name", "Time", "Message"}
+	var lines [][]any
+	slices.Reverse(msgs)
+	for _, d := range msgs {
+		if len(channels) > 0 && !slices.Contains(channels, d.Channel) {
+			continue
+		}
+		var who string
+		if ids || locs {
+			d.ReplicantCode = "#" + d.ReplicantCode
+			d.CurrentStar = "@" + d.CurrentStar
+			who = fmt.Sprintf("%s (%s%s)", d.ReplicantName, d.ReplicantCode, d.CurrentStar)
+		} else {
+			who = d.ReplicantName
+		}
+		lines = append(lines, []any{
+			d.Channel, who, d.Time.Time(), wrap(d.Message, width),
+		})
+	}
+	printTable(headers, lines)
+}
+
+var bobSendCmd = &cobra.Command{
+	Use:       "send",
+	Short:     "Send a message to bobnet",
+	ValidArgs: []string{"#general", "#trade"},
+	RunE:      bobSend,
 }
 
 var msgListCmd = &cobra.Command{
@@ -147,11 +131,15 @@ func init() {
 	bobCmd.Flags().BoolP("latest", "l", true, "Show latest messages")
 	bobCmd.Flags().IntP("number", "n", 20, "Number of messages to show")
 	bobCmd.Flags().IntP("cursor", "C", 0, "Position to start from")
-	bobCmd.Flags().IntP("width", "w", 50, "Wrap message body to this width")
-	bobCmd.Flags().BoolP("npcs", "p", true, "Show messages from NPCs")
-	bobCmd.Flags().Bool("replicant_ids", false, "Show replicant IDs")
-	bobCmd.Flags().Bool("replicant_location", false, "Show replicant locations")
-	bobCmd.Flags().StringSliceP("channels", "c", []string{}, "Only show messages to these channels")
+	bobCmd.PersistentFlags().IntP("width", "w", 50, "Wrap message body to this width")
+	bobCmd.PersistentFlags().BoolP("npcs", "p", true, "Show messages from NPCs")
+	bobCmd.PersistentFlags().Bool("replicant_ids", false, "Show replicant IDs")
+	bobCmd.PersistentFlags().Bool("replicant_location", false, "Show replicant locations")
+	bobCmd.PersistentFlags().StringSliceP("channels", "c", []string{}, "Only show messages to these channels")
+	bobCmd.PersistentFlags().StringP("relay", "r", "fr-1", "Relay to use for sending the message")
+
+	bobCmd.AddCommand(bobSendCmd)
+	bobSendCmd.Flags().BoolP("listen", "l", false, "If set, remain connected to bobnet to see replies")
 
 	msgCmd.AddCommand(msgListCmd)
 	msgListCmd.Flags().BoolP("mark", "m", false, "Mark messages as read")
@@ -356,4 +344,51 @@ func msgTable(cmd *cobra.Command, args []string) error {
 	app.SetInputCapture(inputCapture)
 
 	return app.SetRoot(layout, true).Run()
+}
+
+func bobSend(cmd *cobra.Command, args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("Usage: msg bob send <channel> <msg>")
+	}
+	channel := args[0]
+	msg := strings.Join(args[1:], " ")
+	if !strings.HasPrefix(channel, "#") {
+		channel = "#" + channel
+	}
+	relay := models.NewCodeAlias(getString(cmd, "relay"))
+	res, err := rest.BobSend(relay, channel, msg)
+	if err != nil {
+		return err
+	}
+	if res.Status != "sent" {
+		log("Message not sent: %q", res.Status)
+	}
+
+	printMsg := func(msg *models.Bob) {
+		log("%20s %10s %10s %s", msg.Channel, msg.ReplicantName,
+			msg.Time.Time().Format(time.Kitchen), msg.Message)
+	}
+	printMsg(res)
+
+	var last = res.Id
+	if getBool(cmd, "listen") {
+		for {
+			time.Sleep(5 * time.Second)
+			msgs, err := rest.Bobnet(relay, last, 10, true, true)
+			if err != nil {
+				return err
+			}
+			if len(msgs.Messages) > 0 {
+				slices.Reverse(msgs.Messages)
+				for _, m := range msgs.Messages {
+					if m.Id <= last {
+						continue
+					}
+					printMsg(m)
+				}
+			}
+			last = msgs.NextCursor
+		}
+	}
+	return nil
 }

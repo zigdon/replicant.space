@@ -127,12 +127,13 @@ func (ms *Messages) Get() error {
 }
 
 type Bob struct {
-	Id            int       `json:"id"`
 	Channel       string    `json:"channel"`
 	CurrentStar   string    `json:"current_star"`
+	Id            int       `json:"id"`
 	Message       string    `json:"message"`
 	ReplicantCode string    `json:"replicant_code"`
 	ReplicantName string    `json:"replicant_name"`
+	Status        string    `json:"Status"`
 	Time          *JSONTime `json:"time"`
 }
 
