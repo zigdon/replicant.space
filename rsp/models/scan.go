@@ -62,8 +62,9 @@ type Object struct {
 
 func (o *Object) Short() string {
 	return fmt.Sprintf("%s (%s, %.2f/%.2f), ETA %s (%s)",
-		o.Designation, o.SizeClass, o.CurrentThrustPerHour, o.RequiredStrength,
-		o.ImpactEta.Time(), time.Until(o.ImpactEta.Time()).Truncate(time.Second))
+		o.Designation, o.SizeClass, o.CurrentThrustPerHour,
+		o.RequiredStrength, o.ImpactEta.Time().Format(time.Stamp),
+		time.Until(o.ImpactEta.Time()).Truncate(time.Second))
 }
 
 type LocationEvent struct {
