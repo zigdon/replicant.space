@@ -58,12 +58,19 @@ func readStream(cmd *cobra.Command, args []string) error {
 			log("%20s: %s", ev.Report.Mining.Location, strings.Join(data, "\t"))
 
 		case "ami.survey.digest", "ami.transport.digest":
-			_, err := models.Parse[models.StreamAmiDigest](payload)
+			ev, err := models.Parse[models.StreamAmiDigest](payload)
 			if err != nil {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-
+			prettyPrint(ev)
+		case "site.depleted":
+			ev, err := models.Parse[models.StreamSiteDepleted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s depleted", ev.Site)
 		default:
 			log("Unknown event type: %q", ev["event"])
 			prettyPrint(ev)

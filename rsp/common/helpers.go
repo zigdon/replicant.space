@@ -194,6 +194,8 @@ func stringify(in any) string {
 		out = T(a)
 	case time.Duration:
 		out = Dt(a)
+	case *models.DevicePointer:
+		out = a.Code.Alias()
 	case *models.Device:
 		out = a.Code.Alias()
 	case *models.CodeAlias:

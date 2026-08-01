@@ -252,7 +252,7 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 				continue
 			}
 			if mf, ok := taken[r.Designation.Star()]; ok {
-				log("%s has dibs on %s", mf, r.Location)
+				log("%s has dibs on %s", mf, r.Designation)
 				continue
 			}
 			dist, err := common.Distance(dm.dev.Location.Star(), r.Designation.Star())
@@ -290,6 +290,11 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 func (dm *DivertMachine) SaveState(string) error {
 	return nil
 }
+
 func (dm *DivertMachine) Status() string {
 	return ""
+}
+
+func (dm *DivertMachine) Name() string {
+	return "Rock Diverting Machine"
 }

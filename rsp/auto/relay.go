@@ -37,7 +37,7 @@ type RelayMachine struct {
 	dryRun    bool
 	dev       *models.Device
 	supply    *models.Device
-	dest      string
+	dest      models.LocationID
 	state     string
 	replicant *models.CodeAlias
 }
@@ -69,11 +69,11 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 	}
 
 	rm.dryRun = dryRun
-	dest := strings.ToUpper(getTags(rm.dev)["relay"])
-	if dest == "" {
+	destName := strings.ToUpper(getTags(rm.dev)["relay"])
+	if destName == "" {
 		return fmt.Errorf("Relay destination not tagged on %s", d.Code.Alias())
 	}
-	rm.dest = dest
+	rm.dest = models.LocationID(destName)
 
 	p, err := rest.GetTagged(fmt.Sprintf("supply:%s", d.Code.Alias()))
 	if err != nil {
@@ -94,10 +94,6 @@ func (rm *RelayMachine) UpdateState() error {
 	}
 	rm.dev = dev
 	status := rm.dev.Status
-
-	if rm.dev.Location.Star() == rm.dest {
-		return fmt.Errorf("Relay destination reached: %s", rm.dev.Location)
-	}
 
 	supply, err := rest.RefreshDeviceInfo(rm.supply.Code)
 	if err != nil {
@@ -158,6 +154,8 @@ func (rm *RelayMachine) UpdateState() error {
 	case rm.dev.Location == home:
 		log("Leaving home")
 		rm.state = "leaving"
+	case rm.dev.Location.Star() == rm.dest.Star():
+		rm.state = "done"
 	case rm.state == "" && status == "idle":
 		log("Blank state, stationary")
 		rm.state = "incoming"
@@ -200,6 +198,10 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		log("*******************************************")
 		log("* RELAY COMPLETE: reached %s", rm.dest)
 		log("*******************************************")
+		_, err := rest.UpdateTags(rm.dev.Code, rest.DelTag, []string{"auto"})
+		if err != nil {
+			log("Failed to remove tags: %v", err)
+		}
 		return eta, MachineDoneErr(fmt.Sprintf("*** Relay to %s complete ***", rm.dest))
 	case "transit":
 		if t := rm.dev.Travel; t != nil {
@@ -337,8 +339,13 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			nextState = "leaving"
 		}
 	case "leaving":
+		if rm.dev.Location.Star() == rm.dest.Star() {
+			rm.state = "done"
+			return eta, MachineDoneErr(fmt.Sprintf("Relay destination reached: %s", rm.dev.Location))
+		}
+
 		// plot the next hop
-		route, err := common.PlotTrip(string(rm.dev.Location), rm.dest, nil)
+		route, err := common.PlotTrip(string(rm.dev.Location), rm.dest.Star(), nil)
 		if err != nil {
 			return eta, err
 		}
@@ -455,4 +462,8 @@ func (rm *RelayMachine) SaveState(string) error {
 
 func (rm *RelayMachine) Status() string {
 	return ""
+}
+
+func (rm *RelayMachine) Name() string {
+	return "Relay Machine"
 }

@@ -81,7 +81,8 @@ func autoState(cmd *cobra.Command, args []string) error {
 		t, err := m.Process()
 		if err != nil {
 			if _, ok := errors.AsType[auto.MachineDoneErr](err); ok {
-				log("State machine %s (%T) done: %v", d, m, err)
+				log("State machine %s (%s) done: %v", d, m.Name(), err)
+				delete(sms, d.Alias())
 				return nil
 			}
 			errs = append(errs, err)
@@ -90,7 +91,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 		} else {
 			eq.AddEvent(
 				d.Alias(),
-				fmt.Sprintf("%s: State machine %T wait is done", d.Alias(), m),
+				fmt.Sprintf("%s: State machine %s wait is done", d.Alias(), m.Name()),
 				t, func() error {
 					return runStep(d, m)
 				}, nil,

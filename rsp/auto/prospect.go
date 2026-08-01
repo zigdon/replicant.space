@@ -361,3 +361,7 @@ func (pm *ProspectMachine) SaveState(state string) error {
 
 	return nil
 }
+
+func (pm *ProspectMachine) Name() string {
+	return "Prospecting Machine"
+}

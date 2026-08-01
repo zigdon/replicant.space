@@ -30,6 +30,7 @@ type Machine interface {
 	Process() (time.Time, error)
 	SaveState(string) error
 	Status() string
+	Name() string
 }
 
 func getTags(dev *models.Device) map[string]string {
