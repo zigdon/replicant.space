@@ -58,6 +58,9 @@ func Execute() {
 					data = append(data, []string{
 						m.Created.Time().Format(time.Kitchen), d(m.ID), m.Title,
 					})
+					if getBool(rootCmd, "ack") {
+						ids = append(ids, m.ID)
+					}
 				}
 				if disc > 0 {
 					fmt.Printf("%d discovery messages\n", disc)
@@ -94,6 +97,7 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().Bool("raw", false, "emit the json returned")
 	rootCmd.PersistentFlags().Bool("msg", true, "show unread message information")
+	rootCmd.PersistentFlags().Bool("ack", false, "mark all messages as read")
 }
 
 var outputTable = map[string]func(data any) ([]string, [][]string){

@@ -235,13 +235,13 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		taken := make(map[string]string)
+		log("Checking other rock fleets...")
 		for _, mf := range mfs {
-			if mf.Code == dm.dev.Code {
-				continue
-			}
 			if mf.Travel == nil {
+				log("... skipping %s, not moving", mf)
 				continue
 			}
+			log("... %s is on the way to %s", mf, mf.Travel.Destination.Star())
 			taken[mf.Travel.Destination.Star()] = mf.Code.Alias()
 		}
 		var closest float32
@@ -250,7 +250,7 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 			if r.Status != "active" {
 				continue
 			}
-			if mf, ok := taken[r.Location.Star()]; ok {
+			if mf, ok := taken[r.Designation.Star()]; ok {
 				log("%s has dibs on %s", mf, r.Location)
 				continue
 			}

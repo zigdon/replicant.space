@@ -340,7 +340,6 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						return err
 					}
 					etas = append(etas, newEta)
-					log("%v", etas)
 				}
 			}
 		}
