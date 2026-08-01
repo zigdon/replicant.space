@@ -57,7 +57,7 @@ var deliveryCmd = &cobra.Command{
 		}
 		printTable([]string{
 			"Directive", "Status", "Configure",
-		}, [][]string{{
+		}, [][]any{{
 			res.AmiDirective.Name, res.AmiDirectiveStatus, m(res.AmiDirective.Config),
 		}})
 		return nil
@@ -97,10 +97,10 @@ var surveyCmd = &cobra.Command{
 		}
 		printTable([]string{
 			"Directive", "Planets", "Moons", "Recall", "Status",
-		}, [][]string{{
+		}, [][]any{{
 			res.AmiDirective.Name, res.AmiDirective.Config["planets"].(string),
 			res.AmiDirective.Config["moons"].(string),
-			b(res.AmiDirective.Config["recall"].(bool)),
+			res.AmiDirective.Config["recall"].(bool),
 			res.AmiDirectiveStatus,
 		}})
 		return nil
@@ -147,7 +147,7 @@ func init() {
 	surveyCmd.Flags().BoolP("no_moons", "c", false, "set to skip scanning moons")
 	surveyCmd.Flags().BoolP("no_recall", "r", false, "set to not recall the drones once done")
 
-	outputTable["device-launch"] = func(data any) ([]string, [][]string) {
+	outputTable["device-launch"] = func(data any) ([]string, [][]any) {
 		resp := data.(*models.CommandResp)
 		lists := make(map[string][]string)
 		for _, cat := range []string{"already_deployed", "deployed", "failed", "skipped"} {
@@ -163,8 +163,8 @@ func init() {
 		}
 		return []string{
 				"Controller", "Status", "Already deployed", "Deployed", "Failed", "Skipped",
-			}, [][]string{{
-				resp.DeviceCode.Alias(),
+			}, [][]any{{
+				resp.DeviceCode,
 				fmt.Sprintf("%s -> %s", resp.Controller.DirectiveStatusBefore,
 					resp.Controller.DirectiveStatusAfter),
 				lines(lists["a"]), lines(lists["d"]), lines(lists["f"]), lines(lists["s"]),

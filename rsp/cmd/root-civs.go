@@ -9,10 +9,10 @@ import (
 )
 
 var civCmd = &cobra.Command{
-	Use: "species",
+	Use:     "species",
 	Aliases: []string{"civs", "civilisations", "civ"},
-	Short: "List known species",
-	RunE: civ,
+	Short:   "List known species",
+	RunE:    civ,
 }
 
 func civ(cmd *cobra.Command, args []string) error {
@@ -21,19 +21,19 @@ func civ(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var data [][]string
+	var data [][]any
 	for _, s := range res.Species {
-		data = append(data, []string{
+		data = append(data, []any{
 			s.Name, wrap(s.Greeting, 30), wrap(s.Description, 40),
 			wrap(s.Government, 20), s.HomeworldType, s.TechAffinity, s.Trait,
 		})
 	}
-	slices.SortFunc(data, func(a, b []string) int {
-		return cmp.Compare(a[0], b[0])
+	slices.SortFunc(data, func(a, b []any) int {
+		return cmp.Compare(a[0].(string), b[0].(string))
 	})
 	printTable([]string{
-			"Name", "Greeting", "Description", "Government", "Homeworld", "Tech", "Traits"},
-			data)
+		"Name", "Greeting", "Description", "Government", "Homeworld", "Tech", "Traits"},
+		data)
 	return nil
 }
 

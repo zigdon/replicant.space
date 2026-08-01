@@ -228,15 +228,20 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 	slices.Sort(types)
 
-	var data [][]string
+	var data [][]any
 	for _, t := range types {
 		var f []string
 		for _, d := range fleet[t] {
 			f = append(f, d.Code.Alias())
 		}
 		slices.Sort(f)
-		data = append(data, []string{
-			t, d(missing[t] + len(fleet[t])), d(len(fleet[t])), d(stats[t].idle), d(missing[t]), d(stats[t].extra), list(f),
+		data = append(data, []any{
+			t, missing[t] + len(fleet[t]),
+			len(fleet[t]),
+			stats[t].idle,
+			missing[t],
+			stats[t].extra,
+			list(f),
 		})
 	}
 	printTable([]string{"Device", "Target", "Found", "Repurposed", "Missing", "Extra", "Members"}, data)
@@ -258,7 +263,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	extra := make(map[string]time.Duration)
-	data = [][]string{}
+	data = [][]any{}
 	var done time.Time
 	if noPrint := getBool(cmd, "no_print"); !dryRun && !noPrint {
 		for devType, qty := range missing {
@@ -286,8 +291,8 @@ func autoMine(cmd *cobra.Command, args []string) error {
 					if err != nil {
 						return err
 					}
-					data = append(data, []string{
-						factory.Alias(), devType, res.Status, d(res.QueueLength + 1),
+					data = append(data, []any{
+						factory, devType, res.Status, res.QueueLength + 1,
 					})
 				}
 				extra[factory.String()] += buildTimes[devType]

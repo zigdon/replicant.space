@@ -29,6 +29,7 @@ func GetRocks() ([]*models.Object, error) {
 	Log("Loading logs...")
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	stat := make(map[string]int)
 	for _, sh := range shs {
 		wg.Go(func() {
 			fmt.Print(".")
@@ -57,12 +58,13 @@ func GetRocks() ([]*models.Object, error) {
 				}
 				mu.Lock()
 				objs = append(objs, info.Object)
+				stat[info.Object.Status]++
 				mu.Unlock()
 			}
 		})
 	}
 	wg.Wait()
-	fmt.Printf(" %d rocks\n", len(objs))
+	fmt.Printf(" %d rocks: %v\n", len(objs), stat)
 
 	slices.SortFunc(objs, func(a, b *models.Object) int {
 		return cmp.Compare(a.Designation.Star(), b.Designation.Star())

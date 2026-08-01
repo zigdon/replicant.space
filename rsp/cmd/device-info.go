@@ -46,10 +46,10 @@ var infoCmd = &cobra.Command{
 		printTable(
 			[]string{"Code", "Type", "Location", "Status", "Attached", "Controller",
 				"Replicant", "Ops Capacity", "Cargo"},
-			[][]string{{code, dev.Type, string(dev.Location), status,
-				dev.AttachedToDeviceCode.Alias(),
-				dev.ControllerDeviceCode.Alias(), dev.ReplicantCode.Alias(),
-				f(dev.OperationalCapacity),
+			[][]any{{code, dev.Type, dev.Location, status,
+				dev.AttachedToDeviceCode,
+				dev.ControllerDeviceCode, dev.ReplicantCode,
+				p(dev.OperationalCapacity),
 				lines(cargo),
 			}},
 		)
@@ -71,10 +71,10 @@ var infoCmd = &cobra.Command{
 			"Owner",
 			"Created", "Deployed", "Grace", "Repairs", "System Active", "Stowed In",
 			"Upkeep Requirements", "Taxi Mode", "Commands", "Tags", "Features"},
-			[][]string{{
+			[][]any{{
 				owner,
-				t(dev.Created.Time()), t(dev.Deployed.Time()), grace,
-				p(dev.RepairPaidPct), v(dev.SystemStatus), dev.StowedInDeviceCode.Alias(), lines(upkeep),
+				dev.Created.Time(), dev.Deployed.Time(), grace,
+				p(dev.RepairPaidPct), dev.SystemStatus, dev.StowedInDeviceCode, lines(upkeep),
 				dev.TaxiMode, lines(dev.AvailableCommands), lines(dev.Tags), lines(dev.Features)}})
 		if len(dev.AvailableDirectives) > 0 {
 			var cfg map[string]any
@@ -87,25 +87,25 @@ var infoCmd = &cobra.Command{
 			}
 			printTable([]string{
 				"Current Directive", "Status", "Configuration", "Available Directives",
-			}, [][]string{{
+			}, [][]any{{
 				name,
 				dev.AmiDirectiveStatus,
-				v(cfg),
+				cfg,
 				lines(dev.AvailableDirectives),
 			}})
 		}
 		if dev.Compact != nil {
 			u := dev.Compact
 			printTable([]string{"Compacting started", "Progress", "Completes"},
-				[][]string{{
-					t(u.Started.Time()), f(u.ProgressPercent), t(u.Completes.Time()),
+				[][]any{{
+					u.Started.Time(), u.ProgressPercent, u.Completes.Time(),
 				}})
 		}
 		if dev.Unfurl != nil {
 			u := dev.Unfurl
 			printTable([]string{"Unfurling started", "Progress", "Completes"},
-				[][]string{{
-					t(u.Started.Time()), f(u.ProgressPercent), t(u.Completes.Time()),
+				[][]any{{
+					u.Started.Time(), u.ProgressPercent, u.Completes.Time(),
 				}})
 		}
 		if dev.Printing != nil || len(dev.PrintQueue) > 0 {
@@ -118,19 +118,19 @@ var infoCmd = &cobra.Command{
 			for _, bp := range bps.Blueprints {
 				printTime[bp.DeviceType] = bp.PrintTime.Duration()
 			}
-			var data [][]string
+			var data [][]any
 			var est time.Time
 			if print := dev.Printing; print != nil {
-				data = [][]string{{"-",
+				data = [][]any{{"-",
 					print.DeviceType, p(print.ProgressPercent),
-					print.Eta.String(), list(print.Tags), t(print.Started.Time()), t(print.Completes.Time()),
+					print.Eta.String(), list(print.Tags), print.Started.Time(), print.Completes.Time(),
 				}}
 				est = print.Completes.Time()
 			}
 			for i, q := range dev.PrintQueue {
 				dur := printTime[q.Type]
-				data = append(data, []string{d(i),
-					q.Type, "Queued", dur.String(), list(q.Tags), t(est), t(est.Add(dur)),
+				data = append(data, []any{i,
+					q.Type, "Queued", dur.String(), list(q.Tags), est, est.Add(dur),
 				})
 				est = est.Add(dur)
 			}
@@ -138,21 +138,21 @@ var infoCmd = &cobra.Command{
 		}
 		if len(dev.WaitingFor.Components) > 0 || len(dev.WaitingFor.Resources) > 0 {
 
-			var w [][]string
+			var w [][]any
 			for k, v := range dev.WaitingFor.Resources {
-				w = append(w, []string{
-					k, d(v.Have), d(v.Need), d(v.Need - v.Have),
+				w = append(w, []any{
+					k, v.Have, v.Need, v.Need - v.Have,
 				})
 			}
 			for k, v := range dev.WaitingFor.Components {
-				w = append(w, []string{
-					k, d(v.Have), d(v.Need), d(v.Need - v.Have),
+				w = append(w, []any{
+					k, v.Have, v.Need, v.Need - v.Have,
 				})
 			}
 			printTable([]string{"Resource", "Have", "Need", "Missing"}, w)
 		}
 		if len(dev.ControlledDevices) > 0 {
-			var cds [][]string
+			var cds [][]any
 			var mu sync.Mutex
 			var wg sync.WaitGroup
 			for _, d := range dev.ControlledDevices {
@@ -172,15 +172,15 @@ var infoCmd = &cobra.Command{
 						cargo = lines(i)
 					}
 					mu.Lock()
-					cds = append(cds, []string{
-						d.Code.Alias(), d.Type, d.Location, d.Status, route, cargo,
+					cds = append(cds, []any{
+						d, d.Type, d.Location, d.Status, route, cargo,
 					})
 					mu.Unlock()
 				})
 			}
 			wg.Wait()
-			slices.SortFunc(cds, func(a, b []string) int {
-				return cmp.Compare(a[0], b[0])
+			slices.SortFunc(cds, func(a, b []any) int {
+				return cmp.Compare(a[0].(string), b[0].(string))
 			})
 			printTable([]string{
 				"Code", "Type", "Location", "Status", "Route", "Cargo",
@@ -189,18 +189,18 @@ var infoCmd = &cobra.Command{
 		if len(dev.AttachedDevices) > 0 {
 			fmt.Printf("Attached devices (%d/%d):\n",
 				len(dev.AttachedDevices), dev.AttachCapacity)
-			var ds [][]string
+			var ds [][]any
 			for _, d := range dev.AttachedDevices {
-				ds = append(ds, []string{d.Type, d.Code.Alias(), d.Code.String()})
+				ds = append(ds, []any{d.Type, d, d.Code.String()})
 			}
 			printTable([]string{"Type", "Alias", "Code"}, ds)
 		}
 		if dev.StowedDevices != nil && len(dev.StowedDevices.Devices) > 0 {
 			fmt.Printf("Stowed devices (%d/%d):\n",
 				len(dev.StowedDevices.Devices), dev.StowCapacity)
-			var ds [][]string
+			var ds [][]any
 			for _, d := range dev.StowedDevices.Devices {
-				ds = append(ds, []string{d.Type, d.Code.Alias(), d.Code.String()})
+				ds = append(ds, []any{d.Type, d, d.Code.String()})
 			}
 			printTable([]string{"Type", "Alias", "Code"}, ds)
 		}
@@ -208,25 +208,23 @@ var infoCmd = &cobra.Command{
 			s := dev.Scan
 			printTable([]string{
 				"Target", "Started", "Progress", "ETA",
-			}, [][]string{{
-				s.Target, s.Started.String(), f(s.ProgressPercent) + "%", s.Eta.String(),
+			}, [][]any{{
+				s.Target, s.Started.String(), p(s.ProgressPercent), s.Eta,
 			}})
 		}
 		if dev.Travel != nil {
 			trip := dev.Travel
 			printTable([]string{
 				"Origin", "Destination", "ETA", "Percent", "Time Left", "Type",
-			}, [][]string{{
-				string(trip.Origin), string(trip.Destination),
-				t(trip.Arrives.Time()), f(trip.ProgressPercent),
-				trip.Eta.String(), trip.Type,
+			}, [][]any{{
+				trip.Origin, trip.Destination,
+				trip.Arrives.Time(), p(trip.ProgressPercent),
+				trip.Eta, trip.Type,
 			}})
-			var legs [][]string
+			var legs [][]any
 			for _, l := range trip.Route {
 				dist := l.DistanceAu + l.DistanceLy
-				legs = append(legs, []string{
-					d(l.Leg), b(l.Active), string(l.From), string(l.To), f(dist), l.Type,
-				})
+				legs = append(legs, []any{l.Leg, l.Active, l.From, l.To, dist, l.Type})
 			}
 			printTable([]string{"Leg", "Active", "From", "To", "Distance", "Type"}, legs)
 		}

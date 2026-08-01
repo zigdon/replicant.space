@@ -107,6 +107,9 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if pm.dev.Location.Star() == nearest {
+		return "", MachineDoneErr(fmt.Sprintf("Destination %s reached", nearest))
+	}
 	skip := make(map[string]bool)
 	next := nearest
 	stars := make(map[string]*models.Star)

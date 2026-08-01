@@ -73,20 +73,20 @@ var accountCmd = &cobra.Command{
 
 		printTable(
 			[]string{"Name", "Bobnet", "XP", "Status", "Unread messages", "Cooperation"},
-			[][]string{{
+			[][]any{{
 				acc.Name,
 				list(acc.BobnetChannels),
-				d(acc.ExperiencePointsTotal),
+				acc.ExperiencePointsTotal,
 				acc.Status,
-				d(acc.UnreadMessageCount),
+				acc.UnreadMessageCount,
 				acc.ReplicantCooperation,
 			}})
 
-		var mn [][]string
-		mn = append(mn, []string{
+		var mn [][]any
+		mn = append(mn, []any{
 			"Enabled",
-			b(acc.MessageNotify.Email),
-			b(acc.MessageNotify.Webhook),
+			acc.MessageNotify.Email,
+			acc.MessageNotify.Webhook,
 		})
 		var types []string
 		for k := range acc.MessageNotify.Preferences.Email {
@@ -94,15 +94,15 @@ var accountCmd = &cobra.Command{
 		}
 		slices.Sort(types)
 		for _, t := range types {
-			mn = append(mn, []string{
+			mn = append(mn, []any{
 				strings.ToUpper(t[0:1]) + t[1:],
-				b(acc.MessageNotify.Preferences.Email[t]),
-				b(acc.MessageNotify.Preferences.Webhook[t]),
+				acc.MessageNotify.Preferences.Email[t],
+				acc.MessageNotify.Preferences.Webhook[t],
 			})
 		}
 		printTable([]string{"Type", "Email", "Webhook"}, mn)
 
-		var reps [][]string
+		var reps [][]any
 		var names []string
 		for name := range acc.Replicants {
 			names = append(names, name)
@@ -115,11 +115,11 @@ var accountCmd = &cobra.Command{
 				return fmt.Errorf("Error creating alias for %q: %v", err)
 			}
 
-			reps = append(reps, []string{
+			reps = append(reps, []any{
 				r.Name,
 				code,
-				string(r.CurrentLocation),
-				d(r.ExperiencePoints),
+				r.CurrentLocation,
+				r.ExperiencePoints,
 				r.Status,
 			})
 		}

@@ -36,12 +36,11 @@ var allShopCmd = &cobra.Command{
 			fmt.Println("No shops found.")
 			return nil
 		}
-		var shops [][]string
+		var shops [][]any
 		for _, t := range res.Traders {
-			shops = append(shops, []string{
+			shops = append(shops, []any{
 				t.ControllerCode, t.ShopName, t.OwnerName,
-				wrap(t.Description, 40), t.Location, d(t.TradeCount),
-				d(t.TotalStock),
+				wrap(t.Description, 40), t.Location, t.TradeCount, t.TotalStock,
 			})
 		}
 		printTable([]string{
@@ -116,7 +115,7 @@ var executeTradeCmd = &cobra.Command{
 			return err
 		}
 		printTable([]string{"Devices", "Resources"},
-			[][]string{{m(trade.Rewards.Devices), m(trade.Rewards.Resources)}})
+			[][]any{{m(trade.Rewards.Devices), m(trade.Rewards.Resources)}})
 		return nil
 	},
 }
@@ -185,10 +184,10 @@ func init() {
 }
 
 func printTrades(trades []*models.Trade) {
-	var data [][]string
+	var data [][]any
 	for _, t := range trades {
-		data = append(data, []string{
-			wrap(t.Name, 20), t.Code, d(t.CurrentStock),
+		data = append(data, []any{
+			wrap(t.Name, 20), t.Code, t.CurrentStock,
 			m(t.Criteria.Resources), m(t.Criteria.Devices),
 			m(t.Rewards.Resources), m(t.Rewards.Devices),
 		})

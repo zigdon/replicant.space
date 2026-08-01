@@ -12,6 +12,12 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
+type MachineDoneErr string
+
+func (e MachineDoneErr) Error() string {
+	return string(e)
+}
+
 // Find devices tagged with auto:<label>
 // The label identifies the state machine to use
 // If there's an optional state:<name> tag, use that to set the state

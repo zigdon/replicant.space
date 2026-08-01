@@ -29,8 +29,8 @@ func eventComplete(eid string) error {
 	}
 	printTable([]string{
 		"Designation", "Title", "Status", "XP", "Civ Points", "Resources",
-	}, [][]string{{
-		e.Designation, e.Title, e.Status, d(xp), d(civ), lines(rs),
+	}, [][]any{{
+		e.Designation, e.Title, e.Status, xp, civ, lines(rs),
 	}})
 	return nil
 }
@@ -102,9 +102,9 @@ var megaContributeCmd = &cobra.Command{
 		}
 		if res.Error == "" {
 			printTable([]string{"Location", "Status", "Leaderboard", "Contributions",
-				"Value", "Progress", "Stage"}, [][]string{{
-				res.Location, res.Status, d(res.LeaderboardPosition),
-				d(res.YourTotalContributions), d(res.YourTotalValue),
+				"Value", "Progress", "Stage"}, [][]any{{
+				res.Location, res.Status, res.LeaderboardPosition,
+				res.YourTotalContributions, res.YourTotalValue,
 				p(res.Progress.Percentage), res.Progress.Stage,
 			}})
 		}
@@ -123,10 +123,10 @@ var megaContributeCmd = &cobra.Command{
 		}
 
 		slices.Sort(tList)
-		var data [][]string
+		var data [][]any
 		for _, t := range tList {
-			data = append(data, []string{
-				t, d(values[t]), d(len(accepted[t])), list(accepted[t]),
+			data = append(data, []any{
+				t, values[t], len(accepted[t]), list(accepted[t]),
 			})
 		}
 
@@ -138,9 +138,9 @@ var megaContributeCmd = &cobra.Command{
 		for _, d := range res.Rejected {
 			rejected[d.Reason] = append(rejected[d.Reason], d.DeviceCode.Alias())
 		}
-		data = [][]string{}
+		data = [][]any{}
 		for k, v := range rejected {
-			data = append(data, []string{k, list(v)})
+			data = append(data, []any{k, list(v)})
 		}
 		if len(data) > 0 {
 			printTable([]string{"Reason", "Rejected"}, data)
@@ -169,10 +169,10 @@ func init() {
 }
 
 func printEventSummary(es []*models.Event) {
-	var events [][]string
+	var events [][]any
 	for _, e := range es {
-		events = append(events, []string{
-			e.Title, e.Designation, string(e.Location), e.Category, e.Status, d(e.Tier),
+		events = append(events, []any{
+			e.Title, e.Designation, e.Location, e.Category, e.Status, d(e.Tier),
 		})
 	}
 	printTable([]string{
@@ -184,31 +184,31 @@ func printEvent(e *models.Event, style lg.Style) {
 	fmt.Println(strings.Repeat("=", 60))
 	printTable([]string{
 		"Title", "Type", "Designation", "Location", "Category", "Discovered", "Status", "Tier",
-	}, [][]string{{
-		e.Title, e.Type, e.Designation, string(e.Location), e.Category, e.Discovered.String(), e.Status, d(e.Tier),
+	}, [][]any{{
+		e.Title, e.Type, e.Designation, e.Location, e.Category, e.Discovered, e.Status, e.Tier,
 	}})
 	printTable([]string{
 		"Rewards: XP", "Civ Points", "Achievement", "Resources",
-	}, [][]string{{
-		d(e.Rewards.XP),
-		d(e.Rewards.CivilisationPoints),
+	}, [][]any{{
+		e.Rewards.XP,
+		e.Rewards.CivilisationPoints,
 		e.Rewards.CompletionAchievement,
 		m(e.Rewards.Resources),
 	}})
-	printTable([]string{}, [][]string{
+	printTable([]string{}, [][]any{
 		{style.Render(e.Description + "\n")},
 		{style.Render(e.BroadcastMessage)}})
-	var crit [][]string
+	var crit [][]any
 	for _, c := range e.Criteria {
-		crit = append(crit, []string{
+		crit = append(crit, []any{
 			c.Name, formatDev(c.Devices, true), m(c.Resources),
 		})
 	}
 	printTable([]string{"Criteria", "Devices", "Resources"}, crit)
 
-	var progress [][]string
+	var progress [][]any
 	for _, p := range e.Progress.Options {
-		line := []string{p.Name, b(p.Met), formatDev(p.Devices, false)}
+		line := []any{p.Name, p.Met, formatDev(p.Devices, false)}
 		var delivered []string
 		for _, r := range p.Resources {
 			var st string

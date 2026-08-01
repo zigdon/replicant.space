@@ -38,7 +38,7 @@ func autoRock(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var data [][]string
+	var data [][]any
 	var done []string
 	var next []string
 	for _, o := range objs {
@@ -58,11 +58,11 @@ func autoRock(cmd *cobra.Command, args []string) error {
 			// Collect list of rocks that are in need of a fleet
 			next = append(next, string(o.Designation))
 		}
-		data = append(data, []string{
-			string(o.Designation), o.SizeClass, t(o.ImpactEta.Time()), o.Status,
-			d(o.ActivePlates), f(o.CurrentThrustPerHour),
-			f(o.RequiredStrength), p(o.ImpactLikelihood),
-			d(len(pLocs[string(o.Designation)])), mf,
+		data = append(data, []any{
+			o.Designation, o.SizeClass, o.ImpactEta.Time(), o.Status,
+			o.ActivePlates, o.CurrentThrustPerHour,
+			o.RequiredStrength, p(o.ImpactLikelihood),
+			len(pLocs[string(o.Designation)]), mf,
 		})
 	}
 
@@ -72,17 +72,17 @@ func autoRock(cmd *cobra.Command, args []string) error {
 	}, data)
 
 	if len(done) > 0 {
-		data = [][]string{}
+		data = [][]any{}
 		slices.Sort(next)
 		slices.Sort(done)
 		for _, l := range next {
-			line := []string{l}
+			line := []any{l}
 			for _, mf := range done {
 				dist, err := common.Distance(mf, l)
 				if err != nil {
 					return err
 				}
-				line = append(line, f(dist))
+				line = append(line, dist)
 			}
 			data = append(data, line)
 		}

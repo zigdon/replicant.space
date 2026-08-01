@@ -28,6 +28,12 @@ func Log(tmpl string, args ...any) {
 			args[n] = a.Alias()
 		case *models.Device:
 			args[n] = a.Code.Alias()
+		case []*models.Device:
+			var ids []string
+			for _, d := range a {
+				ids = append(ids, d.Code.Alias())
+			}
+			args[n] = ids
 		}
 	}
 	date := time.Now().Format(time.Stamp) + " - "
@@ -114,4 +120,52 @@ func GetBP(bp string) *models.Blueprint {
 	}
 	bps[bp] = b
 	return b
+}
+
+func GetFilteredDevices(devTypes, locations, statuses []string) ([]*models.CodeAlias, error) {
+	getDevsAt := func(location, devType string) ([]*models.Device, error) {
+		filter := make(map[string]string)
+		if location != "" {
+			filter["location"] = location
+		}
+		if devType != "" {
+			filter["device_type"] = devType
+		}
+
+		devs, err := rest.Devices(filter)
+		if err != nil {
+			return nil, err
+		}
+		Log("%v: %d found", filter, len(devs))
+		return devs, nil
+	}
+
+	if len(locations) == 0 {
+		locations = append(locations, "")
+	}
+	if len(devTypes) == 0 {
+		devTypes = append(devTypes, "")
+	}
+	var errs []error
+	var devs []*models.Device
+	for _, l := range locations {
+		for _, t := range devTypes {
+			ds, err := getDevsAt(l, t)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			devs = append(devs, ds...)
+		}
+	}
+
+	Log("Searching for %v devices at %v: %d found", devTypes, locations, len(devs))
+	var ids []*models.CodeAlias
+	for _, d := range devs {
+		if len(statuses) > 0 && !slices.Contains(statuses, d.Status) {
+			continue
+		}
+		ids = append(ids, d.Code)
+	}
+	return ids, nil
 }

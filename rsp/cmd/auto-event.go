@@ -41,10 +41,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	var ev *models.Event
-	var data [][]string
+	var data [][]any
 	for _, e := range evs.Events {
-		data = append(data, []string{
-			e.Designation, e.Title, string(e.Location),
+		data = append(data, []any{
+			e.Designation, e.Title, e.Location,
 		})
 		if e.Designation != eID {
 			continue
@@ -150,7 +150,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 
 	// Examine resolution options
 	var eps []*models.EventProgressOption
-	data = [][]string{}
+	data = [][]any{}
 	for n, op := range ev.Progress.Options {
 		canDo := true
 		for _, bp := range op.Devices {
@@ -163,8 +163,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		if !canDo {
 			continue
 		}
-		data = append(data, []string{
-			d(n + 1), v(op.Resources), v(op.Devices),
+		data = append(data, []any{
+			n + 1, op.Resources, op.Devices,
 		})
 		eps = append(eps, op)
 	}
@@ -489,9 +489,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	data = [][]string{}
+	data = [][]any{}
 	for _, dev := range ep.Devices {
-		data = append(data, []string{dev.DeviceType, d(dev.Required), d(dev.Current)})
+		data = append(data, []any{dev.DeviceType, dev.Required, dev.Current})
 	}
 
 	// See what is currently being printed
@@ -605,16 +605,16 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 	}
 	for _, r := range ep.Resources {
-		data = append(data, []string{r.ResourceType, d(r.Required), f(r.Current)})
+		data = append(data, []any{r.ResourceType, r.Required, r.Current})
 	}
 	printTable([]string{"Type", "Required", "Current"}, data)
 
-	data = [][]string{}
+	data = [][]any{}
 	for k, v := range missing {
-		data = append(data, []string{k, d(v.Need), d(v.Transiting), d(v.Printing)})
+		data = append(data, []any{k, v.Need, v.Transiting, v.Printing})
 	}
-	slices.SortFunc(data, func(a, b []string) int {
-		return cmp.Compare(a[0], b[0])
+	slices.SortFunc(data, func(a, b []any) int {
+		return cmp.Compare(a[0].(string), b[0].(string))
 	})
 	printTable([]string{"Resource", "Need", "Transiting", "Printing"}, data)
 	if err := deliver(); err != nil {
@@ -652,7 +652,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	data = [][]string{}
+	data = [][]any{}
 	for _, r := range acc.ReplicantList {
 		var src, loc string
 		if r.Travel == nil {
@@ -665,9 +665,9 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 		dist, err := common.Distance(src, ev.Location.Star())
 		if err != nil {
-			data = append(data, []string{r.Code.Alias(), loc, err.Error()})
+			data = append(data, []any{r, loc, err.Error()})
 		} else {
-			data = append(data, []string{r.Code.Alias(), loc, f(dist)})
+			data = append(data, []any{r, loc, dist})
 		}
 	}
 	printTable([]string{"Replicant", "Location", "Distance fro " + ev.Location.Star()}, data)

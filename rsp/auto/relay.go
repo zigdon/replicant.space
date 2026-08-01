@@ -200,7 +200,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		log("*******************************************")
 		log("* RELAY COMPLETE: reached %s", rm.dest)
 		log("*******************************************")
-		return eta, fmt.Errorf("*** Relay to %s complete ***", rm.dest)
+		return eta, MachineDoneErr(fmt.Sprintf("*** Relay to %s complete ***", rm.dest))
 	case "transit":
 		if t := rm.dev.Travel; t != nil {
 			eta = t.Arrives.Time()

@@ -230,37 +230,71 @@ func filterEmpty[T any](s []T, keep []bool) []T {
 	return res
 }
 
-func printTable(headers []string, data [][]string) {
+func printTable(headers []string, data [][]any) {
 	printTablef(os.Stdout, headers, data)
 }
 
-func printTablef(out io.Writer, headers []string, data [][]string) {
+func stringify(in any) string {
+	var out string
+	switch a := in.(type) {
+	case string:
+		out = a
+	case int:
+		out = d(a)
+	case bool:
+		out = b(a)
+	case float32:
+		out = f(a)
+	case time.Time:
+		out = t(a)
+	case time.Duration:
+		out = dt(a)
+	case *models.Device:
+		out = a.Code.Alias()
+	case *models.CodeAlias:
+		out = a.Alias()
+	default:
+		out = v(a)
+	}
+	return out
+}
+
+func printTablef(out io.Writer, headers []string, inData [][]any) {
 	var cellStyles []lg.Style
 	headerStyle := lg.NewStyle().Bold(true).Align(lg.Center)
 	cellStyle := lg.NewStyle().Padding(0, 1)
 	cols := len(headers)
 	if cols == 0 {
-		cols = len(data[0])
+		cols = len(inData[0])
 	}
 	hasData := make([]bool, cols)
+	var data [][]string
+	for _, r := range inData {
+		var line []string
+		for _, c := range r {
+			line = append(line, stringify(c))
+		}
+		data = append(data, line)
+	}
 	for i := range cols {
 		var max int
 		if len(headers) > 0 {
 			max = len(headers[i])
 		}
 		for _, l := range data {
-			if len(l[i]) > 0 && l[i] != "0" && l[i] != "0.00" {
+			item := l[i]
+			if len(item) > 0 && l[i] != "0" && l[i] != "0.00" {
 				hasData[i] = true
 			}
-			if strings.Contains(l[i], "\n") {
-				for nl := range strings.SplitSeq(l[i], "\n") {
+			if strings.Contains(item, "\n") {
+				for nl := range strings.SplitSeq(item, "\n") {
 					if len(nl) > max {
 						max = len(nl)
 					}
 				}
 			} else {
-				if len(l[i]) > max {
-					max = len(l[i])
+				if len(item) > max {
+					max = len(item)
 				}
 			}
 		}

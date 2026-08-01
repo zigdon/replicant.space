@@ -34,7 +34,7 @@ var locationCmd = &cobra.Command{
 		getInv := getBool(cmd, "inventory")
 		filter := getString(cmd, "location")
 
-		var data [][]string
+		var data [][]any
 		var locs []string
 		for loc := range res.Locations {
 			if filter != "" && !strings.Contains(string(loc), filter) {
@@ -47,10 +47,7 @@ var locationCmd = &cobra.Command{
 		for _, loc := range locs {
 			sum := res.Locations[models.LocationID(loc)]
 			wg.Go(func() {
-				line := []string{
-					loc, d(sum.Replicants), d(sum.Devices),
-					d(sum.LocationEvents), d(sum.ResourceSites),
-				}
+				line := []any{loc, sum.Replicants, sum.Devices, sum.LocationEvents, sum.ResourceSites}
 				if getInv {
 					if sum.Resources == 0 {
 						line = append(line, "N/A")
@@ -75,8 +72,8 @@ var locationCmd = &cobra.Command{
 			})
 		}
 		wg.Wait()
-		slices.SortFunc(data, func(a, b []string) int {
-			return cmp.Compare(a[0], b[0])
+		slices.SortFunc(data, func(a, b []any) int {
+			return cmp.Compare(a[0].(string), b[0].(string))
 		})
 		if len(data) > 0 {
 			headers := []string{"Designation", "Replicants", "Devices", "Events", "Sites"}
@@ -93,9 +90,9 @@ var locationCmd = &cobra.Command{
 			printTable([]string{
 				"Designation", "Name", "Entry Point", "Class", "Mining Bonus",
 				"Position", "Distance from SOL",
-			}, [][]string{{
-				string(s.Designation), s.Name, string(res.EntryPoint), s.StellarClass,
-				d(s.MiningBonusPct) + "%", s.Position.String(),
+			}, [][]any{{
+				s.Designation, s.Name, res.EntryPoint, s.StellarClass,
+				d(s.MiningBonusPct) + "%", s.Position,
 				f(s.DistanceFromSol) + "ly",
 			}})
 			var pp, mp int
@@ -107,29 +104,29 @@ var locationCmd = &cobra.Command{
 			}
 			printTable([]string{
 				"System Scanned", "Planets", "Moons",
-			}, [][]string{{
-				b(res.SystemScanned),
+			}, [][]any{{
+				res.SystemScanned,
 				fmt.Sprintf("%d/%d (%d%%)", res.PlanetsScanned, res.PlanetsTotal, pp),
 				fmt.Sprintf("%d/%d (%d%%)", res.MoonsScanned, res.MoonsTotal, mp),
 			}})
 			if res.AsteroidBelt.Present {
-				data = [][]string{}
+				data = [][]any{}
 				for _, b := range res.AsteroidBelt.Belts {
-					data = append(data, []string{
-						string(b.Designation), b.Density, m(b.Resources),
+					data = append(data, []any{
+						b.Designation, b.Density, m(b.Resources),
 					})
 				}
 				printTable([]string{"Belt", "Density", "Resources"}, data)
 			}
-			data = [][]string{}
+			data = [][]any{}
 			for _, p := range res.Planets {
 				var inv []string
 				for _, i := range p.Inventory {
 					inv = append(inv, fmt.Sprintf("%.2f x %s", i.Quantity, i.ResourceType))
 				}
-				data = append(data, []string{
-					string(p.Designation), p.Name, p.Type, p.LifeStage,
-					d(p.MoonCount), b(p.Scanned), lines(inv),
+				data = append(data, []any{
+					p.Designation, p.Name, p.Type, p.LifeStage,
+					p.MoonCount, p.Scanned, lines(inv),
 				})
 			}
 			printTable([]string{
@@ -142,16 +139,14 @@ var locationCmd = &cobra.Command{
 			printTable([]string{
 				"Designation", "Name", "Habitable", "LifeStage", "Type", "Moons",
 				"Rings", "Tags",
-			}, [][]string{{
-				string(p.Designation), p.Name, b(p.InHabitableZone), p.LifeStage,
-				p.Type, d(len(res.Moons)), b(p.Rings), list(p.Tags),
+			}, [][]any{{
+				p.Designation, p.Name, p.InHabitableZone, p.LifeStage,
+				p.Type, len(res.Moons), p.Rings, list(p.Tags),
 			}})
 
-			data = [][]string{}
+			data = [][]any{}
 			for _, m := range res.Moons {
-				data = append(data, []string{
-					string(m.Designation), m.Type, m.Name, b(m.Scanned),
-				})
+				data = append(data, []any{m.Designation, m.Type, m.Name, m.Scanned})
 			}
 			if len(data) > 0 {
 				printTable([]string{"Designation", "Type", "Name", "Scanned"}, data)
@@ -162,18 +157,16 @@ var locationCmd = &cobra.Command{
 			m := res.Moon
 			printTable([]string{
 				"Designation", "Name", "Type", "Parent",
-			}, [][]string{{
-				string(m.Designation), m.Name, m.Type, string(m.ParentPlanet),
-			}})
+			}, [][]any{{m.Designation, m.Name, m.Type, m.ParentPlanet}})
 		}
 
 		if res.Type == "object" {
-			var data [][]string
+			var data [][]any
 			so := res.Object
-			data = append(data, []string{
-				string(so.Designation), so.Status, so.ObjectType, so.SizeClass, f(so.OrbitalDistanceAu),
-				so.ImpactTarget, t(so.ImpactEta.Time()), p(so.ImpactLikelihood), f(so.RequiredStrength),
-				d(so.ActivePlates), p(so.ProgressPct), f(so.CurrentThrustPerHour),
+			data = append(data, []any{
+				so.Designation, so.Status, so.ObjectType, so.SizeClass, so.OrbitalDistanceAu,
+				so.ImpactTarget, so.ImpactEta.Time(), p(so.ImpactLikelihood), so.RequiredStrength,
+				so.ActivePlates, p(so.ProgressPct), so.CurrentThrustPerHour,
 			})
 			printTable([]string{
 				"Designation", "Status", "Type", "Class", "Distance AU", "Impact Target",
@@ -181,31 +174,30 @@ var locationCmd = &cobra.Command{
 				"Thrust/hr"}, data)
 		}
 
-		data = [][]string{}
+		data = [][]any{}
 		for _, i := range res.Inventory {
-			data = append(data, []string{i.ResourceType, f(i.Quantity)})
+			data = append(data, []any{i.ResourceType, i.Quantity})
 		}
 		if len(data) > 0 {
 			printTable([]string{"Resource", "Quantity"}, data)
 		}
 
-		data = [][]string{}
+		data = [][]any{}
 		slices.SortFunc(res.Devices, func(a, b *models.Device) int {
 			return cmp.Compare(a.Type, b.Type)
 		})
 		for _, d := range res.Devices {
-			data = append(data, []string{d.Code.Alias(), d.Type, d.Status})
+			data = append(data, []any{d, d.Type, d.Status})
 		}
 		if len(data) > 0 {
 			printTable([]string{"Device Code", "Type", "Status"}, data)
 		}
 
 		if len(res.ResourceSites) > 0 {
-			data = [][]string{}
+			data = [][]any{}
 			for _, s := range res.ResourceSites {
-				data = append(data, []string{
-					d(s.Index), s.Type, string(s.Designation), s.Name,
-					m(s.ResourcesRemainingPct),
+				data = append(data, []any{
+					s.Index, s.Type, s.Designation, s.Name, m(s.ResourcesRemainingPct),
 				})
 			}
 			printTable([]string{

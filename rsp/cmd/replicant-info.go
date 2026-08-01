@@ -27,27 +27,26 @@ var replicantInfoCmd = &cobra.Command{
 		}
 		printTable([]string{
 			"Name", "Code", "Location", "XP", "Description", "Status", "Vessel",
-		}, [][]string{{
-			repl.Name, repl.Code.Alias(), string(repl.Location),
-			d(repl.ExperiencePoints), repl.Description, repl.Status,
-			repl.HostedDeviceCode.Alias(),
+		}, [][]any{{
+			repl.Name, repl.Code, repl.Location,
+			repl.ExperiencePoints, repl.Description, repl.Status,
+			repl.HostedDeviceCode,
 		}})
 		if repl.Travel != nil {
 			trip := repl.Travel
 			printTable([]string{
 				"Departed", "Arrives", "ETA", "Stage",
-			}, [][]string{{
-				string(trip.Origin), string(trip.Destination), trip.Eta.String(),
-				trip.Stage,
+			}, [][]any{{
+				trip.Origin, trip.Destination, trip.Eta, trip.Stage,
 			}, {
 				trip.Departed.String(), trip.Arrives.String(),
 				p(trip.ProgressPercent), "",
 			}})
-			var legs [][]string
+			var legs [][]any
 			for _, l := range trip.Route {
 				dist := l.DistanceAu + l.DistanceLy
-				legs = append(legs, []string{
-					d(l.Leg), b(l.Active), string(l.From), string(l.To), l.Time.String(), f(dist), l.Type,
+				legs = append(legs, []any{
+					l.Leg, l.Active, l.From, l.To, l.Time, dist, l.Type,
 				})
 			}
 			printTable([]string{"Leg", "Active", "From", "To", "Time", "Distance", "Type"}, legs)
@@ -57,25 +56,25 @@ var replicantInfoCmd = &cobra.Command{
 			for _, d := range repl.StowedDevices {
 				cnt[d.Type] = append(cnt[d.Type], d.Code.Alias())
 			}
-			var types [][]string
+			var types [][]any
 			for t, n := range cnt {
-				types = append(types, []string{fmt.Sprintf("%d", len(n)), t, list(n)})
+				types = append(types, []any{fmt.Sprintf("%d", len(n)), t, list(n)})
 			}
-			slices.SortFunc(types, func(a, b []string) int {
-				return cmp.Compare(a[1], b[1])
+			slices.SortFunc(types, func(a, b []any) int {
+				return cmp.Compare(a[1].(string), b[1].(string))
 			})
 			printTable([]string{"Count", "Stowed", "IDs"}, types)
 		}
 		if repl.Printing != nil {
 			pr := repl.Printing
 			printTable([]string{"Printing", "Started", "Completes", "ETA", "Progress"},
-				[][]string{{pr.DeviceType, t(pr.Started.Time()), t(pr.Completes.Time()),
-					pr.Eta.String(), p(pr.ProgressPercent)}})
+				[][]any{{pr.DeviceType, pr.Started.Time(), pr.Completes.Time(),
+					pr.Eta, p(pr.ProgressPercent)}})
 		}
 		if len(repl.PrintQueue) > 0 {
-			var q [][]string
+			var q [][]any
 			for _, pq := range repl.PrintQueue {
-				q = append(q, []string{
+				q = append(q, []any{
 					pq.DeviceType,
 					pq.Notify.Device,
 					b(pq.Notify.Email),
@@ -87,24 +86,21 @@ var replicantInfoCmd = &cobra.Command{
 			}, q)
 		}
 		if len(repl.WaitingFor.Components) > 0 || len(repl.WaitingFor.Resources) > 0 {
-			var w [][]string
+			var w [][]any
 			for k, v := range repl.WaitingFor.Resources {
-				w = append(w, []string{
-					k, d(v.Have), d(v.Need),
-				})
+				w = append(w, []any{k, v.Have, v.Need})
 			}
 			for k, v := range repl.WaitingFor.Components {
-				w = append(w, []string{
-					k, d(v.Have), d(v.Need),
-				})
+				w = append(w, []any{k, v.Have, v.Need})
 			}
 			printTable([]string{"Resource", "Have", "Need"}, w)
 		}
 		if repl.Teleport != nil {
 			rt := repl.Teleport
 			printTable([]string{"Teleport status", "Source", "Destination", "Started", "Completes", "Target"},
-				[][]string{{
-					rt.Status, rt.SourceStar, rt.DestinationStar, t(rt.Started.Time()), t(rt.Completes.Time()), rt.TargetMatrixCode.Alias(),
+				[][]any{{
+					rt.Status, rt.SourceStar, rt.DestinationStar, rt.Started.Time(), rt.Completes.Time(),
+					rt.TargetMatrixCode,
 				}})
 		}
 		return nil

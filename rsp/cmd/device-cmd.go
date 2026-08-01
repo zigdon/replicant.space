@@ -153,20 +153,20 @@ func init() {
 	)
 
 	// Output tables
-	outputTable["device-stow"] = func(data any) ([]string, [][]string) {
+	outputTable["device-stow"] = func(data any) ([]string, [][]any) {
 		resp, ok := data.(*models.CommandResp)
 		if !ok {
-			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+			return []string{"Type error"}, [][]any{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
 		}
-		return []string{"Device", "Status", "Stowed in"}, [][]string{{
-			resp.DeviceCode.Alias(), resp.Status, resp.StowedIn.Alias(),
+		return []string{"Device", "Status", "Stowed in"}, [][]any{{
+			resp.DeviceCode, resp.Status, resp.StowedIn,
 		}}
 	}
 
-	outputTable["device-adopt"] = func(data any) ([]string, [][]string) {
+	outputTable["device-adopt"] = func(data any) ([]string, [][]any) {
 		resp, ok := data.(*models.CommandResp)
 		if !ok {
-			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+			return []string{"Type error"}, [][]any{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
 		}
 		var as, rs []string
 		if resp.AdoptedDevices != nil {
@@ -179,16 +179,16 @@ func init() {
 				rs = append(rs, d.Code.Alias())
 			}
 		}
-		return []string{"Controller", "Status", "Adopted", "Released"}, [][]string{{
-			resp.ControllerCode.Alias(), resp.Status, list(as), list(rs),
+		return []string{"Controller", "Status", "Adopted", "Released"}, [][]any{{
+			resp.ControllerCode, resp.Status, list(as), list(rs),
 		}}
 	}
-	outputTable["device-attach"] = func(data any) ([]string, [][]string) {
+	outputTable["device-attach"] = func(data any) ([]string, [][]any) {
 		// The response is _either_ CommandResp (if we provided a list of
 		// targets) or CommandDetachAll when targets = null. I have Opinions.
 		resp, ok := data.(*models.CommandResp)
 		if !ok {
-			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+			return []string{"Type error"}, [][]any{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
 		}
 		var as, rs []string
 		if resp.Attached != nil {
@@ -201,23 +201,23 @@ func init() {
 				rs = append(rs, d.Code.Alias())
 			}
 		}
-		return []string{"Controller", "Status", "Attached", "Detached"}, [][]string{{
-			resp.ControllerCode.Alias(), resp.Status, list(as), list(rs),
+		return []string{"Controller", "Status", "Attached", "Detached"}, [][]any{{
+			resp.ControllerCode, resp.Status, list(as), list(rs),
 		}}
 
 	}
-	outputTable["device-decommission"] = func(data any) ([]string, [][]string) {
+	outputTable["device-decommission"] = func(data any) ([]string, [][]any) {
 		resp, ok := data.(*models.CommandResp)
 		if !ok {
-			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+			return []string{"Type error"}, [][]any{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
 		}
 		return []string{"Status", "Learned", "Recovered Resources"},
-			[][]string{{resp.Status, resp.BlueprintDiscovered, m(resp.ResourcesRecovered)}}
+			[][]any{{resp.Status, resp.BlueprintDiscovered, m(resp.ResourcesRecovered)}}
 	}
-	outputTable["device-travel"] = func(data any) ([]string, [][]string) {
+	outputTable["device-travel"] = func(data any) ([]string, [][]any) {
 		resp, ok := data.(*models.CommandResp)
 		if !ok {
-			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+			return []string{"Type error"}, [][]any{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
 		}
 		var origin, dest []string
 		origin = append(origin, resp.Origin)
@@ -225,6 +225,6 @@ func init() {
 		dest = append(dest, resp.Destination)
 		dest = append(dest, t(resp.Arrives.Time()))
 		return []string{"Status", "Departed", "Destination", "Total Time"},
-			[][]string{{resp.Status, lines(origin), lines(dest), resp.TotalTime.String()}}
+			[][]any{{resp.Status, lines(origin), lines(dest), resp.TotalTime}}
 	}
 }

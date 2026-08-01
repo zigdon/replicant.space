@@ -80,6 +80,10 @@ func autoState(cmd *cobra.Command, args []string) error {
 	runStep = func(d *models.CodeAlias, m auto.Machine) error {
 		t, err := m.Process()
 		if err != nil {
+			if _, ok := errors.AsType[auto.MachineDoneErr](err); ok {
+				log("State machine %s (%T) done: %v", d, m, err)
+				return nil
+			}
 			errs = append(errs, err)
 		} else if t.IsZero() {
 			errs = append(errs, fmt.Errorf("%s: No time for next step", d.Alias()))
@@ -99,9 +103,9 @@ func autoState(cmd *cobra.Command, args []string) error {
 			log("Error finding new state machines: %v", err)
 		}
 		evs := eq.List()
-		var data [][]string
+		var data [][]any
 		for _, e := range evs {
-			data = append(data, []string{e.When.Format(time.Stamp), e.Name, e.Desc})
+			data = append(data, []any{e.When.Format(time.Stamp), e.Name, e.Desc})
 		}
 		printTable([]string{"When", "Who", "What"}, data)
 		log("Waiting for next process event: %s", time.Until(eq.Next()))

@@ -166,9 +166,9 @@ var teleportCmd = &cobra.Command{
 		}
 		printTable([]string{
 			"Replicant", "Status", "Source", "Destination", "Matrix", "Completes", "Online",
-		}, [][]string{{
-			rID.Alias(), res.Status, res.SourceStar, res.DestinationStar, res.TargetMatrixCode.Alias(),
-			t(res.Completes.Time()), t(res.Completes.Time().Add(res.Offline.Duration())),
+		}, [][]any{{
+			rID, res.Status, res.SourceStar, res.DestinationStar, res.TargetMatrixCode,
+			res.Completes.Time(), res.Completes.Time().Add(res.Offline.Duration()),
 		}})
 		return nil
 	},
@@ -182,13 +182,13 @@ var teleportListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		var data [][]string
+		var data [][]any
 		for _, d := range dests {
-			data = append(data, []string{
-				d.Code.Alias(),
-				string(d.Location),
+			data = append(data, []any{
+				d,
+				d.Location,
 				d.Type,
-				d.StowedDevices.Devices[0].Code.Alias(),
+				d.StowedDevices.Devices[0],
 			})
 		}
 		printTable([]string{"Code", "Location", "Type", "Matrix"}, data)

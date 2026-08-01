@@ -29,12 +29,10 @@ var plotCmd = &cobra.Command{
 		if trip == nil {
 			return nil
 		}
-		data := [][]string{{trip.Source, trip.Dest, "-", "-"},
+		data := [][]any{{trip.Source, trip.Dest, "-", "-"},
 			{"", "", "", ""}}
 		for _, l := range trip.Legs {
-			data = append(data, []string{
-				l.From, l.To, f(l.DistFromSrc), f(l.DistToDest),
-			})
+			data = append(data, []any{l.From, l.To, l.DistFromSrc, l.DistToDest})
 		}
 		printTable([]string{"Source", "Destination", "From Source", "To Destination"},
 			data)
@@ -142,15 +140,13 @@ func sectorStars(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	var data [][]string
+	var data [][]any
 	for _, s := range res {
 		st, err := models.NewStar(s)
 		if err != nil {
 			return err
 		}
-		data = append(data, []string{
-			s, st.Position.String(), f(st.DistanceFromSol), f(dPos.Distance(st.Position)),
-		})
+		data = append(data, []any{s, st.Position, st.DistanceFromSol, dPos.Distance(st.Position)})
 	}
 
 	printTable([]string{"Designation", "Position", "LY from origin", "LY from destination"}, data)
@@ -181,15 +177,13 @@ func neighbourStars(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var data [][]string
+	var data [][]any
 	var errs []error
 	for rows.Next() {
 		var n string
 		var x, y, z, d float32
 		errs = append(errs, rows.Scan(&n, &x, &y, &z, &d))
-		data = append(data, []string{
-			n, models.NewPosition(x, y, z).String(), f(d),
-		})
+		data = append(data, []any{n, models.NewPosition(x, y, z).String(), d})
 	}
 	printTable([]string{"Designation", "Position", "Distance"}, data)
 	return rows.Err()

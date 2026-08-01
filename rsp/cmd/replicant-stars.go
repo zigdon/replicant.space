@@ -35,8 +35,8 @@ func replicantStars(cmd *cobra.Command, args []string) error {
 		var target *models.Position
 		var err error
 		headers := []string{"Location", "Total Stars", "Page"}
-		data := [][]string{{
-			resp.ReplicantPosition.String(), d(resp.TotalStars),
+		data := [][]any{{
+			resp.ReplicantPosition, resp.TotalStars,
 			fmt.Sprintf("%d/%d", page, resp.TotalPages),
 		}}
 		dest := getString(cmd, "destination")
@@ -49,7 +49,7 @@ func replicantStars(cmd *cobra.Command, args []string) error {
 			data[0] = append(data[0], target.String())
 		}
 		printTable(headers, data)
-		var stars [][]string
+		var stars [][]any
 		dist := make(map[models.LocationID]float32)
 		for _, s := range resp.Stars {
 			if f := getString(cmd, "filter"); f != "" {
@@ -73,21 +73,21 @@ func replicantStars(cmd *cobra.Command, args []string) error {
 				}
 			}
 
-			data := []string{
-				string(s.Designation),
-				string(s.EntryPoint),
+			data := []any{
+				s.Designation,
+				s.EntryPoint,
 				d(s.EstimatedPlanets) + hasCache,
-				f(s.DistanceFromReplicant),
+				s.DistanceFromReplicant,
 				s.EstimatedTravelTime.Duration().String(),
 				s.SpectralType,
-				b(s.Explored),
-				b(s.HasLife),
-				s.Position.String(),
+				s.Explored,
+				s.HasLife,
+				s.Position,
 				s.Region,
 			}
 			if dest != "" {
 				dist[s.Designation] = s.Position.Distance(target)
-				data = append(data, f(dist[s.Designation]))
+				data = append(data, dist[s.Designation])
 			}
 			if err := db.Update(cache.StarsTable, map[string]any{
 				"designation":   s.Designation,
@@ -114,10 +114,10 @@ func replicantStars(cmd *cobra.Command, args []string) error {
 		}
 		if dest != "" {
 			headers = append(headers, "To destination")
-			slices.SortFunc(stars, func(a, b []string) int {
+			slices.SortFunc(stars, func(a, b []any) int {
 				return cmp.Compare(
-					dist[models.LocationID(a[0])],
-					dist[models.LocationID(b[0])])
+					dist[models.LocationID(a[0].(string))],
+					dist[models.LocationID(b[0].(string))])
 			})
 		}
 		printTable(headers, stars)

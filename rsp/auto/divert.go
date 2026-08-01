@@ -23,6 +23,7 @@ import (
 //   - "recall" rocks mtd in the system
 // departing: mf has all devices, inactive site
 //   - find closest active site, head there
+//   - If there isn't one, keep waiting
 // travelling: in tranit
 //   - wait
 

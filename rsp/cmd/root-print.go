@@ -138,7 +138,7 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 	slices.SortFunc(queue, func(a, b pq) int {
 		return cmp.Compare(a.eta.Unix(), b.eta.Unix())
 	})
-	var data [][]string
+	var data [][]any
 	for _, q := range queue {
 		var pos string
 		if q.pos < 0 {
@@ -146,16 +146,16 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 		} else {
 			pos = d(q.pos)
 		}
-		data = append(data, []string{
-			string(q.location), q.deviceType, list(q.tags), q.code.Alias(), pos, t(q.eta), rm(q.missing),
+		data = append(data, []any{
+			q.location, q.deviceType, list(q.tags), q.code.Alias(), pos, q.eta, rm(q.missing),
 		})
 	}
 	printTable([]string{"Location", "Type", "Tags", "Factory", "Position", "ETA", "Missing"}, data)
 
 	if len(totalMissing) > 0 {
-		data = [][]string{}
+		data = [][]any{}
 		for k, v := range totalMissing {
-			data = append(data, []string{k, d(v)})
+			data = append(data, []any{k, v})
 		}
 		printTable([]string{"Missing", "Quantity"}, data)
 	}
@@ -204,14 +204,14 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	}
 
 	copies := getInt(cmd, "repeat")
-	var data [][]string
+	var data [][]any
 	bp := getBP(name)
 	log("Print time, per copy: %s", bp.PrintTime.Duration())
 	for k, v := range bp.Resources {
-		data = append(data, []string{k, d(v), d(v * copies), d(inventory[k]), ""})
+		data = append(data, []any{k, v, v * copies, inventory[k], ""})
 	}
 	for k, v := range bp.Components {
-		data = append(data, []string{k, d(v), d(v * copies), d(inventory[k]), d(pending[k])})
+		data = append(data, []any{k, v, v * copies, inventory[k], pending[k]})
 	}
 	printTable([]string{"Ingredient", "Per copy", "Total needed", "Available", "Queued"}, data)
 
@@ -343,7 +343,7 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		return cmp.Compare(a.Num(), b.Num())
 	})
 
-	data = [][]string{}
+	data = [][]any{}
 	for _, p := range printers {
 		pl, ok := plan[p.Alias()]
 		if !ok || len(pl.toQueue) == 0 {
@@ -353,10 +353,7 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		if pl.delay > 0 {
 			delay = dt(pl.delay)
 		}
-		queue := append([]string{}, pl.toQueue...)
-		data = append(data, []string{
-			p.Alias(), countList(queue), delay, dt(pl.eta),
-		})
+		data = append(data, []any{p, countList(pl.toQueue), delay, pl.eta})
 		for _, tq := range pl.toQueue {
 			if tq == "" {
 				continue

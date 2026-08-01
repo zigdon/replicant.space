@@ -39,18 +39,18 @@ func msgList(cmd *cobra.Command, args []string) error {
 	if raw := getBool(cmd, "raw"); raw {
 		prettyPrint(data)
 	} else {
-		var msgs [][]string
+		var msgs [][]any
 		for _, m := range data.Messages {
 			if !partial {
 				ids = append(ids, m.ID)
 			}
-			msgs = append(msgs, []string{
-				d(m.ID),
+			msgs = append(msgs, []any{
+				m.ID,
 				m.Type,
 				wrap(m.Title, 20),
 				wrap(m.Body, width),
-				b(m.Read),
-				t(m.Created.Time()),
+				m.Read,
+				m.Created.Time(),
 			})
 		}
 		printTable([]string{"ID", "Type", "Title", "Body", "Read", "Created"}, msgs)
@@ -110,7 +110,7 @@ var bobCmd = &cobra.Command{
 			return fmt.Errorf("Error getting bobnet messages: %v", err)
 		}
 		headers := []string{"Channel", "Name", "Time", "Message"}
-		var lines [][]string
+		var lines [][]any
 		slices.Reverse(data.Messages)
 		for _, d := range data.Messages {
 			if len(channels) > 0 && !slices.Contains(channels, d.Channel) {
@@ -124,8 +124,8 @@ var bobCmd = &cobra.Command{
 			} else {
 				who = d.ReplicantName
 			}
-			lines = append(lines, []string{
-				d.Channel, who, t(d.Time.Time()), wrap(d.Message, width),
+			lines = append(lines, []any{
+				d.Channel, who, d.Time.Time(), wrap(d.Message, width),
 			})
 		}
 		printTable(headers, lines)

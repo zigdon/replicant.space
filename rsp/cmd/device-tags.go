@@ -31,9 +31,7 @@ var addTagCmd = &cobra.Command{
 		if len(tags) == 0 {
 			tags = []string{"N/A"}
 		}
-		printTable([]string{"Device", "Tags"}, [][]string{{
-			res.Code.Alias(), list(tags),
-		}})
+		printTable([]string{"Device", "Tags"}, [][]any{{res, list(tags)}})
 		return nil
 	},
 }
@@ -56,9 +54,7 @@ var delTagCmd = &cobra.Command{
 		if len(tags) == 0 {
 			tags = []string{"N/A"}
 		}
-		printTable([]string{"Device", "Tags"}, [][]string{{
-			res.Code.Alias(), list(tags),
-		}})
+		printTable([]string{"Device", "Tags"}, [][]any{{res, list(tags)}})
 		return nil
 	},
 }
@@ -74,7 +70,7 @@ var findTagsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		var details [][]string
+		var details [][]any
 		for _, d := range res.Devices {
 			code := d.Code.Alias()
 			code = lines([]string{code, unalias(code)})
@@ -86,9 +82,8 @@ var findTagsCmd = &cobra.Command{
 			}
 			cargo = append([]string{fmt.Sprintf("%.2f/%d (%.0f%%)",
 				totalCargo, d.CargoCapacity, totalCargo/float32(d.CargoCapacity)*100)}, cargo...)
-			details = append(details, []string{code, d.Type, string(d.Location),
-				d.Status, d.ReplicantCode.Alias(),
-				lines(cargo),
+			details = append(details, []any{code, d.Type, d.Location,
+				d.Status, d.ReplicantCode, lines(cargo),
 			})
 		}
 
@@ -130,10 +125,10 @@ var listTagsCmd = &cobra.Command{
 		}
 		slices.Sort(types)
 		slices.Sort(tagNames)
-		var data [][]string
+		var data [][]any
 		for _, tag := range tagNames {
 			ds := tags[tag]
-			line := []string{tag}
+			line := []any{tag}
 			for _, t := range types {
 				if ds[t] > 0 {
 					line = append(line, d(ds[t]))

@@ -23,7 +23,7 @@ var blueprintsCmd = &cobra.Command{
 			prettyPrint(res)
 			return nil
 		}
-		var blues [][]string
+		var blues [][]any
 		var errs []error
 		for _, b := range res.Blueprints {
 			if filter := getString(cmd, "filter"); filter != "" {
@@ -53,11 +53,11 @@ var blueprintsCmd = &cobra.Command{
 			if err != nil {
 				errs = append(errs, err)
 			}
-			blues = append(blues, []string{
+			blues = append(blues, []any{
 				b.DeviceType,
 				a,
 				wrap(list(b.Features), 20),
-				b.PrintTime.String(),
+				b.PrintTime,
 				strings.Join(resources, "\n"),
 				lines([]string{
 					fmt.Sprintf("Attach: %d", b.AttachCapacity),

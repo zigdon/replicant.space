@@ -59,9 +59,9 @@ var printCmd = &cobra.Command{
 		}
 		printTable([]string{
 			"Device Type", "Status", "Started", "Ends", "Duration", "Refunded",
-		}, [][]string{{
-			res.DeviceType, res.Status, t(res.Started.Time()), t(res.Completes.Time()),
-			res.PrintTime.String(), b(res.ResourcesRefunded),
+		}, [][]any{{
+			res.DeviceType, res.Status, res.Started.Time(), res.Completes.Time(),
+			res.PrintTime, res.ResourcesRefunded,
 		}})
 		return nil
 	},

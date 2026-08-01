@@ -31,19 +31,19 @@ var eventCmd = &cobra.Command{
 		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(data)
 		} else {
-			var events [][]string
+			var events [][]any
 			for _, e := range data.ReplicantEvents {
 				var payload []string
 				for k, v := range e.Payload {
 					payload = append(payload, fmt.Sprintf("%s: %v", k, v))
 				}
-				events = append(events, []string{
-					e.DeviceCode.String(),
+				events = append(events, []any{
+					e.DeviceCode,
 					e.DeviceType,
 					e.Type,
 					lg.NewStyle().Width(width).Render(e.Message),
 					lg.NewStyle().Width(width).Render(lines(payload)),
-					e.Created.String(),
+					e.Created,
 				})
 			}
 			printTable([]string{

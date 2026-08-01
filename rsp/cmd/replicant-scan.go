@@ -33,18 +33,18 @@ func replicantScan(cmd *cobra.Command, args []string) error {
 		"Life Detected",
 		"Mining Bonus %",
 		"Tags",
-	}, [][]string{{
-		string(scan.Star.Designation),
-		string(scan.EntryPoint),
-		b(scan.LifeDetected),
-		d(scan.MiningBonusPct),
+	}, [][]any{{
+		scan.Star.Designation,
+		scan.EntryPoint,
+		scan.LifeDetected,
+		scan.MiningBonusPct,
 		list(scan.SystemTags),
 	}})
 	if scan.AsteroidBelt.Present {
-		var belts [][]string
+		var belts [][]any
 		for _, b := range scan.AsteroidBelt.Belts {
-			belts = append(belts, []string{
-				string(b.Designation),
+			belts = append(belts, []any{
+				b.Designation,
 				b.Density,
 				m(b.Resources),
 			})
@@ -54,20 +54,20 @@ func replicantScan(cmd *cobra.Command, args []string) error {
 		)
 	}
 	if len(scan.Planets) > 0 {
-		var planets [][]string
+		var planets [][]any
 		for _, p := range scan.Planets {
 			var salvage []string
 			for _, s := range p.Salvage {
 				salvage = append(salvage, fmt.Sprintf(
 					"%s (%s): %s", s.Name, s.Designation, list(s.ResourcesAvailable)))
 			}
-			planets = append(planets, []string{
+			planets = append(planets, []any{
 				p.Name,
-				string(p.Designation),
+				p.Designation,
 				p.Type,
-				b(p.InHabitableZone),
-				d(p.MoonCount),
-				b(p.Scanned),
+				p.InHabitableZone,
+				p.MoonCount,
+				p.Scanned,
 				strings.Join(salvage, "\n"),
 			})
 		}
@@ -82,48 +82,46 @@ func replicantScan(cmd *cobra.Command, args []string) error {
 		}, planets)
 	}
 
-	var outer [][]string
+	var outer [][]any
 	if scan.OuterSystem.Oort != nil {
 		outer = append(outer,
-			[]string{string(scan.OuterSystem.Oort.Designation),
-				f(scan.OuterSystem.Oort.DistanceAu)})
+			[]any{scan.OuterSystem.Oort.Designation, scan.OuterSystem.Oort.DistanceAu})
 	}
 	if scan.OuterSystem.Kuiper != nil {
 		outer = append(outer,
-			[]string{string(scan.OuterSystem.Kuiper.Designation),
-				f(scan.OuterSystem.Kuiper.DistanceAu)})
+			[]any{scan.OuterSystem.Kuiper.Designation, scan.OuterSystem.Kuiper.DistanceAu})
 	}
 	if len(outer) > 0 {
 		printTable([]string{"Outer system", "Distance AU"}, outer)
 	}
 
 	if len(scan.ActiveLocationEvents) > 0 {
-		var events [][]string
+		var events [][]any
 		for _, e := range scan.ActiveLocationEvents {
-			events = append(events, []string{
-				string(e.Designation), e.Title, e.EventType, string(e.Location), d(e.Tier),
+			events = append(events, []any{
+				e.Designation, e.Title, e.EventType, e.Location, e.Tier,
 			})
 		}
 		printTable([]string{"Designation", "Title", "Type", "Location", "Tier"}, events)
 	}
 
 	if len(scan.Replicants) > 0 {
-		var reps [][]string
+		var reps [][]any
 		for _, r := range scan.Replicants {
-			reps = append(reps, []string{r.Name, r.Code, string(r.Location), r.LastActive.String()})
+			reps = append(reps, []any{r.Name, r.Code, r.Location, r.LastActive})
 		}
 		printTable([]string{"Name", "Code", "Location", "Last Active"}, reps)
 	}
 
 	if len(scan.Shops) > 0 {
 		for _, shop := range scan.Shops {
-			var trades [][]string
+			var trades [][]any
 			printTable(
 				[]string{"Name", "Owner", "Location", "Description"},
-				[][]string{{shop.ShopName, shop.OwnerName, shop.Location, shop.Description}})
+				[][]any{{shop.ShopName, shop.OwnerName, shop.Location, shop.Description}})
 			for _, tr := range shop.Trades {
-				trades = append(trades, []string{
-					tr.Name, d(tr.CurrentStock), tr.Code,
+				trades = append(trades, []any{
+					tr.Name, tr.CurrentStock, tr.Code,
 					m(tr.Criteria.Resources),
 					m(tr.Rewards.Devices),
 				})
@@ -134,21 +132,20 @@ func replicantScan(cmd *cobra.Command, args []string) error {
 
 	if len(scan.SystemObjects) > 0 {
 		log("System objects")
-		var data [][]string
-		var odata [][]string
+		var data [][]any
+		var odata [][]any
 		for _, so := range scan.SystemObjects {
-			data = append(data, []string{
+			data = append(data, []any{
 				lines([]string{string(so.Designation), string(so.Location)}),
-				so.Status, so.ObjectType, so.SizeClass, f(so.OrbitalDistanceAu),
-				so.ImpactTarget, t(so.ImpactEta.Time()),
-				p(so.ImpactLikelihood), f(so.RequiredStrength),
-				d(so.ActivePlates), p(so.ProgressPct),
-				f(so.CurrentThrustPerHour), wrap(so.Description, 40),
+				so.Status, so.ObjectType, so.SizeClass, so.OrbitalDistanceAu,
+				so.ImpactTarget, so.ImpactEta.Time(),
+				p(so.ImpactLikelihood), so.RequiredStrength,
+				so.ActivePlates, p(so.ProgressPct),
+				so.CurrentThrustPerHour, wrap(so.Description, 40),
 			})
 			for ot, ro := range so.Requirements {
-				odata = append(odata, []string{
-					ot, b(ro.Complete), d(ro.Current), d(ro.Remaining),
-					d(ro.Required),
+				odata = append(odata, []any{
+					ot, ro.Complete, ro.Current, ro.Remaining, ro.Required,
 				})
 			}
 		}

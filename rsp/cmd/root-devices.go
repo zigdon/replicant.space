@@ -119,7 +119,7 @@ var networkCmd = &cobra.Command{
 			return err
 		}
 		networks := []*models.Network{}
-		var inactive [][]string
+		var inactive [][]any
 		var wg sync.WaitGroup
 		var errs []error
 		var mu sync.Mutex
@@ -159,7 +159,7 @@ var networkCmd = &cobra.Command{
 						loc = string(d.Location)
 					}
 					mu.Lock()
-					inactive = append(inactive, []string{d.Code.Alias(), loc})
+					inactive = append(inactive, []any{d, loc})
 					mu.Unlock()
 					return
 				}
@@ -174,8 +174,8 @@ var networkCmd = &cobra.Command{
 			})
 		}
 		wg.Wait()
-		slices.SortFunc(inactive, func(a, b []string) int {
-			return cmp.Compare(a[1], b[1])
+		slices.SortFunc(inactive, func(a, b []any) int {
+			return cmp.Compare(a[1].(string), b[1].(string))
 		})
 		slices.SortFunc(networks, func(a, b *models.Network) int {
 			if len(a.Connections) == 0 {
@@ -186,13 +186,13 @@ var networkCmd = &cobra.Command{
 			}
 			return cmp.Compare(a.Connections[0].Star, b.Connections[0].Star)
 		})
-		var data [][]string
+		var data [][]any
 		for i, n := range networks {
 			var aliases []string
 			for _, d := range n.Devices() {
 				aliases = append(aliases, fmt.Sprintf("%s (%s)", alias(d), d))
 			}
-			data = append(data, []string{d(i), lines(n.Stars()), lines(aliases)})
+			data = append(data, []any{i, lines(n.Stars()), lines(aliases)})
 		}
 		printTable([]string{"ID", "Stars", "Devices"}, data)
 		printTable([]string{"Inactive Relays", "Location"}, inactive)
@@ -235,7 +235,7 @@ func filterDevices(devs []*models.Device, filters map[string]models.DeviceFilter
 }
 
 func printDeviceList(devs []*models.Device, reference *models.Position, merge bool) {
-	var data [][]string
+	var data [][]any
 	mkKey := func(dev *models.Device, eta string) string {
 		return strings.Join([]string{
 			dev.Type,
@@ -249,7 +249,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 		}, "|")
 	}
 
-	dups := make(map[string][]*models.Device)
+	dups := make(map[any][]*models.Device)
 	dists := make(map[string]float32)
 	for _, d := range devs {
 		loc := d.GetPosition()
@@ -289,18 +289,18 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 		if d.AttachCapacity > 0 {
 			attached = fmt.Sprintf("%d/%d", len(d.AttachedDevices), d.AttachCapacity)
 		}
-		line := []string{
+		line := []any{
 			d.Type,
-			d.Code.Alias(),
-			d.ControllerDeviceCode.Alias(),
-			string(d.Location),
+			d,
+			d.ControllerDeviceCode,
+			d.Location,
 			p(d.OperationalCapacity),
 			status,
 			dest,
 			eta,
 			d.StowedInDeviceCode.Alias() + d.AttachedToDeviceCode.Alias(),
 			list(d.Tags),
-			d.OwnerReplicant.Alias(),
+			d.OwnerReplicant,
 			attached,
 			key,
 		}
@@ -323,15 +323,15 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 		}
 	}
 	if reference == nil {
-		slices.SortFunc(data, func(a, b []string) int {
+		slices.SortFunc(data, func(a, b []any) int {
 			return cmp.Or(
-				cmp.Compare(a[0], b[0]),
-				cmp.Compare(a[1], b[1]),
+				cmp.Compare(a[0].(string), b[0].(string)),
+				cmp.Compare(a[1].(*models.Device).Code.Alias(), b[1].(*models.Device).Code.Alias()),
 			)
 		})
 	} else {
-		slices.SortFunc(data, func(a, b []string) int {
-			return cmp.Compare(dists[a[3]], dists[b[3]])
+		slices.SortFunc(data, func(a, b []any) int {
+			return cmp.Compare(dists[a[3].(string)], dists[b[3].(string)])
 		})
 	}
 	headers := []string{

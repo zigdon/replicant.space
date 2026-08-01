@@ -109,7 +109,7 @@ func mkCommand[T any](parent *cobra.Command, name, short, command string, flags 
 				}
 				data[argsFlag.jsonKey] = args[0]
 			}
-			var repData [][]string
+			var repData [][]any
 			var repHeaders []string
 			for range reps {
 				resp, err := rest.DeviceCommand[T](ca, command, data)

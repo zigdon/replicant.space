@@ -26,7 +26,7 @@ var deviceNetworkCmd = &cobra.Command{
 		}
 		printTable(
 			[]string{"Status", "Range LY"},
-			[][]string{{res.Status, f(res.RangeLy)}},
+			[][]any{{res.Status, res.RangeLy}},
 		)
 		ref := getString(cmd, "reference")
 		var star *models.Star
@@ -56,17 +56,16 @@ var deviceNetworkCmd = &cobra.Command{
 			})
 		}
 
-		var nodes [][]string
+		var nodes [][]any
 		for _, n := range res.Connections {
 			s, _ := models.NewStar(n.Star)
-			nodes = append(nodes, []string{
-				n.Star, n.DeviceCode.Alias(), f(s.Position.Distance(star.Position)),
-				s.Position.String(),
+			nodes = append(nodes, []any{
+				n.Star, n, s.Position.Distance(star.Position), s.Position.String(),
 			})
 		}
 		if ref == "" {
-			slices.SortFunc(nodes, func(a, b []string) int {
-				return cmp.Compare(a[0], b[0])
+			slices.SortFunc(nodes, func(a, b []any) int {
+				return cmp.Compare(a[0].(string), b[0].(string))
 			})
 		}
 		printTable([]string{"Star", "Device", "Distance LY", "Position"}, nodes)

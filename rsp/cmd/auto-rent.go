@@ -219,7 +219,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 
 	// Check hubs for missing resources, find a ship at home, load it, and send
 	// it over
-	var data [][]string
+	var data [][]any
 	slices.SortFunc(hubs, func(a, b *models.Device) int {
 		return cmp.Or(
 			cmp.Compare(a.Location.Star(), b.Location.Star()),
@@ -309,8 +309,8 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		l := lines[string(sh.Location)]
-		data = append(data, []string{
-			string(sh.Location), sh.Code.Alias(), l.status, p(sh.OperationalCapacity),
+		data = append(data, []any{
+			sh.Location, sh, l.status, p(sh.OperationalCapacity),
 			c(l.inv), c(l.rent), c(l.cargo), list(l.cfs),
 		})
 	}

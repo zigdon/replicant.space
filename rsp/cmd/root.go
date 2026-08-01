@@ -47,7 +47,7 @@ func Execute() {
 				log("Error getting messages: %v", err)
 			} else {
 				var disc int
-				var data [][]string
+				var data [][]any
 				var ids []int
 				for _, m := range msgs.Messages {
 					if m.Type == "discovery" {
@@ -55,16 +55,14 @@ func Execute() {
 						disc++
 						continue
 					}
-					data = append(data, []string{
-						m.Created.Time().Format(time.Kitchen), d(m.ID), m.Title,
-					})
+					data = append(data, []any{m.Created.Time().Format(time.Kitchen), m.Title})
 				}
 				if disc > 0 {
 					fmt.Printf("%d discovery messages\n", disc)
 				}
 				if len(data) > 0 {
 					log("Messages:")
-					printTable([]string{"Time", "ID", "Title"}, data)
+					printTable([]string{"Time", "Title"}, data)
 				}
 				if len(ids) > 0 {
 					if err := rest.MarkRead(ids); err != nil {
@@ -96,19 +94,19 @@ func init() {
 	rootCmd.PersistentFlags().Bool("msg", true, "show unread message information")
 }
 
-var outputTable = map[string]func(data any) ([]string, [][]string){
-	"default": func(data any) ([]string, [][]string) {
+var outputTable = map[string]func(data any) ([]string, [][]any){
+	"default": func(data any) ([]string, [][]any) {
 		resp, ok := data.(*models.CommandResp)
 		if !ok {
-			return []string{"Type error"}, [][]string{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
+			return []string{"Type error"}, [][]any{{fmt.Sprintf("Can't convert %v to CommandResp", data)}}
 		}
 		return []string{
 				"Code", "Location", "Star", "Belt", "Status",
 				"ETA", "Started", "Ends"},
-			[][]string{{
-				resp.DeviceCode.Alias(), resp.Location, resp.Star,
-				resp.Belt, resp.Status, dt(resp.Eta.Duration()),
-				t(resp.Started.Time()), t(resp.Completes.Time()),
+			[][]any{{
+				resp, resp.Location, resp.Star,
+				resp.Belt, resp.Status, resp.Eta.Duration(),
+				resp.Started.Time(), resp.Completes.Time(),
 			}}
 	},
 }
