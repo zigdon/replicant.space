@@ -10,6 +10,7 @@ import (
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -200,7 +201,7 @@ func msgTable(cmd *cobra.Command, args []string) error {
 			style = style.Bold(true).Foreground(tcell.ColorGreen)
 		}
 		listWin.SetCell(n, 0,
-			NewCell(true, dt(time.Until(msg.Created.Time()))).
+			NewCell(true, common.Dt(time.Until(msg.Created.Time()))).
 				SetStyle(style).
 				SetReference(msg))
 		listWin.SetCell(n, 1, NewCell(true, msg.Type).SetStyle(style))

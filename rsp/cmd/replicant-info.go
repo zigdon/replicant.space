@@ -77,8 +77,8 @@ var replicantInfoCmd = &cobra.Command{
 				q = append(q, []any{
 					pq.DeviceType,
 					pq.Notify.Device,
-					b(pq.Notify.Email),
-					b(pq.Notify.Webhook),
+					pq.Notify.Email,
+					pq.Notify.Webhook,
 				})
 			}
 			printTable([]string{

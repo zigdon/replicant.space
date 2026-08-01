@@ -57,10 +57,6 @@ var infoCmd = &cobra.Command{
 		for _, u := range dev.UpkeepRequirements {
 			upkeep = append(upkeep, u.String())
 		}
-		var grace string
-		if dev.GracePeriodRemaining > 0 {
-			grace = d(dev.GracePeriodRemaining)
-		}
 		var owner string
 		if dev.Owner != nil {
 			owner = lines([]string{
@@ -73,7 +69,7 @@ var infoCmd = &cobra.Command{
 			"Upkeep Requirements", "Taxi Mode", "Commands", "Tags", "Features"},
 			[][]any{{
 				owner,
-				dev.Created.Time(), dev.Deployed.Time(), grace,
+				dev.Created.Time(), dev.Deployed.Time(), dev.GracePeriodRemaining,
 				p(dev.RepairPaidPct), dev.SystemStatus, dev.StowedInDeviceCode, lines(upkeep),
 				dev.TaxiMode, lines(dev.AvailableCommands), lines(dev.Tags), lines(dev.Features)}})
 		if len(dev.AvailableDirectives) > 0 {

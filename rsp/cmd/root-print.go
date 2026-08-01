@@ -140,11 +140,11 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 	})
 	var data [][]any
 	for _, q := range queue {
-		var pos string
+		var pos any
 		if q.pos < 0 {
 			pos = "printing"
 		} else {
-			pos = d(q.pos)
+			pos = q.pos
 		}
 		data = append(data, []any{
 			q.location, q.deviceType, list(q.tags), q.code.Alias(), pos, q.eta, rm(q.missing),
@@ -349,9 +349,9 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		if !ok || len(pl.toQueue) == 0 {
 			continue
 		}
-		var delay string
+		var delay any
 		if pl.delay > 0 {
-			delay = dt(pl.delay)
+			delay = pl.delay
 		}
 		data = append(data, []any{p, countList(pl.toQueue), delay, pl.eta})
 		for _, tq := range pl.toQueue {

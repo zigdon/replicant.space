@@ -172,7 +172,7 @@ func printEventSummary(es []*models.Event) {
 	var events [][]any
 	for _, e := range es {
 		events = append(events, []any{
-			e.Title, e.Designation, e.Location, e.Category, e.Status, d(e.Tier),
+			e.Title, e.Designation, e.Location, e.Category, e.Status, e.Tier,
 		})
 	}
 	printTable([]string{

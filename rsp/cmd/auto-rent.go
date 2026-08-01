@@ -143,7 +143,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 	res, err := rest.Location(home)
 	log("Resources available at home:")
 	for _, i := range res.Inventory {
-		log("  %s: %s", i.ResourceType, f(i.Quantity))
+		log("  %s: %s", i.ResourceType, i.Quantity)
 	}
 
 	// Find our ships that are not at home, deposit their cargo, and call back

@@ -64,7 +64,7 @@ var locationCmd = &cobra.Command{
 						}
 					}
 				} else {
-					line = append(line, d(sum.Resources))
+					line = append(line, sum.Resources)
 				}
 				mu.Lock()
 				data = append(data, line)
@@ -92,8 +92,8 @@ var locationCmd = &cobra.Command{
 				"Position", "Distance from SOL",
 			}, [][]any{{
 				s.Designation, s.Name, res.EntryPoint, s.StellarClass,
-				d(s.MiningBonusPct) + "%", s.Position,
-				f(s.DistanceFromSol) + "ly",
+				fmt.Sprintf("%d%%", s.MiningBonusPct), s.Position,
+				fmt.Sprintf("%.2fly", s.DistanceFromSol),
 			}})
 			var pp, mp int
 			if res.PlanetsTotal > 0 {

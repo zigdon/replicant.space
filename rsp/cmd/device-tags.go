@@ -131,7 +131,7 @@ var listTagsCmd = &cobra.Command{
 			line := []any{tag}
 			for _, t := range types {
 				if ds[t] > 0 {
-					line = append(line, d(ds[t]))
+					line = append(line, ds[t])
 				} else {
 					line = append(line, "")
 				}

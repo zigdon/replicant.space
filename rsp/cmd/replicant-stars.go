@@ -76,7 +76,7 @@ func replicantStars(cmd *cobra.Command, args []string) error {
 			data := []any{
 				s.Designation,
 				s.EntryPoint,
-				d(s.EstimatedPlanets) + hasCache,
+				fmt.Sprintf("%d%s", s.EstimatedPlanets, hasCache),
 				s.DistanceFromReplicant,
 				s.EstimatedTravelTime.Duration().String(),
 				s.SpectralType,

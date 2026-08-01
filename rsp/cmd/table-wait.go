@@ -9,6 +9,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -172,8 +173,8 @@ func waitPending(cmd *cobra.Command, args []string) error {
 			NewCell(true, d.Status).SetStyle(s),
 			NewCell(true, string(eta.Source)).SetStyle(s),
 			NewCell(true, string(eta.Dest)).SetStyle(s),
-			NewCell(true, dt(time.Until(eta.Start))).SetStyle(s),
-			NewCell(true, dt(time.Until(eta.Ends))).SetStyle(s),
+			NewCell(true, common.Dt(time.Until(eta.Start))).SetStyle(s),
+			NewCell(true, common.Dt(time.Until(eta.Ends))).SetStyle(s),
 			NewCell(true, eta.Note).SetStyle(s),
 		}
 	}

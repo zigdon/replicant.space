@@ -245,7 +245,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 			eta,
 			dev.StowedInDeviceCode.Alias() + dev.AttachedToDeviceCode.Alias(),
 			list(dev.Tags),
-			d(len(dev.AttachedDevices)),
+			fmt.Sprintf("%d", len(dev.AttachedDevices)),
 		}, "|")
 	}
 
@@ -307,7 +307,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 		if reference != nil {
 			if loc != nil {
 				dists[string(d.Location)] = loc.Distance(reference)
-				line = append(line, f(loc.Distance(reference)))
+				line = append(line, loc.Distance(reference))
 			} else {
 				line = append(line, "")
 			}
@@ -317,7 +317,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 	for _, l := range data {
 		dp := len(dups[l[12]])
 		if dp > 1 {
-			l[12] = d(dp)
+			l[12] = dp
 		} else {
 			l[12] = ""
 		}
@@ -331,7 +331,9 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 		})
 	} else {
 		slices.SortFunc(data, func(a, b []any) int {
-			return cmp.Compare(dists[a[3].(string)], dists[b[3].(string)])
+			return cmp.Compare(
+				dists[string(a[3].(models.LocationID))],
+				dists[string(b[3].(models.LocationID))])
 		})
 	}
 	headers := []string{

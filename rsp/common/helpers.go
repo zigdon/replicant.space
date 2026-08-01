@@ -169,3 +169,41 @@ func GetFilteredDevices(devTypes, locations, statuses []string) ([]*models.CodeA
 	}
 	return ids, nil
 }
+
+func filterEmpty[T any](s []T, keep []bool) []T {
+	var res []T
+	for i, c := range s {
+		if !keep[i] {
+			continue
+		}
+		res = append(res, c)
+	}
+	return res
+}
+
+func stringify(in any) string {
+	var out string
+	switch a := in.(type) {
+	case string:
+		out = a
+	case int:
+		out = d(a)
+	case float32:
+		out = f(a)
+	case time.Time:
+		out = T(a)
+	case time.Duration:
+		out = Dt(a)
+	case *models.Device:
+		out = a.Code.Alias()
+	case *models.CodeAlias:
+		out = a.Alias()
+	case *models.Position:
+		out = a.String()
+	case models.LocationID:
+		out = string(a)
+	default:
+		out = v(a)
+	}
+	return out
+}
