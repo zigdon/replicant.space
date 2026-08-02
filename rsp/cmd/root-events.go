@@ -170,13 +170,33 @@ func init() {
 
 func printEventSummary(es []*models.Event) {
 	var events [][]any
+	const home = "MENKUNT-2-L4"
 	for _, e := range es {
+		tag := fmt.Sprintf("event:%s", e.Designation)
+		var from, transit, to int
+		devs, err := rest.Devices(map[string]string{"tag": tag})
+		if err != nil {
+			log("Error getting devices for %q: %v", tag, err)
+		} else {
+			for _, d := range devs {
+				switch d.Location {
+				case home:
+					from++
+				case e.Location:
+					to++
+				case "":
+					transit++
+				default:
+					log("%s is off-track, currently at %q", d, d.Location)
+				}
+			}
+		}
 		events = append(events, []any{
-			e.Title, e.Designation, e.Location, e.Category, e.Status, e.Tier,
+			e.Title, e.Designation, e.Location, e.Category, e.Status, e.Tier, from, transit, to,
 		})
 	}
 	printTable([]string{
-		"Title", "Designation", "Location", "Category", "Status", "Tier",
+		"Title", "Designation", "Location", "Category", "Status", "Tier", "Home", "Transit", "Delivered",
 	}, events)
 }
 
