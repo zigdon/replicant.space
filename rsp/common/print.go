@@ -231,14 +231,12 @@ func FindPrinter(printers []*models.CodeAlias, extra map[string]time.Duration) (
 	// use that. Otherwise, pick the one with the shortest queue, by remaining
 	// print time.
 	info := make(map[*models.CodeAlias]*models.Device)
-	Log("Printers:")
 	for _, p := range printers {
 		i, err := rest.DeviceInfo(p)
 		if err != nil {
 			return nil, fmt.Errorf("can't get device info for %q: %v", p, err)
 		}
 		info[p] = i
-		Log("  %s: %s (%s already queued)", p.Alias(), i.Type, extra[p.String()])
 	}
 
 	// Calculate the queue length for each printer

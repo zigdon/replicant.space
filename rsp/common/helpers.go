@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -18,6 +19,21 @@ var bps map[string]*models.Blueprint
 var LogFh io.Writer = os.Stderr
 
 func Log(tmpl string, args ...any) {
+	var getCaller func(int) string
+	getCaller = func(skip int) string {
+		_, file, line, ok := runtime.Caller(skip)
+		if !ok {
+			return ""
+		}
+
+		paths := strings.Split(file, "/")
+		file = paths[len(paths)-1]
+		if file == "output.go" {
+			// +2 because we're adding another frame by recursing
+			return getCaller(skip + 2)
+		}
+		return fmt.Sprintf("%s:%d", file, line)
+	}
 	for n, a := range args {
 		switch a := a.(type) {
 		case time.Time:
@@ -36,11 +52,14 @@ func Log(tmpl string, args ...any) {
 			args[n] = ids
 		}
 	}
-	date := time.Now().Format(time.Stamp) + " - "
+	prefix := time.Now().Format("01-02 15:04:05") + " - "
+	if caller := getCaller(2); caller != "" {
+		prefix += caller + " - "
+	}
 	if !strings.HasSuffix(tmpl, "\n") {
 		tmpl += "\n"
 	}
-	fmt.Fprintf(LogFh, date+tmpl, args...)
+	fmt.Fprintf(LogFh, prefix+tmpl, args...)
 }
 
 func ConnectDB(cdb *cache.Cache) {
