@@ -46,19 +46,21 @@ func Execute() {
 			if err != nil {
 				log("Error getting messages: %v", err)
 			} else {
-				var disc int
+				skipped := make(map[string]int)
 				var data [][]any
 				var ids []int
 				for _, m := range msgs.Messages {
-					if m.Type == "discovery" {
+					if slices.Contains([]string{"discovery", "notification"}, m.Type) {
 						ids = append(ids, m.ID)
-						disc++
+						skipped[m.Type]++
 						continue
 					}
 					data = append(data, []any{m.Created.Time().Format(time.Kitchen), m.Title})
 				}
-				if disc > 0 {
-					fmt.Printf("%d discovery messages\n", disc)
+				if len(skipped) > 0 {
+					for k, v := range skipped {
+						fmt.Printf("%d %s messages\n", v, k)
+					}
 				}
 				if len(data) > 0 {
 					log("Messages:")

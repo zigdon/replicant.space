@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
@@ -42,20 +41,22 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	star := loc.Location.Star()
 	log("Destination system: %s (%s)", star, density)
 
-	scaling := map[string]int{
+	mdScale := map[string]int{
 		"sparse":   1,
 		"moderate": 4,
 		"dense":    10,
 	}
-	scale := getInt(cmd, "scale")
-	if scale == 0 {
-		var ok bool
-		scale, ok = scaling[density]
-		if !ok {
-			return fmt.Errorf("Unknown density %q, can't figure out scale", density)
-		}
-		log("Density: %s (x %d)", density, scale)
+	sdScale := map[string]int{
+		"sparse":   1,
+		"moderate": 2,
+		"dense":    5,
 	}
+	md, mok := mdScale[density]
+	sd, sok := sdScale[density]
+	if !mok || !sok {
+		return fmt.Errorf("Unknown density %q, can't figure out scale", density)
+	}
+	log("Density: %s (x %d mining, %d survey)", density, md, sd)
 
 	// Define the desired fleet shape
 	missing := map[string]int{
@@ -65,8 +66,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		"mining_drone":          5,
 		"belt_surveyor":         2,
 	}
-	missing["mining_drone"] *= scale
+	missing["mining_drone"] *= md
+	missing["belt_surveyor"] *= sd
 	log("Using %d mining drones", missing["mining_drone"])
+	log("Using %d survey drones", missing["belt_surveyor"])
 
 	skip := getStringSlice(cmd, "skip")
 	for _, sk := range skip {
@@ -86,22 +89,24 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	printerStrs := getStringSlice(cmd, "factory")
 	var printers []*models.CodeAlias
 	if len(printerStrs) == 0 {
-		// Just get all the home factories
-		facts, err := rest.Devices(map[string]string{
-			"location":    home,
-			"device_type": "autofactory",
-		})
+		printers, err = common.GetFilteredDevices(
+			[]string{"autofactory"},
+			[]string{home},
+			[]string{"idle", "printing"},
+		)
 		if err != nil {
 			return err
 		}
-		for _, f := range facts {
-			if slices.Contains([]string{"compacted", "unfurling", "compacting"}, f.Status) {
-				continue
+	} else {
+		for _, p := range printerStrs {
+			dev, err := getInfo(models.NewCodeAlias(p))
+			if err != nil {
+				return err
 			}
-			printerStrs = append(printerStrs, f.Code.Alias())
+			printers = append(printers, dev.Code)
 		}
 	}
-	if len(printerStrs) == 0 {
+	if len(printers) == 0 {
 		return fmt.Errorf("No autofactories found")
 	}
 
@@ -110,29 +115,28 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	tag := fmt.Sprintf("mine-%s", strings.ToLower(string(loc.Location)))
 	var pAliases []string
 	var printPending bool
-	for _, f := range printerStrs {
-		dev, err := getInfo(models.NewCodeAlias(f))
+	for _, p := range printers {
+		dev, err := getInfo(p)
 		if err != nil {
 			return err
 		}
-		printers = append(printers, dev.Code)
 		pAliases = append(pAliases, dev.Code.Alias())
 		if dev.Printing != nil {
 			if slices.Contains(dev.Printing.Tags, tag) {
-				log("Found %s being printed at %s", dev.Printing.DeviceType, f)
+				log("Found %s being printed at %s", dev.Printing.DeviceType, p)
 				missing[dev.Printing.DeviceType]--
 				printPending = true
 			}
 		}
 		for _, d := range dev.PrintQueue {
 			if slices.Contains(d.Tags, tag) {
-				log("Found %s in the %s queue", d.Type, f)
+				log("Found %s in the %s queue", d.Type, p)
 				missing[dev.Printing.DeviceType]--
 				printPending = true
 			}
 		}
 	}
-	log("Printers found: %v", pAliases)
+	log("Found %d printers", len(pAliases))
 
 	tagged, err := rest.GetTagged(tag)
 	if err != nil {
@@ -247,21 +251,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	printTable([]string{"Device", "Target", "Found", "Repurposed", "Missing", "Extra", "Members"}, data)
 
 	// Enqueue a build
-	buildTimes := make(map[string]time.Duration)
-	for t := range missing {
-		row, err := db.GetVal(cache.BlueprintsTable, "print_time", t)
-		if err != nil {
-			return fmt.Errorf("Can't get cached blueprint for %q: %v", t, err)
-		}
-		var secs float32
-		row(&secs)
-		bt, err := time.ParseDuration(fmt.Sprintf("%.0fs", secs))
-		if err != nil {
-			return err
-		}
-		buildTimes[t] = bt
-	}
-
 	extra := make(map[string]time.Duration)
 	data = [][]any{}
 	var done time.Time
@@ -295,7 +284,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 						factory, devType, res.Status, res.QueueLength + 1,
 					})
 				}
-				extra[factory.String()] += buildTimes[devType]
+				extra[factory.String()] += common.GetBP(devType).PrintTime.Duration()
 				qty -= 1
 				if fi, err := getInfo(factory); err == nil {
 					eta := common.GetPrintQueueETA(fi)
@@ -520,7 +509,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if !ok || len(sbs) == 0 {
 		return fmt.Errorf("Can't find mtd")
 	}
-	sd := sbs[0]
 
 	// Issue travel commands
 	var errs []error
@@ -570,7 +558,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
-	for _, d := range []*models.CodeAlias{amc, asc, sd.Code} {
+	for _, d := range []*models.CodeAlias{amc, asc} {
 		if _, err := travel(d, locName); err != nil {
 			errs = append(errs, err)
 		}
@@ -628,7 +616,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		errs = append(errs, adopt(asc, sds))
 	}
 
-	if err := setDirective(sd.Code, "service", nil); err != nil {
+	if err := setDirective(sbs[0].Code, "service", nil); err != nil {
 		errs = append(errs, err)
 	}
 

@@ -169,14 +169,22 @@ var infoCmd = &cobra.Command{
 					}
 					mu.Lock()
 					cds = append(cds, []any{
-						d, d.Type, d.Location, d.Status, route, cargo,
+						d.Code, d.Type, d.Location, d.Status, route, cargo,
 					})
 					mu.Unlock()
 				})
 			}
 			wg.Wait()
 			slices.SortFunc(cds, func(a, b []any) int {
-				return cmp.Compare(a[0].(string), b[0].(string))
+				as, aok := a[0].(*models.CodeAlias)
+				bs, bok := b[0].(*models.CodeAlias)
+				if !aok {
+					return -1
+				}
+				if !bok {
+					return 1
+				}
+				return cmp.Compare(as.Num(), bs.Num())
 			})
 			printTable([]string{
 				"Code", "Type", "Location", "Status", "Route", "Cargo",

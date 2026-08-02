@@ -93,6 +93,8 @@ func autoRent(cmd *cobra.Command, args []string) error {
 	deliver := func(loc string, inv map[string]int) (string, map[string]int, error) {
 		// Find a ship
 		var ship *models.Device
+
+		mu.Lock()
 		for _, cf := range ships {
 			if len(cf.Cargo) != 0 {
 				continue
@@ -101,8 +103,13 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			break
 		}
 		if ship == nil {
+			mu.Unlock()
 			return "", nil, fmt.Errorf("%s: Can't find an available ship", loc)
 		}
+		// Remove the ship from our available list
+		delete(ships, ship.Code.Alias())
+		mu.Unlock()
+
 		cf := "> " + ship.Code.Alias()
 
 		// Load cargo
@@ -127,8 +134,6 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			return cf, nil, err
 		}
 
-		// Remove the ship from our available list
-		delete(ships, ship.Code.Alias())
 		return cf, cargo, nil
 	}
 
@@ -156,6 +161,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			line := &statusLine{
 				cfs:   []string{},
 				cargo: make(map[string]int),
+				inv:   make(map[string]int),
 			}
 
 			if info.Travel != nil {
@@ -182,9 +188,6 @@ func autoRent(cmd *cobra.Command, args []string) error {
 				return
 			}
 			if len(info.Cargo) > 0 {
-				loc := string(info.Location)
-				initLine(loc)
-
 				line.cfs = append(line.cfs, info.Code.Alias())
 				for _, c := range info.Cargo {
 					line.inv[c.ResourceType] += int(c.Quantity)

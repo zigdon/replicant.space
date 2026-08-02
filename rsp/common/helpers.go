@@ -42,6 +42,10 @@ func Log(tmpl string, args ...any) {
 			args[n] = a.Truncate(time.Second)
 		case *models.CodeAlias:
 			args[n] = a.Alias()
+		case *models.JSONTime:
+			args[n] = a.Time().Truncate(time.Second).Format(time.Stamp)
+		case *models.JSONTimeDelta:
+			args[n] = a.Duration().Truncate(time.Second).String()
 		case *models.Device:
 			args[n] = a.Code.Alias()
 		case []*models.Device:
@@ -220,6 +224,10 @@ func stringify(in any) string {
 	case *models.CodeAlias:
 		out = a.Alias()
 	case *models.Position:
+		out = a.String()
+	case *models.JSONTime:
+		out = a.String()
+	case *models.JSONTimeDelta:
 		out = a.String()
 	case models.LocationID:
 		out = string(a)
