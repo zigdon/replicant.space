@@ -209,3 +209,36 @@ func stringify(in any) string {
 	}
 	return out
 }
+
+func CountList(in []string) string {
+	m := make(map[string]int)
+	for _, i := range in {
+		m[i]++
+	}
+	var names []string
+	for k := range m {
+		names = append(names, k)
+	}
+	slices.Sort(names)
+	var res []string
+	for _, n := range names {
+		res = append(res, fmt.Sprintf("%d x %s", m[n], n))
+	}
+	return strings.Join(res, ", ")
+}
+
+func GetPrintQueueETA(dev *models.Device) time.Duration {
+	if dev.Printing == nil && len(dev.PrintQueue) == 0 {
+		return 0
+	}
+
+	var res time.Duration
+	if dev.Printing != nil {
+		res += dev.Printing.Eta.Duration()
+	}
+	for _, q := range dev.PrintQueue {
+		res += GetBP(q.Type).PrintTime.Duration()
+	}
+
+	return res
+}

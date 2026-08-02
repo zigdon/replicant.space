@@ -268,7 +268,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if noPrint := getBool(cmd, "no_print"); !dryRun && !noPrint {
 		for devType, qty := range missing {
 			for qty > 0 {
-				factory, err := rest.FindPrinter(printers, extra)
+				factory, err := common.FindPrinter(printers, extra)
 				if err != nil {
 					return fmt.Errorf("No available factory found to queue %s: %v", devType, err)
 				}
@@ -298,11 +298,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 				extra[factory.String()] += buildTimes[devType]
 				qty -= 1
 				if fi, err := getInfo(factory); err == nil {
-					if eta, err := rest.GetPrintQueueETA(fi); err == nil {
-						qt := time.Now().Add(eta).Add(extra[factory.String()])
-						if qt.After(done) {
-							done = qt
-						}
+					eta := common.GetPrintQueueETA(fi)
+					qt := time.Now().Add(eta).Add(extra[factory.String()])
+					if qt.After(done) {
+						done = qt
 					}
 				}
 			}

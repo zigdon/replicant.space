@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -173,165 +174,10 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	}
 
 	home := getString(cmd, "home")
-	printers, err := getHomeFactories(home)
-	if err != nil {
-		return err
-	}
-
-	// Figure out what dependencies are missing
-	inventory := make(map[string]int)
-	available := make(map[string]int)
-	pending := make(map[string]int)
-	loc, err := rest.Location(home)
-	if err != nil {
-		return err
-	}
-	// Check what's already available
-	for _, i := range loc.Inventory {
-		inventory[i.ResourceType] = int(i.Quantity)
-	}
-	// Check what's already being printed
-	for _, d := range loc.Devices {
-		available[d.Type]++
-		if d.Type == "autofactory" {
-			if d.Printing != nil {
-				pending[d.Printing.DeviceType]++
-			}
-			for _, p := range d.PrintQueue {
-				pending[p.Type]++
-			}
-		}
-	}
-
 	copies := getInt(cmd, "repeat")
-	var data [][]any
-	bp := getBP(name)
-	log("Print time, per copy: %s", bp.PrintTime.Duration())
-	for k, v := range bp.Resources {
-		data = append(data, []any{k, v, v * copies, inventory[k], ""})
-	}
-	for k, v := range bp.Components {
-		data = append(data, []any{k, v, v * copies, inventory[k], pending[k]})
-	}
-	printTable([]string{"Ingredient", "Per copy", "Total needed", "Available", "Queued"}, data)
-
-	// Simulate printing, so we can figure out what we actually need
-	type batch struct {
-		name string
-		qty  int
-	}
-	var toPrint []batch
-	var simulate func(string, int) error
-	printCost := make(map[string]int)
-	simulate = func(name string, qty int) error {
-		if qty <= 0 {
-			return nil
-		}
-		toPrint = append(toPrint, batch{name: name, qty: qty})
-		bp := getBP(name)
-		log("Simulating printing of %d %s", qty, name)
-		for r, q := range bp.Resources {
-			log("... need %d x %s", q*qty, r)
-			printCost[r] += q * qty
-			if inventory[r] < q*qty {
-				return fmt.Errorf("Not enough %s for printing %d %s: have %d, need %d",
-					r, qty, name, inventory[r], q*qty)
-			}
-			inventory[r] -= q * qty
-		}
-		for c, q := range bp.Components {
-			log("... need %d x %s", q*qty, c)
-			missing := q * qty
-			if getBool(cmd, "use_inventory") {
-				missing -= inventory[c]
-			}
-			if missing > 0 {
-				if err := simulate(c, missing); err != nil {
-					return err
-				}
-			}
-			inventory[c] -= q * qty
-		}
-		return nil
-	}
-	if err := simulate(name, copies); err != nil {
-		return fmt.Errorf("Printing simulation failed: %v", err)
-	}
-	log("Print queue:")
-	slices.Reverse(toPrint)
-	for _, p := range toPrint {
-		log("  %d x %s", p.qty, p.name)
-	}
-	log("Total cost:")
-	for k, v := range printCost {
-		log("  %d x %s", v, k)
-	}
-
-	// Check each printer for available print slots, and eta
-	var slots int
-	type rec struct {
-		delay   time.Duration
-		eta     time.Duration
-		toQueue []string
-		avail   int
-	}
-	plan := make(map[string]*rec)
-	for _, p := range printers {
-		r := new(rec)
-		info, err := getInfo(p)
-		if err != nil {
-			return err
-		}
-		r.avail = info.QueueSize - len(info.PrintQueue)
-		slots += r.avail
-		if info.Printing != nil {
-			slots -= 1
-		}
-		r.delay, err = rest.GetPrintQueueETA(info)
-		if err != nil {
-			return err
-		}
-		r.eta = r.delay
-		plan[p.Alias()] = r
-	}
-
-	for len(toPrint) > 0 {
-		// Sort the printers by next available
-		slices.SortFunc(printers, func(a, b *models.CodeAlias) int {
-			return cmp.Compare(plan[a.Alias()].eta, plan[b.Alias()].eta)
-		})
-		var found bool
-		next := toPrint[0]
-		for _, p := range printers {
-			pl := plan[p.Alias()]
-			if pl.avail == 0 {
-				continue
-			}
-			// Add the next print
-			pl.toQueue = append(pl.toQueue, next.name)
-			pl.eta = pl.eta + getBP(next.name).PrintTime.Duration()
-			plan[p.Alias()] = pl
-			found = true
-			break
-		}
-		if found {
-			next.qty--
-			if next.qty > 0 {
-				toPrint[0] = next
-			} else {
-				toPrint = toPrint[1:]
-			}
-		} else {
-			log("Ran out of print slots, %d copies remaining", copies)
-			break
-		}
-	}
-
 	controller := getString(cmd, "controller")
 	onComplete := getString(cmd, "on_complete")
-	cfg := map[string]any{
-		"device_type": bp.DeviceType,
-	}
+	cfg := make(map[string]any)
 	if controller != "" {
 		cfg["controller"] = controller
 	}
@@ -339,41 +185,7 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		cfg["oncomplete"] = onComplete
 	}
 
-	slices.SortFunc(printers, func(a, b *models.CodeAlias) int {
-		return cmp.Compare(a.Num(), b.Num())
-	})
+	_, err := common.Print(home, name, copies, true, getBool(cmd, "dry_run"), cfg)
 
-	data = [][]any{}
-	for _, p := range printers {
-		pl, ok := plan[p.Alias()]
-		if !ok || len(pl.toQueue) == 0 {
-			continue
-		}
-		var delay any
-		if pl.delay > 0 {
-			delay = pl.delay
-		}
-		data = append(data, []any{p, countList(pl.toQueue), delay, pl.eta})
-		for _, tq := range pl.toQueue {
-			if tq == "" {
-				continue
-			}
-			if getBool(cmd, "dry_run") {
-				log("would print %q on %q", tq, p.Alias())
-				continue
-			}
-			if tq == name {
-				_, err = rest.DeviceCommand[models.CommandResp](p, "enqueue_print", cfg)
-			} else {
-				_, err = rest.DeviceCommand[models.CommandResp](p, "enqueue_print", map[string]any{
-					"device_type": tq,
-				})
-			}
-			if err != nil {
-				return err
-			}
-		}
-	}
-	printTable([]string{"Factory", "Copies", "Delay", "ETA"}, data)
-	return nil
+	return err
 }

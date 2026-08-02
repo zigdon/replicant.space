@@ -193,6 +193,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		Need       int
 		Transiting int
 		Printing   int
+		Pickup     int
 	}
 	missing := make(map[string]*missingEnt)
 	for _, r := range ep.Resources {
@@ -360,46 +361,34 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				missing[d.Type].Need--
 				if string(d.Location) == home {
 					pickUp = append(pickUp, d)
+					missing[d.Type].Pickup++
 				} else if d.Location != ev.Location {
 					missing[d.Type].Transiting++
 				}
 			}
 
 			// Print any missing devices
-			printers, err := getHomeFactories(home)
-			if err != nil {
-				return err
-			}
-			for k := range missing {
-				if isResource(k) {
+			data = [][]any{}
+			for k, ent := range missing {
+				data = append(data, []any{
+					k, ent.Need, ent.Printing, ent.Pickup, ent.Transiting,
+				})
+				if isResource(k) || ent.Need <= 0 {
 					continue
 				}
-
-				for missing[k].Need > 0 {
-					p, err := rest.FindPrinter(printers, queue)
-					if err != nil {
-						return err
-					}
-					bp := getBP(k)
-					queue[p.String()] += bp.PrintTime.Duration()
-					printETA := time.Now().Add(queue[p.String()])
-					log("Printing %s at %s, eta: %s (%s)", k, p.Alias(),
-						queue[p.String()], printETA)
-					etas = append(etas, printETA)
-					if !dryRun {
-						_, err = rest.DeviceCommand[models.CommandResp](
-							p, "enqueue_print", map[string]any{
-								"device_type": k,
-								"tags":        []string{tag},
-							})
-					}
-
-					missing[k].Need--
-					missing[k].Printing++
+				pPlan, err := common.Print(
+					home, k, ent.Need, true, dryRun, map[string]any{"tags": []string{tag}})
+				if err != nil {
+					return err
+				}
+				missing[k].Printing += ent.Need
+				missing[k].Need = 0
+				log("printing: ETA %s (%s)", pPlan.ETA, time.Until(pPlan.ETA))
+				for p, plan := range pPlan.Printers {
+					log("... %s: %s", p.Alias(), common.CountList(plan.Queued))
 				}
 			}
-			log("missing: %v", missing)
-			log("pick up: %v", devList(pickUp))
+			common.PrintTable([]string{"Delivery", "Need", "Printing", "Pickup", "Transit"}, data)
 
 			if len(pickUp) == 0 {
 				log("Nothing to pick up yet, waiting for print jobs to complete")
@@ -665,12 +654,12 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 		dist, err := common.Distance(src, ev.Location.Star())
 		if err != nil {
-			data = append(data, []any{r, loc, err.Error()})
+			data = append(data, []any{r.Code, loc, err.Error()})
 		} else {
-			data = append(data, []any{r, loc, dist})
+			data = append(data, []any{r.Code, loc, dist})
 		}
 	}
-	printTable([]string{"Replicant", "Location", "Distance fro " + ev.Location.Star()}, data)
+	printTable([]string{"Replicant", "Location", "Distance from" + ev.Location.Star()}, data)
 
 	return nil
 }
