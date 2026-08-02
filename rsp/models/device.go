@@ -531,7 +531,7 @@ func (n *Network) Equal(n2 *Network) bool {
 
 type DeviceEvent struct {
 	Created    *JSONTime      `json:"created_at"`
-	DeviceCode string         `json:"device_code"`
+	DeviceCode *CodeAlias     `json:"device_code"`
 	DeviceType string         `json:"device_type"`
 	EventType  string         `json:"event_type"`
 	Id         int            `json:"id"`

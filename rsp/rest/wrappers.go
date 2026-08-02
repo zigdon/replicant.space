@@ -411,10 +411,9 @@ func DeviceCommand[T any](id *models.CodeAlias, command string, args map[string]
 	return models.Parse[T](resp)
 }
 
-func DeviceLogs(id *models.CodeAlias, latest bool, page, limit int) (*models.DeviceLogs, error) {
+func DeviceLogs(id *models.CodeAlias, latest bool, cursor, limit int) (*models.DeviceLogs, error) {
 	var res []byte
 	var err error
-	skip := page * limit
 	if latest {
 		res, err = cacheGET("", 0, "devices/%s/logs?latest=%v", id, latest)
 		if err != nil {
@@ -423,7 +422,6 @@ func DeviceLogs(id *models.CodeAlias, latest bool, page, limit int) (*models.Dev
 		return models.Parse[models.DeviceLogs](res)
 	}
 	ret := new(models.DeviceLogs)
-	var cursor = 0
 	for {
 		res, err = cacheGET("", 0, "devices/%s/logs?limit=%d&cursor=%d", id, limit, cursor)
 		if err != nil {
@@ -434,7 +432,7 @@ func DeviceLogs(id *models.CodeAlias, latest bool, page, limit int) (*models.Dev
 			return nil, err
 		}
 		ret.Events = append(ret.Events, logs.Events...)
-		if len(ret.Events) > skip+limit {
+		if len(ret.Events) >= limit {
 			break
 		}
 		if logs.NextCursor == 0 {
@@ -442,9 +440,6 @@ func DeviceLogs(id *models.CodeAlias, latest bool, page, limit int) (*models.Dev
 		}
 		time.Sleep(200 * time.Millisecond)
 		cursor = logs.NextCursor
-	}
-	if skip > 0 {
-		ret.Events = ret.Events[skip:len(ret.Events)]
 	}
 	if len(ret.Events) > limit {
 		ret.Events = ret.Events[0:limit]

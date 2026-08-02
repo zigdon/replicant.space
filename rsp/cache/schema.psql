@@ -153,3 +153,13 @@ CREATE TABLE IF NOT EXISTS event_stream(
   location TEXT,
   data JSONB
 );
+
+CREATE TABLE IF NOT EXISTS device_logs(
+  id INTEGER,
+  created TIMESTAMPTZ,
+  device TEXT,
+  type TEXT,
+  message TEXT,
+  payload JSONB,
+  PRIMARY KEY (id, device)
+);

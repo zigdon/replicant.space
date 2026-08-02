@@ -1,9 +1,17 @@
 package cmd
 
 import (
+	"cmp"
+	"encoding/json"
+	"fmt"
 	"slices"
+	"time"
 
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 
@@ -19,8 +27,8 @@ var deviceLogsCmd = &cobra.Command{
 		width := getInt(cmd, "width")
 		oldest := getBool(cmd, "oldest")
 		limit := getInt(cmd, "number")
-		page := getInt(cmd, "page")
-		logs, err := rest.DeviceLogs(models.NewCodeAlias(id), !oldest, page, limit)
+		cursor := getInt(cmd, "cursor")
+		logs, err := rest.DeviceLogs(models.NewCodeAlias(id), !oldest, cursor, limit)
 		if err != nil {
 			return err
 		}
@@ -52,6 +60,193 @@ func init() {
 	deviceCmd.AddCommand(deviceLogsCmd)
 	deviceLogsCmd.Flags().BoolP("oldest", "o", false, "Show oldest events")
 	deviceLogsCmd.Flags().IntP("number", "n", 20, "Number of events to return")
-	deviceLogsCmd.Flags().IntP("page", "p", 0, "Page number to return")
+	deviceLogsCmd.Flags().IntP("cursor", "c", 0, "Pointer to the oldest read message")
 	deviceLogsCmd.Flags().IntP("width", "w", 50, "Wrap message body to this width")
+
+	deviceLogsCmd.AddCommand(logTableCmd)
+}
+
+var logTableCmd = &cobra.Command{
+	Use:   "table",
+	Short: "Interactive event viewer",
+	RunE:  logTable,
+}
+
+func logTable(cmd *cobra.Command, args []string) error {
+	devID := getString(cmd, "device")
+	devCA := models.NewCodeAlias(devID)
+	listWin := tview.NewTable().SetSelectable(true, false)
+	msgWin := tview.NewTextView()
+	filterType := ""
+	var eventTypes []string
+	var events []*models.DeviceEvent
+
+	app := tview.NewApplication()
+	setEventLine := func(n int, msg *models.DeviceEvent) {
+		style := tcell.StyleDefault
+		listWin.SetCell(n, 0,
+			NewCell(true, common.Dt(time.Until(msg.Created.Time()))).
+				SetStyle(style).
+				SetReference(msg))
+		listWin.SetCell(n, 1, NewCell(true, msg.EventType).SetStyle(style))
+		listWin.SetCell(n, 2, NewCell(true, msg.Message).SetStyle(style))
+	}
+	fetchNewEvents := func() error {
+		// Get the last ID we have for this device
+		row := db.DB.QueryRow(`SELECT max(id) FROM device_logs WHERE device = $1`, devCA.String())
+		var id int
+		if err := row.Scan(&id); err != nil {
+			log(err.Error())
+			id = 0
+		}
+		for {
+			log("Loading %s events starting from %d", devCA, id)
+			res, err := rest.DeviceLogs(devCA, false, id+1, 100)
+			if err != nil {
+				log(err.Error())
+				break
+			}
+			id = res.NextCursor
+			for _, ev := range res.Events {
+				data, err := json.Marshal(ev.Payload)
+				if err != nil {
+					log(err.Error())
+					break
+				}
+				if err := db.Update(cache.DeviceLogsTable, map[string]any{
+					"id":      ev.Id,
+					"device":  ev.DeviceCode.String(),
+					"type":    ev.EventType,
+					"message": ev.Message,
+					"payload": data,
+				}); err != nil {
+					log("Failed to cache %+v: %v", ev, err)
+					break
+				}
+			}
+
+			if id == 0 {
+				break
+			}
+		}
+		return nil
+	}
+	getEvents := func() {
+		if err := fetchNewEvents(); err != nil {
+			log(err.Error())
+		}
+		rows, err := db.DB.Query(`
+		  SELECT id, created, device, type, message, payload
+		  FROM device_logs WHERE device = $1`, devCA.String())
+		if err != nil {
+			log(err.Error())
+		}
+
+		// Clear reset the cached list.
+		events = events[:0]
+		for rows.Next() {
+			e := new(models.DeviceEvent)
+			var dc string
+			var data []byte
+			if err := rows.Scan(
+				&e.Id, &e.Created, &dc, &e.EventType, &e.Message, &data); err != nil {
+				log("Error reading data: %v", err)
+				continue
+			}
+			e.DeviceCode = models.NewCodeAlias(dc)
+			if err := json.Unmarshal(data, &e.Payload); err != nil {
+				log(err.Error())
+			}
+			events = append(events, e)
+		}
+		if err := rows.Err(); err != nil {
+			log("Error closing query: %v", err)
+		}
+
+		slices.SortFunc(events, func(a, b *models.DeviceEvent) int {
+			return cmp.Compare(a.Id, b.Id)
+		})
+
+		// Clear the list
+		for listWin.GetRowCount() > 1 {
+			listWin.RemoveRow(1)
+		}
+
+		line := 1
+		filterCnt := 0
+		for _, ev := range events {
+			if !slices.Contains(eventTypes, ev.EventType) {
+				eventTypes = append(eventTypes, ev.EventType)
+			}
+			if filterType != "" && ev.EventType != filterType {
+				filterCnt++
+				continue
+			}
+			line++
+			setEventLine(line, ev)
+		}
+		slices.Sort(eventTypes)
+		log("Showing %d %smessages (%d filtered)", line-1, filterType, filterCnt)
+	}
+	displayCell := func(row, col int) {
+		ref := listWin.GetCell(row, 0).GetReference()
+		if ref == nil {
+			return
+		}
+		ev := ref.(*models.DeviceEvent)
+		msgWin.Clear()
+		fmt.Fprintf(msgWin, "%s (%s ago) %-20s\n\n%s\n\n",
+			ev.Created.Time().Truncate(time.Second).Format(time.Stamp),
+			time.Since(ev.Created.Time()).Truncate(time.Second), ev.EventType,
+			ev.Message,
+		)
+		data, err := json.MarshalIndent(ev.Payload, "", "  ")
+		if err != nil {
+			log(err.Error())
+		}
+		fmt.Fprintf(msgWin, "%s", string(data))
+	}
+	listWin.SetSelectionChangedFunc(displayCell).
+		SetBorder(true)
+	titleStyle := tcell.StyleDefault.Underline(true)
+	listWin.SetBorderPadding(1, 1, 1, 1)
+	listWin.
+		SetCell(0, 0, NewCell(false, "When").SetAlign(tview.AlignCenter).SetStyle(titleStyle)).
+		SetCell(0, 1, NewCell(false, "Type").SetAlign(tview.AlignCenter).SetStyle(titleStyle)).
+		SetCell(0, 2, NewCell(false, "Title").SetAlign(tview.AlignCenter).SetStyle(titleStyle)).
+		SetFixed(1, 0)
+
+	logWin := newLogWindow()
+	msgWin.SetBorder(true).SetBorderPadding(2, 2, 2, 2)
+	layout := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(tview.NewFlex().
+			AddItem(listWin, 0, 1, true).
+			AddItem(msgWin, 0, 2, false), 0, 1, true).
+		AddItem(logWin, 20, 0, false)
+	getEvents()
+	listWin.Select(listWin.GetRowCount()-1, 0)
+	inputCapture := func(ev *tcell.EventKey) *tcell.EventKey {
+		switch {
+		case ev.Rune() == 'r':
+			getEvents()
+		case ev.Rune() == 't':
+			if len(eventTypes) == 0 || filterType == eventTypes[len(eventTypes)-1] {
+				filterType = ""
+			} else {
+				filterType = eventTypes[slices.Index(eventTypes, filterType)+1]
+			}
+			getEvents()
+		case ev.Rune() == 'q':
+			app.Stop()
+		}
+		// Only allow keystroke handling if we actually have messages to view.
+		if listWin.GetRowCount() > 1 {
+			return ev
+		}
+		return nil
+	}
+	app.SetInputCapture(inputCapture)
+
+	return app.SetRoot(layout, true).Run()
 }

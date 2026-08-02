@@ -48,6 +48,7 @@ const (
 	BlueprintFeaturesTable Tables = "blueprint_features"
 	BlueprintResTable      Tables = "blueprint_resources"
 	BlueprintsTable        Tables = "blueprints"
+	DeviceLogsTable        Tables = "device_logs"
 	EventsTable            Tables = "event_stream"
 	JSONDevices            Tables = "json_devices"
 	JourneyStepsTable      Tables = "cached_journey_steps"
@@ -86,6 +87,8 @@ var cols = map[Tables][]string{
 		"blueprint_type", "directive"},
 	BlueprintFeaturesTable: {
 		"blueprint_type", "feature"},
+	DeviceLogsTable: {
+		"id", "created", "device", "type", "message", "payload"},
 	MsgTable: {
 		"id", "body", "created", "read", "type", "title"},
 	JourneyTable: {
@@ -106,6 +109,7 @@ var constraints = map[Tables]string{
 	BlueprintFeaturesTable: "blueprint_type, feature",
 	BlueprintResTable:      "blueprint_type, type",
 	BlueprintsTable:        "type",
+	DeviceLogsTable:        "id, device",
 	EventsTable:            "id",
 	JSONDevices:            "code",
 	JourneyStepsTable:      "journey_id, step",
@@ -238,7 +242,7 @@ func (db *Cache) Update(table Tables, data map[string]any) error {
 	log("update: %q: %+v", q, values)
 
 	if err != nil {
-		return fmt.Errorf("failed to call REPLACE: %v", err)
+		return fmt.Errorf("failed to call REPLACE:\n%s\n%v", q, err)
 	}
 
 	rows, err := res.RowsAffected()
