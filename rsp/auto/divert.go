@@ -246,22 +246,40 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 			taken[mf.Travel.Destination.Star()] = mf.Code.Alias()
 		}
 		var closest float32
-		var next *models.Object
-		for _, r := range rocks {
-			if r.Status != "active" {
-				continue
+		getNext := func(noGang bool) (*models.Object, error) {
+			var next *models.Object
+			for _, r := range rocks {
+				if r.Status != "active" {
+					continue
+				}
+				if mf, ok := taken[r.Designation.Star()]; ok {
+					if noGang {
+						log("%s has dibs on %s", mf, r.Designation)
+						continue
+					}
+					log("Ignoring %s dibs on %s", mf, r.Designation)
+				}
+				dist, err := common.Distance(dm.dev.Location.Star(), r.Designation.Star())
+				if err != nil {
+					return nil, err
+				}
+				if closest == 0 || dist < closest {
+					closest = dist
+					next = r
+				}
 			}
-			if mf, ok := taken[r.Designation.Star()]; ok {
-				log("%s has dibs on %s", mf, r.Designation)
-				continue
-			}
-			dist, err := common.Distance(dm.dev.Location.Star(), r.Designation.Star())
+			return next, nil
+		}
+		// See what's the next rock we can have for ourselves
+		next, err := getNext(true)
+		if err != nil {
+			return eta, err
+		}
+		// See what rock we can help with
+		if next == nil {
+			next, err = getNext(false)
 			if err != nil {
 				return eta, err
-			}
-			if closest == 0 || dist < closest {
-				closest = dist
-				next = r
 			}
 		}
 		if next == nil {
