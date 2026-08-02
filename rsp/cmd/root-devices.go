@@ -105,7 +105,9 @@ var deviceListCmd = &cobra.Command{
 			stats = append(stats, fmt.Sprintf("%s: %d", k, v))
 		}
 		slices.Sort(stats)
-		log(lines(stats))
+		if len(stats) > 0 {
+			log(lines(stats))
+		}
 		return nil
 	},
 }

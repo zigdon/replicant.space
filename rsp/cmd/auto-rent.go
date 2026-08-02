@@ -73,31 +73,24 @@ func autoRent(cmd *cobra.Command, args []string) error {
 	fmt.Println(". Done.")
 	log("%d/%d ships available in rent fleet", len(ships), len(atc.ControlledDevices))
 
-	type line struct {
+	type statusLine struct {
 		cfs    []string
 		status string
 		cargo  map[string]int
 		inv    map[string]int
 		rent   map[string]int
 	}
-	lines := make(map[string]*line)
+	var lines sync.Map
 	initLine := func(loc string) {
-		mu.Lock()
-		if lines[loc] == nil {
-			lines[loc] = &line{
-				cfs:   []string{},
-				cargo: make(map[string]int),
-				inv:   make(map[string]int),
-				rent:  make(map[string]int),
-			}
-		}
-		mu.Unlock()
+		lines.LoadOrStore(loc, &statusLine{
+			cfs:   []string{},
+			cargo: make(map[string]int),
+			inv:   make(map[string]int),
+			rent:  make(map[string]int),
+		})
 	}
 
-	deliver := func(loc string, inv map[string]int) error {
-		// Initialize the line if needed
-		initLine(loc)
-
+	deliver := func(loc string, inv map[string]int) (string, map[string]int, error) {
 		// Find a ship
 		var ship *models.Device
 		for _, cf := range ships {
@@ -108,8 +101,9 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			break
 		}
 		if ship == nil {
-			return fmt.Errorf("%s: Can't find an available ship", loc)
+			return "", nil, fmt.Errorf("%s: Can't find an available ship", loc)
 		}
+		cf := "> " + ship.Code.Alias()
 
 		// Load cargo
 		if dryRun {
@@ -118,32 +112,30 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			_, err := rest.DeviceCommand[models.CommandResp](ship.Code, "collect_resources",
 				map[string]any{"resources": inv})
 			if err != nil {
-				return fmt.Errorf("Error loading %v into %s: %v", inv, ship.Code.Alias(), err)
+				return cf, nil, fmt.Errorf("Error loading %v into %s: %v", inv, ship.Code.Alias(), err)
 			}
 		}
-		mu.Lock()
-		lines[loc].cfs = append(lines[loc].cfs, "> "+ship.Code.Alias())
+		cargo := make(map[string]int)
 		for k, v := range inv {
-			lines[loc].cargo[k] += v
+			cargo[k] += v
 		}
-		mu.Unlock()
 
 		// Ship it
 		if dryRun {
 			log("Would ship %s to %s", ship.Code.Alias(), loc)
 		} else if _, err := travel(ship.Code, loc); err != nil {
-			return err
+			return cf, nil, err
 		}
 
 		// Remove the ship from our available list
 		delete(ships, ship.Code.Alias())
-		return nil
+		return cf, cargo, nil
 	}
 
 	res, err := rest.Location(home)
 	log("Resources available at home:")
 	for _, i := range res.Inventory {
-		log("  %s: %s", i.ResourceType, i.Quantity)
+		log("  %s: %.0f", i.ResourceType, i.Quantity)
 	}
 
 	// Find our ships that are not at home, deposit their cargo, and call back
@@ -161,6 +153,10 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			if string(info.Location) == home {
 				return
 			}
+			line := &statusLine{
+				cfs:   []string{},
+				cargo: make(map[string]int),
+			}
 
 			if info.Travel != nil {
 				dest := string(info.Travel.Destination)
@@ -168,21 +164,19 @@ func autoRent(cmd *cobra.Command, args []string) error {
 				// Initialize the line if needed
 				initLine(dest)
 
-				mu.Lock()
 				if incoming[dest] == nil {
 					incoming[dest] = make(map[string]int)
 				}
 				if dest != home {
-					lines[dest].cfs = append(lines[dest].cfs, "> "+info.Code.Alias())
+					line.cfs = append(line.cfs, "> "+info.Code.Alias())
 				} else {
-					lines[dest].cfs = append(lines[dest].cfs, "< "+info.Code.Alias())
+					line.cfs = append(line.cfs, "< "+info.Code.Alias())
 				}
 
 				for _, c := range info.Cargo {
 					incoming[dest][c.ResourceType] += int(c.Quantity)
-					lines[dest].cargo[c.ResourceType] += int(c.Quantity)
+					line.cargo[c.ResourceType] += int(c.Quantity)
 				}
-				mu.Unlock()
 			}
 			if info.Status != "idle" {
 				return
@@ -191,27 +185,24 @@ func autoRent(cmd *cobra.Command, args []string) error {
 				loc := string(info.Location)
 				initLine(loc)
 
-				mu.Lock()
-				lines[loc].cfs = append(lines[loc].cfs, info.Code.Alias())
+				line.cfs = append(line.cfs, info.Code.Alias())
 				for _, c := range info.Cargo {
-					lines[loc].inv[c.ResourceType] += int(c.Quantity)
+					line.inv[c.ResourceType] += int(c.Quantity)
 				}
-				mu.Unlock()
 				if dryRun {
 					log("Would deposit contents of %s at %s", info.Code.Alias(), info.Location)
 				} else if _, err := rest.DeviceCommand[models.CommandResp](info.Code, "deposit_resources", nil); err != nil {
 					log("Deposited cargo from %s at %s", info.Code.Alias(), info.Location)
 					errs = append(errs, err)
-					return
 				}
-			}
-			if dryRun {
+			} else if dryRun {
 				log("Would ship %s to %s", info.Code.Alias(), home)
 			} else {
 				_, err := travel(info.Code, home)
 				errs = append(errs, err)
 				log("Shiping %s to %s", info.Code.Alias(), home)
 			}
+			lines.Store(string(info.Location), line)
 		})
 	}
 	wg.Wait()
@@ -234,8 +225,11 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				errs = append(errs, fmt.Errorf("Can't refresh info for %q: %v", sh.Code, err))
 			}
-			loc := string(sh.Location)
-			initLine(loc)
+			line := &statusLine{
+				rent:  make(map[string]int),
+				inv:   make(map[string]int),
+				cargo: make(map[string]int),
+			}
 
 			if sh.Status != "relaying" {
 				return
@@ -261,16 +255,14 @@ func autoRent(cmd *cobra.Command, args []string) error {
 				return
 			}
 			res := make(map[string]int)
-			mu.Lock()
 			for _, i := range inv.Inventory {
 				res[i.ResourceType] = int(i.Quantity)
-				lines[loc].inv[i.ResourceType] += int(i.Quantity)
+				line.inv[i.ResourceType] += int(i.Quantity)
 			}
 			for _, r := range sh.UpkeepRequirements {
 				res[r.ResourceType] -= r.QuantityPer20pct
-				lines[loc].rent[r.ResourceType] += r.QuantityPer20pct
+				line.rent[r.ResourceType] += r.QuantityPer20pct
 			}
-			mu.Unlock()
 			missing := make(map[string]int)
 			for k, v := range res {
 				if v >= 0 {
@@ -278,14 +270,18 @@ func autoRent(cmd *cobra.Command, args []string) error {
 				}
 				missing[k] -= v
 			}
-			mu.Lock()
 			if len(missing) > 0 {
-				lines[loc].status = "rent due"
-				errs = append(errs, deliver(string(sh.Location), missing))
+				cf, cargo, err := deliver(string(sh.Location), missing)
+				line.status = "rent due"
+				line.cfs = append(line.cfs, cf)
+				for k, v := range cargo {
+					line.cargo[k] += v
+				}
+				errs = append(errs, err)
 			} else {
-				lines[loc].status = "up-to-date"
+				line.status = "up-to-date"
 			}
-			mu.Unlock()
+			lines.Store(string(sh.Location), line)
 		})
 	}
 	wg.Wait()
@@ -308,7 +304,11 @@ func autoRent(cmd *cobra.Command, args []string) error {
 		if sh.Status == "offline" || sh.Status == "compacted" {
 			continue
 		}
-		l := lines[string(sh.Location)]
+		line, ok := lines.Load(string(sh.Location))
+		if !ok {
+			continue
+		}
+		l := line.(*statusLine)
 		data = append(data, []any{
 			sh.Location, sh, l.status, p(sh.OperationalCapacity),
 			c(l.inv), c(l.rent), c(l.cargo), list(l.cfs),
