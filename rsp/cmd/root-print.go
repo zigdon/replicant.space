@@ -32,6 +32,8 @@ func init() {
 	rootPrintCmd.Flags().String("on_complete", "", "What commands to execute once done")
 	rootPrintCmd.Flags().BoolP("dry_run", "n", false, "Don't actually print, only plan")
 	rootPrintCmd.Flags().Bool("use_inventory", true, "Skip printing existing components")
+	rootPrintCmd.Flags().BoolP("flatpack", "f", false, "If set, print packed for travel")
+	rootPrintCmd.Flags().BoolP("unfurl", "u", false, "If set, print unpacked")
 
 	rootPrintCmd.AddCommand(rootPrintListCmd)
 	rootPrintListCmd.Flags().String("location", "", "Show only factories in this location")
@@ -173,11 +175,32 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 		name = full
 	}
 
+	fp := getBool(cmd, "flatpack")
+	uf := getBool(cmd, "unfurl")
+	if fp && uf {
+		return fmt.Errorf("Only one of --flatpack or --unfurl can be specified")
+	}
+	bp := common.GetBP(name)
+	if slices.Contains(bp.Features, "modular") {
+		if !fp && !uf {
+			return fmt.Errorf("Modular blueprints must specified either --flatpack or --unfurl")
+		}
+	} else {
+		if fp || uf {
+			return fmt.Errorf("%s is not modular, --flatpack and --unfurl are invalid", name)
+		}
+	}
+
 	home := getString(cmd, "home")
 	copies := getInt(cmd, "repeat")
 	controller := getString(cmd, "controller")
 	onComplete := getString(cmd, "on_complete")
 	cfg := make(map[string]any)
+	if fp {
+		cfg["flatpack"] = true
+	} else if uf {
+		cfg["flatpack"] = false
+	}
 	if controller != "" {
 		cfg["controller"] = controller
 	}

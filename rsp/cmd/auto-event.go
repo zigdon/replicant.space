@@ -377,7 +377,11 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					continue
 				}
 				pPlan, err := common.Print(
-					home, k, ent.Need, true, dryRun, map[string]any{"tags": []string{tag}})
+					home, k, ent.Need, true, dryRun,
+					map[string]any{
+						"tags":     []string{tag},
+						"flatpack": true,
+					})
 				if err != nil {
 					return err
 				}
@@ -659,7 +663,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			data = append(data, []any{r.Code, loc, dist})
 		}
 	}
-	printTable([]string{"Replicant", "Location", "Distance from" + ev.Location.Star()}, data)
+	printTable([]string{"Replicant", "Location", "Distance from " + ev.Location.Star()}, data)
 
 	return nil
 }
