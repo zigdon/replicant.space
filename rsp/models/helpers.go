@@ -53,6 +53,14 @@ type Cachable interface {
 	Get() error
 }
 
+func cacheItems[T []E, E Cachable](s []E) error {
+	var errs []error
+	for _, e := range s {
+		errs = append(errs, e.Cache())
+	}
+	return errors.Join(errs...)
+}
+
 type LocalMsg interface {
 	Notification() *Notification
 }
@@ -185,6 +193,14 @@ func (jt *JSONTime) Time() time.Time {
 		return time.Time{}
 	}
 	return jt.ts
+}
+
+func (jt *JSONTime) Set(ts time.Time) *JSONTime {
+	if jt == nil {
+		return &JSONTime{ts: ts}
+	}
+	jt.ts = ts
+	return jt
 }
 
 func NewCodeAlias(input string) *CodeAlias {

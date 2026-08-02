@@ -411,19 +411,11 @@ func DeviceCommand[T any](id *models.CodeAlias, command string, args map[string]
 	return models.Parse[T](resp)
 }
 
-func DeviceLogs(id *models.CodeAlias, latest bool, cursor, limit int) (*models.DeviceLogs, error) {
-	var res []byte
-	var err error
-	if latest {
-		res, err = cacheGET("", 0, "devices/%s/logs?latest=%v", id, latest)
-		if err != nil {
-			return nil, err
-		}
-		return models.Parse[models.DeviceLogs](res)
-	}
-	ret := new(models.DeviceLogs)
+func DeviceLogs(id *models.CodeAlias, limit int) (*models.DeviceLogs, error) {
+	cursor := db.DeviceLogCursor(id.String())
+	log("Fetching new device logs for %q, starting at %d", id, cursor)
 	for {
-		res, err = cacheGET("", 0, "devices/%s/logs?limit=%d&cursor=%d", id, limit, cursor)
+		res, err := cacheGET("", 0, "devices/%s/logs?cursor=%d&limit=500", id, cursor)
 		if err != nil {
 			return nil, err
 		}
@@ -431,20 +423,42 @@ func DeviceLogs(id *models.CodeAlias, latest bool, cursor, limit int) (*models.D
 		if err != nil {
 			return nil, err
 		}
-		ret.Events = append(ret.Events, logs.Events...)
-		if len(ret.Events) >= limit {
-			break
-		}
 		if logs.NextCursor == 0 {
 			break
 		}
 		time.Sleep(200 * time.Millisecond)
 		cursor = logs.NextCursor
 	}
-	if len(ret.Events) > limit {
-		ret.Events = ret.Events[0:limit]
+	// Now that we've fetched the most recent events, return from the cache
+	if limit == 0 {
+		limit = 100
 	}
-	return ret, nil
+	rows, err := db.DB.Query(`
+	  SELECT created, type, message, payload
+	  FROM device_logs
+	  WHERE device = $1
+	  ORDER BY id DESC
+	  LIMIT $2`, id.String(), limit)
+	if err != nil {
+		return nil, err
+	}
+	ret := new(models.DeviceLogs)
+	for rows.Next() {
+		e := &models.DeviceEvent{
+			DeviceCode: id,
+		}
+		var data []byte
+		var ts time.Time
+		if err := rows.Scan(&ts, &e.EventType, &e.Message, &data); err != nil {
+			return nil, err
+		}
+		e.Created = e.Created.Set(ts)
+		if err := json.Unmarshal(data, &e.Payload); err != nil {
+			return nil, err
+		}
+		ret.Events = append(ret.Events, e)
+	}
+	return ret, rows.Close()
 }
 
 func RefreshDeviceInfo(id *models.CodeAlias) (*models.Device, error) {
@@ -763,7 +777,7 @@ func ReloadStars() (string, error) {
 }
 
 func ProspectLogs(id *models.CodeAlias) (string, error) {
-	logs, err := DeviceLogs(id, true, 0, 100)
+	logs, err := DeviceLogs(id, 100)
 	if err != nil {
 		return "", err
 	}

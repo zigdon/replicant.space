@@ -539,9 +539,42 @@ type DeviceEvent struct {
 	Payload    map[string]any `json:"payload"`
 }
 
+func (de *DeviceEvent) Cache() error {
+	if de == nil {
+		return nil
+	}
+	data, err := json.Marshal(de.Payload)
+	if err != nil {
+		return err
+	}
+	if err := db.Update(cache.DeviceLogsTable, map[string]any{
+		"id":      de.Id,
+		"created": de.Created.ts,
+		"device":  de.DeviceCode.String(),
+		"type":    de.EventType,
+		"message": de.Message,
+		"payload": data,
+	}); err != nil {
+		return fmt.Errorf("Failed to cache %+v: %v", de, err)
+	}
+	return nil
+}
+
+func (de *DeviceEvent) Get() error {
+	return fmt.Errorf("Not implemented")
+}
+
 type DeviceLogs struct {
 	Events     []*DeviceEvent `json:"events"`
 	NextCursor int            `json:"next_cursor"`
+}
+
+func (dl *DeviceLogs) Cache() error {
+	return cacheItems(dl.Events)
+}
+
+func (dl *DeviceLogs) Get() error {
+	return fmt.Errorf("Not implemented")
 }
 
 type ProspectDetail struct {

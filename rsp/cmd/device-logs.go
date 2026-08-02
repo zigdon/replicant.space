@@ -10,7 +10,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
-	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
@@ -25,16 +24,10 @@ var deviceLogsCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := getString(cmd, "device")
 		width := getInt(cmd, "width")
-		oldest := getBool(cmd, "oldest")
 		limit := getInt(cmd, "number")
-		cursor := getInt(cmd, "cursor")
-		logs, err := rest.DeviceLogs(models.NewCodeAlias(id), !oldest, cursor, limit)
+		logs, err := rest.DeviceLogs(models.NewCodeAlias(id), limit)
 		if err != nil {
 			return err
-		}
-
-		if !oldest {
-			slices.Reverse(logs.Events)
 		}
 
 		if raw := getBool(cmd, "raw"); raw {
@@ -92,44 +85,8 @@ func logTable(cmd *cobra.Command, args []string) error {
 		listWin.SetCell(n, 2, NewCell(true, msg.Message).SetStyle(style))
 	}
 	fetchNewEvents := func() error {
-		// Get the last ID we have for this device
-		row := db.DB.QueryRow(`SELECT max(id) FROM device_logs WHERE device = $1`, devCA.String())
-		var id int
-		if err := row.Scan(&id); err != nil {
-			log(err.Error())
-			id = 0
-		}
-		for {
-			log("Loading %s events starting from %d", devCA, id)
-			res, err := rest.DeviceLogs(devCA, false, id+1, 100)
-			if err != nil {
-				log(err.Error())
-				break
-			}
-			id = res.NextCursor
-			for _, ev := range res.Events {
-				data, err := json.Marshal(ev.Payload)
-				if err != nil {
-					log(err.Error())
-					break
-				}
-				if err := db.Update(cache.DeviceLogsTable, map[string]any{
-					"id":      ev.Id,
-					"device":  ev.DeviceCode.String(),
-					"type":    ev.EventType,
-					"message": ev.Message,
-					"payload": data,
-				}); err != nil {
-					log("Failed to cache %+v: %v", ev, err)
-					break
-				}
-			}
-
-			if id == 0 {
-				break
-			}
-		}
-		return nil
+		_, err := rest.DeviceLogs(devCA, 0)
+		return err
 	}
 	getEvents := func() {
 		if err := fetchNewEvents(); err != nil {

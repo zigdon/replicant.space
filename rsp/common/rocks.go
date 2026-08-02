@@ -33,7 +33,7 @@ func GetRocks() ([]*models.Object, error) {
 	for _, sh := range shs {
 		wg.Go(func() {
 			fmt.Print(".")
-			logs, err := rest.DeviceLogs(sh.Code, true, 0, 50)
+			logs, err := rest.DeviceLogs(sh.Code, 50)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("Error getting logs from %q: %v", sh.Code.Alias(), err))
 				return

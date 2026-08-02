@@ -76,10 +76,9 @@ func Execute() {
 		if len(ns) > 0 {
 			for _, n := range ns {
 				if n.Device != "" {
-					log("%s: %s -- %s", n.End.Round(time.Second).String(),
-						alias(n.Device), n.Text)
+					log("%s: %s -- %s", n.End, alias(n.Device), n.Text)
 				} else {
-					log("%s: %s", n.End.Round(time.Second).String(), n.Text)
+					log("%s: %s", n.End, n.Text)
 				}
 			}
 		}
