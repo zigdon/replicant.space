@@ -448,6 +448,12 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 								return err
 							}
 						}
+						log("Tagging %s", sp.Code.Alias())
+						if !dryRun {
+							if _, err := rest.UpdateTags(sp.Code, rest.AddTag, []string{tag}); err != nil {
+								return err
+							}
+						}
 						log("%s shipping to %s", sp.Code.Alias(), ev.Location)
 						if !dryRun {
 							newEta, err := travel(sp.Code, string(ev.Location))
@@ -462,6 +468,12 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 						if !dryRun {
 							_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids[:avail]})
 							if err != nil {
+								return err
+							}
+						}
+						log("Tagging %s", sp.Code.Alias())
+						if !dryRun {
+							if _, err := rest.UpdateTags(sp.Code, rest.AddTag, []string{tag}); err != nil {
 								return err
 							}
 						}

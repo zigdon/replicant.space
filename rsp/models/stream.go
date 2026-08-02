@@ -12,6 +12,7 @@ type StreamEnvelope struct {
 	Category      string         `json:"category"`
 	Created       *JSONTime      `json:"created_at"`
 	DeviceCode    *CodeAlias     `json:"device_code"`
+	DeviceType    string         `json:"device_type"`
 	Event         string         `json:"event"`
 	Location      LocationID     `json:"location"`
 	Payload       map[string]any `json:"payload"`
@@ -58,13 +59,13 @@ type StreamAmiDigest struct {
 		Event_count int            `json:"event_count"`
 		Counts      map[string]int `json:"counts"`
 		Window      []*JSONTime    `json:"window"`
-		Devices     []struct {
-			DeviceCode *CodeAlias `json:"device_code"`
-			Status     string     `json:"status"`
-			Events     int        `json:"events"`
-			LastEvent  string     `json:"last_event"`
-		} `json:"devices"`
 	} `json:"activity"`
+	Devices []struct {
+		DeviceCode *CodeAlias `json:"device_code"`
+		Status     string     `json:"status"`
+		Events     int        `json:"events"`
+		LastEvent  string     `json:"last_event"`
+	} `json:"devices"`
 }
 
 type AmiReport struct {
@@ -224,7 +225,7 @@ type StreamDeviceDetached struct {
 }
 
 type StreamDeviceStowed struct {
-	StowedInDeviceCode *CodeAlias `json:"stowed_in_device_code"`
+	StowedIn *CodeAlias `json:"stowed_in"`
 }
 
 type StreamDirectiveCleared struct {

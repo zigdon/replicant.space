@@ -167,7 +167,6 @@ func (pd *DeviceUpdate) Apply() *Device {
 		d.Type = pd.Type
 		d.Features = pd.Features
 	}
-	d.fetchedAt.update = time.Now()
 	d.AmiDirective = pd.AmiDirective
 	d.AmiDirectiveStatus = pd.AmiDirectiveStatus
 	d.AttachedToDeviceCode = pd.AttachedToDeviceCode
@@ -310,6 +309,7 @@ func (d *Device) Cache() error {
 	if err != nil {
 		return err
 	}
+	d.fetchedAt.update = time.Now()
 	err = db.Update(cache.JSONDevices, map[string]any{
 		"code":       d.Code.String(),
 		"fetched_ts": d.Fetched(),

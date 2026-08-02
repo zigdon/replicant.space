@@ -280,6 +280,9 @@ func (p *Planet) Cache() error {
 	if p == nil {
 		return nil
 	}
+	if p.Star == "" {
+		p.Star = LocationID(p.Designation.Star())
+	}
 	data := map[string]any{
 		"designation": p.Designation,
 		"star":        p.Star,

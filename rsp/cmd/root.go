@@ -76,12 +76,16 @@ func Execute() {
 		var ns []*models.Notification
 		ns, err = models.PendingNotifications(false)
 		if len(ns) > 0 {
+			var silent int
 			for _, n := range ns {
 				if n.Device != "" {
 					log("%s: %s -- %s", n.End, alias(n.Device), n.Text)
 				} else {
-					log("%s: %s", n.End, n.Text)
+					silent++
 				}
+			}
+			if silent > 0 {
+				log("%d silent notifications suppressed", silent)
 			}
 		}
 	}
