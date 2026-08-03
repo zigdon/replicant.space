@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -249,6 +251,31 @@ func readStream(cmd *cobra.Command, args []string) error {
 						Type: env.DeviceType,
 					}))
 			}, ev.StowedIn)
+		case "print.completed":
+			ev, err := models.Parse[models.StreamPrintCompleted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			rest.DeviceInfo(ev.NewDeviceCode)
+			log("%s finished printing %s at %s: %s (%s)",
+				env.DeviceCode, ev.DeviceType, env.Location, ev.NewDeviceCode, ev.NewDeviceCode.String())
+			update(func(d *models.Device) {
+				if len(d.PrintQueue) > 0 {
+					pq := d.PrintQueue[0]
+					debug(&d.Printing, &models.DevicePrint{
+						Completes: new(models.JSONTime).Set(
+							time.Now().Add(common.GetBP(pq.Type).PrintTime.Duration())),
+						Eta:        common.GetBP(pq.Type).PrintTime,
+						DeviceType: pq.Type,
+						Started:    new(models.JSONTime).Set(time.Now()),
+						Tags:       pq.Tags,
+					})
+					debug(&d.PrintQueue, d.PrintQueue[1:])
+				} else {
+					change(&d.Status, "idle")
+				}
+			}, env.DeviceCode)
 		default:
 			log("Unknown event type: %q", ev["event"])
 			prettyPrint(ev)

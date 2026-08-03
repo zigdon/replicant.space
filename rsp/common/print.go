@@ -199,6 +199,9 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 			ETA:    time.Now().Add(pl.eta),
 			Queued: pl.toQueue,
 		}
+		if pPlan.Printers[p].ETA.After(pPlan.ETA) {
+			pPlan.ETA = pPlan.Printers[p].ETA
+		}
 		data = append(data, []any{
 			p, CountList(pl.toQueue), pl.delay, pl.eta,
 		})

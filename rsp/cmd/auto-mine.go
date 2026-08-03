@@ -41,35 +41,31 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	star := loc.Location.Star()
 	log("Destination system: %s (%s)", star, density)
 
-	mdScale := map[string]int{
-		"sparse":   1,
-		"moderate": 4,
+	mdCount := map[string]int{
+		"sparse":   3,
+		"moderate": 6,
 		"dense":    10,
 	}
-	sdScale := map[string]int{
-		"sparse":   1,
-		"moderate": 2,
+	sdCount := map[string]int{
+		"sparse":   2,
+		"moderate": 3,
 		"dense":    5,
 	}
-	md, mok := mdScale[density]
-	sd, sok := sdScale[density]
+	md, mok := mdCount[density]
+	sd, sok := sdCount[density]
 	if !mok || !sok {
-		return fmt.Errorf("Unknown density %q, can't figure out scale", density)
+		return fmt.Errorf("Unknown density %q, can't figure out composition", density)
 	}
-	log("Density: %s (x %d mining, %d survey)", density, md, sd)
+	log("Density: %s (%d mining, %d survey)", density, md, sd)
 
 	// Define the desired fleet shape
 	missing := map[string]int{
 		"ami_mining_controller": 1,
 		"ami_survey_controller": 1,
 		"service_bot":           1,
-		"mining_drone":          5,
-		"belt_surveyor":         2,
+		"mining_drone":          md,
+		"belt_surveyor":         sd,
 	}
-	missing["mining_drone"] *= md
-	missing["belt_surveyor"] *= sd
-	log("Using %d mining drones", missing["mining_drone"])
-	log("Using %d survey drones", missing["belt_surveyor"])
 
 	skip := getStringSlice(cmd, "skip")
 	for _, sk := range skip {

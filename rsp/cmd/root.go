@@ -36,6 +36,15 @@ func Execute() {
 		rest.ConnectDB(db)
 	}
 
+	// if the first arg looks like a device alias, assume "device -d"
+	args := os.Args
+	if db.Dealias(args[1]) != args[1] {
+		args = slices.Insert(args, 1, "device", "-d")
+	} else if args[1] == "device" && db.Dealias(args[2]) != args[2] {
+		args = slices.Insert(args, 2, "-d")
+	}
+	rootCmd.SetArgs(args[1:])
+
 	err = rootCmd.Execute()
 	if err != nil {
 		die(err.Error())
