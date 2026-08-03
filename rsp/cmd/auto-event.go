@@ -380,7 +380,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 					home, k, ent.Need, true, dryRun,
 					map[string]any{
 						"tags":     []string{tag},
-						"flatpack": true,
+						"flatpack": slices.Contains(common.GetBP(k).Features, "modular"),
 					})
 				if err != nil {
 					return err

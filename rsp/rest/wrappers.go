@@ -481,12 +481,12 @@ func CachedDeviceInfo(id *models.CodeAlias, useCache bool) (*models.Device, erro
 		log("**: Error loading cached %s: %v", id.Alias(), err)
 		return RefreshDeviceInfo(id)
 	}
-	if time.Since(d.Fetched()) <= time.Minute {
-		log("**: Using cache for %q (%s)", id.Alias(), time.Since(d.Fetched()))
+	if time.Since(d.Updated()) <= 5*time.Minute {
+		log("**: Using cache for %q (%s)", id.Alias(), time.Since(d.Updated()))
 		return d, nil
 	}
 
-	log("**: Refreshing cache for %q", id.Alias())
+	log("**: Refreshing cache for %q (%s)", id.Alias(), time.Since(d.Updated()))
 	return RefreshDeviceInfo(id)
 }
 

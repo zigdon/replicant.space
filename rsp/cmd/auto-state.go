@@ -69,7 +69,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 			log("===================================")
 			log("%s: Starting machine", d.Code.Alias())
 			if err := sms[alias].Start(d, dryRun); err != nil {
-				errs = append(errs, fmt.Errorf("Removing state maching %q: %v", d.Code, err))
+				errs = append(errs, fmt.Errorf("Removing state machine %q: %v", d.Code, err))
 				delete(sms, alias)
 				continue
 			}
