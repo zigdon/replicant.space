@@ -163,3 +163,12 @@ CREATE TABLE IF NOT EXISTS device_logs(
   payload JSONB,
   PRIMARY KEY (id, device)
 );
+
+CREATE TABLE IF NOT EXISTS tasks(
+  id INTEGER PRIMARY KEY,
+  added TIMESTAMPTZ,
+  completed TIMESTAMPTZ,
+  type TEXT,
+  title TEXT,
+  details JSONB
+);

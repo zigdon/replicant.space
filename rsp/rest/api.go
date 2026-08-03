@@ -40,15 +40,16 @@ func init() {
 func log(tmpl string, args ...any) {
 	ts := time.Now().Format(time.Stamp)
 	line := fmt.Sprintf(ts+" "+tmpl+"\n", args...)
+	if debug {
+		fmt.Fprint(os.Stderr, line)
+		return
+	}
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Can't open to %q: %v\n", logFile, err)
 	} else {
 		f.WriteString(line)
 		f.Close()
-	}
-	if debug {
-		fmt.Fprint(os.Stderr, line)
 	}
 }
 
@@ -112,6 +113,9 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
+	if debug {
+		log("-> %d\n%s", len(body), string(body))
+	}
 
 	if unread, ok := resp.Header["X-Replicant-Space-Unread-Count"]; ok {
 		UnreadMessages, err = strconv.Atoi(unread[0])

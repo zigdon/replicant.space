@@ -25,10 +25,10 @@ func (e MachineDoneErr) Error() string {
 // If there's a returned time, it is saved on the device in ts:<seconds>
 
 type Machine interface {
-	Start(*models.Device, bool) error
+	Start(dev *models.Device, dryRun bool) error
 	UpdateState() error
 	Process() (time.Time, error)
-	SaveState(string) error
+	SaveState(state string) error
 	Status() string
 	Name() string
 }
