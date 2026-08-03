@@ -159,7 +159,7 @@ func completeEventCriteria(cmd *cobra.Command, args []string, toComplete string)
 }
 
 func completeDevicesFilters(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	keywords := []string{"location", "type", "tag"}
+	keywords := []string{"location", "type", "tag", "destination"}
 	res := []string{"--ignore_tags", "--merge=false"}
 
 	if len(args)%2 == 0 {
@@ -167,7 +167,7 @@ func completeDevicesFilters(cmd *cobra.Command, args []string, toComplete string
 	}
 	last := args[len(args)-1]
 	switch last {
-	case "location":
+	case "location", "destination":
 		return completeStars(cmd, args, toComplete)
 	case "type":
 		types, err := db.ListIDs(cache.AliasTypesTable)

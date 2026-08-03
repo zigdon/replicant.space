@@ -13,6 +13,8 @@ import (
 
 var db *cache.Cache
 
+const cacheTimeout = 5 * time.Minute
+
 func ConnectDB(cdb *cache.Cache) {
 	db = cdb
 }
@@ -273,7 +275,6 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 	validCols := []string{"device_type", "location", "replicant_code", "tag"}
 	q := "SELECT code, data FROM json_devices"
 	var vals []any
-	// select code, type, location, status from json_devices where data->>'tags' = '["event:llyrhawr-4-evt-005"]';
 
 	if len(filters) > 0 {
 		q += " WHERE "
@@ -289,6 +290,9 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 			case "tag":
 				limits = append(limits, fmt.Sprintf("data->>'tags' = '[$%d]'", len(vals)+1))
 				vals = append(vals, v)
+			case "device_type":
+				limits = append(limits, fmt.Sprintf("type = $%d", len(vals)+1))
+				vals = append(vals, v)
 			default:
 				limits = append(limits, fmt.Sprintf("%s = $%d", k, len(vals)+1))
 				vals = append(vals, v)
@@ -297,40 +301,43 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 		q += strings.Join(limits, " AND ")
 	}
 	log("**: query: %q %v", q, vals)
-	if cached, err := db.DB.Query(q, vals...); err == nil {
-		var devs []*models.Device
-		valid := true
-		for cached.Next() {
-			var code string
-			var data []byte
-			if err := cached.Scan(&code, &data); err != nil {
-				log("**: Error scanning %q: %v", code, err)
-				valid = false
-				break
-			}
-			d, err := models.Parse[models.Device](data)
-			if err != nil {
-				log("**: Error parsing %q: %v", code, err)
-				valid = false
-				break
-			}
-			devs = append(devs, d)
-			if time.Since(d.Updated()) > time.Minute {
-				log("**: Cache for %s too old: %s (%s)", d.Code.Alias(), d.Fetched(), time.Since(d.Fetched()))
-				valid = false
-				break
-			}
-		}
-		if err := cached.Err(); err != nil {
-			log("**: Error in cache: %v", err)
-			valid = false
-		}
-		if valid {
-			log("**: %d rows returned", len(devs))
-			return devs, nil
-		}
-		log("**: Invalid cache, refeshing...")
+	cached, err := db.DB.Query(q, vals...)
+	if err != nil {
+		log("** err: %v", err)
+		return RefreshDevices(filters)
 	}
+	var devs []*models.Device
+	valid := true
+	for cached.Next() {
+		var code string
+		var data []byte
+		if err := cached.Scan(&code, &data); err != nil {
+			log("**: Error scanning %q: %v", code, err)
+			valid = false
+			break
+		}
+		d, err := models.Parse[models.Device](data)
+		if err != nil {
+			log("**: Error parsing %q: %v", code, err)
+			valid = false
+			break
+		}
+		devs = append(devs, d)
+		if time.Since(d.Updated()) > cacheTimeout {
+			log("**: Cache for %s too old: %s (%s)", d.Code.Alias(), d.Fetched(), time.Since(d.Fetched()))
+			valid = false
+			break
+		}
+	}
+	if err := cached.Err(); err != nil {
+		log("**: Error in cache: %v", err)
+		valid = false
+	}
+	if valid {
+		log("**: %d rows returned", len(devs))
+		return devs, nil
+	}
+	log("**: Invalid cache, refeshing...")
 
 	return RefreshDevices(filters)
 }
@@ -481,7 +488,7 @@ func CachedDeviceInfo(id *models.CodeAlias, useCache bool) (*models.Device, erro
 		log("**: Error loading cached %s: %v", id.Alias(), err)
 		return RefreshDeviceInfo(id)
 	}
-	if time.Since(d.Updated()) <= 5*time.Minute {
+	if time.Since(d.Updated()) <= cacheTimeout {
 		log("**: Using cache for %q (%s)", id.Alias(), time.Since(d.Updated()))
 		return d, nil
 	}
