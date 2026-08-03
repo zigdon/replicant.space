@@ -384,38 +384,15 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if len(allMFs) == 0 {
 		return fmt.Errorf("No fleet carriers found")
 	}
-	var carrier *models.Device
-	detached := make(map[string]bool)
+	var freeCarriers []*models.Device
 	detachAll := func(ca *models.CodeAlias) error {
-		if detached[ca.Alias()] {
-			return nil
-		}
-		log("Attempting to detach devices from %q", ca.Alias())
-		detached[ca.Alias()] = true
-		info, err := getInfo(ca)
-		if err != nil {
-			return err
-		}
-		if len(info.AttachedDevices) == 0 {
-			return nil
-		}
-		if info.Status != "idle" {
-			return fmt.Errorf("%s not idle: %s", info.Code.Alias(), info.Status)
-		}
-		var devs []string
-		for _, d := range info.AttachedDevices {
-			devs = append(devs, d.Code.Alias())
-		}
-		if len(devs) == 0 {
-			return nil
-		}
-		log("Detaching %v from %s", devs, info.Code.Alias())
-		_, err = rest.DeviceCommand[models.CommandResp](info.Code, "detach", map[string]any{"targets": devs})
+		log("Detaching devices from %s", ca)
+		_, err = rest.DeviceCommand[models.CommandResp](ca, "detach", nil)
 		return err
 	}
 	if dest != "" {
 		log("Need to transport %v", needPicked)
-		// Skip fleets that are not home, or have attached devices
+		// Skip fleet carrierss that are not home, or have attached devices
 		for _, mf := range allMFs {
 			if string(mf.Location) != home {
 				continue
@@ -423,62 +400,79 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			if len(mf.AttachedDevices) > 0 {
 				continue
 			}
-			carrier = mf
-			break
+			freeCarriers = append(freeCarriers, mf)
 		}
-		if carrier == nil {
-			return fmt.Errorf("No available fleet found")
+		if len(freeCarriers) == 0 {
+			return fmt.Errorf("No available fleets found")
 		}
 		if !dryRun {
-			// Detach anything connected to the carrier, if it isn't in motion
-			if carrier.Status != "idle" {
-				log("Carrier %s is not idle (%s)", carrier.Code.Alias(), carrier.Status)
-				return nil
-			}
-			if err := detachAll(carrier.Code); err != nil {
-				return err
-			}
-
-			if string(carrier.Location) != dest {
-				if carrier.Travel != nil {
-					log("%s already in transit to %q, ETA %s",
-						carrier.Code.Alias(), carrier.Travel.Destination,
-						carrier.Travel.Arrives.String())
-					return nil
+			for _, carrier := range freeCarriers {
+				// Detach anything connected to the carrier, if it isn't in motion
+				if carrier.Status != "idle" {
+					log("Carrier %s is not idle (%s)", carrier.Code.Alias(), carrier.Status)
+					continue
 				}
-				log("Sending %s to %s", carrier.Code.Alias(), dest)
-				eta, err := common.Travel(carrier.Code, dest, false)
+				if err := detachAll(carrier.Code); err != nil {
+					return err
+				}
+
+				if string(carrier.Location) != dest {
+					if carrier.Travel != nil {
+						log("%s already in transit to %q, ETA %s",
+							carrier.Code.Alias(), carrier.Travel.Destination,
+							carrier.Travel.Arrives.String())
+						continue
+					}
+					log("Sending %s to %s", carrier.Code.Alias(), dest)
+					eta, err := common.Travel(carrier.Code, dest, false)
+					if err != nil {
+						return err
+					}
+					log("Carrier in transit, eta %s (%s)", eta, time.Until(eta))
+					n := &models.Notification{
+						Start:  time.Now(),
+						End:    eta,
+						Device: "Mining fleet",
+						Text:   fmt.Sprintf("Fleet arrived at %q", locName),
+						Object: fleet,
+					}
+					n.Save()
+					continue
+				}
+
+				// Attach any devices that need to ship
+				if len(needPicked) > carrier.AttachCapacity {
+					subset := needPicked[:carrier.AttachCapacity]
+					log("Attaching %v to %s", subset, carrier.Code.Alias())
+					_, err = rest.DeviceCommand[models.CommandResp](carrier.Code, "attach", map[string]any{
+						"targets": subset,
+					})
+					needPicked = needPicked[carrier.AttachCapacity:]
+					log("%d remain to be shipped: %v", len(needPicked), needPicked)
+				} else {
+					log("Attaching %v to %s", needPicked, carrier.Code.Alias())
+					_, err = rest.DeviceCommand[models.CommandResp](carrier.Code, "attach", map[string]any{
+						"targets": needPicked,
+					})
+					needPicked = needPicked[:0]
+				}
+				if err != nil {
+					return err
+				}
+
+				// Ship em
+				eta, err := common.Travel(carrier.Code, locName, false)
 				if err != nil {
 					return err
 				}
 				log("Carrier in transit, eta %s (%s)", eta, time.Until(eta))
-				n := &models.Notification{
-					Start:  time.Now(),
-					End:    eta,
-					Device: "Mining fleet",
-					Text:   fmt.Sprintf("Fleet arrived at %q", locName),
-					Object: fleet,
+
+				if len(needPicked) == 0 {
+					return nil
 				}
-				n.Save()
-				return nil
 			}
-
-			// Attach any devices that need to ship
-			log("Attaching %v to %s", needPicked, carrier.Code.Alias())
-			_, err := rest.DeviceCommand[models.CommandResp](carrier.Code, "attach", map[string]any{
-				"targets": needPicked,
-			})
-			if err != nil {
-				return err
-			}
-
-			// Ship em
-			eta, err := common.Travel(carrier.Code, locName, false)
-			if err != nil {
-				return err
-			}
-			log("Carrier in transit, eta %s (%s)", eta, time.Until(eta))
-			return nil
+			return fmt.Errorf("Not enough carriers available, %d devices left to ship: %v",
+				len(needPicked), needPicked)
 		}
 	}
 	if dryRun {
@@ -513,9 +507,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	// Issue travel commands
 	var errs []error
 	carriers := make(map[string]*models.Device)
-	if carrier != nil {
-		carriers[carrier.Code.Alias()] = carrier
-	}
 	for _, ds := range fleet {
 		for _, d := range ds {
 			if d.AttachedToDeviceCode != nil {

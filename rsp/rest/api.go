@@ -75,7 +75,11 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 			Body: io.NopCloser(bytes.NewReader(data)),
 		})
 		end := time.Now()
-		log("%s %q -> %d (%s):\n%s", method, url, resp.StatusCode, end.Sub(start).Round(10*time.Millisecond), string(data))
+		if len(data) > 0 {
+			log("%s %q -> %d (%s)\n%s", method, url, resp.StatusCode, end.Sub(start).Round(10*time.Millisecond), string(data))
+		} else {
+			log("%s %q -> %d (%s)", method, url, resp.StatusCode, end.Sub(start).Round(10*time.Millisecond))
+		}
 		if err != nil {
 			log("err: %v", err)
 			return nil, err
@@ -108,11 +112,6 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if len(body) < 1000 || debug {
-		log("-> %d\n%s", len(body), string(body))
-	} else {
-		log("-> %d (truncated)\n%s", len(body), string(body[:1000]))
-	}
 
 	if unread, ok := resp.Header["X-Replicant-Space-Unread-Count"]; ok {
 		UnreadMessages, err = strconv.Atoi(unread[0])
@@ -170,7 +169,7 @@ func ReadStream(handler func(ev map[string]string) error) error {
 	}
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
-	req.Header.Set("Authorization", "Bearer " + cfg.APIKey)
+	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 
 	log("Conecting to stream...")
 	resp, err := client.Do(req)
@@ -212,7 +211,7 @@ func ReadStream(handler func(ev map[string]string) error) error {
 		}
 		if _, ok := currentEvent[k]; ok {
 			// Append to existing values
-			currentEvent[k] += "\n"+v
+			currentEvent[k] += "\n" + v
 		} else {
 			currentEvent[k] = v
 		}

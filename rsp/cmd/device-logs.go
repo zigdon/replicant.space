@@ -105,11 +105,13 @@ func logTable(cmd *cobra.Command, args []string) error {
 			e := new(models.DeviceEvent)
 			var dc string
 			var data []byte
+			var ts time.Time
 			if err := rows.Scan(
-				&e.Id, &e.Created, &dc, &e.EventType, &e.Message, &data); err != nil {
+				&e.Id, &ts, &dc, &e.EventType, &e.Message, &data); err != nil {
 				log("Error reading data: %v", err)
 				continue
 			}
+			e.Created = e.Created.Set(ts)
 			e.DeviceCode = models.NewCodeAlias(dc)
 			if err := json.Unmarshal(data, &e.Payload); err != nil {
 				log(err.Error())
