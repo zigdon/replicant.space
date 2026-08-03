@@ -16,8 +16,9 @@ import (
 )
 
 var deviceListCmd = &cobra.Command{
-	Use:   "devices",
-	Short: "List all the devices",
+	Use:               "devices",
+	Short:             "List all the devices",
+	ValidArgsFunction: completeDevicesFilters,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Args are filter pairs
 		filter := make(map[string]string)

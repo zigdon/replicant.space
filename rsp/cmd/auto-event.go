@@ -391,6 +391,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				for p, plan := range pPlan.Printers {
 					log("... %s: %s", p.Alias(), common.CountList(plan.Queued))
 				}
+				etas = append(etas, pPlan.ETA)
 			}
 			common.PrintTable([]string{"Delivery", "Need", "Printing", "Pickup", "Transit"}, data)
 

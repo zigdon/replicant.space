@@ -1,11 +1,11 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -20,8 +20,32 @@ func completeStarsAndPlanets(cmd *cobra.Command, args []string, toComplete strin
 func completeStars(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	var res []string
 	if len(toComplete) < 3 {
-		log("... enter at least 3 characters")
-		return res, cobra.ShellCompDirectiveNoFileComp
+		q := `
+		  SELECT * FROM (
+		    SELECT DISTINCT(SUBSTR(designation, 0, 4)) AS prefix, COUNT(designation) AS cnt
+			FROM stars
+			GROUP BY prefix
+		  ) WHERE prefix LIKE $1
+		  ORDER BY prefix
+		`
+		rows, err := db.DB.Query(q, strings.ToUpper(toComplete)+"%")
+		if err != nil {
+			log("Can't query prefix %q: %v", toComplete, err)
+			return res, cobra.ShellCompDirectiveNoFileComp
+		}
+		var total int
+		var prefixes []string
+		for rows.Next() {
+			var prefix string
+			var cnt int
+			if err := rows.Scan(&prefix, &cnt); err == nil {
+				prefixes = append(prefixes, fmt.Sprintf("%s\t%d stars", prefix, cnt))
+				total += cnt
+			}
+		}
+		if total > 500 {
+			return prefixes, cobra.ShellCompDirectiveNoFileComp
+		}
 	}
 
 	rows, err := db.DB.Query(`
@@ -33,21 +57,14 @@ func completeStars(_ *cobra.Command, _ []string, toComplete string) ([]string, c
 		log("Can't query prefix %q: %v", toComplete, err)
 		return res, cobra.ShellCompDirectiveNoFileComp
 	}
-	var errs []error
 	for rows.Next() {
 		var d, ep string
 		var e, l bool
 		if err := rows.Scan(&d, &e, &l, &ep); err != nil {
-			errs = append(errs, err)
 			continue
 		}
 		res = append(res, fmt.Sprintf("%s\tExplored: %v, Has life: %v", d, e, l))
 		res = append(res, fmt.Sprintf("%s\tEntry point", ep))
-	}
-	errs = append(errs, rows.Err())
-
-	if err := errors.Join(errs...); err != nil {
-		log("Query err: %v", err)
 	}
 
 	return res, cobra.ShellCompDirectiveNoFileComp
@@ -69,17 +86,14 @@ func completePlanets(_ *cobra.Command, _ []string, toComplete string) ([]string,
 		log("Can't query prefix %q: %v", toComplete, err)
 		return res, cobra.ShellCompDirectiveNoFileComp
 	}
-	var errs []error
 	for rows.Next() {
 		var d string
 		var l, s bool
 		if err := rows.Scan(&d, &l, &s); err != nil {
-			errs = append(errs, err)
 			continue
 		}
 		res = append(res, fmt.Sprintf("%s\tLife stage: %v, Scanned: %v", d, l, s))
 	}
-	errs = append(errs, rows.Err())
 
 	row := db.DB.QueryRow(`
 		SELECT designation, density
@@ -87,14 +101,8 @@ func completePlanets(_ *cobra.Command, _ []string, toComplete string) ([]string,
 		WHERE starts_with(designation, $1)
 	`, toComplete)
 	var dg, dn string
-	if err := row.Scan(&dg, &dn); err != nil {
-		errs = append(errs, err)
-	} else {
+	if err := row.Scan(&dg, &dn); err == nil {
 		res = append(res, fmt.Sprintf("%s\tDensity: %s", dg, dn))
-	}
-
-	if err := errors.Join(errs...); err != nil {
-		log("Query err: %v", err)
 	}
 
 	return res, cobra.ShellCompDirectiveNoFileComp
@@ -145,6 +153,45 @@ func completeEventCriteria(cmd *cobra.Command, args []string, toComplete string)
 	}
 	for n, c := range crits {
 		res = append(res, fmt.Sprintf("%d\t%s", n+1, c))
+	}
+	return res, cobra.ShellCompDirectiveNoFileComp
+
+}
+
+func completeDevicesFilters(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	keywords := []string{"location", "type", "tag"}
+	res := []string{"--ignore_tags", "--merge=false"}
+
+	if len(args)%2 == 0 {
+		return append(res, keywords...), cobra.ShellCompDirectiveNoFileComp
+	}
+	last := args[len(args)-1]
+	switch last {
+	case "location":
+		return completeStars(cmd, args, toComplete)
+	case "type":
+		types, err := db.ListIDs(cache.AliasTypesTable)
+		if err != nil {
+			return res, cobra.ShellCompDirectiveError
+		}
+		for _, t := range types {
+			res = append(res, t.(string))
+		}
+	case "tag", "tags":
+		q := `
+		SELECT distinct JSONB_ARRAY_ELEMENTS_TEXT(data->'tags') AS tags
+		FROM json_devices
+	  `
+		rows, err := db.DB.Query(q)
+		if err != nil {
+			return res, cobra.ShellCompDirectiveError
+		}
+		for rows.Next() {
+			var t string
+			if err := rows.Scan(&t); err == nil {
+				res = append(res, t)
+			}
+		}
 	}
 	return res, cobra.ShellCompDirectiveNoFileComp
 

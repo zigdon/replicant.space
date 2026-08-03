@@ -3,13 +3,13 @@
 dir=$(dirname $0)
 changed="$(find $dir/rsp -newer $dir/rsp/rsp)"
 if [[ -n "$changed" ]]; then
-  echo Rebuilding...
+  echo Rebuilding... > /dev/stderr
   cd $dir/rsp
   go build
   cd ..
-  echo Regenerating tags...
+  echo Regenerating tags... > /dev/stderr
   ctags -R .
-  echo Launching...
+  echo Launching... > /dev/stderr
 fi
 
 ./rsp/rsp "$@"
