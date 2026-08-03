@@ -15,7 +15,7 @@ import (
 func autoState(cmd *cobra.Command, args []string) error {
 	// If devices were specified, process those. Otherwise, loop over
 	// all the defined states
-	var devs []*models.Device
+	devs := make(map[string]*models.Device)
 	var sms = make(map[string]auto.Machine)
 	dryRun := getBool(cmd, "dry_run")
 	eq := auto.NewEventQueue(5 * time.Minute)
@@ -33,7 +33,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 				if err != nil {
 					return err
 				}
-				devs = append(devs, i)
+				devs[i.Code.Alias()] = i
 			}
 		} else {
 			for _, d := range args {
@@ -41,14 +41,20 @@ func autoState(cmd *cobra.Command, args []string) error {
 				if err != nil {
 					return err
 				}
-				devs = append(devs, i)
+				devs[i.Code.Alias()] = i
 			}
 		}
 		if len(devs) == 0 {
 			return fmt.Errorf("No devices tagged 'auto' found.")
 		}
 
-		for _, d := range devs {
+		for n, d := range devs {
+			if dev, err := getInfo(d.Code); err == nil {
+				devs[n] = dev
+			} else {
+				log("Error getting device info: %v", err)
+				continue
+			}
 			alias := d.Code.Alias()
 			if _, ok := sms[alias]; ok {
 				continue
@@ -63,14 +69,19 @@ func autoState(cmd *cobra.Command, args []string) error {
 			} else if slices.Contains(d.Tags, "auto:divert") {
 				log("%s: divert -> %v", d.Code.Alias(), d.Tags)
 				sms[alias] = &auto.DivertMachine{}
+			} else if slices.Contains(d.Tags, "auto:explore") {
+				log("%s: explore -> %v", d.Code.Alias(), d.Tags)
+				sms[alias] = &auto.ExploreMachine{}
 			} else {
 				errs = append(errs, fmt.Errorf("Unknown state machine for %q: %v", d.Code.Alias(), d.Tags))
+				continue
 			}
 			log("===================================")
 			log("%s: Starting machine", d.Code.Alias())
 			if err := sms[alias].Start(d, dryRun); err != nil {
-				errs = append(errs, fmt.Errorf("Removing state machine %q: %v", d.Code, err))
+				errs = append(errs, fmt.Errorf("Removing state machine %q: %v", d.Code.Alias(), err))
 				delete(sms, alias)
+				delete(devs, alias)
 				continue
 			}
 			errs = append(errs, runStep(d.Code, sms[alias]))

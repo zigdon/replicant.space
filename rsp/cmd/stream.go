@@ -125,6 +125,171 @@ func readStream(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			log("Ignoring %s", env.Event)
+		case "device.attached":
+			ev, err := models.Parse[models.StreamDeviceAttached](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			update(func(d *models.Device) {
+				change(&d.AttachedDevices, append(d.AttachedDevices, &models.Device{
+					Code: ev.TargetCode,
+					Type: ev.TargetType,
+				}))
+			}, env.DeviceCode)
+			update(func(d *models.Device) {
+				change(&d.AttachedToDeviceCode, env.DeviceCode)
+			}, ev.TargetCode)
+		case "device.detached":
+			ev, err := models.Parse[models.StreamDeviceDetached](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			update(func(d *models.Device) {
+				change(
+					&d.AttachedDevices,
+					slices.DeleteFunc(
+						d.AttachedDevices, func(ad *models.Device) bool {
+							return ad.Code.String() != d.Code.String()
+						}))
+			}, env.DeviceCode)
+			update(func(d *models.Device) {
+				change(&d.AttachedToDeviceCode, nil)
+			}, ev.TargetCode)
+		case "device.deployed":
+			ev, err := models.Parse[models.StreamDeviceDeployed](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s deployed from %s @ %s", env.DeviceCode, ev.DeployedFromDeviceCode, env.Location)
+			update(func(d *models.Device) {
+				change(&d.StowedInDeviceCode, nil)
+				change(&d.Location, env.Location)
+				if d.Type == "ftl_beacon" {
+					change(&d.Status, "monitoring")
+				} else {
+					change(&d.Status, "idle")
+				}
+			}, env.DeviceCode)
+			update(func(d *models.Device) {
+				change(
+					&d.StowedDevices.Devices,
+					slices.DeleteFunc(d.StowedDevices.Devices, func(dp *models.DevicePointer) bool {
+						return dp.Code.String() != env.DeviceCode.String()
+					}))
+			}, ev.DeployedFromDeviceCode)
+		case "device.stowed":
+			ev, err := models.Parse[models.StreamDeviceStowed](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s stowed in %s @ %s", env.DeviceCode, ev.StowedIn, env.Location)
+			update(func(d *models.Device) {
+				change(&d.StowedInDeviceCode, ev.StowedIn)
+				change(&d.Location, "")
+				change(&d.Status, "stowed")
+			}, env.DeviceCode)
+			update(func(d *models.Device) {
+				if d.StowedDevices.Devices == nil {
+					return
+				}
+				if !slices.ContainsFunc(d.StowedDevices.Devices, func(dp *models.DevicePointer) bool {
+					return dp.Code.String() == env.DeviceCode.String()
+				}) {
+					change(
+						&d.StowedDevices.Devices,
+						append(d.StowedDevices.Devices, &models.DevicePointer{
+							Code: env.DeviceCode,
+							Type: env.DeviceType,
+						}))
+				}
+			}, ev.StowedIn)
+		case "diversion.activated":
+			ev, err := models.Parse[models.StreamDiversionActivated](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Diversion activated: %s", ev.ObjectDesignation)
+			update(func(d *models.Device) {
+				change(&d.Location, ev.ObjectDesignation)
+				change(&d.Status, "diverting")
+			}, env.DeviceCode)
+		case "diversion.diverted":
+			ev, err := models.Parse[models.StreamDiversionDiverted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Diversion complete: %s", ev.ObjectDesignation)
+			update(func(d *models.Device) {
+				change(&d.Location, ev.ObjectDesignation)
+				change(&d.Status, "idle")
+			}, env.DeviceCode)
+		case "diversion.deactivated":
+			_, err := models.Parse[models.StreamDiversionDeactivated](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			update(func(d *models.Device) {
+				change(&d.Status, "idle")
+			}, env.DeviceCode)
+		case "experience.gained":
+			ev, err := models.Parse[models.StreamExperienceGained](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("XP gained: %d for %s at %s", ev.Amount, ev.Source, env.Location)
+		case "print.completed":
+			ev, err := models.Parse[models.StreamPrintCompleted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			// Create an alias for this device
+			alias, err := db.Alias(ev.NewDeviceCode.String(), ev.DeviceType)
+			if err != nil {
+				log("Error creating a new alias for %s (%s): %v",
+					ev.NewDeviceCode.String(), ev.DeviceType, err)
+			}
+			log("%s finished printing %s at %s: %s (%s)",
+				env.DeviceCode, ev.DeviceType, env.Location, alias, ev.NewDeviceCode.String())
+			update(func(d *models.Device) {
+				if len(d.PrintQueue) > 0 {
+					pq := d.PrintQueue[0]
+					debug(&d.Printing, &models.DevicePrint{
+						Completes: new(models.JSONTime).Set(
+							time.Now().Add(common.GetBP(pq.Type).PrintTime.Duration())),
+						Eta:        common.GetBP(pq.Type).PrintTime,
+						DeviceType: pq.Type,
+						Started:    new(models.JSONTime).Set(time.Now()),
+						Tags:       pq.Tags,
+					})
+					debug(&d.PrintQueue, d.PrintQueue[1:])
+				} else {
+					change(&d.Status, "idle")
+				}
+			}, env.DeviceCode)
+		case "print.started":
+			ev, err := models.Parse[models.StreamPrintStarted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			// ev.DeviceType
+			update(func(d *models.Device) {
+				change(&d.Status, "printing")
+				change(&d.Printing, &models.DevicePrint{
+					Completes:  ev.Completes,
+					DeviceType: ev.DeviceType,
+					Started:    env.Created,
+				})
+			}, env.DeviceCode)
 		case "site.depleted":
 			ev, err := models.Parse[models.StreamSiteDepleted](payload)
 			if err != nil {
@@ -176,104 +341,6 @@ func readStream(cmd *cobra.Command, args []string) error {
 					change(&d.Status, "surging")
 				} else {
 					change(&d.Status, "travelling")
-				}
-			}, env.DeviceCode)
-		case "device.attached":
-			ev, err := models.Parse[models.StreamDeviceAttached](payload)
-			if err != nil {
-				log("%s parse error: %v", env.Event, err)
-				return err
-			}
-			update(func(d *models.Device) {
-				change(&d.AttachedDevices, append(d.AttachedDevices, &models.Device{
-					Code: ev.TargetCode,
-					Type: ev.TargetType,
-				}))
-			}, env.DeviceCode)
-			update(func(d *models.Device) {
-				change(&d.AttachedToDeviceCode, env.DeviceCode)
-			}, ev.TargetCode)
-		case "device.detached":
-			ev, err := models.Parse[models.StreamDeviceDetached](payload)
-			if err != nil {
-				log("%s parse error: %v", env.Event, err)
-				return err
-			}
-			update(func(d *models.Device) {
-				change(
-					&d.AttachedDevices,
-					slices.DeleteFunc(
-						d.AttachedDevices, func(ad *models.Device) bool {
-							return ad.Code.String() != d.Code.String()
-						}))
-			}, env.DeviceCode)
-			update(func(d *models.Device) {
-				change(&d.AttachedToDeviceCode, nil)
-			}, ev.TargetCode)
-		case "device.deployed":
-			ev, err := models.Parse[models.StreamDeviceDeployed](payload)
-			if err != nil {
-				log("%s parse error: %v", env.Event, err)
-				return err
-			}
-			update(func(d *models.Device) {
-				change(&d.StowedInDeviceCode, nil)
-				change(&d.Location, env.Location)
-				if d.Type == "ftl_beacon" {
-					change(&d.Status, "monitoring")
-				} else {
-					change(&d.Status, "idle")
-				}
-			}, env.DeviceCode)
-			update(func(d *models.Device) {
-				change(
-					&d.StowedDevices.Devices,
-					slices.DeleteFunc(d.StowedDevices.Devices, func(dp *models.DevicePointer) bool {
-						return dp.Code.String() != env.DeviceCode.String()
-					}))
-			}, ev.DeployedFromDeviceCode)
-		case "device.stowed":
-			ev, err := models.Parse[models.StreamDeviceStowed](payload)
-			if err != nil {
-				log("%s parse error: %v", env.Event, err)
-				return err
-			}
-			update(func(d *models.Device) {
-				change(&d.StowedInDeviceCode, ev.StowedIn)
-				change(&d.Location, "")
-				change(&d.Status, "stowed")
-			}, env.DeviceCode)
-			update(func(d *models.Device) {
-				change(
-					&d.StowedDevices.Devices,
-					append(d.StowedDevices.Devices, &models.DevicePointer{
-						Code: env.DeviceCode,
-						Type: env.DeviceType,
-					}))
-			}, ev.StowedIn)
-		case "print.completed":
-			ev, err := models.Parse[models.StreamPrintCompleted](payload)
-			if err != nil {
-				log("%s parse error: %v", env.Event, err)
-				return err
-			}
-			rest.DeviceInfo(ev.NewDeviceCode)
-			log("%s finished printing %s at %s: %s (%s)",
-				env.DeviceCode, ev.DeviceType, env.Location, ev.NewDeviceCode, ev.NewDeviceCode.String())
-			update(func(d *models.Device) {
-				if len(d.PrintQueue) > 0 {
-					pq := d.PrintQueue[0]
-					debug(&d.Printing, &models.DevicePrint{
-						Completes: new(models.JSONTime).Set(
-							time.Now().Add(common.GetBP(pq.Type).PrintTime.Duration())),
-						Eta:        common.GetBP(pq.Type).PrintTime,
-						DeviceType: pq.Type,
-						Started:    new(models.JSONTime).Set(time.Now()),
-						Tags:       pq.Tags,
-					})
-					debug(&d.PrintQueue, d.PrintQueue[1:])
-				} else {
-					change(&d.Status, "idle")
 				}
 			}, env.DeviceCode)
 		default:

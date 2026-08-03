@@ -12,6 +12,11 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
+// Tags:
+//   spf w/ platform:pxa-n
+//   pxa w/ prospect:pos
+//       w/ state:teardown
+
 // States:
 // Name        | Status      | Tag      | Action
 // -------------------------------------------------------------------

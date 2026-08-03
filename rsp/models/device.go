@@ -348,6 +348,10 @@ func (d *Device) Get() error {
 	return err
 }
 
+func (d *Device) String() string {
+	return d.Code.Alias()
+}
+
 type ControllerStatus struct {
 	DirectivePaused       bool   `json:"directive_paused"`
 	DirectiveResumed      bool   `json:"directive_resumed"`

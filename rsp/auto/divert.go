@@ -197,7 +197,7 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 			}
 			ids = append(ids, p.Code.String())
 		}
-		if len(ids) > 0 {
+		if len(ids) > 0 && len(dm.dev.AttachedDevices) == 0 {
 			if len(ids) > 30 {
 				ids = ids[:30]
 			}

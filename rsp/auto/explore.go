@@ -15,7 +15,7 @@ import (
 //   - racing vessel
 //   - asc
 //   - service bot
-//   - 3+ scanning drones
+//   - 2+ scanning drones
 //
 // States:
 // transit: not in a system
@@ -65,12 +65,17 @@ func (em *ExploreMachine) Start(dev *models.Device, dryRun bool) error {
 	em.state = ExploreState_Initializing
 	em.dev = dev
 	em.tag = fmt.Sprintf("explore:%s", dev.Code.Alias())
+	log("Searching for support devices, tagged %q", em.tag)
 	devs, err := rest.GetTagged(em.tag)
 	if err != nil {
 		return fmt.Errorf("Can't get devices with %q tag: %v", em.tag, err)
 	}
 	var ids []string
 	for _, d := range devs.Devices {
+		d, err = rest.DeviceInfo(d.Code)
+		if err != nil {
+			return err
+		}
 		switch d.Type {
 		case "cargo_vessel", "heaven_vessel", "racing_vessel":
 			// Ignore
@@ -89,19 +94,38 @@ func (em *ExploreMachine) Start(dev *models.Device, dryRun bool) error {
 			em.asc = d
 		case "survey_drone":
 			em.sds = append(em.sds, d)
-			ids = append(ids, d.Code.String())
 		default:
 			return fmt.Errorf("Unknown device tagged %q: %q", em.tag, d.Code)
 		}
+		if d.ReplicantCode.String() != em.dev.ReplicantCode.String() {
+			_, err := deviceCommand(d.Code, "change_owner",
+				map[string]any{"target": em.dev.ReplicantCode.String()}, em.dryRun)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	if len(em.sds) < 3 {
-		return fmt.Errorf("At least 3 survey drones are required: found %v", em.sds)
+	if len(em.sds) < 2 {
+		return fmt.Errorf("At least 2 survey drones are required: found %v", em.sds)
 	}
 
-	if _, err := deviceCommand(
-		em.asc.Code, "adopt", map[string]any{"targets": ids}, em.dryRun); err != nil {
-		return fmt.Errorf("asc can't adopt drones: %v", err)
+	for _, sd := range em.sds {
+		if sd.ControllerDeviceCode != nil && sd.ControllerDeviceCode.String() != em.asc.Code.String() {
+			return fmt.Errorf(
+				"%s is already controlled by %s, not %s",
+				sd.Code.Alias(), sd.ControllerDeviceCode.Alias(), em.asc.Code.Alias())
+		}
+		if sd.ControllerDeviceCode == nil {
+			ids = append(ids, sd.Code.String())
+		}
+	}
+
+	if len(ids) > 0 {
+		if _, err := deviceCommand(
+			em.asc.Code, "adopt", map[string]any{"targets": ids}, em.dryRun); err != nil {
+			return fmt.Errorf("asc can't adopt drones: %v", err)
+		}
 	}
 	dir := "service"
 	if em.sb.Type != "service_bot" {
@@ -147,8 +171,10 @@ func (em *ExploreMachine) UpdateState() error {
 		return err
 	}
 	var explored = loc.SystemScanned &&
-		(loc.MoonsScanned == len(loc.Moons)) &&
-		(loc.PlanetsScanned == len(loc.Planets))
+		(loc.MoonsScanned == loc.MoonsTotal) &&
+		(loc.PlanetsScanned == loc.PlanetsTotal)
+	log("location %s: system: %v, moons: %d/%d, planets: %d/%d", dev.Location.Star(),
+		loc.SystemScanned, loc.MoonsScanned, loc.MoonsTotal, loc.PlanetsScanned, loc.PlanetsTotal)
 
 	// Are devices all stowed?
 	var stowed = true
@@ -162,6 +188,7 @@ func (em *ExploreMachine) UpdateState() error {
 	}
 
 	oldState := em.state
+	log("State (%s): loc:%v ex:%v st:%v", em.state, dev.Location, explored, stowed)
 	switch {
 	case dev.Location == "":
 		em.state = ExploreState_Transit
@@ -174,7 +201,7 @@ func (em *ExploreMachine) UpdateState() error {
 	case stowed && explored:
 		em.state = ExploreState_Leaving
 	default:
-		return fmt.Errorf("Unknown state: loc:%v ex:%v st:%v", dev.Location, explored, stowed)
+		return fmt.Errorf("Unknown state!")
 	}
 	if em.state != oldState {
 		log("Updated state: %s -> %s", oldState, em.state)
@@ -194,7 +221,11 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 			if err != nil {
 				return err
 			}
-			log("  %s: %s", d.Code, logs.Events[0].Message)
+			if len(logs.Events) > 0 {
+				log("  %s: %s", d.Code, logs.Events[0].Message)
+			} else {
+				log("  %s: No logs", d.Code)
+			}
 		}
 		return nil
 	}

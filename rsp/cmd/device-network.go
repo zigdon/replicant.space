@@ -60,7 +60,7 @@ var deviceNetworkCmd = &cobra.Command{
 		for _, n := range res.Connections {
 			s, _ := models.NewStar(n.Star)
 			nodes = append(nodes, []any{
-				n.Star, n, s.Position.Distance(star.Position), s.Position.String(),
+				n.Star, n.DeviceCode, s.Position.Distance(star.Position), s.Position.String(),
 			})
 		}
 		if ref == "" {

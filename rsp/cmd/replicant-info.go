@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/rest"
@@ -39,7 +40,8 @@ var replicantInfoCmd = &cobra.Command{
 			}, [][]any{{
 				trip.Origin, trip.Destination, trip.Eta, trip.Stage,
 			}, {
-				trip.Departed.String(), trip.Arrives.String(),
+				trip.Departed.Time().Format(time.Kitchen),
+				trip.Arrives.Time().Format(time.Kitchen),
 				p(trip.ProgressPercent), "",
 			}})
 			var legs [][]any

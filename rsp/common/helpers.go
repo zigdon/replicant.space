@@ -35,6 +35,10 @@ func Log(tmpl string, args ...any) {
 		return fmt.Sprintf("%s:%d", file, line)
 	}
 	for n, a := range args {
+		if a == nil {
+			args[n] = fmt.Sprintf("nil(T:%T)", a)
+			continue
+		}
 		switch a := a.(type) {
 		case time.Time:
 			args[n] = a.Truncate(time.Second).Format(time.Stamp)

@@ -34,6 +34,7 @@ func init() {
 	rootPrintCmd.Flags().Bool("use_inventory", true, "Skip printing existing components")
 	rootPrintCmd.Flags().BoolP("flatpack", "f", false, "If set, print packed for travel")
 	rootPrintCmd.Flags().BoolP("unfurl", "u", false, "If set, print unpacked")
+	rootPrintCmd.Flags().StringSliceP("tag", "t", []string{}, "Tags to add to the printed device")
 
 	rootPrintCmd.AddCommand(rootPrintListCmd)
 	rootPrintListCmd.Flags().String("location", "", "Show only factories in this location")
@@ -195,6 +196,7 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	copies := getInt(cmd, "repeat")
 	controller := getString(cmd, "controller")
 	onComplete := getString(cmd, "on_complete")
+	tags := getStringSlice(cmd, "tag")
 	cfg := make(map[string]any)
 	if fp {
 		cfg["flatpack"] = true
@@ -206,6 +208,9 @@ func rootPrint(cmd *cobra.Command, args []string) error {
 	}
 	if onComplete != "" {
 		cfg["oncomplete"] = onComplete
+	}
+	if len(tags) > 0 {
+		cfg["tags"] = tags
 	}
 
 	_, err := common.Print(home, name, copies, true, getBool(cmd, "dry_run"), cfg)

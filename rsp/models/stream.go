@@ -358,8 +358,9 @@ type StreamMiningStopped struct {
 }
 
 type StreamPrintStarted struct {
-	DeviceType string `json:"device_type"`
-	PrintMode  string `json:"print_mode"`
+	DeviceType string    `json:"device_type"`
+	PrintMode  string    `json:"print_mode"`
+	Completes  *JSONTime `json:"completes_at"`
 }
 
 type StreamPrintCompleted struct {

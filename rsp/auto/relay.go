@@ -50,6 +50,9 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 	rm.dev = d
 
 	// Save the resident replicant
+	if d.StowedDevices == nil {
+		return fmt.Errorf("No stowed devices found in %q", d.Code.Alias())
+	}
 	for _, st := range d.StowedDevices.Devices {
 		if st.Type != "replicant_matrix" {
 			continue

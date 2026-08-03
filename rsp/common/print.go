@@ -3,6 +3,7 @@ package common
 import (
 	"cmp"
 	"fmt"
+	"math/rand/v2"
 	"slices"
 	"time"
 
@@ -242,6 +243,12 @@ func FindPrinter(printers []*models.CodeAlias, extra map[string]time.Duration) (
 		info[p] = i
 	}
 
+	// Randomize the order of the printers, to make it less likely that we
+	// queue 2 devices on the same one due to caching.
+	rand.Shuffle(len(printers), func(i, j int) {
+		printers[i], printers[j] = printers[j], printers[i]
+	})
+
 	// Calculate the queue length for each printer
 	queue := make(map[*models.CodeAlias]time.Duration)
 	full := make(map[string]bool)
@@ -267,9 +274,6 @@ func FindPrinter(printers []*models.CodeAlias, extra map[string]time.Duration) (
 		tb, _ := queue[b]
 		return cmp.Compare(ta, tb)
 	})
-	for _, p := range printers {
-		Log("%s: %s", p.Alias(), queue[p])
-	}
 
 	return printers[0], nil
 }
