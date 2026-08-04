@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS cached_journey(
   origin TEXT NOT NULL,
   dest TEXT NOT NULL,
   max_hop REAL NOT NULL,
+  use_station BOOL NOT NULL DEFAULT false,
   calculated TIMESTAMPTZ NOT NULL,
   UNIQUE (origin, dest, max_hop)
 );

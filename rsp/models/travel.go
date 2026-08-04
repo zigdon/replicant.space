@@ -108,6 +108,7 @@ type Journey struct {
 	Legs           []*JourneyLeg
 	MaxHop         float32
 	Calculated     time.Time
+	UseStation     bool
 }
 
 func (j *Journey) ClearCache() error {
@@ -146,11 +147,12 @@ func (j *Journey) Cache() error {
 	}
 
 	if err := db.Update(cache.JourneyTable, map[string]any{
-		"id":         j.ID,
-		"origin":     j.Source,
-		"dest":       j.Dest,
-		"max_hop":    j.MaxHop,
-		"calculated": j.Calculated,
+		"id":          j.ID,
+		"origin":      j.Source,
+		"dest":        j.Dest,
+		"max_hop":     j.MaxHop,
+		"calculated":  j.Calculated,
+		"use_station": j.UseStation,
 	}); err != nil {
 		return fmt.Errorf("Error caching journey: %v", err)
 	}
@@ -178,14 +180,14 @@ func (j *Journey) Get() error {
 	}
 
 	row := db.DB.QueryRow(`
-		SELECT id, origin, dest, max_hop, calculated
+		SELECT id, origin, dest, max_hop, use_station, calculated
 		FROM cached_journey
 		WHERE origin = $1 AND dest = $2
 	`, j.Source, j.Dest)
 	if err := row.Err(); err != nil {
 		return err
 	}
-	if err := row.Scan(&j.ID, &j.Source, &j.Dest, &j.MaxHop, &j.Calculated); err != nil {
+	if err := row.Scan(&j.ID, &j.Source, &j.Dest, &j.MaxHop, &j.UseStation, &j.Calculated); err != nil {
 		return err
 	}
 

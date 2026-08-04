@@ -47,8 +47,9 @@ var eventCompleteCmd = &cobra.Command{
 }
 
 var eventsCmd = &cobra.Command{
-	Use:   "events",
-	Short: "See all your current ongoing events",
+	Use:     "events",
+	Aliases: []string{"event"},
+	Short:   "See all your current ongoing events",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		noDetails := getBool(cmd, "list")
 		eventID := getString(cmd, "id")
@@ -160,8 +161,9 @@ func init() {
 
 	eventsCmd.AddCommand(eventCompleteCmd)
 	eventCompleteCmd.Flags().String("id", "", "Show only this event")
-	eventsCmd.RegisterFlagCompletionFunc("id", completeEventIDs)
 	eventCompleteCmd.MarkFlagRequired("id")
+	eventCompleteCmd.RegisterFlagCompletionFunc("id", completeEventIDs)
+	eventCompleteCmd.RegisterFlagCompletionFunc("criteria", completeEventCriteria)
 
 	rootCmd.AddCommand(megaContributeCmd)
 	megaContributeCmd.Flags().String("id", "", "Megastructure ID")

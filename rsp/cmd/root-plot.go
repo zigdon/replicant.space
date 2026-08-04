@@ -20,6 +20,7 @@ var plotCmd = &cobra.Command{
 		cfg := &common.PlotCfg{
 			Debug:       getBool(cmd, "debug"),
 			Hop:         getFloat32(cmd, "max_hop"),
+			UseStation:  getBool(cmd, "use_station"),
 			Recalculate: getBool(cmd, "recalculate"),
 		}
 		trip, err := common.PlotTrip(args[0], args[1], cfg)
@@ -29,12 +30,29 @@ var plotCmd = &cobra.Command{
 		if trip == nil {
 			return nil
 		}
-		data := [][]any{{trip.Source, trip.Dest, "-", "-"},
-			{"", "", "", ""}}
-		for _, l := range trip.Legs {
-			data = append(data, []any{l.From, l.To, l.DistFromSrc, l.DistToDest})
+		pos := func(s string) *models.Position {
+			st, err := models.NewStar(s)
+			if err != nil {
+				return nil
+			}
+			return st.Position
 		}
-		printTable([]string{"Source", "Destination", "From Source", "To Destination"},
+		data := [][]any{{trip.Source, trip.Dest, "-", "-", "-"},
+			{"", "", "", "", ""}}
+		for _, l := range trip.Legs {
+			l.FromPosition = pos(l.From)
+			l.ToPosition = pos(l.To)
+			d := l.FromPosition.Distance(l.ToPosition)
+			var dist string
+			if d > cfg.Hop {
+				dist = fmt.Sprintf("%.2f *", d)
+			} else {
+				dist = fmt.Sprintf("%.2f", d)
+			}
+			data = append(data, []any{
+				l.From, l.To, l.DistFromSrc, dist, l.DistToDest})
+		}
+		printTable([]string{"Source", "Destination", "From Source", "From Previous", "To Destination"},
 			data)
 		return nil
 	},
@@ -77,6 +95,7 @@ var plotDistanceCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
+	plotCmd.Flags().BoolP("use_station", "s", false, "Allow using deep space relay stations to bridge gaps")
 	plotCmd.Flags().BoolP("recalculate", "c", false, "Ignore any cached routes")
 	plotCmd.Flags().Bool("partial", true, "Allow extracting a partial route from a longer one")
 	plotCmd.PersistentFlags().Bool("debug", false, "Output additional debugging data")
@@ -163,13 +182,16 @@ func neighbourStars(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	rows, err := db.DB.Query(
-		`SELECT designation, position_x, position_y, position_z,
-		    sqrt(
-				power(position_x-$1,2) +
-				power(position_y-$2,2) +
-				power(position_z-$3,2)) AS dist
-		FROM stars
+	rows, err := db.DB.Query(`
+		SELECT designation, position_x, position_y, position_z, dist
+		FROM (
+			SELECT designation, position_x, position_y, position_z,
+			  sqrt(
+				  power(position_x-$1,2) +
+				  power(position_y-$2,2) +
+				  power(position_z-$3,2)) AS dist
+		  FROM stars
+		) sub
 		WHERE dist <= $4
 		ORDER BY dist
 		`, src.Position.X, src.Position.Y, src.Position.Z, r)

@@ -15,6 +15,7 @@ import (
 type PlotCfg struct {
 	Debug       bool
 	Hop         float32
+	UseStation  bool
 	Recalculate bool
 	Partial     bool
 }
@@ -120,6 +121,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 		})
 		debug("starting iteration over queue: %v", queue)
 		var nextQueue []string
+		var nextStationQueue []string
 		for _, s := range queue {
 			cnt++
 			if time.Since(ts) > time.Second {
@@ -133,9 +135,18 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 			if err != nil {
 				return nil, fmt.Errorf("Can't get star %q: %v", s, err)
 			}
-			stars, err := TripStepCandidate(s, qStar.Position, dPos, cfg.Hop)
+
+			stars, err := TripStepCandidate(s, qStar.Position, dPos, 0, cfg.Hop)
 			if err != nil {
 				return nil, fmt.Errorf("No candidates found from %v to %v: %v", s, dst, err)
+			}
+			if cfg.UseStation {
+				extra, err := TripStepCandidate(s, qStar.Position, dPos, cfg.Hop, 10)
+				if err != nil {
+					Log("No additional candidates found from %v to %v: %v", s, dst, err)
+				} else {
+					stars = append(stars, extra...)
+				}
 			}
 			debug("%d candidates found", len(stars))
 			for _, next := range stars {
@@ -150,9 +161,16 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 				if !ok {
 					// New waypoint, add it to the queue and move on
 					waypoints[next.To] = next
-					nextQueue = append(nextQueue, next.To)
-					debug("      New waypoint: %s -> %s (behind: %.2f, ahead: %.2f)",
-						next.From, next.To, next.DistFromSrc, next.DistToDest)
+					// If it's an extended hop, add it to the less-preferred queue
+					if next.DistFromSrc > cfg.Hop {
+						nextStationQueue = append(nextStationQueue, next.To)
+						debug("      New extended waypoint: %s -> %s (behind: %.2f, ahead: %.2f)",
+							next.From, next.To, next.DistFromSrc, next.DistToDest)
+					} else {
+						nextQueue = append(nextQueue, next.To)
+						debug("      New waypoint: %s -> %s (behind: %.2f, ahead: %.2f)",
+							next.From, next.To, next.DistFromSrc, next.DistToDest)
+					}
 					continue
 				}
 				// Existing waypoint, if it's a shorter path to get there, update it.
@@ -195,7 +213,11 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 		}
 
 		if len(nextQueue) == 0 {
-			break
+			if len(nextStationQueue) == 0 {
+				break
+			}
+			queue = nextStationQueue
+			continue
 		}
 		queue = nextQueue
 	}
@@ -204,7 +226,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	return j, fmt.Errorf("Failed to find route, closest is %v", best)
 }
 
-func TripStepCandidate(start string, src, dst *models.Position, radius float32) ([]*models.JourneyLeg, error) {
+func TripStepCandidate(start string, src, dst *models.Position, min_radius, max_radius float32) ([]*models.JourneyLeg, error) {
 	rows, err := db.DB.Query(`
 		SELECT designation, position_x, position_y, position_z, from_src, from_dst
 		FROM (
@@ -221,10 +243,10 @@ func TripStepCandidate(start string, src, dst *models.Position, radius float32) 
 				) AS from_dst
 			FROM stars
 		) sub
-		WHERE from_src <= $7 AND from_src > 0.001;`,
+		WHERE from_src <= $7 AND from_src > $8 + 0.001;`,
 		src.X, src.Y, src.Z,
 		dst.X, dst.Y, dst.Z,
-		radius,
+		max_radius, min_radius,
 	)
 	if err != nil {
 		return nil, err

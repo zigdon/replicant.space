@@ -343,8 +343,24 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 	case "leaving":
 		if rm.dev.Location.Star() == rm.dest.Star() {
-			rm.state = "done"
-			return eta, MachineDoneErr(fmt.Sprintf("Relay destination reached: %s", rm.dev.Location))
+			follow := getTags(rm.dev)["follow"]
+			if follow == "" {
+				rm.state = "done"
+				return eta, MachineDoneErr(fmt.Sprintf("Relay destination reached: %s", rm.dev.Location))
+			}
+
+			target, err := rest.DeviceInfo(models.NewCodeAlias(follow))
+			if err != nil {
+				return eta, fmt.Errorf("Can't follow %q: %v", follow, err)
+			}
+			if target.Location != "" {
+				rm.dest = target.Location
+			} else if target.Travel != nil {
+				rm.dest = target.Travel.Destination
+			} else {
+				return eta, fmt.Errorf("Can't figure out how to follow %q", follow)
+			}
+			log("New destination, %s", rm.dest)
 		}
 
 		// plot the next hop
