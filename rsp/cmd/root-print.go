@@ -105,13 +105,25 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 				}
 				totalMissing[k] += missing[k]
 			}
-			queue = append(queue, pq{
-				location:   info.Location,
-				code:       info.Code,
-				deviceType: "Waiting for resources",
-				pos:        -1,
-				missing:    missing,
-			})
+			if len(info.PrintQueue) > 0 {
+				pending := info.PrintQueue[0]
+				queue = append(queue, pq{
+					location:   info.Location,
+					code:       info.Code,
+					deviceType: pending.Type,
+					tags:       append([]string{"Waiting for resources"}, pending.Tags...),
+					pos:        -1,
+					missing:    missing,
+				})
+			} else {
+				queue = append(queue, pq{
+					location: info.Location,
+					code:     info.Code,
+					tags:     append([]string{"Waiting for resources"}, info.Tags...),
+					pos:      -1,
+					missing:  missing,
+				})
+			}
 		} else if info.Printing != nil {
 			queue = append(queue, pq{
 				location:   info.Location,

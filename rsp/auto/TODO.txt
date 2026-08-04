@@ -1,0 +1,4 @@
+State machines of the future:
+
+- deliver - pickup:<ids and/or type x count>, deliver:<location/id>
+- taskmaster - deploy beacons, build fr routes

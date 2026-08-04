@@ -27,7 +27,7 @@ type PrintPlan struct {
 func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[string]any) (*PrintPlan, error) {
 	bp := GetBP(name)
 	Log("***********************")
-	Log("Printing %d of %s at %s", qty, name, where)
+	Log("Printing %d of %s at %s %v", qty, name, where, cfg)
 	Log("Print time, per copy: %s", bp.PrintTime.Duration())
 	pPlan := &PrintPlan{
 		Location: where,

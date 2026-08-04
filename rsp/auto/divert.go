@@ -48,7 +48,7 @@ func (dm *DivertMachine) Start(d *models.Device, dryRun bool) error {
 		break
 	}
 	if dm.mtd == nil && dm.dev.Location != "" {
-		mtds, err := rest.Devices(map[string]string{"device_type": "maintenance_drone", "tag": fmt.Sprintf("support:%s", dm.dev.Code.Alias())})
+		mtds, err := rest.RefreshDevices(map[string]string{"device_type": "maintenance_drone", "tag": fmt.Sprintf("support:%s", dm.dev.Code.Alias())})
 		if err != nil {
 			return err
 		}

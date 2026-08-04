@@ -19,9 +19,9 @@ func autoState(cmd *cobra.Command, args []string) error {
 	var sms = make(map[string]auto.Machine)
 	dryRun := getBool(cmd, "dry_run")
 	eq := auto.NewEventQueue(5 * time.Minute)
-	var errs []error
 	var runStep func(d *models.CodeAlias, m auto.Machine) error
 	findSMs := func() error {
+		var errs []error
 		if len(args) == 0 {
 			var err error
 			res, err := rest.GetTagged("auto")
@@ -49,8 +49,9 @@ func autoState(cmd *cobra.Command, args []string) error {
 		}
 
 		for n, d := range devs {
-			if dev, err := getInfo(d.Code); err == nil {
+			if dev, err := rest.RefreshDeviceInfo(d.Code); err == nil {
 				devs[n] = dev
+				d = dev
 			} else {
 				log("Error getting device info: %v", err)
 				continue
@@ -88,6 +89,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 		}
 		return errors.Join(errs...)
 	}
+	var errs []error
 	runStep = func(d *models.CodeAlias, m auto.Machine) error {
 		t, err := m.Process()
 		if err != nil {

@@ -376,18 +376,19 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 				if isResource(k) || ent.Need <= 0 {
 					continue
 				}
+				fp := slices.Contains(common.GetBP(k).Features, "modular")
 				pPlan, err := common.Print(
 					home, k, ent.Need, true, dryRun,
 					map[string]any{
 						"tags":     []string{tag},
-						"flatpack": slices.Contains(common.GetBP(k).Features, "modular"),
+						"flatpack": fp,
 					})
 				if err != nil {
 					return err
 				}
 				missing[k].Printing += ent.Need
 				missing[k].Need = 0
-				log("printing: ETA %s (%s)", pPlan.ETA, time.Until(pPlan.ETA))
+				log("printing: ETA %s (%s) (fp=%v)", pPlan.ETA, time.Until(pPlan.ETA), fp)
 				for p, plan := range pPlan.Printers {
 					log("... %s: %s", p.Alias(), common.CountList(plan.Queued))
 				}

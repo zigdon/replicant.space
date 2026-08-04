@@ -288,8 +288,11 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 				limits = append(limits, fmt.Sprintf("%s LIKE $%d", k, len(vals)+1))
 				vals = append(vals, v+"%")
 			case "tag":
-				limits = append(limits, fmt.Sprintf("data->>'tags' = '[$%d]'", len(vals)+1))
-				vals = append(vals, v)
+				limits = append(limits,
+					fmt.Sprintf(
+						"data @> jsonb_build_object('tags', jsonb_build_array($%d::text))",
+						len(vals)+1))
+				vals = append(vals, strings.ToLower(v))
 			case "device_type":
 				limits = append(limits, fmt.Sprintf("type = $%d", len(vals)+1))
 				vals = append(vals, v)

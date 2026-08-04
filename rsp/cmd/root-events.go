@@ -13,6 +13,8 @@ import (
 	lg "charm.land/lipgloss/v2"
 )
 
+const home = "MENKUNT-2-L4"
+
 func eventComplete(eid string) error {
 	e, err := rest.CompleteEvent(eid)
 	if err != nil {
@@ -170,7 +172,6 @@ func init() {
 
 func printEventSummary(es []*models.Event) {
 	var events [][]any
-	const home = "MENKUNT-2-L4"
 	for _, e := range es {
 		tag := fmt.Sprintf("event:%s", e.Designation)
 		var from, transit, to int
@@ -219,12 +220,24 @@ func printEvent(e *models.Event, style lg.Style) {
 		{style.Render(e.Description + "\n")},
 		{style.Render(e.BroadcastMessage)}})
 	var crit [][]any
+	tag := fmt.Sprintf("event:%s", strings.ToLower(e.Designation))
+	inv, err := rest.Devices(map[string]string{"location": home})
+	if err != nil {
+		log("Error getting home inventory: %v", err)
+	}
+	tagged, err := rest.Devices(map[string]string{"tag": tag})
+	if err != nil {
+		log("Error getting tagged devices: %v", err)
+	}
 	for _, c := range e.Criteria {
 		crit = append(crit, []any{
-			c.Name, formatDev(c.Devices, true), m(c.Resources),
+			c.Name, formatDev(c.Devices, true),
+			ready(c.Devices, tagged),
+			unassigned(tag, c.Devices, inv),
+			m(c.Resources),
 		})
 	}
-	printTable([]string{"Criteria", "Devices", "Resources"}, crit)
+	printTable([]string{"Criteria", "Devices", "Ready", "Unassigned", "Resources"}, crit)
 
 	var progress [][]any
 	for _, p := range e.Progress.Options {
@@ -243,6 +256,53 @@ func printEvent(e *models.Event, style lg.Style) {
 		progress = append(progress, line)
 	}
 	printTable([]string{"Name", "Done", "Devices", "Resources"}, progress)
+}
+
+func ready(devs []*models.EventDevice, inv []*models.Device) string {
+	need := make(map[string]bool)
+	for _, d := range devs {
+		need[d.DeviceType] = true
+	}
+	var res []string
+	for _, d := range inv {
+		if !need[d.Type] {
+			continue
+		}
+		if d.StowedDevices != nil || len(d.AttachedDevices) > 0 {
+			continue
+		}
+		loc := string(d.Location)
+		if loc == "" && d.AttachedToDeviceCode != nil {
+			loc = d.AttachedToDeviceCode.Alias()
+		} else if loc == "" {
+			loc = "In transit?"
+		}
+		res = append(res, fmt.Sprintf("%s (%s) @ %s", d.Type, d.Code.Alias(), loc))
+	}
+
+	return strings.Join(res, "\n")
+}
+
+func unassigned(tag string, devs []*models.EventDevice, inv []*models.Device) string {
+	homeDevs := make(map[string][]*models.CodeAlias)
+	for _, d := range inv {
+		if slices.Contains(d.Tags, tag) {
+			continue
+		}
+		homeDevs[d.Type] = append(homeDevs[d.Type], d.Code)
+	}
+	var res []string
+	for _, d := range devs {
+		if ds, ok := homeDevs[d.DeviceType]; ok {
+			if len(ds) == 1 {
+				res = append(res, fmt.Sprintf("%s (%s)", d.DeviceType, ds[0].Alias()))
+			} else {
+				res = append(res, fmt.Sprintf("%s x %d (%s)", d.DeviceType, len(ds), ds[0].Alias()))
+			}
+		}
+	}
+
+	return strings.Join(res, "\n")
 }
 
 func formatDev(devs []*models.EventDevice, resBreakdown bool) string {
