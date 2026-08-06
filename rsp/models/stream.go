@@ -9,6 +9,7 @@ import (
 )
 
 type StreamEnvelope struct {
+	EventID       string         `json:"id"`
 	Category      string         `json:"category"`
 	Created       *JSONTime      `json:"created_at"`
 	DeviceCode    *CodeAlias     `json:"device_code"`
@@ -32,6 +33,7 @@ func (se *StreamEnvelope) Cache() error {
 	}
 
 	return db.Update(cache.EventsTable, map[string]any{
+		"eventid":  se.EventID,
 		"category": se.Category,
 		"created":  se.Created.Time(),
 		"code":     se.DeviceCode.String(),

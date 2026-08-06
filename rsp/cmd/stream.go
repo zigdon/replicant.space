@@ -310,14 +310,16 @@ func readStream(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			log("Event complete: %s - %s => %v", ev.Designation, ev.EventType, ev.Rewards)
+			var errs []error
 			for _, d := range ev.Consumed.Devices {
 				log("Consumed: %s (%s)", d.Code.Alias(), d.Code.String())
-				_, err := db.DB.Exec(`
-				DELETE FROM aliases WHERE designation = $1;
-				DELETE FROM json_devices WHERE code = $1;`, d.Code.String())
-				if err != nil {
-					log("Error removing %s from the cache: %v", d.Code.Alias(), err)
-				}
+				_, err := db.DB.Exec("DELETE FROM aliases WHERE designation = $1", d.Code.String())
+				errs = append(errs, err)
+				_, err = db.DB.Exec("DELETE FROM json_devices WHERE code = $1;", d.Code.String())
+				errs = append(errs, err)
+			}
+			if err := errors.Join(errs...); err != nil {
+				log("Error removing devices from the cache: %v", err)
 			}
 		case "experience.gained":
 			ev, err := models.Parse[models.StreamExperienceGained](payload)
@@ -350,7 +352,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 			update(func(d *models.Device) {
 				if len(d.PrintQueue) > 0 {
 					pq := d.PrintQueue[0]
-					debug(&d.Printing, &models.DevicePrint{
+					change(&d.Printing, &models.DevicePrint{
 						Completes: new(models.JSONTime).Set(
 							time.Now().Add(common.GetBP(pq.Type).PrintTime.Duration())),
 						Eta:        common.GetBP(pq.Type).PrintTime,
@@ -358,7 +360,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 						Started:    new(models.JSONTime).Set(time.Now()),
 						Tags:       pq.Tags,
 					})
-					debug(&d.PrintQueue, d.PrintQueue[1:])
+					change(&d.PrintQueue, d.PrintQueue[1:])
 				} else {
 					change(&d.Status, "idle")
 				}
@@ -378,6 +380,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 					Started:    env.Created,
 				})
 			}, env.DeviceCode)
+			log("Printing %s at %s: ETA %s", ev.DeviceType, env.DeviceCode, ev.Completes)
 		case "salvage.discovered":
 			ev, err := models.Parse[models.StreamSalvageDiscovered](payload)
 			if err != nil {
@@ -470,7 +473,8 @@ func readStream(cmd *cobra.Command, args []string) error {
 					change(&d.Status, "travelling")
 				}
 			}, env.DeviceCode)
-			log("Departed from %s to %s: %s", ev.Destination, ev.Origin, strings.Join(codeList(devs), ", "))
+			log("Departed from %s to %s: %s", ev.Destination, ev.Origin,
+				strings.Join(codeList(append(ev.AttachedDevices, env.DeviceCode)), ", "))
 		default:
 			log("Unknown event type: %q", ev["event"])
 			prettyPrint(ev)
@@ -478,7 +482,16 @@ func readStream(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if err := rest.ReadStream(handle); err != nil {
+	var lastEvent string
+	if len(args) > 0 {
+		lastEvent = args[0]
+	} else {
+		row := db.DB.QueryRow("SELECT eventid FROM event_stream ORDER BY id desc LIMIT 1")
+		if err := row.Scan(&lastEvent); err != nil {
+			return err
+		}
+	}
+	if err := rest.ReadStream(lastEvent, handle); err != nil {
 		return err
 	}
 

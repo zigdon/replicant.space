@@ -161,12 +161,12 @@ func Get(path string, args ...any) ([]byte, error) {
 	return do("GET", path, nil, args...)
 }
 
-func ReadStream(handler func(ev map[string]string) error) error {
+func ReadStream(cursor string, handler func(ev map[string]string) error) error {
 	cfg, err := cfg.ReadCfg()
 	if err != nil {
 		return err
 	}
-	streamURL := base + "/events/stream"
+	streamURL := fmt.Sprintf("%s/events/stream?cursor=%s", base, cursor)
 	req, err := http.NewRequest(http.MethodGet, streamURL, nil)
 	if err != nil {
 		return fmt.Errorf("Failed create stream request: %v", err)

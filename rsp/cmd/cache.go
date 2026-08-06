@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -104,6 +105,30 @@ var aliasRenameCmd = &cobra.Command{
 	},
 }
 
+var aliasListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List the all alias types",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		rows, err := db.DB.Query("SELECT type, prefix FROM alias_types ORDER BY type")
+		if err != nil {
+			return err
+		}
+		var data [][]any
+		var errs []error
+		for rows.Next() {
+			var t, p string
+			errs = append(errs, rows.Scan(&t, &p))
+			data = append(data, []any{t, p})
+		}
+		errs = append(errs, rows.Close())
+		if err := errors.Join(errs...); err != nil {
+			return err
+		}
+		printTable([]string{"Type", "Prefix"}, data)
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(cacheCmd)
 	cacheCmd.AddCommand(cacheInitCmd)
@@ -119,6 +144,7 @@ func init() {
 	cacheCmd.AddCommand(aliasCmd)
 	aliasCmd.AddCommand(aliasAddCmd)
 	aliasCmd.AddCommand(aliasRenameCmd)
+	aliasCmd.AddCommand(aliasListCmd)
 }
 
 func resetUniverse(cmd *cobra.Command, args []string) error {
