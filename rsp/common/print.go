@@ -25,6 +25,9 @@ type PrintPlan struct {
 }
 
 func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[string]any) (*PrintPlan, error) {
+	if cfg == nil {
+		cfg = make(map[string]any)
+	}
 	bp := GetBP(name)
 	Log("***********************")
 	Log("Printing %d of %s at %s %v", qty, name, where, cfg)

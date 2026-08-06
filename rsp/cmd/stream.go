@@ -80,6 +80,38 @@ func readStream(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		switch env.Event {
+		case "ami.adopted":
+			ev, err := models.Parse[models.StreamAmiAdopted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			var ids []*models.CodeAlias
+			var cds []*models.ControlledDevice
+			for _, d := range ev.Devices {
+				ids = append(ids, d.Code)
+				cds = append(cds, &models.ControlledDevice{
+					Code:     d.Code,
+					Type:     d.Type,
+					Location: env.Location,
+					Status:   "idle",
+				})
+			}
+			log("AMI %s adoptd %d devices: %v", env.DeviceCode.Alias(), len(ev.Devices), ids)
+			update(func(d *models.Device) {
+				change(&d.ControlledDevices, append(d.ControlledDevices, cds...))
+			}, env.DeviceCode)
+			update(func(d *models.Device) {
+				change(&d.ControllerDeviceCode, env.DeviceCode)
+			}, ids...)
+		case "ami.launched":
+			ev, err := models.Parse[models.StreamAmiLaunched](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("AMI %s launched: %s, %d devices deployed",
+				env.DeviceCode.Alias(), ev.DirectiveStatus, ev.DevicesDeployed)
 		case "ami.mining.digest":
 			ev, err := models.Parse[models.StreamAmiDigest](payload)
 			if err != nil {
@@ -125,6 +157,13 @@ func readStream(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			log("Ignoring %s", env.Event)
+		case "bobnet.new":
+			ev, err := models.Parse[models.StreamBobnetNew](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("#%s: <%s> %s", ev.Channel, ev.ReplicantName, ev.Message)
 		case "device.attached":
 			ev, err := models.Parse[models.StreamDeviceAttached](payload)
 			if err != nil {
@@ -224,7 +263,8 @@ func readStream(cmd *cobra.Command, args []string) error {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-			log("Diversion complete: %s", ev.ObjectDesignation)
+			log("Diversion complete: %s@%s",
+				env.DeviceCode.Alias(), ev.ObjectDesignation)
 			update(func(d *models.Device) {
 				change(&d.Location, ev.ObjectDesignation)
 				change(&d.Status, "idle")
@@ -238,6 +278,47 @@ func readStream(cmd *cobra.Command, args []string) error {
 			update(func(d *models.Device) {
 				change(&d.Status, "idle")
 			}, env.DeviceCode)
+		case "diversion.wear":
+			ev, err := models.Parse[models.StreamDiversionWear](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			update(func(d *models.Device) {
+				change(&d.OperationalCapacity, ev.OperationalCapacity)
+			}, env.DeviceCode)
+			log("Wear on %s, operational capacity: %.0f%%", env.DeviceCode.Alias(), ev.OperationalCapacity)
+		case "directive.set":
+			ev, err := models.Parse[models.StreamDirectiveSet](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Directive %q set on %s: %v",
+				ev.Directive, env.DeviceCode.Alias(), ev.Configuration)
+			update(func(d *models.Device) {
+				if d.AmiDirective == nil {
+					return
+				}
+				change(&d.AmiDirective.Name, ev.Directive)
+				change(&d.AmiDirective.Config, ev.Configuration)
+			})
+		case "event.completed":
+			ev, err := models.Parse[models.StreamEventCompleted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Event complete: %s - %s => %v", ev.Designation, ev.EventType, ev.Rewards)
+			for _, d := range ev.Consumed.Devices {
+				log("Consumed: %s (%s)", d.Code.Alias(), d.Code.String())
+				_, err := db.DB.Exec(`
+				DELETE FROM aliases WHERE designation = $1;
+				DELETE FROM json_devices WHERE code = $1;`, d.Code.String())
+				if err != nil {
+					log("Error removing %s from the cache: %v", d.Code.Alias(), err)
+				}
+			}
 		case "experience.gained":
 			ev, err := models.Parse[models.StreamExperienceGained](payload)
 			if err != nil {
@@ -245,6 +326,13 @@ func readStream(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			log("XP gained: %d for %s at %s", ev.Amount, ev.Source, env.Location)
+		case "message.new":
+			ev, err := models.Parse[models.StreamMessageNew](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("New message (%s): %s", ev.MessageType, ev.Title)
 		case "print.completed":
 			ev, err := models.Parse[models.StreamPrintCompleted](payload)
 			if err != nil {
@@ -290,6 +378,13 @@ func readStream(cmd *cobra.Command, args []string) error {
 					Started:    env.Created,
 				})
 			}, env.DeviceCode)
+		case "salvage.discovered":
+			ev, err := models.Parse[models.StreamSalvageDiscovered](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Salvadge discovered: %s @ %s: %v", ev.Name, ev.Location, ev.Resources)
 		case "site.depleted":
 			ev, err := models.Parse[models.StreamSiteDepleted](payload)
 			if err != nil {
@@ -297,6 +392,38 @@ func readStream(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			log("%s depleted", ev.Site)
+		case "transport.collected":
+			ev, err := models.Parse[models.StreamTransportCollected](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s collected @ %s: %v", env.DeviceCode.Alias(), env.Location, ev.Resources)
+			update(func(d *models.Device) {
+				inv := d.Cargo
+				for _, i := range inv {
+					i.Quantity += float32(ev.Resources[i.ResourceType])
+				}
+				change(&d.Cargo, inv)
+			}, env.DeviceCode)
+		case "transport.delivered":
+			ev, err := models.Parse[models.StreamTransportDelivered](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s delivered @ %s: %v", env.DeviceCode.Alias(), env.Location, ev.Resources)
+			update(func(d *models.Device) {
+				inv := d.Cargo
+				var newInv []*models.Inventory
+				for _, i := range inv {
+					i.Quantity -= float32(ev.Resources[i.ResourceType])
+					if i.Quantity > 0 {
+						newInv = append(newInv, i)
+					}
+				}
+				change(&d.Cargo, newInv)
+			}, env.DeviceCode)
 		case "travel.arrived":
 			ev, err := models.Parse[models.StreamTravelArrived](payload)
 			if err != nil {
@@ -343,6 +470,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 					change(&d.Status, "travelling")
 				}
 			}, env.DeviceCode)
+			log("Departed from %s to %s: %s", ev.Destination, ev.Origin, strings.Join(codeList(devs), ", "))
 		default:
 			log("Unknown event type: %q", ev["event"])
 			prettyPrint(ev)

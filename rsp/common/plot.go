@@ -71,6 +71,9 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	}
 
 	origDist := sPos.Distance(dPos)
+	if origDist == 0 {
+		return nil, fmt.Errorf("No journey to take")
+	}
 	Log("Total distance: %.2fly", origDist)
 	j := &models.Journey{
 		Source: src,
@@ -343,6 +346,9 @@ func GetPartialJourney(j *models.Journey) (*models.Journey, error) {
 		if l.To == src || l.To == dst {
 			break
 		}
+	}
+	if len(j.Legs) == 0 {
+		return j, fmt.Errorf("No useful journey extracted")
 	}
 	if err := rows.Err(); err != nil {
 		return j, fmt.Errorf("Error scanning partial journey: %v", err)

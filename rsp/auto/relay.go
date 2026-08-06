@@ -72,11 +72,18 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 	}
 
 	rm.dryRun = dryRun
-	destName := strings.ToUpper(getTags(rm.dev)["relay"])
-	if destName == "" {
-		return fmt.Errorf("Relay destination not tagged on %s", d.Code.Alias())
+	switch {
+	case getTags(rm.dev)["relay"] != "":
+		rm.dest = models.LocationID(strings.ToUpper(getTags(rm.dev)["relay"]))
+	case getTags(rm.dev)["follow"] != "":
+		dest, err := rest.DeviceInfo(models.NewCodeAlias(getTags(rm.dev)["follow"]))
+		if err != nil {
+			return fmt.Errorf("Can't follow %q: %v", getTags(rm.dev)["follow"], err)
+		}
+		rm.dest = dest.Location
+	default:
+		return fmt.Errorf("Can't figure relay destination")
 	}
-	rm.dest = models.LocationID(destName)
 
 	p, err := rest.GetTagged(fmt.Sprintf("supply:%s", d.Code.Alias()))
 	if err != nil {
@@ -157,8 +164,6 @@ func (rm *RelayMachine) UpdateState() error {
 	case rm.dev.Location == home:
 		log("Leaving home")
 		rm.state = "leaving"
-	case rm.dev.Location.Star() == rm.dest.Star():
-		rm.state = "done"
 	case rm.state == "" && status == "idle":
 		log("Blank state, stationary")
 		rm.state = "incoming"
@@ -336,8 +341,13 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			if err != nil {
 				return eta, err
 			}
-			log("TODO: Queuing %d new FRs to be printed", rm.supply.StowCapacity)
-			// TODO make a generic queue command
+			pPlan, err := common.Print(home, "ftl_relay", rm.supply.AttachCapacity, true, rm.dryRun, nil)
+			if err != nil {
+				log("Error printing relays: %v", err)
+			} else {
+				log("Queued %d ftl_relays: ETA %s (%s)",
+					rm.supply.AttachCapacity, pPlan.ETA, time.Until(pPlan.ETA))
+			}
 
 			nextState = "leaving"
 		}

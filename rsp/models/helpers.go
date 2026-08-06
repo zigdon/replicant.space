@@ -67,27 +67,22 @@ type LocalMsg interface {
 
 func Parse[T any](data []byte) (*T, error) {
 	s := new(T)
+	var errs []error
 
 	if err := json.Unmarshal(data, s); err != nil {
 		return nil, fmt.Errorf("Error parsing %T: %v\n%s", s, err, string(data))
 	}
 	if f, ok := any(s).(Fillable); ok {
-		if err := f.Fill(); err != nil {
-			return s, err
-		}
+		errs = append(errs, f.Fill())
 	}
 	if c, ok := any(s).(Cachable); ok {
-		if err := c.Cache(); err != nil {
-			return s, fmt.Errorf("failed to update cache for %T: %v", s, err)
-		}
+		errs = append(errs, c.Cache())
 	}
 	if n, ok := any(s).(LocalMsg); ok {
-		if err := n.Notification().Save(); err != nil {
-			return s, fmt.Errorf("failed to create notification from %v: %v", s, err)
-		}
+		errs = append(errs, n.Notification().Save())
 	}
 
-	return s, nil
+	return s, errors.Join(errs...)
 }
 
 func ConnectDB(cdb *cache.Cache) {

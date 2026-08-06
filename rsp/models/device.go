@@ -24,7 +24,7 @@ type DevicePrint struct {
 type ControlledDevice struct {
 	Code     *CodeAlias `json:"device_code"`
 	Type     string     `json:"device_type"`
-	Location string     `json:"location"`
+	Location LocationID `json:"location"`
 	Status   string     `json:"status"`
 }
 

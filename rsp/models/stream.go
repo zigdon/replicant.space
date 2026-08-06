@@ -32,7 +32,6 @@ func (se *StreamEnvelope) Cache() error {
 	}
 
 	return db.Update(cache.EventsTable, map[string]any{
-		"id":       0,
 		"category": se.Category,
 		"created":  se.Created.Time(),
 		"code":     se.DeviceCode.String(),
@@ -216,7 +215,7 @@ type StreamDeviceDecommissioned struct {
 }
 
 type StreamDeviceDeployed struct {
-	DeployedFromDeviceCode *CodeAlias `json:"deployed_from_device_code"`
+	DeployedFromDeviceCode *CodeAlias `json:"deployed_from"`
 }
 
 type StreamDeviceDetached struct {
@@ -225,7 +224,7 @@ type StreamDeviceDetached struct {
 }
 
 type StreamDeviceStowed struct {
-	StowedIn *CodeAlias `json:"stowed_in"`
+	StowedIn *CodeAlias `json:"stowed_in_device_code"`
 }
 
 type StreamDirectiveCleared struct {
@@ -270,6 +269,11 @@ type StreamDiversionImpacted struct {
 type StreamDiversionPartial struct {
 	ObjectDesignation LocationID `json:"object_designation"`
 	Outcome           string     `json:"outcome"`
+}
+
+type StreamDiversionWear struct {
+	OperationalCapacity float32 `json:"operational_capacity"`
+	WearAmount          float32 `json:"wear_amount"`
 }
 
 type StreamEventCompleted struct {
