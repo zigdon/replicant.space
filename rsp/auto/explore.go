@@ -299,6 +299,7 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 				}
 			}
 		}
+		log("Recalled all the devices")
 	case ExploreState_Leaving:
 		// TODO: add a task to install a breacon on planets with life
 		stars, err := rest.ReplicantCensus(em.dev.ReplicantCode, 50, 0)

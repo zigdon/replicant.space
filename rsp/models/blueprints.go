@@ -130,6 +130,17 @@ func (b *Blueprint) Get() error {
 		}
 		b.Components[r] = q
 	}
+	rows, err = db.GetAll(cache.BlueprintFeaturesTable, b.DeviceType)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var t, f string
+		if err := rows.Scan(&t, &f); err != nil {
+			return err
+		}
+		b.Features = append(b.Features, f)
+	}
 	return nil
 }
 

@@ -48,7 +48,7 @@ func getTags(dev *models.Device) map[string]string {
 }
 
 func log(tmpl string, args ...any) {
-	common.Log(tmpl, args...)
+	common.LogLevel(1, tmpl, args...)
 }
 
 func deviceCommand(id *models.CodeAlias, cmd string, args map[string]any, dryRun bool) (*models.CommandResp, error) {

@@ -19,6 +19,10 @@ var bps map[string]*models.Blueprint
 var LogFh io.Writer = os.Stderr
 
 func Log(tmpl string, args ...any) {
+	LogLevel(0, tmpl, args...)
+}
+
+func LogLevel(level int, tmpl string, args ...any) {
 	var getCaller func(int) string
 	getCaller = func(skip int) string {
 		_, file, line, ok := runtime.Caller(skip)
@@ -61,7 +65,7 @@ func Log(tmpl string, args ...any) {
 		}
 	}
 	prefix := time.Now().Format("01-02 15:04:05") + " - "
-	if caller := getCaller(2); caller != "" {
+	if caller := getCaller(2 + level); caller != "" {
 		prefix += caller + " - "
 	}
 	if !strings.HasSuffix(tmpl, "\n") {

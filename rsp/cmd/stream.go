@@ -163,7 +163,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-			log("#%s: <%s> %s", ev.Channel, ev.ReplicantName, ev.Message)
+			log("%s: <%s> %s", ev.Channel, ev.ReplicantName, ev.Message)
 		case "device.attached":
 			ev, err := models.Parse[models.StreamDeviceAttached](payload)
 			if err != nil {
@@ -257,18 +257,36 @@ func readStream(cmd *cobra.Command, args []string) error {
 				change(&d.Location, ev.ObjectDesignation)
 				change(&d.Status, "diverting")
 			}, env.DeviceCode)
+		case "directive.completed":
+			ev, err := models.Parse[models.StreamDirectiveCompleted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Directive complete: %s - %s", env.DeviceCode.Alias(), ev.Directive)
 		case "diversion.diverted":
 			ev, err := models.Parse[models.StreamDiversionDiverted](payload)
 			if err != nil {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-			log("Diversion complete: %s@%s",
-				env.DeviceCode.Alias(), ev.ObjectDesignation)
+			devs, err := rest.Devices(map[string]string{
+				"location":    string(ev.ObjectDesignation),
+				"device_type": "propulsor",
+			})
+			if err != nil {
+				log("Can't get props at %s: %v", ev.ObjectDesignation, err)
+				return err
+			}
+			var ids []*models.CodeAlias
+			for _, d := range devs {
+				ids = append(ids, d.Code)
+			}
+			log("Diversion complete %s: %v", ev.ObjectDesignation, codeList(ids))
 			update(func(d *models.Device) {
 				change(&d.Location, ev.ObjectDesignation)
 				change(&d.Status, "idle")
-			}, env.DeviceCode)
+			}, ids...)
 		case "diversion.deactivated":
 			_, err := models.Parse[models.StreamDiversionDeactivated](payload)
 			if err != nil {

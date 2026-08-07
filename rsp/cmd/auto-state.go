@@ -73,6 +73,9 @@ func autoState(cmd *cobra.Command, args []string) error {
 			} else if slices.Contains(d.Tags, "auto:explore") {
 				log("%s: explore -> %v", d.Code.Alias(), d.Tags)
 				sms[alias] = &auto.ExploreMachine{}
+			} else if slices.Contains(d.Tags, "auto:beacon") {
+				log("%s: beacon -> %v", d.Code.Alias(), d.Tags)
+				sms[alias] = &auto.BeaconMachine{}
 			} else {
 				errs = append(errs, fmt.Errorf("Unknown state machine for %q: %v", d.Code.Alias(), d.Tags))
 				continue
