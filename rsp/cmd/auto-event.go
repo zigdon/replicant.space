@@ -2,13 +2,14 @@ package cmd
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
@@ -32,652 +33,625 @@ import (
 //   if not, check if there's an ERM, and teleport to it
 //   if not, send the nearest replicant there
 
-func autoEvent(cmd *cobra.Command, args []string) error {
-	// Load event details
-	eID := getString(cmd, "id")
-	dryRun := getBool(cmd, "dry_run")
-	evs, err := rest.Events()
+///// V2
+// Pick option -> empty event state
+//   See which option is even possible
+//   See the resource cost for each
+//   Pick the cheaper
+//
+// Eval state -> fill in state
+//   Resources: delivered/transit arrived/in transit/transit loaded/home
+//   Devices: delivered/transit arrived/in transit/transit loaded/ready to load/printing/missing
+//
+// Actuate -> trigger actions to resolve
+//   Handle resource freighters
+//   Handle printing/platforms
+//
+// Complete
+//   Reposition replicant
+//   Complete event
+
+type eventState struct {
+	event       *models.Event
+	tag         string
+	txTag       string
+	destination models.LocationID
+	eta         map[string]time.Time
+	transports  []*models.Device
+	dryRun      bool
+
+	required   map[string]int
+	ready      map[string]int
+	printing   map[string]int
+	waiting    map[string][]*models.CodeAlias
+	transitDev map[string][]*models.CodeAlias
+	transitRes map[string]int
+}
+
+func newEventState(ev *models.Event, dryRun bool) *eventState {
+	return &eventState{
+		event:       ev,
+		tag:         fmt.Sprintf("event:%s", strings.ToLower(ev.Designation)),
+		txTag:       fmt.Sprintf("tx:%s", strings.ToLower(ev.Designation)),
+		destination: ev.Location,
+		dryRun:      dryRun,
+
+		eta:        make(map[string]time.Time),
+		required:   make(map[string]int),
+		ready:      make(map[string]int),
+		printing:   make(map[string]int),
+		waiting:    make(map[string][]*models.CodeAlias),
+		transitDev: make(map[string][]*models.CodeAlias),
+		transitRes: make(map[string]int),
+	}
+}
+
+func (es *eventState) selectOption(cID int) error {
+	if cID > len(es.event.Criteria) {
+		var opts []string
+		for n, c := range es.event.Criteria {
+			opts = append(opts, fmt.Sprintf("%d %s:\n%s", n, c.Name, c.Short()))
+		}
+		return fmt.Errorf("Invalid option %d selected, valid opts:\n%s", cID, strings.Join(opts, "\n\n"))
+	}
+
+	if cID == 0 {
+		cID = 1
+	}
+	opt := es.event.Criteria[cID-1]
+	log("Selected option: %s", opt.Short())
+	maps.Copy(es.required, opt.Resources)
+	for _, d := range opt.Devices {
+		es.required[d.DeviceType] = d.Required
+		es.printing[d.DeviceType] = 0
+	}
+	return nil
+}
+
+func (es *eventState) wait() time.Duration {
+	var wait time.Duration
+	for k, v := range es.eta {
+		log("ETA[%s]: %s", k, v)
+		if time.Until(v) > wait {
+			wait = time.Until(v)
+		}
+	}
+
+	return wait
+}
+
+func (es *eventState) later(kind string, t time.Time) {
+	if t.After(es.eta[kind]) {
+		es.eta[kind] = t
+		log("Updated ETA[%s] to %s (%s)", kind, t, time.Until(t))
+	}
+}
+
+func _dc(id *models.CodeAlias, cmd string, cfg map[string]any, dryRun bool) (*models.CommandResp, error) {
+	if dryRun {
+		log("[DRYRUN] %q -> %q (%v)", cmd, id, cfg)
+		return new(models.CommandResp), nil
+	}
+	return rest.DeviceCommand[models.CommandResp](id, cmd, cfg)
+}
+
+func (es *eventState) unload(d *models.Device) error {
+	res := make(map[string]int)
+	for _, c := range d.Cargo {
+		res[c.ResourceType] = c.Quantity
+		es.ready[c.ResourceType] += c.Quantity
+	}
+	if len(res) > 0 {
+		_, err := _dc(d.Code, "deposit_resources", map[string]any{"resources": res}, es.dryRun)
+		if err != nil {
+			return fmt.Errorf("Can't deposit cargo from %q: %v", d.Code, err)
+		}
+	}
+	var targets []string
+	for _, ad := range d.AttachedDevices {
+		targets = append(targets, ad.Code.String())
+		es.ready[d.Type]++
+	}
+	if len(targets) > 0 {
+		_, err := _dc(d.Code, "detach", map[string]any{"targets": targets}, es.dryRun)
+		if err != nil {
+			return fmt.Errorf("Can't detach devices from %q: %v", d.Code, err)
+		}
+	}
+	return nil
+}
+
+func (es *eventState) updateState() error {
+	// Check what resources are already there
+	log("Finding resources at %s", es.destination)
+	inv, err := rest.Location(string(es.destination))
 	if err != nil {
-		return err
+		return fmt.Errorf("Can't get inventory at %q: %v", es.destination, err)
 	}
-	var ev *models.Event
-	var data [][]any
-	for _, e := range evs.Events {
-		data = append(data, []any{
-			e.Designation, e.Title, e.Location,
-		})
-		if e.Designation != eID {
-			continue
-		}
-		ev = e
+	for _, i := range inv.Inventory {
+		es.ready[i.ResourceType] += i.Quantity
+		log("... %s", i.String())
 	}
-	if ev == nil {
-		if len(evs.Events) == 1 {
-			ev = evs.Events[0]
-			eID = ev.Designation
-			log("Selecting event %s", ev.Designation)
-		} else {
-			eventsDesc := new(strings.Builder)
-			printTablef(eventsDesc, []string{"ID", "Title", "Location"}, data)
-			return fmt.Errorf("Can't find event ID %q. Pick from:\n%s", eID, eventsDesc.String())
+
+	// Get all devices tagged for the event
+	devs, err := rest.GetTagged(es.tag)
+	if err != nil {
+		return fmt.Errorf("Can't get %q devices: %v", es.tag, err)
+	}
+	log("Finding devices tagged %q:", es.tag)
+	for _, d := range devs.Devices {
+		log("... %s @ %s", d.Code.Alias(), d.Location)
+		switch d.Location {
+		case es.event.Location:
+			es.ready[d.Type]++
+		case home:
+			es.waiting[d.Type] = append(es.waiting[d.Type], d.Code)
+		default:
+			es.transitDev[d.Type] = append(es.transitDev[d.Type], d.Code)
 		}
 	}
 
-	tag := fmt.Sprintf("event:%s", strings.ToLower(ev.Designation))
-
-	teleportReplicant := func(r *models.Replicant) error {
-		if r.CurrentLocation == ev.Location {
-			log("Completing event with %s...", r.Code.Alias())
-			return eventComplete(eID)
-		}
-		if r.CurrentLocation.Star() == ev.Location.Star() {
-			log("Moving %s to %s...", r.Code.Alias(), ev.Location)
-			if dryRun {
-				return nil
+	// Get all event transports
+	devs, err = rest.GetTagged(es.txTag)
+	if err != nil {
+		return fmt.Errorf("Can't get %q transports: %v", es.txTag, err)
+	}
+	for _, d := range devs.Devices {
+		es.transports = append(es.transports, d)
+		switch d.Location {
+		case es.event.Location:
+			log("%q is ready to unload")
+			for _, c := range d.Cargo {
+				es.ready[c.ResourceType] += c.Quantity
 			}
-			_, err := rest.ReplicantTravel(
-				r.Code, string(ev.Location), nil, false)
-			return err
+		case home:
+			log("%q is still loading")
+			for _, c := range d.Cargo {
+				es.waiting[c.ResourceType] = append(es.waiting[c.ResourceType], d.Code)
+			}
+		default:
+			log("%q is in transit: ETA %s (%s)",
+				d.Code, d.Travel.Arrives, time.Until(d.Travel.Arrives.Time()))
+			es.later("transit", d.Travel.Arrives.Time())
+			for _, c := range d.Cargo {
+				es.transitRes[c.ResourceType] += c.Quantity
+			}
 		}
-		log("Searching for teleport targets in %s", ev.Location)
-		dests, err := getTeleportDests(string(ev.Location))
-		if err != nil {
-			return err
-		}
-		if len(dests) == 0 {
-			return fmt.Errorf("No teleport target found at %s", ev.Location)
-		}
-		log("Attempting to teleport %s to %s", r.Code.Alias(), dests[0].StowedDevices.Devices[0].Code.Alias())
-		if dryRun {
-			return nil
-		}
-		res, err := rest.ReplicantTeleport(r.Code, dests[0].StowedDevices.Devices[0].Code)
-		if err != nil {
-			return err
-		}
-		log("Replicant teleported, waiting... eta %s (%s)", res.Completes.Time(), time.Until(res.Completes.Time()))
-		time.Sleep(time.Until(res.Completes.Time()) + 5*time.Second)
+	}
+	log("Waiting: %v", es.waiting)
+	log("Transit devs: %v", es.transitDev)
+	log("Transit res: %v", es.transitRes)
+	log("Ready: %v", es.ready)
+	return nil
+}
+
+func (es *eventState) shipRes(res map[string]int) error {
+	log("Shipping resources: %v", res)
+	if len(res) == 0 {
 		return nil
 	}
 
-	resolveEvent := func() error {
-		acc, err := rest.Account()
-		if err != nil {
-			return err
-		}
-		for _, r := range acc.ReplicantList {
-			if r, err = rest.Replicant(r.Code); err != nil {
-				return err
-			}
-			if r.Status != "stationary" {
-				log("%s is not available: %s", r.Code.Alias(), r.Status)
-				continue
-			}
-			if r.Location == ev.Location {
-				return eventComplete(eID)
-			}
-		}
-		return fmt.Errorf("No replicant available")
+	// Find free freighters at home
+	cfs, err := rest.Devices(map[string]string{"location": home, "device_type": "cargo_freighter"})
+	if err != nil {
+		return fmt.Errorf("Error finding freighters: %v", err)
 	}
-
-	// Load the blueprints we know
-	bps := make(map[string]bool)
-	modular := make(map[string]bool)
-	if blueprints, err := db.ListIDs(cache.BlueprintsTable); err != nil {
-		return err
-	} else {
-		for _, bp := range blueprints {
-			bps[bp.(string)] = true
+	var errs []error
+	for _, cf := range cfs {
+		if len(cf.Tags) > 0 && cf.Tags[0] != es.txTag {
+			continue
 		}
-	}
-	if rows, err := db.DB.Query(`
-		SELECT blueprint_type
-		FROM blueprint_features
-		WHERE feature = 'modular'`); err != nil {
-		return err
-	} else {
-		for rows.Next() {
-			var t string
-			if err := rows.Scan(&t); err != nil {
-				return err
+		// if it's not already ours, it better be empty
+		if len(cf.Tags) == 0 && len(cf.Cargo) > 0 {
+			continue
+		}
+		avail := cf.CargoCapacity
+		for _, c := range cf.Cargo {
+			avail -= c.Quantity
+		}
+		if len(cf.Tags) == 0 {
+			errs = append(errs, es.addTag(cf.Code, es.txTag))
+		}
+		manifest := make(map[string]int)
+		for k, v := range res {
+			if v <= avail {
+				delete(res, k)
+				manifest[k] = v
+				avail -= v
+			} else {
+				res[k] -= avail
+				manifest[k] = avail
+				avail = 0
 			}
-			modular[t] = true
-		}
-		if err := rows.Err(); err != nil {
-			return err
-		}
-	}
-
-	// Examine resolution options
-	var eps []*models.EventProgressOption
-	data = [][]any{}
-	for n, op := range ev.Progress.Options {
-		canDo := true
-		for _, bp := range op.Devices {
-			if !bps[bp.DeviceType] {
-				log("Missing blueprint %s for %s", bp.DeviceType, op.Name)
-				canDo = false
+			if avail == 0 {
 				break
 			}
 		}
-		if !canDo {
+		_, err := _dc(cf.Code, "collect_resources", map[string]any{"resources": manifest}, es.dryRun)
+		errs = append(errs, err)
+		if err == nil {
+			eta, err := common.Travel(cf.Code, string(es.destination), es.dryRun)
+			errs = append(errs, err)
+			es.later("resources", eta)
+		}
+		if len(res) == 0 {
+			break
+		}
+	}
+	if len(res) > 0 {
+		errs = append(errs, fmt.Errorf("Not enough freighters available: %v remain", res))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (es *eventState) shipDev(devs []*models.CodeAlias) error {
+	if len(devs) == 0 {
+		return nil
+	}
+	log("Shipping devices: %v", devs)
+
+	// Find free platforms at home. Use smaller ones if we can.
+	mfs, err := rest.Devices(map[string]string{"location": home, "device_type": "mobile_fleet"})
+	if err != nil {
+		return fmt.Errorf("Error finding fleets: %v", err)
+	}
+	if len(devs) <= 4 {
+		plats, err := rest.Devices(map[string]string{"location": home, "device_type": "surge_platform"})
+		if err != nil {
+			return fmt.Errorf("Error finding platforms: %v", err)
+		}
+		mfs = append(plats, mfs...)
+	}
+	var errs []error
+	for _, p := range mfs {
+		if len(p.Tags) > 0 && p.Tags[0] != es.txTag {
 			continue
 		}
-		data = append(data, []any{
-			n + 1, op.Resources, op.Devices,
-		})
-		eps = append(eps, op)
+		avail := p.AttachCapacity - len(p.AttachedDevices)
+		if len(p.Tags) == 0 {
+			errs = append(errs, es.addTag(p.Code, es.txTag))
+		}
+
+		var ds []*models.CodeAlias
+		if len(devs) <= avail {
+			ds = devs[:]
+			devs = devs[:0]
+		} else {
+			ds = devs[:avail]
+			devs = devs[avail:]
+		}
+		_, err = _dc(p.Code, "attach", map[string]any{"targets": ds}, es.dryRun)
+		errs = append(errs, err)
+
+		if err == nil {
+			eta, err := common.Travel(p.Code, string(es.destination), es.dryRun)
+			errs = append(errs, err)
+			es.later("devices", eta)
+		}
+		if len(devs) == 0 {
+			break
+		}
+	}
+	if len(devs) > 0 {
+		errs = append(errs, fmt.Errorf("Not enough platforms available: %v remain", devs))
 	}
 
-	// If we have more than one possible way to go about it, make the user pick
-	if len(eps) == 0 {
-		return fmt.Errorf("No valid paths available")
-	}
-	var ep *models.EventProgressOption
-	if len(eps) > 1 {
-		cid := getInt(cmd, "criteria")
-		if cid == 0 {
-			paths := new(strings.Builder)
-			printTablef(paths, []string{"ID", "Resources", "Devices"}, data)
-			return fmt.Errorf("Multiple paths available, select one:\n%s", paths)
-		}
-		ep = eps[cid-1]
-	} else {
-		ep = eps[0]
-	}
+	return errors.Join(errs...)
+}
 
-	// Check what is already there
-	log("Checking inventory at %s", ev.Location)
-	home := getString(cmd, "home")
-	type missingEnt struct {
-		Need       int
-		Transiting int
-		Printing   int
-		Pickup     int
-	}
-	missing := make(map[string]*missingEnt)
-	for _, r := range ep.Resources {
-		missing[r.ResourceType] = &missingEnt{Need: r.Required - int(r.Current)}
-	}
-	for _, d := range ep.Devices {
-		missing[d.DeviceType] = &missingEnt{Need: d.Required - d.Current}
-	}
-	maxEta := func(etas []time.Time) time.Time {
-		log("ETAs:")
-		for _, eta := range etas {
-			log("  %s (%s)", eta, time.Until(eta))
-		}
-		if len(etas) == 0 {
-			return time.Time{}
-		}
-		max := etas[0]
-		for _, e := range etas {
-			if e.After(max) {
-				max = e
-			}
-		}
-		return max
-	}
-	queue := make(map[string]time.Duration)
-	etas := []time.Time{time.Now()}
-	stillMissing := func() (bool, bool) {
-		var needRes, needDev bool
-		for k, v := range missing {
-			if v.Need-v.Transiting-v.Printing <= 0 {
-				continue
-			}
-			if isResource(k) {
-				needRes = true
-			} else {
-				needDev = true
-			}
-		}
-		return needRes, needDev
-	}
-	deliver := func() error {
-		needRes, needDev := stillMissing()
-		if !needRes && !needDev {
-			log("All required resources are already en-route")
-			return nil
-		}
-
-		var freeCFs, freeSPs []*models.Device
-		if needRes {
-			log("Finding available freighters...")
-			cfs, err := rest.Devices(map[string]string{"device_type": "cargo_freighter", "location": home})
-			if err != nil {
-				return err
-			}
-			for _, cf := range cfs {
-				cf, err := rest.DeviceInfo(cf.Code)
-				if err != nil {
-					return err
-				}
-				if string(cf.Location) == home && len(cf.Cargo) == 0 {
-					freeCFs = append(freeCFs, cf)
-					continue
-				}
-			}
-		}
-
-		if needDev {
-			log("Finding available platforms...")
-			for _, t := range []string{"surge_platform", "mobile_fleet"} {
-				sps, err := rest.Devices(map[string]string{"device_type": t, "location": home})
-				if err != nil {
-					return err
-				}
-				for _, sp := range sps {
-					sp, err := rest.DeviceInfo(sp.Code)
-					if err != nil {
-						return err
-					}
-					if string(sp.Location) == home && len(sp.AttachedDevices) == 0 {
-						freeSPs = append(freeSPs, sp)
-					}
-				}
-			}
-		}
-
-		if needRes {
-			// Find an empty cf at home, use it
-			if len(freeCFs) == 0 {
-				return fmt.Errorf("No freighters available to deliver %v to %s", missing, ev.Location)
-			}
-			for _, cf := range freeCFs {
-				needRes, _ = stillMissing()
-				if !needRes {
-					break
-				}
-				avail := cf.CargoCapacity
-				log("%d available on %s", avail, cf.Code.Alias())
-				if avail <= 0 {
-					continue
-				}
-				get := make(map[string]int)
-				for k, v := range missing {
-					if v.Need <= 0 {
-						log("All %s got", k)
-						continue
-					}
-					if !isResource(k) {
-						log("%s is not a resource", k)
-						continue
-					}
-					if v.Need <= avail {
-						get[k] = v.Need
-						log("%d x %s to be picked up", v.Need, k)
-						avail -= v.Need
-						missing[k].Need = 0
-						missing[k].Transiting += v.Need
-					} else {
-						get[k] = avail
-						log("%d/%d x %s to be picked up", avail, v.Need, k)
-						missing[k].Need -= avail
-						missing[k].Transiting += avail
-						avail = 0
-						break
-					}
-				}
-				if len(get) == 0 {
-					break
-				}
-				log("%s collecting resources: %v", cf.Code, get)
-				if !dryRun {
-					if _, err := rest.DeviceCommand[models.CommandResp](cf.Code, "collect_resources", map[string]any{
-						"resources": get,
-					}); err != nil {
-						return err
-					}
-				}
-				log("%s shipping to %s", cf.Code, ev.Location)
-				if !dryRun {
-					log("Adding %q tag to %s", tag, cf.Code)
-					if _, err := rest.UpdateTags(cf.Code, rest.AddTag, []string{tag}); err != nil {
-						return err
-					}
-					newEta, err := travel(cf.Code, string(ev.Location))
-					if err != nil {
-						return err
-					}
-					etas = append(etas, newEta)
-				}
-			}
-		}
-
-		if needDev {
-			// Collect the devices already available
-			var pickUp []*models.Device
-			tagged, err := rest.GetTagged(tag)
-			if err != nil {
-				return err
-			}
-			log("Searching for existing devices...")
-			for _, d := range tagged.Devices {
-				if slices.Contains([]string{"cargo_freighter", "mobile_fleet", "surge_platform"}, d.Type) {
-					continue
-				}
-				log("... %s (%s) at %s", d.Code.Alias(), d.Type, d.Location)
-				missing[d.Type].Need--
-				if string(d.Location) == home {
-					pickUp = append(pickUp, d)
-					missing[d.Type].Pickup++
-				} else if d.Location != ev.Location {
-					missing[d.Type].Transiting++
-				}
-			}
-
-			// Print any missing devices
-			data = [][]any{}
-			for k, ent := range missing {
-				data = append(data, []any{
-					k, ent.Need, ent.Printing, ent.Pickup, ent.Transiting,
-				})
-				if isResource(k) || ent.Need <= 0 {
-					continue
-				}
-				fp := slices.Contains(common.GetBP(k).Features, "modular")
-				pPlan, err := common.Print(
-					home, k, ent.Need, true, dryRun,
-					map[string]any{
-						"tags":     []string{tag},
-						"flatpack": fp,
-					})
-				if err != nil {
-					return err
-				}
-				missing[k].Printing += ent.Need
-				missing[k].Need = 0
-				log("printing: ETA %s (%s) (fp=%v)", pPlan.ETA, time.Until(pPlan.ETA), fp)
-				for p, plan := range pPlan.Printers {
-					log("... %s: %s", p.Alias(), common.CountList(plan.Queued))
-				}
-				etas = append(etas, pPlan.ETA)
-			}
-			common.PrintTable([]string{"Delivery", "Need", "Printing", "Pickup", "Transit"}, data)
-
-			if len(pickUp) == 0 {
-				log("Nothing to pick up yet, waiting for print jobs to complete")
-				return nil
-			}
-
-			// Find an empty platform at home, use it
-			if len(freeSPs) == 0 {
-				return fmt.Errorf("No platforms available to deliver %v to %s", missing, ev.Location)
-			}
-			slices.SortFunc(freeSPs, func(a, b *models.Device) int {
-				return cmp.Compare(a.AttachCapacity, b.AttachCapacity)
-			})
-			log("available platforms: %v", devList(freeSPs))
-			var ids []*models.CodeAlias
-			for _, d := range pickUp {
-				if modular[d.Type] {
-					if d.Status == "idle" {
-						log("Compacting %s", d.Code)
-						if dryRun {
-							continue
-						}
-						if res, err := rest.DeviceCommand[models.CommandResp](d.Code, "compact", nil); err != nil {
-							return err
-						} else {
-							etas = append(etas, res.Completes.Time())
-							log("... %s (%s)", res.Completes.Format(), time.Until(res.Completes.Time()))
-						}
-						continue
-					} else if d.Status == "compacting" {
-						etas = append(etas, d.Compact.Completes.Time())
-						log("Waiting for %s to compact: %s", d.Code, time.Until(d.Compact.Completes.Time()))
-						continue
-					}
-				}
-				missing[d.Type].Transiting++
-				ids = append(ids, d.Code)
-			}
-			if len(ids) > 0 {
-				for _, sp := range freeSPs {
-					if len(pickUp) == 0 {
-						break
-					}
-					avail := sp.AttachCapacity - len(sp.AttachedDevices)
-					if avail == 0 {
-						continue
-					}
-					if avail >= len(pickUp) {
-						log("Attaching %s to %s", strings.Join(codeList(ids), ", "), sp.Code.Alias())
-						if !dryRun {
-							_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids})
-							if err != nil {
-								return err
-							}
-						}
-						log("Tagging %s", sp.Code.Alias())
-						if !dryRun {
-							if _, err := rest.UpdateTags(sp.Code, rest.AddTag, []string{tag}); err != nil {
-								return err
-							}
-						}
-						log("%s shipping to %s", sp.Code.Alias(), ev.Location)
-						if !dryRun {
-							newEta, err := travel(sp.Code, string(ev.Location))
-							if err != nil {
-								return err
-							}
-							etas = append(etas, newEta)
-						}
-						break
-					} else {
-						log("Attaching %s to %s", strings.Join(devList(pickUp[:avail]), ", "), sp.Code.Alias())
-						if !dryRun {
-							_, err := rest.DeviceCommand[models.CommandResp](sp.Code, "attach", map[string]any{"targets": ids[:avail]})
-							if err != nil {
-								return err
-							}
-						}
-						log("Tagging %s", sp.Code.Alias())
-						if !dryRun {
-							if _, err := rest.UpdateTags(sp.Code, rest.AddTag, []string{tag}); err != nil {
-								return err
-							}
-						}
-						log("%s shipping to %s", sp.Code.Alias(), ev.Location)
-						if !dryRun {
-							newEta, err := travel(sp.Code, string(ev.Location))
-							if err != nil {
-								return err
-							}
-							etas = append(etas, newEta)
-						}
-						pickUp = pickUp[avail:]
-					}
-				}
-			}
-		}
-
+func (es *eventState) unTag(id *models.CodeAlias, tag string) error {
+	if es.dryRun {
+		log("[DRYRUN] Removing %q from %s", tag, id)
 		return nil
 	}
+	_, err := rest.UpdateTags(id, rest.DelTag, []string{tag})
+	return err
+}
 
-	data = [][]any{}
-	for _, dev := range ep.Devices {
-		data = append(data, []any{dev.DeviceType, dev.Required, dev.Current})
-	}
-
-	// See what is currently being printed
-	needRes, needDev := stillMissing()
-	if needDev {
-		log("Searching for devices being printed...")
-		printers, err := getHomeFactories(home)
-		if err != nil {
-			return err
-		}
-		for _, p := range printers {
-			info, err := rest.DeviceInfo(p)
-			if err != nil {
-				return err
-			}
-			if info.Printing != nil && slices.Contains(info.Printing.Tags, tag) {
-				log("... %s is printing %s", p.Alias(), info.Printing.DeviceType)
-				etas = append(etas, time.Now().Add(info.Printing.Eta.Duration()))
-				queue[p.String()] += info.Printing.Eta.Duration()
-				missing[info.Printing.DeviceType].Need--
-				missing[info.Printing.DeviceType].Printing++
-			}
-			for _, pq := range info.PrintQueue {
-				if slices.Contains(pq.Tags, tag) {
-					log("... %s has %s queued", p.Alias(), pq.Type)
-					bp := getBP(pq.Type)
-					queue[p.String()] += bp.PrintTime.Duration()
-					etas = append(etas, time.Now().Add(queue[p.String()]))
-					missing[pq.Type].Need--
-					missing[pq.Type].Printing++
-				}
-			}
-		}
-	}
-
-	// Check any deliveries on the way
-	if needRes || needDev {
-		log("Checking for existing deliveries: %s", tag)
-		devs, err := rest.GetTagged(tag)
-		if err != nil {
-			return err
-		}
-		for _, d := range devs.Devices {
-			d, err := rest.DeviceInfo(d.Code)
-			if err != nil {
-				return err
-			}
-			log("%s @ %s:", d.Code, d.Location)
-			for _, c := range d.Cargo {
-				log("... %.0f x %s", c.Quantity, c.ResourceType)
-				missing[c.ResourceType].Need -= int(c.Quantity)
-				missing[c.ResourceType].Transiting += int(c.Quantity)
-			}
-			for _, c := range d.AttachedDevices {
-				log("... %s", c.Type)
-				missing[c.Type].Need -= 1
-				missing[c.Type].Transiting += 1
-			}
-			if d.Location == ev.Location {
-				if len(d.Cargo) > 0 {
-					log("Unloading %v from %s", d.Cargo, d.Code)
-					if !dryRun {
-						if _, err := rest.DeviceCommand[models.CommandResp](d.Code, "deposit_resources", nil); err != nil {
-							return err
-						}
-					}
-				}
-				if len(d.AttachedDevices) > 0 {
-					log("Detaching %v from %s", d.AttachedDevices, d.Code)
-					if !dryRun {
-						if _, err := rest.DeviceCommand[models.CommandResp](d.Code, "detach", nil); err != nil {
-							return err
-						}
-						for _, ad := range d.AttachedDevices {
-							if slices.Contains(ad.Features, "modular") {
-								log("Unfurling and untagging %s", ad.Code)
-								if _, err := rest.DeviceCommand[models.CommandResp](ad.Code, "unfurl", nil); err != nil {
-									return err
-								}
-								if _, err = rest.UpdateTags(d.Code, rest.DelTag, []string{tag}); err != nil {
-									return err
-								}
-							}
-						}
-					}
-				}
-				log("Untagging %s", d.Code)
-				if !dryRun {
-					_, err = rest.UpdateTags(d.Code, rest.DelTag, []string{tag})
-					if err != nil {
-						return err
-					}
-				}
-				if slices.Contains(d.Features, "surge") {
-					eta, err := travel(d.Code, home)
-					log("Returning %s home: %s (%s)", d.Code, eta, time.Until(eta))
-					if err != nil {
-						return err
-					}
-				}
-			} else if string(d.Location) == "" {
-				eta := d.Travel.Arrives.Time()
-				if len(d.Cargo) > 0 {
-					log("%s is still en-route with %v: %s (%s)", d.Code, d.Cargo, eta, time.Until(eta))
-				}
-				if len(d.AttachedDevices) > 0 {
-					log("%s is still en-route with %v: %s (%s)", d.Code, d.AttachedDevices, eta, time.Until(eta))
-				}
-				etas = append(etas, eta)
-			}
-		}
-	}
-	for _, r := range ep.Resources {
-		data = append(data, []any{r.ResourceType, r.Required, r.Current})
-	}
-	printTable([]string{"Type", "Required", "Current"}, data)
-
-	data = [][]any{}
-	for k, v := range missing {
-		data = append(data, []any{k, v.Need, v.Transiting, v.Printing})
-	}
-	slices.SortFunc(data, func(a, b []any) int {
-		return cmp.Compare(a[0].(string), b[0].(string))
-	})
-	printTable([]string{"Resource", "Need", "Transiting", "Printing"}, data)
-	if err := deliver(); err != nil {
-		return err
-	}
-	eta := maxEta(etas)
-	if time.Now().Before(eta) {
-		log("Waiting %s (%s)", time.Until(eta), eta)
+func (es *eventState) addTag(id *models.CodeAlias, tag string) error {
+	if es.dryRun {
+		log("[DRYRUN] Tagging %s with %q", id, tag)
 		return nil
 	}
+	_, err := rest.UpdateTags(id, rest.AddTag, []string{tag})
+	return err
+}
 
-	// Requirements all met, try and resolve the event
-	log("Event ready to complete...")
-	if err := resolveEvent(); err == nil {
-		log("Done.")
-		return nil
-	}
-
-	// Otherwise, teleport a replicant there
-	rid := getInt(cmd, "replicant")
-	rep, err := rest.ReplicantID(rid)
-	if err != nil {
-		return err
-	}
-	r, err := rest.Replicant(rep)
-	if err != nil {
-		return err
-	}
-	if err := teleportReplicant(r); err == nil {
-		return eventComplete(eID)
-	}
-
-	// Otherwise, see who's nearby
+// Complete
+//
+//	Reposition replicant
+//	Complete event
+func (es *eventState) complete() error {
 	acc, err := rest.Account()
 	if err != nil {
+		return fmt.Errorf("Can't get account info: %v", err)
+	}
+	// Priority order:
+	// 1. See if we just have someone already in the right place
+	// 2. See if we can teleport there
+	//    If there isn't add a TODO to install one
+	// 3. Report distances from all replicants
+
+	var rep *models.Replicant
+	var data [][]any
+	for _, r := range acc.ReplicantList {
+		if r.CurrentLocation == es.destination {
+			log("%s is already at %s.", r.Code, es.destination)
+			if es.dryRun {
+				log("[DRYRUN] Would complete event %s", es.event.Designation)
+				return nil
+			}
+			return eventComplete(es.event.Designation)
+		}
+
+		// Save our teleport bunny for later. https://xkcd.com/221/
+		if r.Code.Alias() == "r-4" {
+			rep = r
+		}
+
+		dist, err := common.Distance(r.Code.Alias(), es.destination.Star())
+		if err != nil {
+			log("Can't get distance to %s: %v", r.Code, err)
+			dist = -1
+		}
+		data = append(data, []any{r.Code, r.CurrentLocation, dist})
+	}
+	if rep == nil {
+		var repList []string
+		for _, r := range acc.ReplicantList {
+			repList = append(repList, fmt.Sprintf("%s @ %s", r.Code.Alias(), r.CurrentLocation))
+		}
+		return fmt.Errorf("Can't find our event volunteer:\n%s", strings.Join(repList, "\n"))
+	}
+
+	devs, err := getTeleportDests(string(es.destination))
+	if err != nil {
+		return fmt.Errorf("Can't get teleport destinations: %v", err)
+	}
+	if len(devs) > 0 {
+		if es.dryRun {
+			log("[DRYRUN] Would teleport to %s", devs[0])
+			return nil
+		}
+		res, err := rest.ReplicantTeleport(rep.Code, devs[0].StowedDevices.Devices[0].Code)
+		if err != nil {
+			return fmt.Errorf("Can't teleport to %q: %v", devs[0].Code, err)
+		}
+		log("Waiting until %s (%s) for %s to wake up", res.Completes, time.Until(res.Completes.Time()), rep.Code)
+		time.Sleep(time.Until(res.Completes.Time()))
+		// Replicants sometime take a bit longer to wake up. Keep trying for up to 30s.
+		deadline := time.Now().Add(30 * time.Second)
+		for {
+			err := eventComplete(es.event.Designation)
+			if err == nil {
+				return nil
+			}
+			if time.Now().After(deadline) {
+				return err
+			}
+			time.Sleep(time.Second)
+		}
+	}
+
+	log("Manual travel required to %s", es.destination)
+	printTable([]string{"Replicant", "Location", "Distance LY"}, data)
+	return nil
+}
+
+// Actuate -> trigger actions to resolve
+//
+//	Handle resource freighters
+//	Handle printing/platforms
+func (es *eventState) actuate() error {
+	var errs []error
+	// Keep track of any resources in flight, unload ones that have arrived
+	for _, t := range es.transports {
+		if t.Location == es.destination {
+			// Unload any deliveries that have arrived
+			errs = append(errs, es.unload(t))
+			// Untag and ship home
+			errs = append(errs, es.unTag(t.Code, es.txTag))
+			_, err := common.Travel(t.Code, home, es.dryRun)
+			errs = append(errs, err)
+		} else if t.Travel != nil {
+			es.later("transit", t.Travel.Arrives.Time())
+		}
+	}
+
+	// Figure out what resources and devices are missing
+	toShip := make(map[string]int)
+	toPrint := make(map[string]int)
+	log("Checking for missing resources...")
+	for k, v := range es.required {
+		v -= es.ready[k]   // already delivered
+		if isResource(k) { // already on the way
+			v -= es.transitRes[k]
+		} else {
+			v -= len(es.transitDev[k])
+			v -= len(es.waiting[k]) // ready for shipping
+		}
+		if v > 0 {
+			log("... %d %s", v, k)
+			if isResource(k) {
+				toShip[k] = v
+			} else {
+				toPrint[k] = v
+			}
+		}
+	}
+	errs = append(errs, es.shipRes(toShip))
+
+	var toLoad []*models.CodeAlias
+	for _, v := range es.waiting {
+		toLoad = append(toLoad, v...)
+	}
+	if len(toPrint) > 0 {
+		// See if we have any spares at home
+		log("Checking for available spares...")
+		devs, err := rest.Devices(map[string]string{"location": home})
+		if err != nil {
+			errs = append(errs, err)
+		}
+		for _, d := range devs {
+			if len(d.Tags) > 0 && d.Tags[0] != es.tag {
+				continue
+			}
+			if need, ok := toPrint[d.Type]; ok {
+				log("Reassigning %s to %s", d.Code, es.tag)
+				toLoad = append(toLoad, d.Code)
+				if need > 1 {
+					toPrint[d.Type] = need - 1
+				} else {
+					delete(toPrint, d.Type)
+				}
+			}
+		}
+		// If we found spares, tag em
+		for _, d := range toLoad {
+			errs = append(errs, es.addTag(d, es.tag))
+		}
+	}
+
+	// If we still need to print devices, check if they're already queued and
+	// if not, print em
+	for k, v := range toPrint {
+		v -= common.CheckQueue(home, es.tag, k, v)
+		if v <= 0 {
+			log("%d %s already being printed", v, k)
+			continue
+		}
+		cfg := map[string]any{
+			"tags": []string{es.tag},
+		}
+		if bp := common.GetBP(k); bp != nil && slices.Contains(bp.Features, "modular") {
+			cfg["flatpak"] = true
+		}
+		plan, err := common.Print(home, k, v, true, es.dryRun, cfg)
+		errs = append(errs, err)
+		es.later("printing", plan.ETA)
+	}
+
+	// If we're not printing anything else, ship em
+	if len(toPrint) == 0 {
+		errs = append(errs, es.shipDev(toLoad))
+	}
+
+	return errors.Join(errs...)
+}
+
+// Pick option -> empty event state
+//
+//	See which option is even possible
+//	See the resource cost for each
+//	Pick the cheapest
+func pickCriteria(ev *models.Event, dryRun bool) (*eventState, error) {
+	opts := ev.Criteria
+	es := newEventState(ev, dryRun)
+
+	if len(opts) == 1 {
+		return es, es.selectOption(0)
+	}
+
+	type optCost struct {
+		optID int
+		res   int
+		valid bool
+	}
+	cost := make([]optCost, len(opts))
+	for n, opt := range opts {
+		oc := optCost{
+			optID: n,
+			valid: true,
+		}
+		// add up the raw resource cost
+		for _, v := range opt.Resources {
+			oc.res += v
+		}
+		// make sure we have all the blueprints, add their cost
+		for _, d := range opt.Devices {
+			bp := common.GetBP(d.DeviceType)
+			if bp == nil {
+				oc.valid = false
+				continue
+			}
+			res, err := bp.RawResources()
+			if err != nil {
+				oc.valid = false
+				continue
+			}
+			for _, v := range res {
+				oc.res += v
+			}
+		}
+		cost[n] = oc
+	}
+
+	slices.SortFunc(cost, func(a, b optCost) int {
+		return cmp.Compare(a.res, b.res)
+	})
+
+	for _, oc := range cost {
+		if !oc.valid {
+			continue
+		}
+		return es, es.selectOption(oc.optID)
+	}
+
+	return es, fmt.Errorf("No valid option found")
+}
+
+func autoEvent(cmd *cobra.Command, args []string) error {
+	dryRun := getBool(cmd, "dry_run")
+	res, err := rest.Events()
+	if err != nil {
 		return err
 	}
-	data = [][]any{}
-	for _, r := range acc.ReplicantList {
-		var src, loc string
-		if r.Travel == nil {
-			loc = r.CurrentLocation.Star()
-			src = loc
-		} else {
-			log("travel: %#v", r.Travel)
-			src = r.Travel.Destination.Star()
-			loc = fmt.Sprintf("-> (%s) %s", r.Travel.Eta.Duration(), r.Travel.Destination)
+	events := res.Events
+
+	if id := getString(cmd, "id"); id != "" {
+		var found bool
+		for _, e := range events {
+			if e.Designation == id {
+				events = []*models.Event{e}
+				found = true
+				break
+			}
 		}
-		dist, err := common.Distance(src, ev.Location.Star())
+		if !found {
+			return fmt.Errorf("Can't find event %q", id)
+		}
+	} else if !getBool(cmd, "all") {
+		return fmt.Errorf("Passing either --id or --all is required")
+	}
+
+	var errs []error
+	for _, ev := range events {
+		log("**** Processing event %s", ev.Designation)
+		es, err := pickCriteria(ev, dryRun)
 		if err != nil {
-			data = append(data, []any{r.Code, loc, err.Error()})
-		} else {
-			data = append(data, []any{r.Code, loc, dist})
+			errs = append(errs, fmt.Errorf("%s: %v", ev.Designation, err))
+			continue
+		}
+		if err := es.updateState(); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %v", ev.Designation, err))
+			continue
+		}
+		if err := es.actuate(); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %v", ev.Designation, err))
+			continue
+		}
+		wait := es.wait()
+		if wait > 0 {
+			log("%s: Waiting until %s (%s)", ev.Designation, time.Now().Add(wait), wait)
+			continue
+		}
+		if err := es.complete(); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %v", ev.Designation, err))
+			continue
 		}
 	}
-	printTable([]string{"Replicant", "Location", "Distance from " + ev.Location.Star()}, data)
+	log("All done.")
 
-	return nil
+	return errors.Join(errs...)
 }
