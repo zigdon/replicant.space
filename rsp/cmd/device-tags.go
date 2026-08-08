@@ -74,14 +74,14 @@ var findTagsCmd = &cobra.Command{
 		for _, d := range res.Devices {
 			code := d.Code.Alias()
 			code = lines([]string{code, unalias(code)})
-			var totalCargo float32
+			var totalCargo int
 			var cargo []string
 			for _, c := range d.Cargo {
 				totalCargo += c.Quantity
 				cargo = append(cargo, fmt.Sprintf("%.2f x %s", c.Quantity, c.ResourceType))
 			}
 			cargo = append([]string{fmt.Sprintf("%.2f/%d (%.0f%%)",
-				totalCargo, d.CargoCapacity, totalCargo/float32(d.CargoCapacity)*100)}, cargo...)
+				totalCargo, d.CargoCapacity, 100*totalCargo/d.CargoCapacity)}, cargo...)
 			details = append(details, []any{code, d.Type, d.Location,
 				d.Status, d.ReplicantCode, lines(cargo),
 			})

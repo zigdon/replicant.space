@@ -36,6 +36,7 @@ type Machine interface {
 func getTags(dev *models.Device) map[string]string {
 	res := make(map[string]string)
 	tags := dev.Tags
+	slices.Sort(tags)
 	for _, t := range tags {
 		k, v, ok := strings.Cut(t, ":")
 		if !ok {

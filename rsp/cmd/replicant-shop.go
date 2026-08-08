@@ -92,9 +92,11 @@ var executeTradeCmd = &cobra.Command{
 		for _, s := range shops.Traders {
 			trades, err := rest.Trades(s.ControllerCode)
 			if err != nil {
-				return err
+				log("Error getting trades for %s: %v", s.ShopName, err)
+				continue
 			}
 			for _, t := range trades.Trades {
+				log("%s: %s", s.ShopName, t.Name)
 				if t.Code == tid {
 					trade = t
 					cid = s.ControllerCode
@@ -112,7 +114,7 @@ var executeTradeCmd = &cobra.Command{
 
 		_, err = rest.Trade(cid, tid)
 		if err != nil {
-			return err
+			return fmt.Errorf("Failed to execute trade: %v", err)
 		}
 		printTable([]string{"Devices", "Resources"},
 			[][]any{{m(trade.Rewards.Devices), m(trade.Rewards.Resources)}})
@@ -181,6 +183,15 @@ func init() {
 	shopCmd.AddCommand(executeTradeCmd)
 	executeTradeCmd.Flags().StringP("trade", "t", "", "Trade ID")
 	executeTradeCmd.MarkFlagRequired("trade")
+
+	shopCmd.AddCommand(addTradeCmd)
+	addTradeCmd.Flags().StringP("shop", "s", "", "Shop controller")
+	addTradeCmd.Flags().StringP("name", "n", "", "Trade name")
+	addTradeCmd.Flags().IntP("stock", "k", 0, "How many to stock")
+	addTradeCmd.Flags().StringSlice("cost_res", []string{}, "What resources are requested")
+	addTradeCmd.Flags().StringSlice("cost_dev", []string{}, "What devices are requested")
+	addTradeCmd.Flags().StringSlice("sell_res", []string{}, "What resources are provided")
+	addTradeCmd.Flags().StringSlice("sell_dev", []string{}, "What devices are provided")
 }
 
 func printTrades(trades []*models.Trade) {

@@ -15,7 +15,9 @@ var blueprintsCmd = &cobra.Command{
 	Use:   "blueprints",
 	Short: "List owne blueprints",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		res, err := rest.Blueprints(true)
+		filter := getString(cmd, "filter")
+		feature := getString(cmd, "feature")
+		res, err := rest.Blueprints(filter == "" && feature == "")
 		if err != nil {
 			return fmt.Errorf("Failed to get blueprints: %v", err)
 		}
@@ -26,12 +28,12 @@ var blueprintsCmd = &cobra.Command{
 		var blues [][]any
 		var errs []error
 		for _, b := range res.Blueprints {
-			if filter := getString(cmd, "filter"); filter != "" {
+			if filter != "" {
 				if !strings.Contains(b.DeviceType, filter) {
 					continue
 				}
 			}
-			if feature := getString(cmd, "feature"); feature != "" {
+			if feature != "" {
 				if !slices.Contains(b.Features, feature) {
 					continue
 				}

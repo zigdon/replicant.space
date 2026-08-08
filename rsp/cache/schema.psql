@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS stars (
 
 CREATE TABLE IF NOT EXISTS planets (
   designation TEXT PRIMARY KEY,
-  star TEXT NOT NULL REFERENCES stars(designation),
+  star TEXT NOT NULL,
   name TEXT NULL,
   life_stage TEXT NULL,
   moons SMALLINT NOT NULL,
@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS planets (
 
 CREATE TABLE IF NOT EXISTS moons (
   designation TEXT PRIMARY KEY,
-  planet TEXT NOT NULL REFERENCES planets(designation),
-  star TEXT NOT NULL REFERENCES stars(designation),
+  planet TEXT NOT NULL,
+  star TEXT NOT NULL,
   name TEXT NULL,
   scanned BOOLEAN,
   type TEXT NOT NULL
@@ -173,4 +173,15 @@ CREATE TABLE IF NOT EXISTS tasks(
   type TEXT,
   title TEXT,
   details JSONB
+);
+
+CREATE TABLE IF NOT EXISTS inventory(
+  designation TEXT PRIMARY KEY,
+  star TEXT REFERENCES stars(designation),
+  carbon INT,
+  conductive INT,
+  rares INT,
+  silicates INT,
+  structural INT,
+  volatiles INT
 );

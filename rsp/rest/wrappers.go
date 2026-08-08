@@ -615,7 +615,7 @@ func Blueprints(refresh bool) (*models.Blueprints, error) {
 		}
 		return bps, nil
 	}
-	res, err := cacheGET("", 30*time.Minute, "blueprints")
+	res, err := cacheGET("", 24*time.Hour, "blueprints")
 	if err != nil {
 		return nil, err
 	}

@@ -48,6 +48,7 @@ const (
 	BlueprintsTable        Tables = "blueprints"
 	DeviceLogsTable        Tables = "device_logs"
 	EventsTable            Tables = "event_stream"
+	InventoryTable         Tables = "inventory"
 	JSONDevices            Tables = "json_devices"
 	JourneyStepsTable      Tables = "cached_journey_steps"
 	JourneyTable           Tables = "cached_journey"
@@ -97,6 +98,8 @@ var cols = map[Tables][]string{
 		"code", "updated_ts", "location", "data"},
 	EventsTable: {
 		"id", "category", "created", "code", "event", "location", "data"},
+	InventoryTable: {
+		"designation", "star", "carbon", "conductive", "rares", "silicates", "structural", "volatiles"},
 }
 
 var constraints = map[Tables]string{
@@ -109,6 +112,7 @@ var constraints = map[Tables]string{
 	BlueprintsTable:        "type",
 	DeviceLogsTable:        "id, device",
 	EventsTable:            "id",
+	InventoryTable:         "designation",
 	JSONDevices:            "code",
 	JourneyStepsTable:      "journey_id, step",
 	JourneyTable:           "id",

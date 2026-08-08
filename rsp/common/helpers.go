@@ -62,6 +62,12 @@ func LogLevel(level int, tmpl string, args ...any) {
 				ids = append(ids, d.Code.Alias())
 			}
 			args[n] = ids
+		case []*models.CodeAlias:
+			var ids []string
+			for _, d := range a {
+				ids = append(ids, d.Alias())
+			}
+			args[n] = ids
 		}
 	}
 	prefix := time.Now().Format("01-02 15:04:05") + " - "
@@ -147,7 +153,8 @@ func GetBP(bp string) *models.Blueprint {
 	}
 	b := &models.Blueprint{DeviceType: bp}
 	if err := b.Get(); err != nil {
-		panic(fmt.Sprintf("Can load blueprint for %s: %v", bp, err))
+		Log("Can load blueprint for %s: %v", bp, err)
+		return nil
 	}
 	bps[bp] = b
 	return b

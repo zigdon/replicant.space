@@ -179,6 +179,18 @@ func readStream(cmd *cobra.Command, args []string) error {
 			update(func(d *models.Device) {
 				change(&d.AttachedToDeviceCode, env.DeviceCode)
 			}, ev.TargetCode)
+		case "device.decommissioned":
+			ev, err := models.Parse[models.StreamDeviceDecommissioned](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Device decomissioned: %s @ %s: %s", env.DeviceCode, env.Location, ev.BlueprintDiscovered)
+			if ev.BlueprintDiscovered != "" {
+				if _, err := rest.Blueprints(true); err != nil {
+					log("Error loading new blueprint %q: %v", ev.BlueprintDiscovered, err)
+				}
+			}
 		case "device.detached":
 			ev, err := models.Parse[models.StreamDeviceDetached](payload)
 			if err != nil {
@@ -412,7 +424,45 @@ func readStream(cmd *cobra.Command, args []string) error {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-			log("%s depleted", ev.Site)
+			res, err := rest.Location(string(env.Location))
+			if err != nil {
+				log("Error getting location details: %v", err)
+				return err
+			}
+			var out []string
+			for _, i := range res.Inventory {
+				out = append(out, fmt.Sprintf("%d %s", i.Quantity, i.ResourceType[:2]))
+			}
+			log("%s depleted: %s", ev.Site, strings.Join(out, ", "))
+		case "teleport.completed":
+			ev, err := models.Parse[models.StreamTeleportCompleted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Teleport started: %s online at %s", ev.ReplicantCode, ev.DestinationStar)
+		case "teleport.started":
+			ev, err := models.Parse[models.StreamTeleportStarted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Teleport started: %s (%s -> %s)", ev.ReplicantCode, ev.SourceStar, ev.DestinationStar)
+		case "trade.completed":
+			ev, err := models.Parse[models.StreamTradeCompleted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Trade complete: %s @ %s: ?? -> %v", ev.TradeName, env.Location, ev.RewardsReceived)
+			var errs []error
+			_, err = rest.Location(string(env.Location))
+			errs = append(errs, err)
+			for _, d := range ev.RewardsReceived.Devices {
+				_, err = rest.DeviceInfo(d)
+				errs = append(errs, err)
+			}
+			return errors.Join(errs...)
 		case "transport.collected":
 			ev, err := models.Parse[models.StreamTransportCollected](payload)
 			if err != nil {
@@ -423,7 +473,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 			update(func(d *models.Device) {
 				inv := d.Cargo
 				for _, i := range inv {
-					i.Quantity += float32(ev.Resources[i.ResourceType])
+					i.Quantity += ev.Resources[i.ResourceType]
 				}
 				change(&d.Cargo, inv)
 			}, env.DeviceCode)
@@ -438,7 +488,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 				inv := d.Cargo
 				var newInv []*models.Inventory
 				for _, i := range inv {
-					i.Quantity -= float32(ev.Resources[i.ResourceType])
+					i.Quantity -= ev.Resources[i.ResourceType]
 					if i.Quantity > 0 {
 						newInv = append(newInv, i)
 					}

@@ -24,6 +24,41 @@ type PrintPlan struct {
 	Printers map[*models.CodeAlias]*PrintPlanRec
 }
 
+func CheckQueue(where, tag, devType string, qty int) int {
+	printers, err := GetFilteredDevices(
+		[]string{"autofactory"}, []string{where}, []string{"waiting_for_resources", "printing"})
+	if err != nil {
+		Log("Failed to fetch home autofactories: %v", err)
+		return 0
+	}
+	var found int
+	for _, p := range printers {
+		info, err := rest.DeviceInfo(p)
+		if err != nil {
+			Log("Failed to fetch details for %q: %v", p, err)
+			return 0
+		}
+		if info.Printing != nil && info.Printing.DeviceType == devType &&
+			slices.Contains(info.Printing.Tags, tag) {
+			found++
+		}
+		for _, pq := range info.PrintQueue {
+			if pq.Type != devType {
+				continue
+			}
+			if !slices.Contains(pq.Tags, tag) {
+				continue
+			}
+			found++
+		}
+		if found >= qty {
+			break
+		}
+	}
+
+	return found
+}
+
 func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[string]any) (*PrintPlan, error) {
 	if cfg == nil {
 		cfg = make(map[string]any)

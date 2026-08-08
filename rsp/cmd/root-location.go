@@ -12,7 +12,6 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
-// locationCmd represents the location command
 var locationCmd = &cobra.Command{
 	Use:               "location",
 	Short:             "List the contents of a location",
@@ -58,7 +57,7 @@ var locationCmd = &cobra.Command{
 						} else {
 							var r []string
 							for _, i := range inv.Inventory {
-								r = append(r, fmt.Sprintf("%.0f x %s", i.Quantity, i.ResourceType))
+								r = append(r, i.String())
 							}
 							line = append(line, lines(r))
 						}

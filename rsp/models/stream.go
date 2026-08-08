@@ -513,6 +513,7 @@ type StreamSystemObject_detected struct {
 type StreamTeleportCompleted struct {
 	DestinationStar LocationID `json:"destination_star"`
 	NewHostCode     *CodeAlias `json:"new_host_code"`
+	ReplicantCode   *CodeAlias `json:"replicant_code"`
 }
 
 type StreamTeleportFailed struct {
@@ -524,13 +525,18 @@ type StreamTeleportStarted struct {
 	SourceStar       LocationID `json:"source_star"`
 	DestinationStar  LocationID `json:"destination_star"`
 	TargetMatrixCode *CodeAlias `json:"target_matrix_code"`
+	ReplicantCode    *CodeAlias `json:"replicant_code"`
 }
 
 type StreamTradeCompleted struct {
-	TradeCode      string `json:"trade_code"`
-	TradeName      string `json:"trade_name"`
-	Role           string `json:"role"`
-	RemainingStock int    `json:"remaining_stock"`
+	TradeCode       string `json:"trade_code"`
+	TradeName       string `json:"trade_name"`
+	Role            string `json:"role"`
+	RemainingStock  int    `json:"remaining_stock"`
+	RewardsReceived struct {
+		Resources map[string]int `json:"resources"`
+		Devices   []*CodeAlias   `json:"devices"`
+	} `json:"rewards_received"`
 }
 
 type StreamTradeCreated struct {

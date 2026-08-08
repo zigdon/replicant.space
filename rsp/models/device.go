@@ -78,12 +78,12 @@ type DevicePrintQueue struct {
 }
 
 type Inventory struct {
-	Quantity     float32 `json:"quantity"`
-	ResourceType string  `json:"resource_type"`
+	Quantity     int    `json:"quantity"`
+	ResourceType string `json:"resource_type"`
 }
 
 func (i *Inventory) String() string {
-	return fmt.Sprintf("%.0f x %s", i.Quantity, i.ResourceType)
+	return fmt.Sprintf("%d x %s", i.Quantity, i.ResourceType)
 }
 
 type SystemStatus struct {

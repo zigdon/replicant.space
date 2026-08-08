@@ -206,11 +206,16 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		log("*******************************************")
 		log("* RELAY COMPLETE: reached %s", rm.dest)
 		log("*******************************************")
-		_, err := rest.UpdateTags(rm.dev.Code, rest.DelTag, []string{"auto"})
+		_, err := rest.UpdateTags(rm.dev.Code, rest.DelTag, []string{"relay:" + string(rm.dest)})
 		if err != nil {
 			log("Failed to remove tags: %v", err)
 		}
-		return eta, MachineDoneErr(fmt.Sprintf("*** Relay to %s complete ***", rm.dest))
+		if dest := getTags(rm.dev)["relay"]; dest != "" {
+			log("Next destination: %s", dest)
+			rm.dest = models.LocationID(dest)
+		} else {
+			return eta, MachineDoneErr(fmt.Sprintf("*** Relay to %s complete ***", rm.dest))
+		}
 	case "transit":
 		if t := rm.dev.Travel; t != nil {
 			eta = t.Arrives.Time()

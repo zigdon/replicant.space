@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/zigdon/rsp/cache"
 )
@@ -142,6 +143,26 @@ func (b *Blueprint) Get() error {
 		b.Features = append(b.Features, f)
 	}
 	return nil
+}
+
+func (b *Blueprint) RawResources() (map[string]int, error) {
+	res := make(map[string]int)
+	maps.Copy(res, b.Resources)
+	for c, n := range b.Components {
+		cb := &Blueprint{DeviceType: c}
+		if err := cb.Get(); err != nil {
+			return nil, fmt.Errorf("Can't load blueprint %q: %v", c, err)
+		}
+		cRes, err := cb.RawResources()
+		if err != nil {
+			return nil, fmt.Errorf("Can't load resources for %q component: %v", c, err)
+		}
+		for k, v := range cRes {
+			res[k] += v * n
+		}
+	}
+
+	return res, nil
 }
 
 type Blueprints struct {

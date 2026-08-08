@@ -34,12 +34,12 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		var total float32
+		var total int
 		for _, i := range loc.Inventory {
 			total += i.Quantity
 		}
 		if total > 1000 {
-			log("%q still has inventory: %.0f", cur, total)
+			log("%q still has inventory: %d", cur, total)
 			return nil
 		}
 	}

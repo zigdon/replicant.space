@@ -326,6 +326,12 @@ func (m *Moon) Cache() error {
 	if m == nil {
 		return nil
 	}
+	if m.Star == "" {
+		m.Star = LocationID(m.Designation.Star())
+	}
+	if m.ParentPlanet == "" {
+		m.ParentPlanet = LocationID(strings.Join(strings.Split(string(m.Designation), "-")[:2], "-"))
+	}
 	return db.Update(cache.MoonsTable, map[string]any{
 		"designation": m.Designation,
 		"name":        m.Name,
@@ -397,7 +403,7 @@ func (l *Location) Fill() error {
 func (l *Location) Cache() error {
 	var errs []error
 	var objs []Cachable
-	for _, c := range []Cachable{l.Belt, l.Moon, l.Planet, l.Star} {
+	for _, c := range []Cachable{l.Star, l.Planet, l.Belt, l.Moon} {
 		if c == nil {
 			continue
 		}
@@ -416,18 +422,25 @@ func (l *Location) Cache() error {
 		if m == nil {
 			continue
 		}
-		m.Star = l.Star.Designation
 		objs = append(objs, m)
 	}
 	for _, p := range l.Planets {
 		if p == nil {
 			continue
 		}
-		p.Star = l.Star.Designation
 		objs = append(objs, p)
 	}
 	for _, o := range objs {
 		errs = append(errs, o.Cache())
+	}
+	if len(l.Inventory) > 0 {
+		res := make(map[string]any)
+		for _, i := range l.Inventory {
+			res[i.ResourceType] = i.Quantity
+		}
+		res["designation"] = string(l.Location)
+		res["star"] = l.Location.Star()
+		errs = append(errs, db.Update(cache.InventoryTable, res))
 	}
 	return errors.Join(errs...)
 }

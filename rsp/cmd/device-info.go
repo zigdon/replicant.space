@@ -31,13 +31,13 @@ var infoCmd = &cobra.Command{
 		code = lines([]string{code, unalias(code)})
 		var cargo []string
 		if dev.CargoCapacity > 0 {
-			var totalCargo float32
+			var totalCargo int
 			for _, c := range dev.Cargo {
 				totalCargo += c.Quantity
-				cargo = append(cargo, fmt.Sprintf("%.2f x %s", c.Quantity, c.ResourceType))
+				cargo = append(cargo, fmt.Sprintf("%d x %s", c.Quantity, c.ResourceType))
 			}
-			cargo = append([]string{fmt.Sprintf("%.2f/%d (%.0f%%)",
-				totalCargo, dev.CargoCapacity, totalCargo/float32(dev.CargoCapacity)*100)}, cargo...)
+			cargo = append([]string{fmt.Sprintf("%d/%d (%d%%)",
+				totalCargo, dev.CargoCapacity, 100*totalCargo/dev.CargoCapacity)}, cargo...)
 		}
 		status := dev.Status
 		if !dev.InControlRange {

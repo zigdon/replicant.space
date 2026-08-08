@@ -157,6 +157,9 @@ func (r *Replicant) Fill() error {
 	if r.CurrentStar == "" && r.CurrentLocation != "" {
 		r.CurrentStar = r.CurrentLocation.Star()
 	}
+	if r.Location == "" && r.CurrentLocation != "" {
+		r.Location = r.CurrentLocation
+	}
 	return nil
 }
 

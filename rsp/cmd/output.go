@@ -25,7 +25,7 @@ func newLogWindow() *tview.TextView {
 }
 
 func log(tmpl string, args ...any) {
-	common.Log(tmpl, args...)
+	common.LogLevel(1, tmpl, args...)
 }
 
 func die(tmpl string, args ...any) {
