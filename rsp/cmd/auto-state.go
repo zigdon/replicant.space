@@ -92,7 +92,6 @@ func autoState(cmd *cobra.Command, args []string) error {
 		}
 		return errors.Join(errs...)
 	}
-	var errs []error
 	runStep = func(d *models.CodeAlias, m auto.Machine) error {
 		t, err := m.Process()
 		if err != nil {
@@ -101,19 +100,21 @@ func autoState(cmd *cobra.Command, args []string) error {
 				delete(sms, d.Alias())
 				return nil
 			}
-			errs = append(errs, err)
+			return err
 		} else if t.IsZero() {
-			errs = append(errs, fmt.Errorf("%s: No time for next step", d.Alias()))
-		} else {
-			eq.AddEvent(
-				d.Alias(),
-				fmt.Sprintf("%s: State machine %s wait is done", d.Alias(), m.Name()),
-				t, func() error {
-					return runStep(d, m)
-				}, nil,
-			)
+			err = fmt.Errorf("%s: No time for next step", d.Alias())
 		}
-		return nil
+		if time.Now().After(t) {
+			t = time.Now().Add(time.Minute)
+		}
+		eq.AddEvent(
+			d.Alias(),
+			fmt.Sprintf("%s: State machine %s wait is done", d.Alias(), m.Name()),
+			t, func() error {
+				return runStep(d, m)
+			}, nil,
+		)
+		return err
 	}
 	for {
 		if err := findSMs(); err != nil {
@@ -125,7 +126,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 			data = append(data, []any{e.When.Format(time.Stamp), e.Name, e.Desc})
 		}
 		printTable([]string{"When", "Who", "What"}, data)
-		log("Waiting for next process event: %s", time.Until(eq.Next()))
+		log("Waiting for next process event: %s (%s)", eq.Next(), time.Until(eq.Next()))
 		ev := eq.Wait()
 		if ev == nil {
 			return fmt.Errorf("No more events in the queue")

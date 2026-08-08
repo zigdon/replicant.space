@@ -210,9 +210,11 @@ func (es *eventState) updateState() error {
 				es.waiting[c.ResourceType] = append(es.waiting[c.ResourceType], d.Code)
 			}
 		default:
-			log("%q is in transit: ETA %s (%s)",
-				d.Code, d.Travel.Arrives, time.Until(d.Travel.Arrives.Time()))
-			es.later("transit", d.Travel.Arrives.Time())
+			if d.Travel != nil {
+				log("%q is in transit: ETA %s (%s)",
+					d.Code, d.Travel.Arrives, time.Until(d.Travel.Arrives.Time()))
+				es.later("transit", d.Travel.Arrives.Time())
+			}
 			for _, c := range d.Cargo {
 				es.transitRes[c.ResourceType] += c.Quantity
 			}
@@ -309,6 +311,9 @@ func (es *eventState) shipDev(devs []*models.CodeAlias) error {
 			continue
 		}
 		avail := p.AttachCapacity - len(p.AttachedDevices)
+		if avail <= 0 {
+			continue
+		}
 		if len(p.Tags) == 0 {
 			errs = append(errs, es.addTag(p.Code, es.txTag))
 		}
@@ -390,12 +395,21 @@ func (es *eventState) complete() error {
 			rep = r
 		}
 
+		// Get the vessel tags
+		var tags []string
+		hv, err := rest.DeviceInfo(r.HostedDeviceCode)
+		if err == nil {
+			tags = hv.Tags
+		} else {
+			log("Can't get vessel info: %v", err)
+		}
+
 		dist, err := common.Distance(r.Code.Alias(), es.destination.Star())
 		if err != nil {
 			log("Can't get distance to %s: %v", r.Code, err)
 			dist = -1
 		}
-		data = append(data, []any{r.Code, r.CurrentLocation, dist})
+		data = append(data, []any{r.Code, r.CurrentLocation, dist, list(tags)})
 	}
 	if rep == nil {
 		var repList []string
@@ -435,8 +449,8 @@ func (es *eventState) complete() error {
 	}
 
 	log("Manual travel required to %s", es.destination)
-	printTable([]string{"Replicant", "Location", "Distance LY"}, data)
-	return nil
+	printTable([]string{"Replicant", "Location", "Distance LY", "Tags"}, data)
+	return fmt.Errorf("Manual travel required")
 }
 
 // Actuate -> trigger actions to resolve
@@ -626,6 +640,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	}
 
 	var errs []error
+	var data [][]any
 	for _, ev := range events {
 		log("**** Processing event %s", ev.Designation)
 		es, err := pickCriteria(ev, dryRun)
@@ -643,15 +658,28 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 		wait := es.wait()
 		if wait > 0 {
+			wait = wait.Truncate(time.Second)
+			data = append(data, []any{
+				ev.Designation, ev.Location, ev.Title,
+				fmt.Sprintf("Waiting: %s", wait.String()),
+			})
 			log("%s: Waiting until %s (%s)", ev.Designation, time.Now().Add(wait), wait)
 			continue
 		}
 		if err := es.complete(); err != nil {
+			data = append(data, []any{
+				ev.Designation, ev.Location, ev.Title,
+				fmt.Sprintf("Error: %v", err),
+			})
 			errs = append(errs, fmt.Errorf("%s: %v", ev.Designation, err))
 			continue
 		}
+		data = append(data, []any{
+			ev.Designation, ev.Location, ev.Title, "Complete",
+		})
 	}
 	log("All done.")
+	printTable([]string{"ID", "Location", "Title", "Status"}, data)
 
 	return errors.Join(errs...)
 }

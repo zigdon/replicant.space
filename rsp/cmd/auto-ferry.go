@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -92,7 +93,11 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 	slices.SortFunc(dests, func(a, b dest) int {
 		return cmp.Compare(b.count, a.count)
 	})
-	log("Resource pile found at %s: %d", dests[0].location, dests[0].count)
+	dist, err := common.Distance(dests[0].location, home)
+	if err != nil {
+		return err
+	}
+	log("Resource pile found at %s (%.2f LY away): %d", dests[0].location, dist, dests[0].count)
 	log("Priorities: %v", priorities)
 
 	return setDirective(atc.Code, "ferry", map[string]any{

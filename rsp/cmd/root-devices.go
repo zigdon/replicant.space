@@ -264,7 +264,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 			eta = fmt.Sprintf("%.0f%% %s", d.Repair.ProgressPercent, d.Repair.Eta.String())
 		} else if d.Travel != nil {
 			eta = fmt.Sprintf("%.0f%% %s", d.Travel.ProgressPercent, d.Travel.Eta.String())
-			dest = string(d.Travel.Route[len(d.Travel.Route)-1].To)
+			dest = string(d.Travel.Destination)
 		} else if d.Prospect != nil {
 			eta = fmt.Sprintf("%.0f%% %s",
 				d.Prospect.ProgressPercent, time.Until(d.Prospect.Completes.Time()).Truncate(time.Second))

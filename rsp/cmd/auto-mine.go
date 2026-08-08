@@ -39,7 +39,11 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Can't get the density of %q", locName)
 	}
 	star := loc.Location.Star()
-	log("Destination system: %s (%s)", star, density)
+	dist, err := common.Distance(star, home)
+	if err != nil {
+		return err
+	}
+	log("Destination system: %s (%s), %.2f LY from home", star, density, dist)
 
 	mdCount := map[string]int{
 		"sparse":   3,
@@ -139,6 +143,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	log("Found %d devices tagged %q: %v", len(tagged.Devices), tag, tagged.Devices)
+	dryRun := getBool(cmd, "dry_run")
 
 	// Find what is missing
 	amis := make(map[string]*models.CodeAlias)
@@ -160,6 +165,13 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			}
 			stats[t].extra += 1
 			log("Found a spare tagged %s: %s", t, d.Code.Alias())
+			if !dryRun {
+				if _, err := rest.UpdateTags(d.Code, rest.DelTag, []string{tag}); err != nil {
+					log("Error removing tag: %v")
+				} else {
+					log("Removed tag from %s", d.Code)
+				}
+			}
 			continue
 		}
 
@@ -185,7 +197,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get the existing or idle fleet
-	dryRun := getBool(cmd, "dry_run")
 	for _, d := range devs {
 		// Special case for relays - if there's one working in the system, we
 		// don't need another.

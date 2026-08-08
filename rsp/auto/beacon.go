@@ -1,7 +1,6 @@
 package auto
 
 import (
-	"encoding/json"
 	"fmt"
 	"slices"
 	"time"
@@ -16,6 +15,7 @@ import (
 // if there are not enough beacons to fill a ship, print more
 // if we're in a system, there's intelligent life on a planet, and it doesn't have a beacon
 // - travel to that planet
+// - scan it
 // - deploy a beacon
 // - tag it
 // find the nearest system with life that has a networked relay and is missing
@@ -42,6 +42,7 @@ const (
 	BeaconStates_Incoming  = "Incoming"
 	BeaconStates_Deploying = "Deploying"
 	BeaconStates_Empty     = "Empty"
+	BeaconStates_Cleanup   = "Cleanup"
 	BeaconStates_Leaving   = "Leaving"
 )
 
@@ -50,9 +51,11 @@ type BeaconMachine struct {
 	dryRun    bool
 	dev       *models.Device
 	supply    *models.Device
+	scan      *models.Device
 	state     string
 	replicant *models.CodeAlias
-	missingFB map[models.LocationID]bool
+	missingFB map[string]bool
+	needsScan map[string]bool
 }
 
 func (bm *BeaconMachine) Start(d *models.Device, dryRun bool) error {
@@ -66,11 +69,6 @@ func (bm *BeaconMachine) Start(d *models.Device, dryRun bool) error {
 	if !slices.Contains([]string{"heaven_vessel", "racing_vessel", "cargo_vessel"}, d.Type) {
 		return fmt.Errorf("%s is not a vessel: %q", d.Code.Alias(), d.Type)
 	}
-	dump, err := json.MarshalIndent(d, "", "  ")
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(dump))
 	bm.dev = d
 
 	// Save the resident replicant
@@ -97,14 +95,23 @@ func (bm *BeaconMachine) Start(d *models.Device, dryRun bool) error {
 
 	bm.dryRun = dryRun
 
-	p, err := rest.GetTagged(fmt.Sprintf("supply:%s", d.Code.Alias()))
+	mf, err := rest.GetTagged(fmt.Sprintf("supply:%s", d.Code.Alias()))
 	if err != nil {
 		return fmt.Errorf("Can't get tagged supply ship: %v", err)
 	}
-	if len(p.Devices) != 1 {
-		return fmt.Errorf("Can't find exactly one device tagged supply:%s, found %d", d.Code.Alias(), len(p.Devices))
+	if len(mf.Devices) != 1 {
+		return fmt.Errorf("Can't find exactly one device tagged supply:%s, found %d", d.Code.Alias(), len(mf.Devices))
 	}
-	bm.supply = p.Devices[0]
+	bm.supply = mf.Devices[0]
+
+	sd, err := rest.GetTagged(fmt.Sprintf("scan:%s", d.Code.Alias()))
+	if err != nil {
+		return fmt.Errorf("Can't get tagged survey drone: %v", err)
+	}
+	if len(sd.Devices) != 1 {
+		return fmt.Errorf("Can't find exactly one device tagged scan:%s, found %d", d.Code.Alias(), len(sd.Devices))
+	}
+	bm.scan = sd.Devices[0]
 
 	return bm.UpdateState()
 }
@@ -123,6 +130,12 @@ func (bm *BeaconMachine) UpdateState() error {
 	}
 	bm.supply = supply
 
+	scan, err := rest.RefreshDeviceInfo(bm.scan.Code)
+	if err != nil {
+		return fmt.Errorf("Can't refresh info for survey drone %q: %v", bm.scan.Code.Alias(), err)
+	}
+	bm.scan = scan
+
 	// State flags
 	// Has the system been scanned?
 	loc, err := rest.Location(dev.Location.Star())
@@ -137,37 +150,42 @@ func (bm *BeaconMachine) UpdateState() error {
 	})
 
 	// Find beacons already deployed
-	hasBeacon := make(map[models.LocationID]bool)
+	hasBeacon := make(map[string]bool)
 	beacons, err := rest.Devices(map[string]string{"location": dev.Location.Star(), "device_type": "ftl_beacon"})
 	if err != nil {
 		return err
 	}
 	for _, b := range beacons {
-		hasBeacon[b.Location] = true
+		hasBeacon[string(b.Location)] = true
 	}
+	log("Found beacons: %v", hasBeacon)
 
 	// Find life in the system that is missing a beacon
 	lifeStages := []string{"spacefaring", "intelligent"}
 	if bm.missingFB == nil {
-		bm.missingFB = make(map[models.LocationID]bool)
+		bm.missingFB = make(map[string]bool)
+	}
+	if bm.needsScan == nil {
+		bm.needsScan = make(map[string]bool)
 	}
 	for _, p := range loc.Planets {
 		if !p.Scanned {
-			continue
+			bm.needsScan[string(p.Designation)] = true
 		}
 		if !slices.Contains(lifeStages, p.LifeStage) {
 			continue
 		}
-		if hasBeacon[p.Designation] {
+		if hasBeacon[string(p.Designation)] {
 			continue
 		}
-		bm.missingFB[p.Designation] = true
+		bm.missingFB[string(p.Designation)] = true
 	}
 
-	log("State: %s@%s, %s@%s; System Scanned: %v, missing: %v",
+	log("State: %s@%s, %s@%s, %s@%s; System Scanned: %v, to scan: %v, missing: %v",
 		bm.dev.Code.Alias(), bm.dev.Location,
 		bm.supply.Code.Alias(), bm.supply.Location,
-		isScanned, bm.missingFB)
+		bm.scan.Code.Alias(), bm.scan.Location,
+		isScanned, bm.needsScan, bm.missingFB)
 
 	oldState := bm.state
 	switch {
@@ -183,7 +201,7 @@ func (bm *BeaconMachine) UpdateState() error {
 	case bm.state == "" && status != "idle":
 		log("Blank state, moving")
 		bm.state = BeaconStates_Transit
-	case fbInv:
+	case !fbInv:
 		log("No more beacons")
 		bm.state = BeaconStates_Empty
 	case !isScanned:
@@ -191,8 +209,11 @@ func (bm *BeaconMachine) UpdateState() error {
 		bm.state = BeaconStates_Scanning
 	case len(bm.missingFB) > 0:
 		log("Missing beacons: %v", bm.missingFB)
-		bm.state = BeaconStates_Deploying
-	case len(bm.missingFB) == 0:
+		bm.state = BeaconStates_Incoming
+	case bm.scan.StowedInDeviceCode == nil:
+		log("Recalling survey drone")
+		bm.state = BeaconStates_Cleanup
+	case bm.scan.StowedInDeviceCode != nil:
 		log("All done")
 		bm.state = BeaconStates_Leaving
 	default:
@@ -225,8 +246,27 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		}
 		nextState = BeaconStates_Incoming
 	case BeaconStates_Incoming:
-		if bm.missingFB[bm.dev.Location] {
-			nextState = BeaconStates_Deploying
+		if bm.missingFB[string(bm.dev.Location)] {
+			if bm.needsScan[string(bm.dev.Location)] {
+				if _, err := deviceCommand(bm.scan.Code, "deploy", nil, bm.dryRun); err != nil {
+					return eta, fmt.Errorf("Can't deploy survey drone: %v", err)
+				}
+				res, err := deviceCommand(bm.scan.Code, "scan", nil, bm.dryRun)
+				if err != nil {
+					return eta, fmt.Errorf("Can't scan %q with %s: %v", bm.dev.Location, bm.scan.Code, err)
+				}
+				eta = res.Completes.Time()
+				log("Scan started, ETA %s (%s)", eta, time.Until(eta))
+			} else {
+				if bm.scan.StowedInDeviceCode == nil {
+					if res, err := deviceCommand(bm.scan.Code, "recall", nil, bm.dryRun); err != nil {
+						return eta, fmt.Errorf("Can't recall %q: %v", bm.scan.Code.Alias(), err)
+					} else {
+						log("Recalled %q: %s", bm.scan.Code.Alias(), res.Status)
+					}
+				}
+				nextState = BeaconStates_Deploying
+			}
 		} else if len(bm.missingFB) > 0 {
 			var dests []string
 			for k := range bm.missingFB {
@@ -241,7 +281,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 			nextState = BeaconStates_Incoming
 		} else {
 			log("Done with %s", bm.dev.Location.Star())
-			nextState = BeaconStates_Leaving
+			nextState = BeaconStates_Cleanup
 		}
 	case BeaconStates_Deploying:
 		var fb *models.CodeAlias
@@ -263,7 +303,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		if _, err := rest.UpdateTags(fb, rest.AddTag, []string{"infrastructure"}); err != nil {
 			return eta, err
 		}
-		delete(bm.missingFB, bm.dev.Location)
+		delete(bm.missingFB, string(bm.dev.Location))
 	case BeaconStates_Empty:
 		if bm.dev.Location != bm.supply.Location {
 			log("Waiting for resupply at %q", bm.dev.Location)
@@ -292,19 +332,40 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 			if err != nil {
 				return eta, err
 			}
-			pPlan, err := common.Print(home, "ftl_beacon", bm.supply.AttachCapacity, true, bm.dryRun, nil)
+			homeFBs, err := rest.Devices(map[string]string{"location": home, "device_type": "ftl_beacon"})
 			if err != nil {
-				log("Error printing beacons: %v", err)
-			} else {
-				log("Queued %d ftl_beacons: ETA %s (%s)",
-					bm.supply.AttachCapacity, pPlan.ETA, time.Until(pPlan.ETA))
+				return eta, err
+			}
+			log("Found %d beacons at home", len(homeFBs))
+			if len(homeFBs) < bm.supply.AttachCapacity {
+				need := bm.supply.AttachCapacity - len(homeFBs)
+				pPlan, err := common.Print(home, "ftl_beacon", need, true, bm.dryRun, nil)
+				if err != nil {
+					log("Error printing beacons: %v", err)
+				} else {
+					log("Queued %d ftl_beacons: ETA %s (%s)", need, pPlan.ETA, time.Until(pPlan.ETA))
+				}
 			}
 
+			nextState = BeaconStates_Cleanup
+		}
+	case BeaconStates_Cleanup:
+		if bm.scan.StowedInDeviceCode == nil {
+			if res, err := deviceCommand(bm.scan.Code, "recall", nil, bm.dryRun); err != nil {
+				return eta, fmt.Errorf("Can't recall %q: %v", bm.scan.Code.Alias(), err)
+			} else {
+				log("Recalled %q: %s", bm.scan.Code.Alias(), res.Status)
+				if res.Arrives != nil {
+					eta = res.Arrives.Time()
+				}
+			}
+		} else {
 			nextState = BeaconStates_Leaving
 		}
 	case BeaconStates_Leaving:
 		// Find all the deployed beacons
 		beacons := make(map[string]bool)
+		log("Finding all ftl_beacons...")
 		res, err := rest.Devices(map[string]string{
 			"device_type": "ftl_beacon",
 		})
@@ -317,13 +378,17 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 			}
 			beacons[string(d.Location)] = true
 		}
+		log("... %d found", len(beacons))
 
+		log("Finding nearest systems with life...")
 		pos := bm.dev.GetPosition()
 		rows, err := bm.db.DB.Query(`
-		  SELECT p.designation,
-			SQRT(POWER(position_x-$1, 2) + POWER(position_y-$2, 2) + POWER(position_z-$3,2)) AS dist
-		  FROM planets p JOIN stars s ON p.star = s.designation
-		  WHERE (life_stage = 'intelligent' or life_stage = 'spacefaring')
+		  SELECT * FROM (
+			SELECT p.designation,
+			  SQRT(POWER(position_x-$1, 2) + POWER(position_y-$2, 2) + POWER(position_z-$3,2)) AS dist
+			FROM planets p JOIN stars s ON p.star = s.designation
+			WHERE (life_stage = 'intelligent' or life_stage = 'spacefaring'))
+		  WHERE dist > 0.1
 		  ORDER BY dist;
 		`, pos.X, pos.Y, pos.Z)
 		if err != nil {
@@ -402,7 +467,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 			}
 			log("Supply ship in transit: %s (%s)", eta, time.Until(eta))
 		} else {
-			log("Supply ship waiting for new beacons -- consider printing some")
+			log("Supply ship waiting for new beacons")
 		}
 	case bm.dev.Location:
 		log("Waiting for resupply at %q", bm.dev.Location)

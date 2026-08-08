@@ -133,12 +133,22 @@ var teleportCmd = &cobra.Command{
 	Use:   "teleport",
 	Short: "Teleport to an empty matrix",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		getERM := func(d *models.Device) *models.CodeAlias {
+			for _, s := range d.StowedDevices.Devices {
+				if s.Type != "empty_replicant_matrix" {
+					continue
+				}
+				return s.Code
+			}
+			return nil
+		}
 		rID, err := getRID(cmd)
 		if err != nil {
 			return fmt.Errorf("Replicant not found: %v", err)
 		}
-		target := getString(cmd, "target")
-		if target == "" {
+		targetStr := getString(cmd, "target")
+		var target *models.CodeAlias
+		if targetStr == "" {
 			loc := getString(cmd, "location")
 			dests, err := getTeleportDests(loc)
 			if err != nil {
@@ -148,19 +158,21 @@ var teleportCmd = &cobra.Command{
 				log("%s @ %s...", d.Code.Alias(), d.Location)
 				if string(d.Location) == loc {
 					log("...bullseye")
-					target = d.StowedDevices.Devices[0].Code.Alias()
+					target = getERM(d)
 					break
 				}
-				if strings.HasPrefix(loc, d.Location.Star()) {
-					log("...in system")
-					target = d.StowedDevices.Devices[0].Code.Alias()
+				if slices.Contains(d.Features, "cruise") && strings.HasPrefix(loc, d.Location.Star()) {
+					log("...ship in system")
+					target = getERM(d)
 				}
 			}
-			if target == "" {
+			if target == nil {
 				return fmt.Errorf("No empty matrixes found at %s", loc)
 			}
+		} else {
+			target = models.NewCodeAlias(targetStr)
 		}
-		res, err := rest.ReplicantTeleport(rID, models.NewCodeAlias(target))
+		res, err := rest.ReplicantTeleport(rID, target)
 		if err != nil {
 			return err
 		}

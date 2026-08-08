@@ -281,8 +281,6 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 		for _, d := range em.sds {
 			ids = append(ids, d.Code)
 		}
-		// If we're all packed up, we can go right away, but check on our devices
-		eta = time.Now()
 		for _, id := range ids {
 			res, err := deviceCommand(id, "recall", nil, em.dryRun)
 			if err != nil {
