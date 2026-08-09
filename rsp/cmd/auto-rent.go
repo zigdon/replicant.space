@@ -237,9 +237,6 @@ func autoRent(cmd *cobra.Command, args []string) error {
 				cargo: make(map[string]int),
 			}
 
-			if sh.Status != "relaying" {
-				return
-			}
 			if st, ok := mtds[sh.Location.Star()]; !ok {
 				errs = append(errs, fmt.Errorf("No maintenance drone found at %s for %s", sh.Location, sh.Code.Alias()))
 			} else if st.Status != "coordinating" {

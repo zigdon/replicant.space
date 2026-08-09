@@ -151,12 +151,24 @@ func readStream(cmd *cobra.Command, args []string) error {
 				}, nd.DeviceCode)
 			}
 		case "ami.transport.digest":
-			_, err := models.Parse[models.StreamAmiDigest](payload)
+			ev, err := models.Parse[models.StreamAmiDigest](payload)
 			if err != nil {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-			log("Ignoring %s", env.Event)
+			st := make(map[string][]*models.CodeAlias)
+			for _, d := range ev.Devices {
+				st[d.Status] = append(st[d.Status], d.DeviceCode)
+			}
+			var cnts []string
+			for k, v := range st {
+				cnts = append(cnts, fmt.Sprintf("%s (%d)", k, len(v)))
+				update(func(d *models.Device) {
+					change(&d.Status, k)
+				}, v...)
+			}
+			slices.Sort(cnts)
+			log("Updating transports status: %s", strings.Join(cnts, ", "))
 		case "bobnet.new":
 			ev, err := models.Parse[models.StreamBobnetNew](payload)
 			if err != nil {

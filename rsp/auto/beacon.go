@@ -158,7 +158,7 @@ func (bm *BeaconMachine) UpdateState() error {
 	for _, b := range beacons {
 		hasBeacon[string(b.Location)] = true
 	}
-	log("Found beacons: %v", hasBeacon)
+	log("Found %d beacons", len(hasBeacon))
 
 	// Find life in the system that is missing a beacon
 	lifeStages := []string{"spacefaring", "intelligent"}
@@ -181,11 +181,11 @@ func (bm *BeaconMachine) UpdateState() error {
 		bm.missingFB[string(p.Designation)] = true
 	}
 
-	log("State: %s@%s, %s@%s, %s@%s; System Scanned: %v, to scan: %v, missing: %v",
+	log("State: %s@%s, %s@%s, %s@%s; System Scanned: %v, not scanned: %d, missing: %v",
 		bm.dev.Code.Alias(), bm.dev.Location,
 		bm.supply.Code.Alias(), bm.supply.Location,
 		bm.scan.Code.Alias(), bm.scan.Location,
-		isScanned, bm.needsScan, bm.missingFB)
+		isScanned, len(bm.needsScan), bm.missingFB)
 
 	oldState := bm.state
 	switch {

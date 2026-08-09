@@ -100,7 +100,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 				delete(sms, d.Alias())
 				return nil
 			}
-			return err
+			return fmt.Errorf("%s error: %v", d.Alias(), err)
 		} else if t.IsZero() {
 			err = fmt.Errorf("%s: No time for next step", d.Alias())
 		}
@@ -109,7 +109,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 		}
 		eq.AddEvent(
 			d.Alias(),
-			fmt.Sprintf("%s: State machine %s wait is done", d.Alias(), m.Name()),
+			fmt.Sprintf("%s: State machine %s: %s", d.Alias(), m.Name(), "TODO"),
 			t, func() error {
 				return runStep(d, m)
 			}, nil,
@@ -123,7 +123,9 @@ func autoState(cmd *cobra.Command, args []string) error {
 		evs := eq.List()
 		var data [][]any
 		for _, e := range evs {
-			data = append(data, []any{e.When.Format(time.Stamp), e.Name, e.Desc})
+			data = append(data, []any{
+				fmt.Sprintf("%s (%s)", e.When.Format(time.Stamp), time.Until(e.When).Truncate(time.Second)),
+				e.Name, e.Desc})
 		}
 		printTable([]string{"When", "Who", "What"}, data)
 		log("Waiting for next process event: %s (%s)", eq.Next(), time.Until(eq.Next()))

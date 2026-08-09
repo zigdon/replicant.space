@@ -200,12 +200,12 @@ func (es *eventState) updateState() error {
 		es.transports = append(es.transports, d)
 		switch d.Location {
 		case es.event.Location:
-			log("%q is ready to unload")
+			log("%q is ready to unload", d)
 			for _, c := range d.Cargo {
 				es.ready[c.ResourceType] += c.Quantity
 			}
 		case home:
-			log("%q is still loading")
+			log("%q is still loading", d)
 			for _, c := range d.Cargo {
 				es.waiting[c.ResourceType] = append(es.waiting[c.ResourceType], d.Code)
 			}

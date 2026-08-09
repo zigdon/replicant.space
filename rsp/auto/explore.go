@@ -288,7 +288,8 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 					// not an error
 					continue
 				}
-				return eta, err
+				log("Error recalling %q: %v", id, err)
+				continue
 			}
 			if res.Route != nil {
 				recall := time.Now().Add(res.Route[0].Time.Duration())

@@ -93,6 +93,9 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 			return fmt.Errorf("Can't follow %q: %v", getTags(rm.dev)["follow"], err)
 		}
 		rm.dest = dest.Location
+	case getTags(rm.dev)["fill"] != "":
+		// Just say our current location is the destination, we'll figure it out later
+		rm.dest = rm.dev.Location
 	default:
 		return fmt.Errorf("Can't figure relay destination")
 	}
@@ -370,24 +373,66 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 	case RelayMachine_Leaving:
 		if rm.dev.Location.Star() == rm.dest.Star() {
-			follow := getTags(rm.dev)["follow"]
-			if follow == "" {
+			if follow := getTags(rm.dev)["follow"]; follow != "" {
+				target, err := rest.DeviceInfo(models.NewCodeAlias(follow))
+				if err != nil {
+					return eta, fmt.Errorf("Can't follow %q: %v", follow, err)
+				}
+				if target.Location != "" {
+					rm.dest = target.Location
+				} else if target.Travel != nil {
+					rm.dest = target.Travel.Destination
+				} else {
+					return eta, fmt.Errorf("Can't figure out how to follow %q", follow)
+				}
+				log("New destination, %s", rm.dest)
+			} else if fill := getTags(rm.dev)["fill"]; fill == "beacons" {
+				// find the closest system that has an ftl beacons but is not networked
+				net, err := rest.DeviceNetwork(models.NewCodeAlias("sh-1"))
+				if err != nil {
+					return eta, fmt.Errorf("Can't get ftl network: %v", err)
+				}
+				inNet := make(map[string]bool)
+				inNet["MENKUNT"] = true
+				for _, c := range net.Connections {
+					inNet[c.Star] = true
+				}
+				log("%d systems in network", len(inNet))
+				fbs, err := rest.Devices(map[string]string{"device_type": "ftl_beacon"})
+				if err != nil {
+					return eta, fmt.Errorf("Can't get beacons: %v", err)
+				}
+				var nearest float32
+				var dest string
+				curStar, err := models.NewStar(rm.dev.Location.Star())
+				if err != nil {
+					return eta, fmt.Errorf("Can't get current star %q: %v", rm.dev.Location, err)
+				}
+
+				for _, fb := range fbs {
+					if fb.Status != "monitoring" {
+						continue
+					}
+					if inNet[fb.Location.Star()] {
+						continue
+					}
+					star, err := models.NewStar(fb.Location.Star())
+					if err != nil {
+						return eta, fmt.Errorf("Can't get star %q for %s: %v",
+							fb.Location, fb.Code.Alias(), err)
+					}
+					if dist := star.Position.Distance(curStar.Position); nearest == 0 || dist < nearest {
+						log("%s is %.2f ly away", star.Designation, dist)
+						nearest = dist
+						dest = star.Designation.Star()
+					}
+				}
+				log("Next beacon: %s (%.2f LY away)", dest, nearest)
+				rm.dest = models.LocationID(dest)
+			} else {
 				rm.state = RelayMachine_Done
 				return eta, MachineDoneErr(fmt.Sprintf("Relay destination reached: %s", rm.dev.Location))
 			}
-
-			target, err := rest.DeviceInfo(models.NewCodeAlias(follow))
-			if err != nil {
-				return eta, fmt.Errorf("Can't follow %q: %v", follow, err)
-			}
-			if target.Location != "" {
-				rm.dest = target.Location
-			} else if target.Travel != nil {
-				rm.dest = target.Travel.Destination
-			} else {
-				return eta, fmt.Errorf("Can't figure out how to follow %q", follow)
-			}
-			log("New destination, %s", rm.dest)
 		}
 
 		// find the nearest relay to the destination
@@ -503,12 +548,20 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 	case rm.dev.Location:
 		log("Waiting for resupply at %q", rm.dev.Location)
 	default:
-		log("Following %s to %q", rm.dev.Code.Alias(), rm.dev.Location)
-		eta, err := common.Travel(rm.supply.Code, string(rm.dev.Location), rm.dryRun)
-		if err != nil {
-			return eta, err
+		dest := rm.dev.Location
+		if dest == "" && rm.dev.Travel != nil {
+			dest = rm.dev.Travel.Destination
 		}
-		log("Supply ship in transit: %s (%s)", eta, time.Until(eta))
+		if dest != "" {
+			log("Following %s to %q", rm.dev.Code.Alias(), dest)
+			eta, err := common.Travel(rm.supply.Code, string(dest), rm.dryRun)
+			if err != nil {
+				return eta, err
+			}
+			log("Supply ship in transit: %s (%s)", eta, time.Until(eta))
+		} else {
+			log("Waiting for %s to reappear", rm.dev.Code.Alias())
+		}
 	}
 
 	if nextState != rm.state {

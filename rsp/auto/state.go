@@ -48,6 +48,13 @@ func getTags(dev *models.Device) map[string]string {
 	return res
 }
 
+func later(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	}
+	return b
+}
+
 func log(tmpl string, args ...any) {
 	common.LogLevel(1, tmpl, args...)
 }

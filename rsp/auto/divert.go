@@ -27,6 +27,16 @@ import (
 // travelling: in tranit
 //   - wait
 
+type DivertMachine_State string
+
+const (
+	DivertMachine_Transit  = "transit"
+	DivertMachine_Incoming = "incoming"
+	DivertMachine_Working  = "working"
+	DivertMachine_Cleanup  = "cleanup"
+	DivertMachine_Leaving  = "leaving"
+)
+
 type DivertMachine struct {
 	dev    *models.Device
 	mtd    *models.Device
@@ -97,15 +107,15 @@ func (dm *DivertMachine) UpdateState() error {
 	oldState := dm.state
 	switch {
 	case inTransit:
-		dm.state = "travelling"
+		dm.state = DivertMachine_Transit
 	case hasDevices && activeSite:
-		dm.state = "incoming"
+		dm.state = DivertMachine_Incoming
 	case activeSite:
-		dm.state = "working"
+		dm.state = DivertMachine_Working
 	case !hasMtd:
-		dm.state = "cleanup"
+		dm.state = DivertMachine_Cleanup
 	case hasMtd:
-		dm.state = "departing"
+		dm.state = DivertMachine_Leaving
 	default:
 		return fmt.Errorf("Unknown state")
 	}
@@ -116,18 +126,20 @@ func (dm *DivertMachine) UpdateState() error {
 }
 
 func (dm *DivertMachine) Process() (time.Time, error) {
-	eta := time.Now().Add(5 * time.Minute)
+	eta := time.Now()
 	if err := dm.UpdateState(); err != nil {
 		return eta, err
 	}
 	nextState := dm.state
 	log("State: %s", dm.state)
 	switch dm.state {
-	case "travelling":
+	case DivertMachine_Transit:
 		if t := dm.dev.Travel; t != nil {
-			eta = t.Arrives.Time()
+			eta = later(eta, t.Arrives.Time())
+		} else {
+			eta = later(eta, time.Now().Add(5*time.Minute))
 		}
-	case "incoming":
+	case DivertMachine_Incoming:
 		res, err := deviceCommand(dm.dev.Code, "detach", nil, dm.dryRun)
 		if err != nil {
 			return eta, err
@@ -169,8 +181,8 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 			}
 		}
 
-		nextState = "working"
-	case "working":
+		nextState = DivertMachine_Working
+	case DivertMachine_Working:
 		obj, err := rest.Location(string(dm.dev.Location))
 		if err != nil {
 			return eta, err
@@ -178,14 +190,15 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 		need := obj.Object.RequiredStrength
 		have := obj.Object.CurrentThrustPerHour
 		est := time.Duration(need/have*3600) * time.Second
-		// Let's not update the ETA with the estimate, since we can't count on it anyway.
+		// Since the estimate varies a lot, lets set the ETA at 50% of when it should be.
 		if est > 0 {
-			eta := time.Now().Add(est)
-			log("Diversion in progress, with %.2f/h of %.2f, ETA: %s (%s)", have, need, eta, est)
+			log("Diversion in progress, with %.2f/h of %.2f, ETA: %s (%s)",
+				have, need, time.Now().Add(est), est)
+			eta = later(eta, time.Now().Add(est/2))
 		} else {
 			log("Diversion in progress, need %.2f, no ETA yet", need)
 		}
-	case "cleanup":
+	case DivertMachine_Cleanup:
 		props, err := rest.Devices(map[string]string{"device_type": "propulsor", "location": dm.dev.Location.Star()})
 		if err != nil {
 			return eta, err
@@ -209,23 +222,22 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 		}
 		log("%s is at %s", dm.mtd, dm.mtd.Location)
 		if dm.mtd.Location != dm.dev.Location {
-			eta, err = common.Travel(dm.mtd.Code, string(dm.dev.Location), dm.dryRun)
+			res, err := deviceCommand(dm.mtd.Code, "recall", nil, dm.dryRun)
 			if err != nil {
 				return eta, err
 			}
+			eta = later(eta, res.Arrives.Time())
 			log("Recalling %q from %q, ETA: %s (%s)", dm.mtd, dm.mtd.Location, eta, time.Until(eta))
 		} else if dm.mtd.AttachedToDeviceCode == nil {
 			_, err := deviceCommand(dm.dev.Code, "attach", map[string]any{"target": dm.mtd.Code.String()}, dm.dryRun)
 			if err != nil {
 				return eta, err
 			}
-			nextState = "departing"
-			eta = time.Now()
+			nextState = DivertMachine_Leaving
 		} else {
-			nextState = "departing"
-			eta = time.Now()
+			nextState = DivertMachine_Leaving
 		}
-	case "departing":
+	case DivertMachine_Leaving:
 		rocks, err := common.GetRocks()
 		if err != nil {
 			return eta, err
@@ -288,11 +300,12 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 		}
 		log("Next rock: %s, %.2f LY away", next.Short(), closest)
 
-		eta, err = common.Travel(dm.dev.Code, string(next.Designation), dm.dryRun)
+		newEta, err := common.Travel(dm.dev.Code, string(next.Designation), dm.dryRun)
 		if err != nil {
 			return eta, err
 		}
-		nextState = "travelling"
+		eta = later(eta, newEta)
+		nextState = DivertMachine_Transit
 	default:
 		return eta, fmt.Errorf("Unknown state: %q", dm.state)
 	}
