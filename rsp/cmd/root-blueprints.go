@@ -10,10 +10,10 @@ import (
 	"github.com/zigdon/rsp/rest"
 )
 
-// blueprintsCmd represents the blueprints command
 var blueprintsCmd = &cobra.Command{
-	Use:   "blueprints",
-	Short: "List owne blueprints",
+	Use:     "blueprints",
+	Aliases: []string{"blueprint", "bp"},
+	Short:   "List owne blueprints",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		filter := getString(cmd, "filter")
 		feature := getString(cmd, "feature")

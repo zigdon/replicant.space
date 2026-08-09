@@ -27,7 +27,7 @@ import (
 //   scanning: if not scanned, scan
 //   incoming: check for life, {go to planet/ or skip to leaving}
 //   deploying: deploy, tag
-//   empty: move FBs from mf
+//   empty: meet mf at nearest relay system, move FBs from mf
 //   leaving: find the next system, head there
 // mobile fleet:
 //   empty: head home, queue FBs
@@ -207,8 +207,9 @@ func (bm *BeaconMachine) UpdateState() error {
 	case !isScanned:
 		log("System not scanned")
 		bm.state = BeaconStates_Scanning
-	case len(bm.missingFB) > 0:
-		log("Missing beacons: %v", bm.missingFB)
+	case bm.missingFB[string(bm.dev.Location)]:
+		bm.state = BeaconStates_Deploying
+	case len(bm.missingFB) > 0 && !bm.missingFB[string(bm.dev.Location)]:
 		bm.state = BeaconStates_Incoming
 	case bm.scan.StowedInDeviceCode == nil:
 		log("Recalling survey drone")
@@ -306,7 +307,15 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		delete(bm.missingFB, string(bm.dev.Location))
 	case BeaconStates_Empty:
 		if bm.dev.Location != bm.supply.Location {
-			log("Waiting for resupply at %q", bm.dev.Location)
+			relay, err := common.NearestRelay(bm.dev.Location.Star())
+			if err != nil {
+				return eta, err
+			}
+			log("Heading to %s to wait for resupply", relay)
+			eta, err = common.Travel(bm.dev.Code, relay, bm.dryRun)
+			if err != nil {
+				return eta, err
+			}
 		} else {
 			if len(bm.supply.AttachedDevices) == 0 {
 				return eta, fmt.Errorf("Resupply vessage %q unexpectedly empty at %q",
@@ -421,10 +430,20 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 	}
 
 	// Handle supply vessal
-	switch bm.supply.Location {
-	case "":
+	// When not home, hang out at the edge of the relay network
+	devLoc := bm.dev.Location
+	if devLoc == "" && bm.dev.Travel != nil {
+		devLoc = bm.dev.Travel.Destination
+	}
+	relay, err := common.NearestRelay(devLoc.Star())
+	if err != nil {
+		return eta, err
+	}
+
+	switch {
+	case bm.supply.Location == "":
 		log("Resupply platform in transit...")
-	case home:
+	case bm.supply.Location == home:
 		slots := bm.supply.AttachCapacity - len(bm.supply.AttachedDevices)
 		devs, err := rest.RefreshDevices(map[string]string{
 			"location":    home,
@@ -460,8 +479,8 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 			}
 		}
 		if len(bm.supply.AttachedDevices) > 0 {
-			log("Shipping out to %q to deliver FBs", bm.dev.Location)
-			eta, err := common.Travel(bm.supply.Code, string(bm.dev.Location), bm.dryRun)
+			log("Shipping out to %q to deliver FBs", relay)
+			eta, err := common.Travel(bm.supply.Code, relay, bm.dryRun)
 			if err != nil {
 				return eta, err
 			}
@@ -469,11 +488,11 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		} else {
 			log("Supply ship waiting for new beacons")
 		}
-	case bm.dev.Location:
-		log("Waiting for resupply at %q", bm.dev.Location)
+	case bm.supply.Location.Star() == relay:
+		log("Waiting to resupply at %q", relay)
 	default:
-		log("Following %s to %q", bm.dev.Code.Alias(), bm.dev.Location)
-		eta, err := common.Travel(bm.supply.Code, string(bm.dev.Location), bm.dryRun)
+		log("Restaging to %s", relay)
+		eta, err := common.Travel(bm.supply.Code, relay, bm.dryRun)
 		if err != nil {
 			return eta, err
 		}

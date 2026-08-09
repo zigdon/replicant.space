@@ -33,12 +33,24 @@ import (
 
 const home = "MENKUNT-2-L4"
 
+type RelayMachine_State string
+
+const (
+	RelayMachine_Done      = "done"
+	RelayMachine_Transit   = "transit"
+	RelayMachine_Incoming  = "incoming"
+	RelayMachine_Deploying = "deploying"
+	RelayMachine_Cleanup   = "cleanup"
+	RelayMachine_Empty     = "empty"
+	RelayMachine_Leaving   = "leaving"
+)
+
 type RelayMachine struct {
 	dryRun    bool
 	dev       *models.Device
 	supply    *models.Device
 	dest      models.LocationID
-	state     string
+	state     RelayMachine_State
 	replicant *models.CodeAlias
 }
 
@@ -160,31 +172,31 @@ func (rm *RelayMachine) UpdateState() error {
 	switch {
 	case rm.dev.Location == "" || status != "idle":
 		log("In transit")
-		rm.state = "transit"
+		rm.state = RelayMachine_Transit
 	case rm.dev.Location == home:
 		log("Leaving home")
-		rm.state = "leaving"
+		rm.state = RelayMachine_Leaving
 	case rm.state == "" && status == "idle":
 		log("Blank state, stationary")
-		rm.state = "incoming"
+		rm.state = RelayMachine_Incoming
 	case rm.state == "" && status != "idle":
 		log("Blank state, moving")
-		rm.state = "transit"
+		rm.state = RelayMachine_Transit
 	case sysFRRelaying && sysHasSpareFR:
 		log("System relayed, cleanup available")
-		rm.state = "cleanup"
+		rm.state = RelayMachine_Cleanup
 	case !inL4:
 		log("Not in L4")
-		rm.state = "incoming"
+		rm.state = RelayMachine_Incoming
 	case !frInv:
 		log("Out of inventory")
-		rm.state = "empty"
+		rm.state = RelayMachine_Empty
 	case sysFRRelaying && !sysHasSpareFR:
 		log("System relayed, no cleanup")
-		rm.state = "leaving"
+		rm.state = RelayMachine_Leaving
 	case inL4 && !sysFRRelaying:
 		log("At L4, ready to deploy")
-		rm.state = "deploying"
+		rm.state = RelayMachine_Deploying
 	default:
 		return fmt.Errorf(
 			"Unknown state (%s): state: %q, FRs: ship %v, sys %d (relaying: %v)",
@@ -202,7 +214,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 	nextState := rm.state
 	log("State: %s", rm.state)
 	switch rm.state {
-	case "done":
+	case RelayMachine_Done:
 		log("*******************************************")
 		log("* RELAY COMPLETE: reached %s", rm.dest)
 		log("*******************************************")
@@ -216,11 +228,11 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		} else {
 			return eta, MachineDoneErr(fmt.Sprintf("*** Relay to %s complete ***", rm.dest))
 		}
-	case "transit":
+	case RelayMachine_Transit:
 		if t := rm.dev.Travel; t != nil {
 			eta = t.Arrives.Time()
 		}
-	case "incoming":
+	case RelayMachine_Incoming:
 		if strings.Contains(string(rm.dev.Location), "L4") {
 			return eta, nil
 		}
@@ -248,9 +260,9 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			}
 		} else {
 			log("at %s entry point: %s", rm.dev.Location.Star(), scan.EntryPoint)
-			nextState = "deploying"
+			nextState = RelayMachine_Deploying
 		}
-	case "deploying":
+	case RelayMachine_Deploying:
 		// Find an FR in our hold
 		var fr *models.CodeAlias
 		for _, d := range rm.dev.StowedDevices.Devices {
@@ -262,7 +274,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 		if fr == nil {
 			log("Out of relays")
-			nextState = "empty"
+			nextState = RelayMachine_Empty
 		} else {
 			// Deploy
 			_, err := deviceCommand(fr, "deploy", nil, rm.dryRun)
@@ -280,9 +292,9 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				return eta, fmt.Errorf("Can't update tags on %q: %v", fr.Alias(), err)
 			}
 			log("Relay deployed at %s", rm.dev.Location)
-			nextState = "cleanup"
+			nextState = RelayMachine_Cleanup
 		}
-	case "cleanup":
+	case RelayMachine_Cleanup:
 		// Find spares in system
 		frs, err := rest.RefreshDevices(map[string]string{"location": rm.dev.Location.Star()})
 		if err != nil {
@@ -316,9 +328,9 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			}
 		} else {
 			log("Cleanup done")
-			nextState = "leaving"
+			nextState = RelayMachine_Leaving
 		}
-	case "empty":
+	case RelayMachine_Empty:
 		if rm.dev.Location != rm.supply.Location {
 			log("Waiting for resupply at %q", rm.dev.Location)
 		} else {
@@ -354,13 +366,13 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 					rm.supply.AttachCapacity, pPlan.ETA, time.Until(pPlan.ETA))
 			}
 
-			nextState = "leaving"
+			nextState = RelayMachine_Leaving
 		}
-	case "leaving":
+	case RelayMachine_Leaving:
 		if rm.dev.Location.Star() == rm.dest.Star() {
 			follow := getTags(rm.dev)["follow"]
 			if follow == "" {
-				rm.state = "done"
+				rm.state = RelayMachine_Done
 				return eta, MachineDoneErr(fmt.Sprintf("Relay destination reached: %s", rm.dev.Location))
 			}
 
@@ -378,45 +390,62 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			log("New destination, %s", rm.dest)
 		}
 
-		// plot the next hop
-		route, err := common.PlotTrip(string(rm.dev.Location), rm.dest.Star(), nil)
+		// find the nearest relay to the destination
+		next, err := common.NearestRelay(rm.dest.Star())
 		if err != nil {
 			return eta, err
 		}
-		var lost = true
-		devs, err := rest.Devices(map[string]string{"device_type": "ftl_relay"})
-		if err != nil {
-			return eta, err
-		}
-		hasFR := make(map[string]bool)
-		for _, d := range devs {
-			if d.Status != "relaying" {
-				continue
-			}
-			hasFR[d.Location.Star()] = true
-		}
-		earlier := true
-		for _, l := range route.Legs {
-			if earlier && l.From != rm.dev.Location.Star() {
-				continue
-			}
-			earlier = false
-			// See if there's already an FR there
-			if hasFR[l.To] {
-				continue
-			}
-			lost = false
-			eta, err = common.Travel(rm.dev.Code, l.To, rm.dryRun)
+		log("Nearest relay to %s is %s", rm.dest.Star(), next)
+		if next != string(rm.dev.Location) {
+			eta, err = common.Travel(rm.dev.Code, next, rm.dryRun)
 			if err != nil {
 				return eta, err
 			}
-			rm.dev.Location = models.LocationID(l.To)
-			nextState = "transit"
-			break
-		}
-		if lost {
-			return eta, fmt.Errorf("Can't figure out the next step from %q to %q",
-				rm.dev.Location, rm.dest)
+			rm.dev.Location = models.LocationID(next)
+			nextState = RelayMachine_Transit
+		} else {
+			log("Already at %s, venturing out to %s", next, rm.dest.Star())
+
+			// plot the next hop
+			route, err := common.PlotTrip(string(rm.dev.Location), rm.dest.Star(), nil)
+			if err != nil {
+				return eta, err
+			}
+			var lost = true
+			devs, err := rest.Devices(map[string]string{"device_type": "ftl_relay"})
+			if err != nil {
+				return eta, err
+			}
+			hasFR := make(map[string]bool)
+			for _, d := range devs {
+				if d.Status != "relaying" {
+					continue
+				}
+				hasFR[d.Location.Star()] = true
+			}
+			earlier := true
+			for _, l := range route.Legs {
+				if earlier && l.From != rm.dev.Location.Star() {
+					continue
+				}
+				earlier = false
+				// See if there's already an FR there
+				if hasFR[l.To] {
+					continue
+				}
+				lost = false
+				eta, err = common.Travel(rm.dev.Code, l.To, rm.dryRun)
+				if err != nil {
+					return eta, err
+				}
+				rm.dev.Location = models.LocationID(l.To)
+				nextState = RelayMachine_Transit
+				break
+			}
+			if lost {
+				return eta, fmt.Errorf("Can't figure out the next step from %q to %q",
+					rm.dev.Location, rm.dest)
+			}
 		}
 	default:
 		return eta, fmt.Errorf("Unknown state: %q", rm.state)

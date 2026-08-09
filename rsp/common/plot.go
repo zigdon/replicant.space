@@ -399,3 +399,32 @@ func Distance(src, dst string) (float32, error) {
 
 	return posA.Distance(posB), nil
 }
+
+func NearestRelay(dest string) (string, error) {
+	// Get the home relay network
+	net, err := rest.DeviceNetwork(models.NewCodeAlias("sh-1"))
+	if err != nil {
+		return "", err
+	}
+	star, err := models.NewStar(dest)
+	if err != nil {
+		return "", err
+	}
+	var closest float32
+	var relay string
+	for _, r := range net.Connections {
+		rStar, err := models.NewStar(r.Star)
+		if err != nil {
+			return "", err
+		}
+		dist := star.Position.Distance(rStar.Position)
+		if dist == 0 {
+			return dest, nil
+		}
+		if closest == 0 || dist < closest {
+			closest = dist
+			relay = rStar.Designation.Star()
+		}
+	}
+	return relay, nil
+}
