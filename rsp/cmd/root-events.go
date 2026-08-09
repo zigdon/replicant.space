@@ -26,7 +26,7 @@ func eventComplete(eid string) error {
 		xp = e.Rewards.XP
 		civ = e.Rewards.CivilisationPoints
 		for k, v := range e.Rewards.Resources {
-			rs = append(rs, fmt.Sprintf("%d x %s", v, k))
+			rs = append(rs, fmt.Sprintf("%d × %s", v, k))
 		}
 	}
 	printTable([]string{
@@ -176,11 +176,14 @@ func printEventSummary(es []*models.Event) {
 	var events [][]any
 	for _, e := range es {
 		tag := fmt.Sprintf("event:%s", e.Designation)
+		txTag := fmt.Sprintf("tx:%s", e.Designation)
 		var from, transit, to int
-		devs, err := rest.Devices(map[string]string{"tag": tag})
-		if err != nil {
-			log("Error getting devices for %q: %v", tag, err)
+		devs, dErr := rest.Devices(map[string]string{"tag": tag})
+		tx, txErr := rest.Devices(map[string]string{"tag": txTag})
+		if dErr != nil || txErr != nil {
+			log("Error getting devices for %q: %v, %v", tag, dErr, txErr)
 		} else {
+			devs = append(devs, tx...)
 			for _, d := range devs {
 				switch d.Location {
 				case home:
@@ -222,15 +225,21 @@ func printEvent(e *models.Event, style lg.Style) {
 		{style.Render(e.Description + "\n")},
 		{style.Render(e.BroadcastMessage)}})
 	var crit [][]any
-	tag := fmt.Sprintf("event:%s", strings.ToLower(e.Designation))
 	inv, err := rest.Devices(map[string]string{"location": home})
 	if err != nil {
 		log("Error getting home inventory: %v", err)
 	}
+	tag := fmt.Sprintf("event:%s", strings.ToLower(e.Designation))
 	tagged, err := rest.Devices(map[string]string{"tag": tag})
 	if err != nil {
 		log("Error getting tagged devices: %v", err)
 	}
+	txTag := fmt.Sprintf("tx:%s", strings.ToLower(e.Designation))
+	tx, err := rest.Devices(map[string]string{"tag": txTag})
+	if err != nil {
+		log("Error getting tagged transports: %v", err)
+	}
+	tagged = append(tagged, tx...)
 	for _, c := range e.Criteria {
 		crit = append(crit, []any{
 			c.Name, formatDev(c.Devices, true),
@@ -258,6 +267,17 @@ func printEvent(e *models.Event, style lg.Style) {
 		progress = append(progress, line)
 	}
 	printTable([]string{"Name", "Done", "Devices", "Resources"}, progress)
+
+	var data [][]any
+	for _, d := range tagged {
+		loc := d.Location
+		if loc == "" {
+			loc = "in transit"
+		}
+		data = append(data, []any{d.Code.Alias(), d.Type, loc, list(d.Tags)})
+	}
+	printTable([]string{"Device", "Type", "Location", "Tags"}, data)
+
 }
 
 func ready(devs []*models.EventDevice, inv []*models.Device) string {
@@ -344,7 +364,7 @@ func formatDev(devs []*models.EventDevice, resBreakdown bool) string {
 	dev := make(map[string]int)
 	for _, d := range devs {
 		dt := d.DeviceType
-		out = append(out, fmt.Sprintf("%d x %s", d.Required, dt))
+		out = append(out, fmt.Sprintf("%d × %s", d.Required, dt))
 		if !resBreakdown {
 			continue
 		}

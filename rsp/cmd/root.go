@@ -35,6 +35,7 @@ func Execute() {
 		models.ConnectDB(db)
 		rest.ConnectDB(db)
 	}
+	defer db.DB.Close()
 
 	// if the first arg looks like a device alias, assume "device -d"
 	args := os.Args

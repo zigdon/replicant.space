@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/zigdon/rsp/cache"
@@ -36,34 +35,17 @@ type ProspectMachine struct {
 	plat   *models.Device
 	db     *cache.Cache
 	dryRun bool
+	status string
 }
 
 func (pm *ProspectMachine) Status() string {
-	var res []string
-	res = append(res, fmt.Sprintf("Machine state: %s, tag: %s, dry_run: %v",
-		pm.state, pm.tag, pm.dryRun))
-	if pm.dest != nil {
-		res = append(res, fmt.Sprintf("  dest: %s", pm.dest.String()))
-	} else {
-		res = append(res, "  dest: nil")
-	}
-	if pm.plat != nil {
-		res = append(res, fmt.Sprintf("Platform %s: %s @ %s", pm.plat.Code.Alias(), pm.plat.Status, pm.plat.Location))
-	} else {
-		res = append(res, "  platform: nil")
-	}
-	if pm.dev != nil {
-		res = append(res, fmt.Sprintf("Device %s: %s @ %s", pm.dev.Code.Alias(), pm.dev.Status, pm.dev.Location))
-	} else {
-		res = append(res, "  device: nil")
-	}
-
-	return strings.Join(res, "\n")
+	return pm.status
 }
 
 func (pm *ProspectMachine) Start(d *models.Device, dryRun bool) error {
 	pm.dryRun = dryRun
 	pm.dev = d
+	pm.status = "initializing"
 	dest := getTags(pm.dev)["prospect"]
 	if dest == "" {
 		return fmt.Errorf("No prospecting destination tagged on %s", d.Code.Alias())

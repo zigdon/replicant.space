@@ -7,10 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
+
+var DB *cache.Cache
 
 type MachineDoneErr string
 

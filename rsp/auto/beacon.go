@@ -5,7 +5,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
@@ -47,7 +46,6 @@ const (
 )
 
 type BeaconMachine struct {
-	db        *cache.Cache
 	dryRun    bool
 	dev       *models.Device
 	supply    *models.Device
@@ -56,14 +54,11 @@ type BeaconMachine struct {
 	replicant *models.CodeAlias
 	missingFB map[string]bool
 	needsScan map[string]bool
+	status    string
 }
 
 func (bm *BeaconMachine) Start(d *models.Device, dryRun bool) error {
-	db, err := cache.Connect()
-	if err != nil {
-		return err
-	}
-	bm.db = db
+	bm.status = "initializing"
 
 	// Make sure the device is a vessel
 	if !slices.Contains([]string{"heaven_vessel", "racing_vessel", "cargo_vessel"}, d.Type) {
@@ -391,7 +386,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 
 		log("Finding nearest systems with life...")
 		pos := bm.dev.GetPosition()
-		rows, err := bm.db.DB.Query(`
+		rows, err := DB.DB.Query(`
 		  SELECT * FROM (
 			SELECT p.designation,
 			  SQRT(POWER(position_x-$1, 2) + POWER(position_y-$2, 2) + POWER(position_z-$3,2)) AS dist
@@ -512,7 +507,7 @@ func (rm *BeaconMachine) SaveState(string) error {
 }
 
 func (rm *BeaconMachine) Status() string {
-	return ""
+	return rm.status
 }
 
 func (rm *BeaconMachine) Name() string {

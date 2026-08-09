@@ -13,6 +13,9 @@ import (
 )
 
 func autoState(cmd *cobra.Command, args []string) error {
+	// Share the existing database connection with the state machines
+	auto.DB = db
+
 	// If devices were specified, process those. Otherwise, loop over
 	// all the defined states
 	devs := make(map[string]*models.Device)
@@ -109,7 +112,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 		}
 		eq.AddEvent(
 			d.Alias(),
-			fmt.Sprintf("%s: State machine %s: %s", d.Alias(), m.Name(), "TODO"),
+			fmt.Sprintf("%s: State machine %s: %s", d.Alias(), m.Name(), m.Status()),
 			t, func() error {
 				return runStep(d, m)
 			}, nil,

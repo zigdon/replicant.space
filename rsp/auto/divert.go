@@ -42,6 +42,7 @@ type DivertMachine struct {
 	mtd    *models.Device
 	dryRun bool
 	state  string
+	status string
 }
 
 func (dm *DivertMachine) Start(d *models.Device, dryRun bool) error {
@@ -50,6 +51,7 @@ func (dm *DivertMachine) Start(d *models.Device, dryRun bool) error {
 	}
 	dm.dev = d
 	dm.dryRun = dryRun
+	dm.status = "initializing"
 	for _, dev := range dm.dev.AttachedDevices {
 		if dev.Type != "maintenance_drone" {
 			continue
@@ -222,11 +224,11 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 		}
 		log("%s is at %s", dm.mtd, dm.mtd.Location)
 		if dm.mtd.Location != dm.dev.Location {
-			res, err := deviceCommand(dm.mtd.Code, "recall", nil, dm.dryRun)
+			mtdEta, err := common.Travel(dm.mtd.Code, string(dm.dev.Location), dm.dryRun)
 			if err != nil {
 				return eta, err
 			}
-			eta = later(eta, res.Arrives.Time())
+			eta = later(eta, mtdEta)
 			log("Recalling %q from %q, ETA: %s (%s)", dm.mtd, dm.mtd.Location, eta, time.Until(eta))
 		} else if dm.mtd.AttachedToDeviceCode == nil {
 			_, err := deviceCommand(dm.dev.Code, "attach", map[string]any{"target": dm.mtd.Code.String()}, dm.dryRun)
@@ -323,7 +325,7 @@ func (dm *DivertMachine) SaveState(string) error {
 }
 
 func (dm *DivertMachine) Status() string {
-	return ""
+	return dm.status
 }
 
 func (dm *DivertMachine) Name() string {

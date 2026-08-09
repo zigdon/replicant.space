@@ -114,6 +114,19 @@ var accountCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("Error creating alias for %q: %v", err)
 			}
+			rep, err := rest.Replicant(r.Code)
+			if err != nil {
+				return fmt.Errorf("Error getting replicant info %q: %v", r.Code.Alias(), err)
+			}
+			container := rep.HostedDeviceCode
+			var tags []string
+			if container != nil {
+				info, err := rest.DeviceInfo(container)
+				if err != nil {
+					return fmt.Errorf("Error getting container info %q: %v", container.Alias(), err)
+				}
+				tags = info.Tags
+			}
 
 			reps = append(reps, []any{
 				r.Name,
@@ -121,9 +134,11 @@ var accountCmd = &cobra.Command{
 				r.CurrentLocation,
 				r.ExperiencePoints,
 				r.Status,
+				container,
+				list(tags),
 			})
 		}
-		printTable([]string{"Name", "Code", "Location", "XP", "Status"}, reps)
+		printTable([]string{"Name", "Code", "Location", "XP", "Status", "Container", "Tags"}, reps)
 		return nil
 	},
 }

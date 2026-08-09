@@ -39,10 +39,10 @@ func (ec *EventCriteria) Fill() error {
 func (ec *EventCriteria) Short() string {
 	var res []string
 	for _, d := range ec.Devices {
-		res = append(res, fmt.Sprintf("%d/%dx%s", d.Current, d.Required, d.DeviceType))
+		res = append(res, fmt.Sprintf("%d/%d×%s", d.Current, d.Required, d.DeviceType))
 	}
 	for k, v := range ec.Resources {
-		res = append(res, fmt.Sprintf("%dx%s", v, k))
+		res = append(res, fmt.Sprintf("%d×%s", v, k))
 	}
 
 	return fmt.Sprintf("%s: %s", ec.Name, strings.Join(res, ", "))

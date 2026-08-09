@@ -25,6 +25,7 @@ type PrintPlan struct {
 }
 
 func CheckQueue(where, tag, devType string, qty int) int {
+	Log("Checking %s print queue for %d × %q (tagged %q)", where, qty, devType, tag)
 	printers, err := GetFilteredDevices(
 		[]string{"autofactory"}, []string{where}, []string{"waiting_for_resources", "printing"})
 	if err != nil {
@@ -56,6 +57,7 @@ func CheckQueue(where, tag, devType string, qty int) int {
 		}
 	}
 
+	Log("... found %d %q (%q)", found, devType, tag)
 	return found
 }
 
@@ -129,7 +131,7 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 		bp := GetBP(name)
 		Log("Simulating printing of %d %s", qty, name)
 		for r, q := range bp.Resources {
-			Log("... need %d x %s", q*qty, r)
+			Log("... need %d × %s", q*qty, r)
 			printCost[r] += q * qty
 			if inventory[r] < q*qty {
 				return fmt.Errorf("Not enough %s for printing %d %s: have %d, need %d",
@@ -138,7 +140,7 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 			inventory[r] -= q * qty
 		}
 		for c, q := range bp.Components {
-			Log("... need %d x %s", q*qty, c)
+			Log("... need %d × %s", q*qty, c)
 			missing := q * qty
 			if useInventory {
 				missing -= inventory[c]
@@ -158,11 +160,11 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 	Log("Print queue:")
 	slices.Reverse(toPrint)
 	for _, p := range toPrint {
-		Log("  %d x %s", p.qty, p.name)
+		Log("  %d × %s", p.qty, p.name)
 	}
 	Log("Total cost:")
 	for k, v := range printCost {
-		Log("  %d x %s", v, k)
+		Log("  %d × %s", v, k)
 	}
 
 	// Check each printer for available print slots, and eta

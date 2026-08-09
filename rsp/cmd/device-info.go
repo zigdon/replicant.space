@@ -34,7 +34,7 @@ var infoCmd = &cobra.Command{
 			var totalCargo int
 			for _, c := range dev.Cargo {
 				totalCargo += c.Quantity
-				cargo = append(cargo, fmt.Sprintf("%d x %s", c.Quantity, c.ResourceType))
+				cargo = append(cargo, fmt.Sprintf("%d × %s", c.Quantity, c.ResourceType))
 			}
 			cargo = append([]string{fmt.Sprintf("%d/%d (%d%%)",
 				totalCargo, dev.CargoCapacity, 100*totalCargo/dev.CargoCapacity)}, cargo...)

@@ -55,6 +55,7 @@ type ExploreMachine struct {
 	state  ExploreStates
 	dryRun bool
 	eta    time.Time
+	status string
 }
 
 func (em *ExploreMachine) Start(dev *models.Device, dryRun bool) error {
@@ -64,6 +65,7 @@ func (em *ExploreMachine) Start(dev *models.Device, dryRun bool) error {
 	em.dryRun = dryRun
 	em.state = ExploreState_Initializing
 	em.dev = dev
+	em.status = "initializing"
 	em.tag = fmt.Sprintf("explore:%s", dev.Code.Alias())
 	log("Searching for support devices, tagged %q", em.tag)
 	devs, err := rest.GetTagged(em.tag)
@@ -231,10 +233,13 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 	}
 	switch em.state {
 	case ExploreState_Transit:
+		em.status = "in transit"
 		if t := em.dev.Travel; t != nil {
+			em.status = fmt.Sprintf("in transit to %s", em.dev.Travel.Destination)
 			eta = t.Arrives.Time()
 		}
 	case ExploreState_Incoming:
+		em.status = fmt.Sprintf("setting up at %s", em.dev.Location)
 		scan, err := rest.ReplicantScan(em.dev.ReplicantCode)
 		if err != nil {
 			return eta, err
@@ -268,11 +273,13 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 		nextState = ExploreState_Scanning
 		eta = time.Now()
 	case ExploreState_Scanning:
+		em.status = "scanning"
 		log("Scan in progress:")
 		if err := getLogs(); err != nil {
 			return eta, err
 		}
 	case ExploreState_Cleanup:
+		em.status = "cleaning up"
 		log("Scan complete:")
 		if err := getLogs(); err != nil {
 			return eta, err
@@ -300,7 +307,8 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 		}
 		log("Recalled all the devices")
 	case ExploreState_Leaving:
-		// TODO: add a task to install a breacon on planets with life
+		em.status = "leaving"
+		// TODO: add a task to install a beacon on planets with life
 		stars, err := rest.ReplicantCensus(em.dev.ReplicantCode, 50, 0)
 		if err != nil {
 			return eta, err
@@ -339,7 +347,7 @@ func (em *ExploreMachine) SaveState(string) error {
 }
 
 func (em *ExploreMachine) Status() string {
-	return fmt.Sprintf("Explorer %s: %s@%s, %s", em.dev.ReplicantCode, em.dev.Code, em.dev.Location, em.eta)
+	return em.status
 }
 func (em *ExploreMachine) Name() string {
 	return "Explorer"

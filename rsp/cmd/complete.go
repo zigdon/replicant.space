@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -194,5 +195,33 @@ func completeDevicesFilters(cmd *cobra.Command, args []string, toComplete string
 		}
 	}
 	return res, cobra.ShellCompDirectiveNoFileComp
+}
 
+func completeDeviceTags(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	// find the first argument that gets dealiased
+	var code string
+	for _, a := range os.Args {
+		if dealiased := db.Dealias(a); dealiased != a {
+			code = dealiased
+			break
+		}
+	}
+	if code == "" {
+		return nil, cobra.ShellCompDirectiveError
+	}
+	rows, err := db.DB.Query(`
+    SELECT JSONB_ARRAY_ELEMENTS_TEXT( data->'tags') FROM json_devices WHERE code = $1
+  `, code)
+	if err != nil {
+		log("query err: %v", err)
+		return nil, cobra.ShellCompDirectiveError
+	}
+	var res []string
+	for rows.Next() {
+		var t string
+		rows.Scan(&t)
+		res = append(res, t)
+	}
+
+	return res, cobra.ShellCompDirectiveNoFileComp
 }

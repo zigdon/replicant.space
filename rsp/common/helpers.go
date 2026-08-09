@@ -174,7 +174,6 @@ func GetFilteredDevices(devTypes, locations, statuses []string) ([]*models.CodeA
 		if err != nil {
 			return nil, err
 		}
-		Log("%v: %d found", filter, len(devs))
 		return devs, nil
 	}
 
@@ -200,7 +199,8 @@ func GetFilteredDevices(devTypes, locations, statuses []string) ([]*models.CodeA
 	Log("Searching for %v devices at %v: %d found", devTypes, locations, len(devs))
 	var ids []*models.CodeAlias
 	for _, d := range devs {
-		if len(statuses) > 0 && !slices.Contains(statuses, d.Status) {
+		st, _, _ := strings.Cut(d.Status, " ")
+		if len(statuses) > 0 && !slices.Contains(statuses, st) {
 			continue
 		}
 		ids = append(ids, d.Code)
@@ -264,7 +264,7 @@ func CountList(in []string) string {
 	slices.Sort(names)
 	var res []string
 	for _, n := range names {
-		res = append(res, fmt.Sprintf("%d x %s", m[n], n))
+		res = append(res, fmt.Sprintf("%d × %s", m[n], n))
 	}
 	return strings.Join(res, ", ")
 }

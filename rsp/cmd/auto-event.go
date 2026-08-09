@@ -380,6 +380,8 @@ func (es *eventState) complete() error {
 
 	var rep *models.Replicant
 	var data [][]any
+	var nearest float32 = -1
+	var name string
 	for _, r := range acc.ReplicantList {
 		if r.CurrentLocation == es.destination {
 			log("%s is already at %s.", r.Code, es.destination)
@@ -408,6 +410,9 @@ func (es *eventState) complete() error {
 		if err != nil {
 			log("Can't get distance to %s: %v", r.Code, err)
 			dist = -1
+		} else if r.CurrentLocation != "" && (nearest < 0 || dist < nearest) {
+			nearest = dist
+			name = r.Code.Alias()
 		}
 		data = append(data, []any{r.Code, r.CurrentLocation, dist, list(tags)})
 	}
@@ -450,7 +455,8 @@ func (es *eventState) complete() error {
 
 	log("Manual travel required to %s", es.destination)
 	printTable([]string{"Replicant", "Location", "Distance LY", "Tags"}, data)
-	return fmt.Errorf("Manual travel required")
+	return fmt.Errorf("Manual travel required: %s is nearest (%.2f LY from %s)",
+		name, nearest, es.destination)
 }
 
 // Actuate -> trigger actions to resolve
@@ -508,7 +514,15 @@ func (es *eventState) actuate() error {
 			errs = append(errs, err)
 		}
 		for _, d := range devs {
-			if len(d.Tags) > 0 && d.Tags[0] != es.tag {
+			if _, ok := toPrint[d.Type]; !ok {
+				continue
+			}
+			d, err = rest.DeviceInfo(d.Code)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			if len(d.Tags) > 0 && d.Tags[0] == es.tag {
 				continue
 			}
 			if need, ok := toPrint[d.Type]; ok {
@@ -527,6 +541,24 @@ func (es *eventState) actuate() error {
 		}
 	}
 
+	// Make sure all modular devices are compacted before shipping
+	for _, d := range toLoad {
+		info, err := rest.DeviceInfo(d)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if slices.Contains(info.Features, "modular") && info.Status != "compacted" {
+			res, err := _dc(d, "compact", nil, es.dryRun)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			log("Compacting %s: ETA %s (%s)", d, res.Completes.Time(), time.Until(res.Completes.Time()))
+			es.later("compacting", res.Completes.Time())
+		}
+	}
+
 	// If we still need to print devices, check if they're already queued and
 	// if not, print em
 	for k, v := range toPrint {
@@ -539,15 +571,15 @@ func (es *eventState) actuate() error {
 			"tags": []string{es.tag},
 		}
 		if bp := common.GetBP(k); bp != nil && slices.Contains(bp.Features, "modular") {
-			cfg["flatpak"] = true
+			cfg["flatpack"] = true
 		}
 		plan, err := common.Print(home, k, v, true, es.dryRun, cfg)
 		errs = append(errs, err)
 		es.later("printing", plan.ETA)
 	}
 
-	// If we're not printing anything else, ship em
-	if len(toPrint) == 0 {
+	// If we're not printing anything else, and we're not waiting for flackpacks, ship em
+	if len(toPrint) == 0 && time.Now().After(es.eta["compacting"]) {
 		errs = append(errs, es.shipDev(toLoad))
 	}
 

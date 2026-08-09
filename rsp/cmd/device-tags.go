@@ -37,9 +37,10 @@ var addTagCmd = &cobra.Command{
 }
 
 var delTagCmd = &cobra.Command{
-	Use:     "del",
-	Aliases: []string{"remove"},
-	Short:   "Remove a tag from a device",
+	Use:               "del",
+	Aliases:           []string{"remove"},
+	ValidArgsFunction: completeDeviceTags,
+	Short:             "Remove a tag from a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := getString(cmd, "device")
 		res, err := rest.UpdateTags(models.NewCodeAlias(id), rest.DelTag, args)

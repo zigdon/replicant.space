@@ -83,7 +83,7 @@ type Inventory struct {
 }
 
 func (i *Inventory) String() string {
-	return fmt.Sprintf("%d x %s", i.Quantity, i.ResourceType)
+	return fmt.Sprintf("%d × %s", i.Quantity, i.ResourceType)
 }
 
 type SystemStatus struct {
@@ -99,7 +99,7 @@ type UpkeepRequirement struct {
 }
 
 func (ur *UpkeepRequirement) String() string {
-	return fmt.Sprintf("%d x %s", ur.QuantityPer20pct, ur.ResourceType)
+	return fmt.Sprintf("%d × %s", ur.QuantityPer20pct, ur.ResourceType)
 }
 
 type Repair struct {

@@ -52,6 +52,7 @@ type RelayMachine struct {
 	dest      models.LocationID
 	state     RelayMachine_State
 	replicant *models.CodeAlias
+	status    string
 }
 
 func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
@@ -60,6 +61,7 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 		return fmt.Errorf("%s is not a vessel: %q", d.Code.Alias(), d.Type)
 	}
 	rm.dev = d
+	rm.status = "initializing"
 
 	// Save the resident replicant
 	if d.StowedDevices == nil {
@@ -441,7 +443,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		log("Nearest relay to %s is %s", rm.dest.Star(), next)
-		if next != string(rm.dev.Location) {
+		if next != rm.dev.Location.Star() {
 			eta, err = common.Travel(rm.dev.Code, next, rm.dryRun)
 			if err != nil {
 				return eta, err
@@ -577,7 +579,7 @@ func (rm *RelayMachine) SaveState(string) error {
 }
 
 func (rm *RelayMachine) Status() string {
-	return ""
+	return rm.status
 }
 
 func (rm *RelayMachine) Name() string {

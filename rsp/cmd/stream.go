@@ -521,6 +521,21 @@ func readStream(cmd *cobra.Command, args []string) error {
 				change(&d.Travel, nil)
 				change(&d.Status, "idle")
 			}, devs...)
+		case "travel.cancelled":
+			ev, err := models.Parse[models.StreamTravelCancelled](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Travel canceled: %q aborted travel to %q, returning to %q in %s",
+				env.DeviceCode, ev.Destination, ev.Origin, ev.ReturnTime)
+			devs := append(ev.AttachedDevices, env.DeviceCode)
+			nt := new(models.JSONTime)
+			update(func(d *models.Device) {
+				nt.Set(time.Now().Add(ev.ReturnTime.Duration()))
+				change(&d.Travel.Arrives, nt)
+				change(&d.Travel.Destination, ev.Origin)
+			}, devs...)
 		case "travel.departed":
 			ev, err := models.Parse[models.StreamTravelDeparted](payload)
 			if err != nil {
@@ -555,6 +570,15 @@ func readStream(cmd *cobra.Command, args []string) error {
 			}, env.DeviceCode)
 			log("Departed from %s to %s: %s", ev.Destination, ev.Origin,
 				strings.Join(codeList(append(ev.AttachedDevices, env.DeviceCode)), ", "))
+
+		/*
+			ev, err := models.Parse[models.StreamTravelDeparted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+		*/
+
 		default:
 			log("Unknown event type: %q", ev["event"])
 			prettyPrint(ev)
