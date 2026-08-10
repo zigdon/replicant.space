@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gammazero/workerpool"
+
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -19,20 +21,26 @@ func GetRocks() ([]*models.Object, error) {
 	if time.Since(rockTS) < 5*time.Minute && rocks != nil {
 		return rocks, nil
 	}
-	Log("Finding hubs...")
+	Log("Reading logs from hubs...")
 	shs, err := rest.Devices(map[string]string{"device_type": "system_hub"})
 	if err != nil {
 		return nil, err
 	}
+	Log("Reading logs from beacons...")
+	beacons, err := rest.Devices(map[string]string{"device_type": "ftl_beacon"})
+	if err != nil {
+		return nil, err
+	}
+	logs := append(shs, beacons...)
 
 	var errs []error
 	var objs []*models.Object
 	Log("Loading logs...")
-	var wg sync.WaitGroup
 	var mu sync.Mutex
 	stat := make(map[string]int)
-	for _, sh := range shs {
-		wg.Go(func() {
+	wp := workerpool.New(10)
+	for _, sh := range logs {
+		wp.Submit(func() {
 			fmt.Print(".")
 			logs, err := rest.DeviceLogs(sh.Code, -1)
 			if err != nil {
@@ -73,7 +81,7 @@ func GetRocks() ([]*models.Object, error) {
 			}
 		})
 	}
-	wg.Wait()
+	wp.StopWait()
 	fmt.Printf(" %d rocks: %v\n", len(objs), stat)
 
 	slices.SortFunc(objs, func(a, b *models.Object) int {

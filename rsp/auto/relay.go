@@ -178,6 +178,7 @@ func (rm *RelayMachine) UpdateState() error {
 	case rm.dev.Location == "" || status != "idle":
 		log("In transit")
 		rm.state = RelayMachine_Transit
+		rm.status = "relocating"
 	case rm.dev.Location == home:
 		log("Leaving home")
 		rm.state = RelayMachine_Leaving
@@ -190,18 +191,23 @@ func (rm *RelayMachine) UpdateState() error {
 	case sysFRRelaying && sysHasSpareFR:
 		log("System relayed, cleanup available")
 		rm.state = RelayMachine_Cleanup
+		rm.status = "collecting spare relays"
 	case !inL4:
 		log("Not in L4")
 		rm.state = RelayMachine_Incoming
+		rm.status = "repositioning"
 	case !frInv:
 		log("Out of inventory")
 		rm.state = RelayMachine_Empty
+		rm.status = "resupplying"
 	case sysFRRelaying && !sysHasSpareFR:
 		log("System relayed, no cleanup")
 		rm.state = RelayMachine_Leaving
+		rm.status = "departing"
 	case inL4 && !sysFRRelaying:
 		log("At L4, ready to deploy")
 		rm.state = RelayMachine_Deploying
+		rm.status = "deploying"
 	default:
 		return fmt.Errorf(
 			"Unknown state (%s): state: %q, FRs: ship %v, sys %d (relaying: %v)",
@@ -246,6 +252,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			return eta, fmt.Errorf("Can't trigger scan at %q: %v", rm.dev.Location, err)
 		}
 		if scan.AsteroidBelt.Present {
+			// TODO: add a task to send a mining fleet
 			log("Asteroid belt detected: %v", scan.AsteroidBelt.Belts)
 		}
 		if len(scan.SystemObjects) > 0 {
@@ -344,41 +351,41 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 	case RelayMachine_Empty:
 		if rm.dev.Location != rm.supply.Location {
 			log("Waiting for resupply at %q", rm.dev.Location)
-		} else {
-			if len(rm.supply.AttachedDevices) == 0 {
-				return eta, fmt.Errorf("Resupply vessage %q unexpectedly empty at %q",
-					rm.supply.Code.Alias(), rm.dev.Location)
-			}
-			var stowed = 0
-			for _, d := range rm.supply.AttachedDevices {
-				_, err := deviceCommand(rm.supply.Code, "detach",
-					map[string]any{"target": d.Code.Alias()}, rm.dryRun)
-				if err != nil {
-					return eta, err
-				}
-				_, err = deviceCommand(d.Code, "stow",
-					map[string]any{"target": rm.dev.Code}, rm.dryRun)
-				if err != nil {
-					return eta, err
-				}
-				stowed++
-			}
-			log("Picked up %d FRs, shipping resupply back home", stowed)
-			var err error
-			eta, err = common.Travel(rm.supply.Code, home, rm.dryRun)
+			return eta, rm.resupply()
+		}
+		if len(rm.supply.AttachedDevices) == 0 {
+			return eta, fmt.Errorf("Resupply vessage %q unexpectedly empty at %q",
+				rm.supply.Code.Alias(), rm.dev.Location)
+		}
+		var stowed = 0
+		for _, d := range rm.supply.AttachedDevices {
+			_, err := deviceCommand(rm.supply.Code, "detach",
+				map[string]any{"target": d.Code.Alias()}, rm.dryRun)
 			if err != nil {
 				return eta, err
 			}
-			pPlan, err := common.Print(home, "ftl_relay", rm.supply.AttachCapacity, true, rm.dryRun, nil)
+			_, err = deviceCommand(d.Code, "stow",
+				map[string]any{"target": rm.dev.Code}, rm.dryRun)
 			if err != nil {
-				log("Error printing relays: %v", err)
-			} else {
-				log("Queued %d ftl_relays: ETA %s (%s)",
-					rm.supply.AttachCapacity, pPlan.ETA, time.Until(pPlan.ETA))
+				return eta, err
 			}
-
-			nextState = RelayMachine_Leaving
+			stowed++
 		}
+		log("Picked up %d FRs, shipping resupply back home", stowed)
+		var err error
+		eta, err = common.Travel(rm.supply.Code, home, rm.dryRun)
+		if err != nil {
+			return eta, err
+		}
+		pPlan, err := common.Print(home, "ftl_relay", rm.supply.AttachCapacity, true, rm.dryRun, nil)
+		if err != nil {
+			log("Error printing relays: %v", err)
+		} else {
+			log("Queued %d ftl_relays: ETA %s (%s)",
+				rm.supply.AttachCapacity, pPlan.ETA, time.Until(pPlan.ETA))
+		}
+
+		nextState = RelayMachine_Leaving
 	case RelayMachine_Leaving:
 		if rm.dev.Location.Star() == rm.dest.Star() {
 			if follow := getTags(rm.dev)["follow"]; follow != "" {
@@ -393,7 +400,11 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				} else {
 					return eta, fmt.Errorf("Can't figure out how to follow %q", follow)
 				}
-				log("New destination, %s", rm.dest)
+				if rm.dest == rm.dev.Location {
+					log("Waiting for %s to leave %s", follow, rm.dest)
+					return eta, rm.resupply()
+				}
+				log("Following %s to %s", follow, rm.dest)
 			} else if fill := getTags(rm.dev)["fill"]; fill == "beacons" {
 				// find the closest system that has an ftl beacons but is not networked
 				net, err := rest.DeviceNetwork(models.NewCodeAlias("sh-1"))
@@ -430,7 +441,6 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 							fb.Location, fb.Code.Alias(), err)
 					}
 					if dist := star.Position.Distance(curStar.Position); nearest == 0 || dist < nearest {
-						log("%s is %.2f ly away", star.Designation, dist)
 						nearest = dist
 						dest = star.Designation.Star()
 					}
@@ -439,7 +449,8 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				rm.dest = models.LocationID(dest)
 			} else {
 				rm.state = RelayMachine_Done
-				return eta, MachineDoneErr(fmt.Sprintf("Relay destination reached: %s", rm.dev.Location))
+				return eta, MachineDoneErr(
+					fmt.Sprintf("Relay destination reached: %s", rm.dev.Location))
 			}
 		}
 
@@ -504,6 +515,19 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		return eta, fmt.Errorf("Unknown state: %q", rm.state)
 	}
 
+	if err := rm.resupply(); err != nil {
+		return eta, err
+	}
+
+	if nextState != rm.state {
+		log("Shifting state %s -> %s", rm.state, nextState)
+		rm.state = nextState
+	}
+
+	return eta, nil
+}
+
+func (rm *RelayMachine) resupply() error {
 	// Handle supply vessal
 	switch rm.supply.Location {
 	case "":
@@ -515,7 +539,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			"device_type": "ftl_relay",
 		})
 		if err != nil {
-			return eta, fmt.Errorf("Can't find ftl relays at %q: %v", home, err)
+			return fmt.Errorf("Can't find ftl relays at %q: %v", home, err)
 		}
 		var homeFRs []*models.Device
 		for _, d := range devs {
@@ -540,14 +564,14 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				"targets": ids,
 			}, rm.dryRun)
 			if err != nil {
-				return eta, err
+				return err
 			}
 		}
 		if len(rm.supply.AttachedDevices) > 0 {
 			log("Shipping out to %q to deliver FRs", rm.dev.Location)
 			eta, err := common.Travel(rm.supply.Code, string(rm.dev.Location), rm.dryRun)
 			if err != nil {
-				return eta, err
+				return err
 			}
 			log("Supply ship in transit: %s (%s)", eta, time.Until(eta))
 		} else {
@@ -564,7 +588,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			log("Following %s to %q", rm.dev.Code.Alias(), dest)
 			eta, err := common.Travel(rm.supply.Code, string(dest), rm.dryRun)
 			if err != nil {
-				return eta, err
+				return err
 			}
 			log("Supply ship in transit: %s (%s)", eta, time.Until(eta))
 		} else {
@@ -572,12 +596,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 	}
 
-	if nextState != rm.state {
-		log("Shifting state %s -> %s", rm.state, nextState)
-		rm.state = nextState
-	}
-
-	return eta, nil
+	return nil
 }
 
 func (rm *RelayMachine) SaveState(string) error {

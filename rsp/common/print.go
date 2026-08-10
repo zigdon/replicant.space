@@ -24,24 +24,32 @@ type PrintPlan struct {
 	Printers map[*models.CodeAlias]*PrintPlanRec
 }
 
-func CheckQueue(where, tag, devType string, qty int) int {
+func CheckQueue(where, tag, devType string, qty int) (int, time.Time) {
+	eta := time.Now()
 	Log("Checking %s print queue for %d × %q (tagged %q)", where, qty, devType, tag)
 	printers, err := GetFilteredDevices(
 		[]string{"autofactory"}, []string{where}, []string{"waiting_for_resources", "printing"})
 	if err != nil {
 		Log("Failed to fetch home autofactories: %v", err)
-		return 0
+		return 0, eta
 	}
 	var found int
+	later := func(a, b time.Time) time.Time {
+		if a.After(b) {
+			return a
+		}
+		return b
+	}
 	for _, p := range printers {
 		info, err := rest.DeviceInfo(p)
 		if err != nil {
 			Log("Failed to fetch details for %q: %v", p, err)
-			return 0
+			return 0, eta
 		}
 		if info.Printing != nil && info.Printing.DeviceType == devType &&
 			slices.Contains(info.Printing.Tags, tag) {
 			found++
+			eta = later(eta, info.Printing.Completes.Time())
 		}
 		for _, pq := range info.PrintQueue {
 			if pq.Type != devType {
@@ -50,6 +58,8 @@ func CheckQueue(where, tag, devType string, qty int) int {
 			if !slices.Contains(pq.Tags, tag) {
 				continue
 			}
+			// It'll be _at least_ however much is left in the current print + print time
+			eta = later(eta, info.Printing.Completes.Time().Add(GetBP(pq.Type).PrintTime.Duration()))
 			found++
 		}
 		if found >= qty {
@@ -58,7 +68,7 @@ func CheckQueue(where, tag, devType string, qty int) int {
 	}
 
 	Log("... found %d %q (%q)", found, devType, tag)
-	return found
+	return found, eta
 }
 
 func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[string]any) (*PrintPlan, error) {

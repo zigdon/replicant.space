@@ -180,7 +180,7 @@ func (es *eventState) updateState() error {
 	}
 	log("Finding devices tagged %q:", es.tag)
 	for _, d := range devs.Devices {
-		log("... %s @ %s", d.Code.Alias(), d.Location)
+		log("... %s @ %s", d.Code, d.Location)
 		switch d.Location {
 		case es.event.Location:
 			es.ready[d.Type]++
@@ -588,9 +588,10 @@ func (es *eventState) actuate() error {
 	// If we still need to print devices, check if they're already queued and
 	// if not, print em
 	for k, v := range toPrint {
-		v -= common.CheckQueue(home, es.tag, k, v)
-		if v <= 0 {
+		printing, printEta := common.CheckQueue(home, es.tag, k, v)
+		if v-printing <= 0 {
 			log("%d %s already being printed", v, k)
+			es.later("printing", printEta)
 			continue
 		}
 		cfg := map[string]any{
@@ -790,7 +791,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	events := res.Events
 
 	if err := eventCleanup(events, dryRun); err != nil {
-		return fmt.Errorf("Error cleaning up obsolete tags: %v", err)
+		log("**** Error cleaning up obsolete tags: %v", err)
 	}
 
 	if id := getString(cmd, "id"); id != "" {
@@ -831,7 +832,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			wait = wait.Truncate(time.Second)
 			data = append(data, []any{
 				ev.Designation, ev.Location, ev.Title,
-				fmt.Sprintf("Waiting: %s", wait.String()),
+				fmt.Sprintf("Waiting: %s (%s)",
+					wait.String(), time.Now().Add(wait).Truncate(time.Second).Format(time.Kitchen)),
 			})
 			log("%s: Waiting until %s (%s)", ev.Designation, time.Now().Add(wait), wait)
 			continue

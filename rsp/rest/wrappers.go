@@ -422,9 +422,9 @@ func DeviceCommand[T any](id *models.CodeAlias, command string, args map[string]
 }
 
 func DeviceLogs(id *models.CodeAlias, limit int) (*models.DeviceLogs, error) {
-	cursor := db.DeviceLogCursor(id.String())
 	// If we pass a negative limit, just use the cached logs
 	if limit >= 0 {
+		cursor := db.DeviceLogCursor(id.String())
 		if debug {
 			log("Fetching new device logs for %q, starting at %d", id, cursor)
 		}

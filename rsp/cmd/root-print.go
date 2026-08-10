@@ -41,26 +41,6 @@ func init() {
 	rootPrintListCmd.Flags().Bool("refresh", false, "When set, bypass the device cache")
 }
 
-func getHomeFactories(home string) ([]*models.CodeAlias, error) {
-	factories, err := rest.Devices(map[string]string{"location": home, "device_type": "autofactory"})
-	if err != nil {
-		return nil, err
-	}
-	if len(factories) == 0 {
-		return nil, fmt.Errorf("No factories found at %s", home)
-	}
-	log("%d factories found", len(factories))
-	var printers []*models.CodeAlias
-	for _, f := range factories {
-		if slices.Contains([]string{"compacted", "compacting", "unfurling"}, f.Status) {
-			log("Skipping %s: %s", f.Code.Alias(), f.Status)
-			continue
-		}
-		printers = append(printers, f.Code)
-	}
-	return printers, nil
-}
-
 func rootPrintList(cmd *cobra.Command, args []string) error {
 	loc := getString(cmd, "location")
 	refresh := getBool(cmd, "refresh")

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -107,12 +108,14 @@ var accountCmd = &cobra.Command{
 		for name := range acc.Replicants {
 			names = append(names, name)
 		}
-		slices.Sort(names)
+		slices.SortFunc(names, func(a, b string) int {
+			return cmp.Compare(acc.Replicants[a].Code.Num(), acc.Replicants[b].Code.Num())
+		})
 		for _, name := range names {
 			r := acc.Replicants[name]
 			code, err := db.Alias(r.Code.String(), "replicant")
 			if err != nil {
-				return fmt.Errorf("Error creating alias for %q: %v", err)
+				return fmt.Errorf("Error creating alias for %q: %v", name, err)
 			}
 			rep, err := rest.Replicant(r.Code)
 			if err != nil {
