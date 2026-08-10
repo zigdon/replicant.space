@@ -352,6 +352,16 @@ func (d *Device) String() string {
 	return d.Code.Alias()
 }
 
+func (d *Device) HasCapability(c string) bool {
+	if len(d.Features) == 0 {
+		bp := &Blueprint{DeviceType: d.Type}
+		if err := bp.Get(); err == nil {
+			d.Features = bp.Features
+		}
+	}
+	return slices.Contains(d.Features, c)
+}
+
 type ControllerStatus struct {
 	DirectivePaused       bool   `json:"directive_paused"`
 	DirectiveResumed      bool   `json:"directive_resumed"`

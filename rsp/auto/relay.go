@@ -281,8 +281,14 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			log("Out of relays")
 			nextState = RelayMachine_Empty
 		} else {
+			// Change owner before we attempt to deploy
+			_, err := deviceCommand(fr, "change_owner",
+				map[string]any{"target": rm.replicant.String()}, rm.dryRun)
+			if err != nil {
+				return eta, err
+			}
 			// Deploy
-			_, err := deviceCommand(fr, "deploy", nil, rm.dryRun)
+			_, err = deviceCommand(fr, "deploy", nil, rm.dryRun)
 			if err != nil {
 				return eta, err
 			}

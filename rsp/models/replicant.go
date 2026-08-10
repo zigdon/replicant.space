@@ -172,7 +172,7 @@ func (r *Replicant) Details() []*tview.TreeNode {
 	if len(r.Cargo) > 0 {
 		cargo := TreeNodeGen("Cargo", func() (res []string) {
 			for _, c := range r.Cargo {
-				res = append(res, fmt.Sprintf("%3.0f x %s", c.Quantity, c.ResourceType))
+				res = append(res, fmt.Sprintf("%3d × %s", c.Quantity, c.ResourceType))
 			}
 			return
 		})

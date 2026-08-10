@@ -123,7 +123,7 @@ var locationCmd = &cobra.Command{
 			for _, p := range res.Planets {
 				var inv []string
 				for _, i := range p.Inventory {
-					inv = append(inv, fmt.Sprintf("%.2f x %s", i.Quantity, i.ResourceType))
+					inv = append(inv, fmt.Sprintf("%d × %s", i.Quantity, i.ResourceType))
 				}
 				data = append(data, []any{
 					p.Designation, p.Name, p.Type, p.LifeStage,

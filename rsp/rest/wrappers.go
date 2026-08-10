@@ -423,24 +423,29 @@ func DeviceCommand[T any](id *models.CodeAlias, command string, args map[string]
 
 func DeviceLogs(id *models.CodeAlias, limit int) (*models.DeviceLogs, error) {
 	cursor := db.DeviceLogCursor(id.String())
-	log("Fetching new device logs for %q, starting at %d", id, cursor)
-	for {
-		res, err := cacheGET("", 0, "devices/%s/logs?cursor=%d&limit=500", id, cursor)
-		if err != nil {
-			return nil, err
+	// If we pass a negative limit, just use the cached logs
+	if limit >= 0 {
+		if debug {
+			log("Fetching new device logs for %q, starting at %d", id, cursor)
 		}
-		logs, err := models.Parse[models.DeviceLogs](res)
-		if err != nil {
-			return nil, err
+		for {
+			res, err := cacheGET("", 0, "devices/%s/logs?cursor=%d&limit=500", id, cursor)
+			if err != nil {
+				return nil, err
+			}
+			logs, err := models.Parse[models.DeviceLogs](res)
+			if err != nil {
+				return nil, err
+			}
+			if logs.NextCursor == 0 {
+				break
+			}
+			time.Sleep(200 * time.Millisecond)
+			cursor = logs.NextCursor
 		}
-		if logs.NextCursor == 0 {
-			break
-		}
-		time.Sleep(200 * time.Millisecond)
-		cursor = logs.NextCursor
 	}
 	// Now that we've fetched the most recent events, return from the cache
-	if limit == 0 {
+	if limit <= 0 {
 		limit = 100
 	}
 	rows, err := db.DB.Query(`

@@ -27,6 +27,8 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 		if info.Location == star.EntryPoint {
 			Log("%s is already at the entry point of %s", id.Alias(), loc)
 			return eta, nil
+		} else if string(location) == location.Star() {
+			location = star.EntryPoint
 		}
 	}
 	if info.Location.Star() == location.Star() {

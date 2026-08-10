@@ -205,7 +205,7 @@ type StreamDeviceAttached struct {
 	TargetType string     `json:"target_type"`
 }
 
-type StreamDeviceChanged_owner struct {
+type StreamDeviceChangedOwner struct {
 	FromReplicant *CodeAlias `json:"from_replicant"`
 	ToReplicant   *CodeAlias `json:"to_replicant"`
 	Direction     string     `json:"direction"`

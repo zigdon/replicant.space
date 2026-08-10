@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -235,7 +236,7 @@ func TripStepCandidate(start string, src, dst *models.Position, min_radius, max_
 		FROM (
 			SELECT designation, position,
 				position<->$1::cube AS from_src,
-				position<->$2::cube AS from_dst,
+				position<->$2::cube AS from_dst
 			FROM stars
 		) sub
 		WHERE from_src <= $3 AND from_src > $4 + 0.001;`,
@@ -250,8 +251,9 @@ func TripStepCandidate(start string, src, dst *models.Position, min_radius, max_
 	var errs []error
 	for rows.Next() {
 		var desg string
-		var x, y, z, fSrc, fDst float32
-		errs = append(errs, rows.Scan(&desg, &x, &y, &z, &fSrc, &fDst))
+		var fSrc, fDst float32
+		var p cache.Position
+		errs = append(errs, rows.Scan(&desg, &p, &fSrc, &fDst))
 		res = append(res, &models.JourneyLeg{
 			From: start,
 			FromPosition: models.NewPosition(
@@ -259,7 +261,7 @@ func TripStepCandidate(start string, src, dst *models.Position, min_radius, max_
 				src.Y,
 				src.Z),
 			To:          desg,
-			ToPosition:  models.NewPosition(x, y, z),
+			ToPosition:  models.ParseCube(p),
 			DistFromSrc: fSrc,
 			DistToDest:  fDst,
 		},

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/common"
@@ -11,10 +10,10 @@ import (
 var testCmd = &cobra.Command{
 	Use: "test",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		prettyPrint(common.GetBP(args[0]))
-		fmt.Println(
-			slices.Contains(common.GetBP(args[0]).Features, "modular"),
-		)
+		res, err := common.NearestRelay(args[0])
+		fmt.Printf("err=%v\n", err)
+		prettyPrint(res)
+
 		return nil
 	},
 }

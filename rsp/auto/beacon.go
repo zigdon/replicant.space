@@ -293,6 +293,11 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 			return eta, fmt.Errorf("No FB found in hold")
 		}
 		log("Deploying beacon (%s) at %s", fb.Alias(), bm.dev.Location)
+		// because Reasons(tm), we should make sure the device is owned by our resident replicant
+		if _, err := deviceCommand(fb, "change_owner",
+			map[string]any{"target": bm.replicant.String()}, bm.dryRun); err != nil {
+			return eta, err
+		}
 		if _, err := deviceCommand(fb, "deploy", nil, bm.dryRun); err != nil {
 			return eta, err
 		}

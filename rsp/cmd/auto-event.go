@@ -288,58 +288,79 @@ func (es *eventState) shipRes(res map[string]int) error {
 }
 
 func (es *eventState) shipDev(devs []*models.CodeAlias) error {
-	if len(devs) == 0 {
-		return nil
-	}
-	log("Shipping devices: %v", devs)
-
-	// Find free platforms at home. Use smaller ones if we can.
-	mfs, err := rest.Devices(map[string]string{"location": home, "device_type": "mobile_fleet"})
-	if err != nil {
-		return fmt.Errorf("Error finding fleets: %v", err)
-	}
-	if len(devs) <= 4 {
-		plats, err := rest.Devices(map[string]string{"location": home, "device_type": "surge_platform"})
+	var unloaded []*models.CodeAlias
+	var loaded []*models.CodeAlias
+	for _, d := range devs {
+		info, err := rest.DeviceInfo(d)
 		if err != nil {
-			return fmt.Errorf("Error finding platforms: %v", err)
+			return err
 		}
-		mfs = append(plats, mfs...)
+		if info.AttachedToDeviceCode != nil {
+			loaded = append(loaded, info.AttachedToDeviceCode)
+			continue
+		}
+		unloaded = append(unloaded, d)
 	}
+	devs = unloaded
 	var errs []error
-	for _, p := range mfs {
-		if len(p.Tags) > 0 && p.Tags[0] != es.txTag {
-			continue
-		}
-		avail := p.AttachCapacity - len(p.AttachedDevices)
-		if avail <= 0 {
-			continue
-		}
-		if len(p.Tags) == 0 {
-			errs = append(errs, es.addTag(p.Code, es.txTag))
-		}
+	if len(devs) > 0 {
+		log("Shipping devices: %v", devs)
 
-		var ds []*models.CodeAlias
-		if len(devs) <= avail {
-			ds = devs[:]
-			devs = devs[:0]
-		} else {
-			ds = devs[:avail]
-			devs = devs[avail:]
+		// Find free platforms at home. Use smaller ones if we can.
+		mfs, err := rest.Devices(map[string]string{"location": home, "device_type": "mobile_fleet"})
+		if err != nil {
+			return fmt.Errorf("Error finding fleets: %v", err)
 		}
-		_, err = _dc(p.Code, "attach", map[string]any{"targets": ds}, es.dryRun)
-		errs = append(errs, err)
+		if len(devs) <= 4 {
+			plats, err := rest.Devices(map[string]string{"location": home, "device_type": "surge_platform"})
+			if err != nil {
+				return fmt.Errorf("Error finding platforms: %v", err)
+			}
+			mfs = append(plats, mfs...)
+		}
+		for _, p := range mfs {
+			if len(p.Tags) > 0 && p.Tags[0] != es.txTag {
+				continue
+			}
+			avail := p.AttachCapacity - len(p.AttachedDevices)
+			if avail <= 0 {
+				continue
+			}
+			if len(p.Tags) == 0 {
+				errs = append(errs, es.addTag(p.Code, es.txTag))
+			}
 
-		if err == nil {
-			eta, err := common.Travel(p.Code, string(es.destination), es.dryRun)
+			var ds []*models.CodeAlias
+			if len(devs) <= avail {
+				ds = devs[:]
+				devs = devs[:0]
+			} else {
+				ds = devs[:avail]
+				devs = devs[avail:]
+			}
+			_, err = _dc(p.Code, "attach", map[string]any{"targets": ds}, es.dryRun)
 			errs = append(errs, err)
-			es.later("devices", eta)
+			if err == nil {
+				loaded = append(loaded, p.Code)
+			}
+			if len(devs) == 0 {
+				break
+			}
 		}
-		if len(devs) == 0 {
-			break
+		if len(devs) > 0 {
+			errs = append(errs, fmt.Errorf("Not enough platforms available: %v remain", devs))
 		}
 	}
-	if len(devs) > 0 {
-		errs = append(errs, fmt.Errorf("Not enough platforms available: %v remain", devs))
+
+	sent := make(map[string]bool)
+	for _, p := range loaded {
+		if sent[p.Alias()] {
+			continue
+		}
+		eta, err := common.Travel(p, string(es.destination), es.dryRun)
+		errs = append(errs, err)
+		es.later("devices", eta)
+		sent[p.Alias()] = true
 	}
 
 	return errors.Join(errs...)
@@ -513,6 +534,11 @@ func (es *eventState) actuate() error {
 		if err != nil {
 			errs = append(errs, err)
 		}
+		destDevs, err := rest.Devices(map[string]string{"location": string(es.destination)})
+		if err != nil {
+			errs = append(errs, err)
+		}
+		devs = append(devs, destDevs...)
 		for _, d := range devs {
 			if _, ok := toPrint[d.Type]; !ok {
 				continue
@@ -647,6 +673,114 @@ func pickCriteria(ev *models.Event, dryRun bool) (*eventState, error) {
 	return es, fmt.Errorf("No valid option found")
 }
 
+func eventCleanup(currentEvents []*models.Event, dryRun bool) error {
+	evTags := make(map[string]bool)
+	for _, e := range currentEvents {
+		evTags[fmt.Sprintf("event:%s", strings.ToLower(e.Designation))] = true
+		evTags[fmt.Sprintf("tx:%s", strings.ToLower(e.Designation))] = true
+	}
+
+	// get all known event tags (both event:* and tx:*)
+	// if a remote freighter/platform, ship it home (without unloading first)
+	// if it's at home, unload and untag
+	// if it's a remote device, just untag it (and it'll probably get reused for a future event)
+	rows, err := db.DB.Query(`
+		SELECT DISTINCT(JSONB_ARRAY_ELEMENTS_TEXT( data->'tags')) AS tags
+		FROM json_devices`)
+	if err != nil {
+		return err
+	}
+	var cleanup []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return err
+		}
+		if !strings.HasPrefix(t, "event:") && !strings.HasPrefix(t, "tx:") {
+			continue
+		}
+		if evTags[t] {
+			continue
+		}
+		cleanup = append(cleanup, t)
+	}
+	log("Found %d tags to clean up", len(cleanup))
+
+	unload := func(d *models.Device) error {
+		log("... unloading %s", d.Code)
+		if d.HasCapability("attach") && len(d.AttachedDevices) > 0 {
+			if _, err := _dc(d.Code, "detach", nil, dryRun); err != nil {
+				return err
+			}
+		}
+		if d.HasCapability("transport") && len(d.Cargo) > 0 {
+			if _, err := _dc(d.Code, "deposit_resources", nil, dryRun); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	untag := func(d *models.Device, t string) error {
+		if dryRun {
+			log("[DRYRUN] Untagging %q from %s", t, d.Code)
+			return nil
+		}
+		log("... untagging %q %s", t, d.Code)
+		_, err := rest.UpdateTags(d.Code, rest.DelTag, []string{t})
+		return err
+	}
+
+	shipped := make(map[string]bool)
+	goHome := func(d *models.CodeAlias) error {
+		if shipped[d.Alias()] {
+			return nil
+		}
+		log("... shipping %s home", d)
+		_, err := common.Travel(d, home, dryRun)
+		shipped[d.Alias()] = true
+		return err
+	}
+
+	var errs []error
+	done := make(map[string]bool)
+	for _, t := range cleanup {
+		log("Cleaning up %q:", t)
+		devs, err := rest.GetTagged(t)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		for _, d := range devs.Devices {
+			if d.Location == "" {
+				log("... %s in transit", d.Code)
+				continue
+			}
+			if string(d.Location) == home {
+				errs = append(errs, untag(d, t))
+			}
+
+			if done[d.Code.Alias()] {
+				continue
+			}
+
+			if string(d.Location) == home {
+				errs = append(errs, unload(d))
+			} else if d.HasCapability("surge") {
+				errs = append(errs, goHome(d.Code))
+			} else if d.AttachedToDeviceCode != nil {
+				errs = append(errs, goHome(d.AttachedToDeviceCode))
+			} else {
+				errs = append(errs, untag(d, t))
+			}
+			done[d.Code.Alias()] = true
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
 func autoEvent(cmd *cobra.Command, args []string) error {
 	dryRun := getBool(cmd, "dry_run")
 	res, err := rest.Events()
@@ -654,6 +788,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	events := res.Events
+
+	if err := eventCleanup(events, dryRun); err != nil {
+		return fmt.Errorf("Error cleaning up obsolete tags: %v", err)
+	}
 
 	if id := getString(cmd, "id"); id != "" {
 		var found bool

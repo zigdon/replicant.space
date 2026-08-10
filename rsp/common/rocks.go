@@ -2,6 +2,7 @@ package common
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -33,7 +34,7 @@ func GetRocks() ([]*models.Object, error) {
 	for _, sh := range shs {
 		wg.Go(func() {
 			fmt.Print(".")
-			logs, err := rest.DeviceLogs(sh.Code, 50)
+			logs, err := rest.DeviceLogs(sh.Code, -1)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("Error getting logs from %q: %v", sh.Code.Alias(), err))
 				return
@@ -42,7 +43,16 @@ func GetRocks() ([]*models.Object, error) {
 				if e.EventType != "system_object_detected" {
 					continue
 				}
+				etaStr := e.Payload["impact_eta"].(string)
+				eta, err := time.Parse("2006-01-02T15:04:05.999999", etaStr)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("Error parsing timestamp %q: %v", etaStr, err))
+					return
+				}
 				id := e.Payload["object_designation"].(string)
+				if time.Now().After(eta) {
+					continue
+				}
 				info, err := rest.Location(id)
 				if err != nil {
 					mu.Lock()
@@ -72,5 +82,5 @@ func GetRocks() ([]*models.Object, error) {
 
 	rocks = objs
 	rockTS = time.Now()
-	return objs, nil
+	return objs, errors.Join(errs...)
 }

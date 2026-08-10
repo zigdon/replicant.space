@@ -191,6 +191,19 @@ func readStream(cmd *cobra.Command, args []string) error {
 			update(func(d *models.Device) {
 				change(&d.AttachedToDeviceCode, env.DeviceCode)
 			}, ev.TargetCode)
+		case "device.changed_owner":
+			ev, err := models.Parse[models.StreamDeviceChangedOwner](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Ownership of %s changed: %s -> %s", env.DeviceCode, ev.FromReplicant, ev.ToReplicant)
+			update(func(d *models.Device) {
+				if d.Owner == nil {
+					return
+				}
+				change(&d.Owner.Code, ev.ToReplicant)
+			}, env.DeviceCode)
 		case "device.decommissioned":
 			ev, err := models.Parse[models.StreamDeviceDecommissioned](payload)
 			if err != nil {
@@ -220,6 +233,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 			update(func(d *models.Device) {
 				change(&d.AttachedToDeviceCode, nil)
 			}, ev.TargetCode)
+			log("Devices detached from %s: %v", env.DeviceCode, ev.TargetCode)
 		case "device.deployed":
 			ev, err := models.Parse[models.StreamDeviceDeployed](payload)
 			if err != nil {
