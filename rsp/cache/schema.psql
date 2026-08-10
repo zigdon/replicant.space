@@ -1,3 +1,6 @@
+-- Support 3d space
+CREATE EXTENSION IF NOT EXISTS cube;
+
 CREATE TABLE IF NOT EXISTS stars (
   designation TEXT PRIMARY KEY,
   name TEXT NULL,
@@ -6,9 +9,7 @@ CREATE TABLE IF NOT EXISTS stars (
   spectral_type TEXT NOT NULL,
   explored BOOLEAN,
   has_life BOOLEAN,
-  position_x NUMERIC(6,2) NOT NULL,
-  position_y NUMERIC(6,2) NOT NULL,
-  position_z NUMERIC(6,2) NOT NULL,
+  position CUBE NOT NULL,
   has_hub BOOLEAN,
   has_my_hub BOOLEAN NOT NULL DEFAULT false,
   region TEXT NOT NULL

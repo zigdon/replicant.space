@@ -1,9 +1,7 @@
 package auto
 
 import (
-	"cmp"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/zigdon/rsp/cache"
@@ -89,7 +87,6 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 		log(out)
 		return "", err
 	}
-	origin := models.NewPosition(0, 0, 0)
 	nearest, dist, err := pm.db.FindNearestStar(pm.dest.X, pm.dest.Y, pm.dest.Z)
 	if err != nil {
 		return "", err
@@ -130,7 +127,9 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 			break
 		}
 
+		/* TODO: redo the idea of sectors
 		// If not there, pick a star in the same sector
+		origin := models.NewPosition(0, 0, 0)
 		nPos := stars[next].Position
 		sector, err := pm.db.GetSector(nPos.X, nPos.Y, nPos.Z, 10, 5)
 		if err != nil {
@@ -169,6 +168,7 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 		if !found {
 			return "", fmt.Errorf("Next star unknown")
 		}
+		*/
 	}
 
 	log("Next star: %q, %.2f LY away from %s", next, dist, pm.dest)

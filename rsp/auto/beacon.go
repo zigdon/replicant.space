@@ -388,13 +388,12 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		pos := bm.dev.GetPosition()
 		rows, err := DB.DB.Query(`
 		  SELECT * FROM (
-			SELECT p.designation,
-			  SQRT(POWER(position_x-$1, 2) + POWER(position_y-$2, 2) + POWER(position_z-$3,2)) AS dist
+			SELECT p.designation, position<->$1::cube AS dist
 			FROM planets p JOIN stars s ON p.star = s.designation
 			WHERE (life_stage = 'intelligent' or life_stage = 'spacefaring'))
 		  WHERE dist > 0.1
 		  ORDER BY dist;
-		`, pos.X, pos.Y, pos.Z)
+		`, pos.AsCube())
 		if err != nil {
 			return eta, err
 		}

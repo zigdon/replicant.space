@@ -97,9 +97,7 @@ func replicantStars(cmd *cobra.Command, args []string) error {
 				"has_hub":       false,
 				"has_life":      s.HasLife,
 				"name":          s.Name,
-				"position_x":    s.Position.X,
-				"position_y":    s.Position.Y,
-				"position_z":    s.Position.Z,
+				"position":      s.Position.AsCube(),
 				"spectral_type": s.SpectralType,
 				"region":        s.Region,
 			}); err != nil {

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 )
@@ -85,13 +86,6 @@ var neighboursCmd = &cobra.Command{
 	RunE:              neighbourStars,
 }
 
-var sectorStarsCmd = &cobra.Command{
-	Use:               "sector",
-	Short:             "List the stars in a specific vector of the galaxy",
-	ValidArgsFunction: completeStars,
-	RunE:              sectorStars,
-}
-
 var plotDistanceCmd = &cobra.Command{
 	Use:               "distance",
 	Short:             "Measure the distance between two points",
@@ -114,11 +108,6 @@ func init() {
 
 	plotCmd.AddCommand(neighboursCmd)
 	neighboursCmd.Flags().Float32P("radius", "r", 7.5, "Radius for search")
-
-	plotCmd.AddCommand(sectorStarsCmd)
-	sectorStarsCmd.Flags().StringP("source", "s", "SOL", "Vector source, STAR or x,y,z")
-	sectorStarsCmd.Flags().IntP("cone", "c", 1, "Radius of the cone, as a percentage of each vector element")
-	sectorStarsCmd.Flags().IntP("margin", "m", 5, "Depth of the sector, as a percentage of the distance from origin")
 }
 
 func plotDistance(cmd *cobra.Command, args []string) error {
@@ -135,7 +124,7 @@ func plotDistance(cmd *cobra.Command, args []string) error {
 }
 
 func getPosFromString(dst string) (*models.Position, error) {
-	if strings.Contains(dst, ",") || strings.Contains(dst, ".") {
+	if strings.Contains(dst, ",") || strings.Contains(dst, ":") {
 		return models.ParsePosition(dst)
 	} else {
 		starDst, err := models.NewStar(dst)
@@ -144,41 +133,6 @@ func getPosFromString(dst string) (*models.Position, error) {
 		}
 		return starDst.Position, nil
 	}
-}
-
-func sectorStars(cmd *cobra.Command, args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("Missing required args: plot vector <star or location>")
-	}
-
-	cone := getInt(cmd, "cone")
-	margin := getInt(cmd, "margin")
-
-	dPos, err := getPosFromString(args[0])
-	if err != nil {
-		return err
-	}
-
-	log("Finding stars in the direction of %s within a %d%% cone, %d%% margin",
-		dPos.String(), cone, margin,
-	)
-
-	res, err := db.GetSector(dPos.X, dPos.Y, dPos.Z, cone, margin)
-	if err != nil {
-		return err
-	}
-	var data [][]any
-	for _, s := range res {
-		st, err := models.NewStar(s)
-		if err != nil {
-			return err
-		}
-		data = append(data, []any{s, st.Position, st.DistanceFromSol, dPos.Distance(st.Position)})
-	}
-
-	printTable([]string{"Designation", "Position", "LY from origin", "LY from destination"}, data)
-
-	return nil
 }
 
 func neighbourStars(cmd *cobra.Command, args []string) error {
@@ -191,18 +145,11 @@ func neighbourStars(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	rows, err := db.DB.Query(`
-		SELECT designation, position_x, position_y, position_z, dist
-		FROM (
-			SELECT designation, position_x, position_y, position_z,
-			  sqrt(
-				  power(position_x-$1,2) +
-				  power(position_y-$2,2) +
-				  power(position_z-$3,2)) AS dist
-		  FROM stars
-		) sub
-		WHERE dist <= $4
+		SELECT designation, position, position <-> $1::cube as dist
+		FROM stars
+		WHERE position <-> $1::cube < $2
 		ORDER BY dist
-		`, src.Position.X, src.Position.Y, src.Position.Z, r)
+		`, src.Position.AsCube(), r)
 	if err != nil {
 		return err
 	}
@@ -211,9 +158,10 @@ func neighbourStars(cmd *cobra.Command, args []string) error {
 	var errs []error
 	for rows.Next() {
 		var n string
-		var x, y, z, d float32
-		errs = append(errs, rows.Scan(&n, &x, &y, &z, &d))
-		data = append(data, []any{n, models.NewPosition(x, y, z).String(), d})
+		var p cache.Position
+		var d float32
+		errs = append(errs, rows.Scan(&n, &p, &d))
+		data = append(data, []any{n, models.ParseCube(p).String(), d})
 	}
 	printTable([]string{"Designation", "Position", "Distance"}, data)
 	return rows.Err()

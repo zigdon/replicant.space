@@ -1,12 +1,14 @@
 package cache
 
 import (
-	"database/sql"
 	_ "embed"
 	"fmt"
 	"os"
 	"strings"
 	"time"
+
+	"database/sql"
+	"database/sql/driver"
 
 	_ "github.com/lib/pq" // Register the driver
 
@@ -62,8 +64,7 @@ const (
 var cols = map[Tables][]string{
 	StarsTable: {
 		"designation", "name", "entry_point", "est_planets", "spectral_type",
-		"explored", "has_life", "position_x", "position_y", "position_z", "has_hub",
-		"has_my_hub", "region"},
+		"explored", "has_life", "position", "has_hub", "has_my_hub", "region"},
 	PlanetsTable: {
 		"designation", "star", "name", "life_stage", "moons", "rings", "scanned", "type"},
 	MoonsTable: {
@@ -215,7 +216,12 @@ func (db *Cache) Update(table Tables, data map[string]any) error {
 		updates = append(updates, fmt.Sprintf("%s=EXCLUDED.%s", k, k))
 		columns = append(columns, k)
 		values = append(values, v)
-		placeholders = append(placeholders, fmt.Sprintf("$%d", n))
+		switch v.(type) {
+		case Position:
+			placeholders = append(placeholders, fmt.Sprintf("$%d::cube", n))
+		default:
+			placeholders = append(placeholders, fmt.Sprintf("$%d", n))
+		}
 		n++
 	}
 	q := fmt.Sprintf(`
@@ -322,4 +328,36 @@ func Ints(in []any) []int64 {
 		res[i] = v.(int64)
 	}
 	return res
+}
+
+type Position struct {
+	X, Y, Z float32
+}
+
+// Scan converts the PostgreSQL cube string "(x, y, z)" into a Position.
+func (p *Position) Scan(value any) error {
+	if value == nil {
+		return nil
+	}
+
+	var str string
+	switch v := value.(type) {
+	case []byte:
+		str = string(v)
+	case string:
+		str = v
+	default:
+		return fmt.Errorf("unsupported type for Position: %T", value)
+	}
+
+	_, err := fmt.Sscanf(str, "(%f, %f, %f)", &p.X, &p.Y, &p.Z)
+	if err != nil {
+		return fmt.Errorf("failed to parse cube string %q: %w", str, err)
+	}
+	return nil
+}
+
+// Value converts a Position into a PostgreSQL-compatible cube string.
+func (p Position) Value() (driver.Value, error) {
+	return fmt.Sprintf("(%f, %f, %f)", p.X, p.Y, p.Z), nil
 }

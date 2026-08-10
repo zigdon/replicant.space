@@ -693,7 +693,7 @@ func ReloadStars() (string, error) {
 	seen := make(map[models.LocationID]*models.Star)
 	rows, err := db.DB.Query(`
 		SELECT designation, name, est_planets, spectral_type, has_life,
-			position_x, position_y, position_z, has_hub, entry_point, region
+			position, has_hub, entry_point, region
 		FROM stars`)
 	if err != nil {
 		return res(), err
@@ -702,14 +702,14 @@ func ReloadStars() (string, error) {
 	for rows.Next() {
 		old++
 		s := new(models.Star)
-		var x, y, z float32
+		var p cache.Position
 		err := rows.Scan(&s.Designation, &s.Name, &s.EstimatedPlanets,
-			&s.SpectralType, &s.HasLife, &x, &y, &z, &s.HasHub,
+			&s.SpectralType, &s.HasLife, &p, &s.HasHub,
 			&s.EntryPoint, &s.Region)
 		if err != nil {
 			return res(), err
 		}
-		s.Position = models.NewPosition(x, y, z)
+		s.Position = models.ParseCube(p)
 		seen[s.Designation] = s
 	}
 	if err := rows.Err(); err != nil {

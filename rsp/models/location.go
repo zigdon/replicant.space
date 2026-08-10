@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 
 	"github.com/zigdon/rsp/cache"
@@ -20,34 +19,30 @@ func NewPosition(x, y, z float32) *Position {
 	return &Position{X: x, Y: y, Z: z}
 }
 
+func ParseCube(cube cache.Position) *Position {
+	return &Position{
+		X: cube.X,
+		Y: cube.Y,
+		Z: cube.Z,
+	}
+}
+
 func ParsePosition(coords string) (*Position, error) {
-	var cs []string
-	if strings.Contains(coords, ",") {
-		cs = strings.Split(coords, ",")
-	} else if strings.Contains(coords, ".") {
-		cs = strings.Split(coords, ".")
+	p := new(Position)
+	_, err := fmt.Sscanf(coords, "%f,%f,%f", &p.X, &p.Y, &p.Z)
+	if err == nil {
+		return p, err
 	}
-	if len(cs) != 3 {
-		return nil, fmt.Errorf("Destination must be specified as x,y,z, got %q", coords)
+
+	_, err = fmt.Sscanf(coords, "%f:%f:%f", &p.X, &p.Y, &p.Z)
+	if err == nil {
+		return p, err
 	}
-	x, err := strconv.Atoi(cs[0])
-	if err != nil {
-		return nil, err
-	}
-	y, err := strconv.Atoi(cs[1])
-	if err != nil {
-		return nil, err
-	}
-	z, err := strconv.Atoi(cs[2])
-	if err != nil {
-		return nil, err
-	}
-	p := &Position{
-		X: float32(x),
-		Y: float32(y),
-		Z: float32(z),
-	}
-	return p, nil
+	return nil, fmt.Errorf("Unable to parse position %q: %v", coords, err)
+}
+
+func (p *Position) AsCube() cache.Position {
+	return cache.Position{X: p.X, Y: p.Y, Z: p.Z}
 }
 
 func (p *Position) Distance(to *Position) float32 {
@@ -146,9 +141,7 @@ func (s *Star) Cache() error {
 		"has_hub":       s.HasHub,
 		"has_life":      s.HasLife,
 		"name":          s.Name,
-		"position_x":    s.Position.X,
-		"position_y":    s.Position.Y,
-		"position_z":    s.Position.Z,
+		"position":      s.Position.AsCube(),
 		"spectral_type": s.SpectralType,
 		"region":        s.Region,
 	})
@@ -169,11 +162,13 @@ func (s *Star) Get() error {
 		p := NewPosition(0, 0, 0)
 		s.Position = p
 	}
+	var pos cache.Position
 	if err := scan(&s.Designation, &s.Name, &s.EntryPoint, &s.EstimatedPlanets,
-		&s.SpectralType, &s.Explored, &s.HasLife, &s.Position.X, &s.Position.Y,
-		&s.Position.Z, &s.HasHub, &s.HasMyHub, &s.Region); err != nil {
+		&s.SpectralType, &s.Explored, &s.HasLife, &pos, &s.HasHub,
+		&s.HasMyHub, &s.Region); err != nil {
 		return err
 	}
+	s.Position = ParseCube(pos)
 	return s.Fill()
 }
 

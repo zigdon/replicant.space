@@ -42,7 +42,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	src = starSrc.Designation.Star()
 
 	var dPos *models.Position
-	if strings.ContainsAny(dst, ",.") {
+	if strings.ContainsAny(dst, ",:") {
 		pos, err := models.ParsePosition(dst)
 		if err != nil {
 			return nil, err
@@ -231,24 +231,15 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 
 func TripStepCandidate(start string, src, dst *models.Position, min_radius, max_radius float32) ([]*models.JourneyLeg, error) {
 	rows, err := db.DB.Query(`
-		SELECT designation, position_x, position_y, position_z, from_src, from_dst
+		SELECT designation, position, from_src, from_dst
 		FROM (
-			SELECT designation, position_x, position_y, position_z,
-				sqrt(
-					power(position_x - $1, 2) + 
-					power(position_y - $2, 2) + 
-					power(position_z - $3, 2)
-				) AS from_src,
-				sqrt(
-					power(position_x - $4, 2) +
-					power(position_y - $5, 2) + 
-					power(position_z - $6, 2)
-				) AS from_dst
+			SELECT designation, position,
+				position<->$1::cube AS from_src,
+				position<->$2::cube AS from_dst,
 			FROM stars
 		) sub
-		WHERE from_src <= $7 AND from_src > $8 + 0.001;`,
-		src.X, src.Y, src.Z,
-		dst.X, dst.Y, dst.Z,
+		WHERE from_src <= $3 AND from_src > $4 + 0.001;`,
+		src.AsCube(), dst.AsCube(),
 		max_radius, min_radius,
 	)
 	if err != nil {
