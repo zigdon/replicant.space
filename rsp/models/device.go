@@ -607,3 +607,11 @@ type Prospect struct {
 	ProgressPercent float32         `json:"progress_percent"`
 	Started         JSONTime        `json:"started_at"`
 }
+
+type Triangulate struct {
+	Status    string    `json:"status"`
+	Signature string    `json:"signature"`
+	Target    *Position `json:"target"`
+	Started   *JSONTime `json:"started_at"`
+	Completes *JSONTime `json:"completes_at"`
+}

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -67,6 +68,42 @@ func (p *Position) Reverse() {
 
 func (p *Position) Delta(pb *Position) *Position {
 	return NewPosition(p.X-pb.X, p.Y-pb.Y, p.Z-pb.Z)
+}
+
+func (p *Position) MarshalJSON() ([]byte, error) {
+	if p == nil {
+		return []byte{}, nil
+	}
+	return json.Marshal(p)
+}
+
+func (p *Position) UnmarshalJSON(data []byte) error {
+	if p == nil {
+		p = new(Position)
+	}
+
+	obj := make(map[string]float32)
+	// First try to parse as an object
+	if err := json.Unmarshal(data, &obj); err == nil {
+		(*p).X = obj["x"]
+		(*p).Y = obj["y"]
+		(*p).Z = obj["z"]
+		return nil
+	}
+
+	// Failing that, read as an array
+	var coords []float32
+	if err := json.Unmarshal(data, &coords); err != nil {
+		return err
+	}
+	if len(coords) != 3 {
+		return fmt.Errorf("Invalid position %v", coords)
+	}
+	(*p).X = coords[0]
+	(*p).Y = coords[1]
+	(*p).Z = coords[2]
+
+	return nil
 }
 
 type StarCatalog struct {

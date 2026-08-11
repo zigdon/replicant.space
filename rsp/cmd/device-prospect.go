@@ -14,10 +14,20 @@ var prospectCmd = &cobra.Command{
 	RunE:  prospect,
 }
 
+var triangulateCmd = &cobra.Command{
+	Use:   "triangulate",
+	Short: "Perform subspace waveform interpolation to determine the direction of interference",
+	RunE:  triangulate,
+}
+
 func init() {
 	deviceCmd.AddCommand(prospectCmd)
 	prospectCmd.Flags().Bool("sol", false, "Prospect towards SOL, for some reason")
 	prospectCmd.Flags().StringP("target", "t", "", "Prospect towards this x,y,z coordinate")
+
+	deviceCmd.AddCommand(triangulateCmd)
+	triangulateCmd.Flags().StringP("target", "t", "", "Triangulate towards this x,y,z coordinate")
+	triangulateCmd.Flags().StringP("signature", "s", "", "Interference signature to try and locate")
 }
 
 func prospect(cmd *cobra.Command, args []string) error {
@@ -65,6 +75,29 @@ func prospect(cmd *cobra.Command, args []string) error {
 
 	log("Starting prospect towards %s", target.String())
 	res, err := rest.Prospect(dev.Code, target.Delta(pos))
+	if err != nil {
+		return err
+	}
+	prettyPrint(res)
+	return nil
+}
+
+func triangulate(cmd *cobra.Command, args []string) error {
+	id := getString(cmd, "device")
+	dev, err := rest.DeviceInfo(models.NewCodeAlias(id))
+	if err != nil {
+		return fmt.Errorf("Failed to get info for %q: %v", id, err)
+	}
+
+	dir := getString(cmd, "target")
+	target, err := models.ParsePosition(dir)
+	if err != nil {
+		return fmt.Errorf("Can't parse target %q: %v", dir, err)
+	}
+
+	sig := getString(cmd, "signature")
+	log("Starting to triangulat %q towards %s", sig, target.String())
+	res, err := rest.Triangulate(dev.Code, target, sig)
 	if err != nil {
 		return err
 	}

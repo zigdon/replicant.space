@@ -8,6 +8,11 @@ alpha   | XIKHWAKHUX  | (140.45, 68.15, 21.05)
 beta    | CRAWDDYW    | (134.93, -186.62, -123.84)
 gamma   | NOOAO       | (-319.5, 146.58, -71.25)
 
+signatures:
+  6ddbf5331bda69d7
+  e0c265b58bbe55fe
+  934d3ac4dcc918ad
+
 
 ╰─λ curl -X POST -N "https://api.replicant.space/v1/devices/63195331/retrieve" \
              -H "Authorization: Bearer $API_KEY" \

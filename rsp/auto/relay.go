@@ -140,29 +140,21 @@ func (rm *RelayMachine) UpdateState() error {
 
 	// Check the current location
 	if rm.dev.Location != "" {
-		var star *models.Star
-		star, err = models.NewStar(rm.dev.Location.Star())
+		star := rm.dev.Location.Star()
+		frs, err := rest.Devices(map[string]string{
+			"device_type": "ftl_relay",
+			"location":    star,
+		})
 		if err != nil {
-			return err
+			return fmt.Errorf("Can't get ftl relays at %q: %v", star, err)
 		}
-
-		if star != nil {
-			frs, err := rest.Devices(map[string]string{
-				"device_type": "ftl_relay",
-				"location":    string(star.Designation),
-			})
-			if err != nil {
-				return fmt.Errorf("Can't get ftl relays at %q: %v", star.Designation, err)
+		for _, fr := range frs {
+			if fr.AttachedToDeviceCode != nil {
+				continue
 			}
-			for _, fr := range frs {
-				if fr.AttachedToDeviceCode != nil {
-					continue
-				}
-				sysFRs = append(sysFRs, fr)
-				if fr.Status == "relaying" {
-					sysFRRelaying = true
-					break
-				}
+			sysFRs = append(sysFRs, fr)
+			if fr.Status == "relaying" {
+				sysFRRelaying = true
 			}
 		}
 	}
@@ -314,7 +306,10 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 	case RelayMachine_Cleanup:
 		// Find spares in system
-		frs, err := rest.RefreshDevices(map[string]string{"location": rm.dev.Location.Star()})
+		frs, err := rest.RefreshDevices(map[string]string{
+			"location":    rm.dev.Location.Star(),
+			"device_type": "ftl_relay",
+		})
 		if err != nil {
 			return eta, fmt.Errorf("Can't find system spares: %v", err)
 		}
@@ -323,6 +318,9 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			// Pick up the local FRs first
 			var next string
 			for _, d := range frs {
+				if d.AttachedToDeviceCode != nil {
+					continue
+				}
 				if d.Location == rm.dev.Location {
 					_, err = deviceCommand(d.Code, "stow", map[string]any{
 						"target": rm.dev.Code,

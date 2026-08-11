@@ -556,6 +556,23 @@ func DeviceNetwork(id *models.CodeAlias) (*models.Network, error) {
 	return n, err
 }
 
+func Triangulate(id *models.CodeAlias, target *models.Position, signature string) (*models.Triangulate, error) {
+	cfg := map[string]any{
+		"command":   "triangulate",
+		"target":    []float32{target.X, target.Y, target.Z},
+		"signature": signature,
+	}
+	cfgData, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	res, err := Post("devices/%s", cfgData, id.String())
+	if err != nil {
+		return nil, err
+	}
+	return models.Parse[models.Triangulate](res)
+}
+
 func Prospect(id *models.CodeAlias, dir *models.Position) (*models.Prospect, error) {
 	cfg := map[string]any{
 		"command": "prospect",
@@ -585,19 +602,9 @@ func GetType(code string) (string, error) {
 	return dev.Type, nil
 }
 
-type TagOp string
-
-const (
-	SetTags TagOp = "tags"
-	AddTag  TagOp = "add_tags"
-	DelTag  TagOp = "remove_tags"
-)
-
-func UpdateTags(id *models.CodeAlias, operation TagOp, tags []string) (*models.Device, error) {
+func Configure(id *models.CodeAlias, cfg map[string]any) (*models.Device, error) {
 	data, err := json.Marshal(map[string]any{
-		"configuration": map[string][]string{
-			string(operation): tags,
-		},
+		"configuration": cfg,
 	})
 	if err != nil {
 		return nil, err
@@ -607,7 +614,21 @@ func UpdateTags(id *models.CodeAlias, operation TagOp, tags []string) (*models.D
 		return nil, err
 	}
 
-	dev, err := models.Parse[models.Device](res)
+	return models.Parse[models.Device](res)
+}
+
+type TagOp string
+
+const (
+	SetTags TagOp = "tags"
+	AddTag  TagOp = "add_tags"
+	DelTag  TagOp = "remove_tags"
+)
+
+func UpdateTags(id *models.CodeAlias, operation TagOp, tags []string) (*models.Device, error) {
+	dev, err := Configure(id, map[string]any{
+		string(operation): tags,
+	})
 	if err != nil {
 		return nil, err
 	}

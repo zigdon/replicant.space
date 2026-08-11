@@ -151,6 +151,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 	}
 
 	// Find our ships that are not at home, deposit their cargo, and call back
+	// Ships that are home should empty their holds
 	var errs []error
 	incoming := make(map[string]map[string]int)
 	log("Finding remote freighters")
@@ -163,6 +164,12 @@ func autoRent(cmd *cobra.Command, args []string) error {
 				return
 			}
 			if string(info.Location) == home {
+				if len(info.Cargo) > 0 {
+					if _, err := rest.DeviceCommand[models.CommandResp](info.Code, "deposit_resources", nil); err != nil {
+						log("Error unloading cargo from %s: %v", info.Code, err)
+					}
+				}
+
 				return
 			}
 			line := &statusLine{
