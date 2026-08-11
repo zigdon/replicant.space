@@ -102,7 +102,7 @@ func (dm *DivertMachine) UpdateState() error {
 		if err != nil {
 			return err
 		}
-		activeSite = loc.Object.Status == "active"
+		activeSite = loc.Object != nil && loc.Object.Status == "active"
 	}
 	log("State: %s@%s, devs:%v mtd:%v transit:%v active:%v",
 		dev, dev.Location, hasDevices, hasMtd, inTransit, activeSite)

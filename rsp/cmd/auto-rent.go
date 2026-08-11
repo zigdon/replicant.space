@@ -64,6 +64,10 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			if info.Status != "idle" {
 				return
 			}
+			if string(info.Location) != home {
+				return
+			}
+
 			mu.Lock()
 			ships[info.Code.Alias()] = info
 			mu.Unlock()
@@ -153,7 +157,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 	for _, cf := range atc.ControlledDevices {
 		wg.Go(func() {
 			fmt.Print(".")
-			info, err := getInfo(cf.Code)
+			info, err := rest.DeviceInfo(cf.Code)
 			if err != nil {
 				log("Error getting info for %q: %v", cf.Code.Alias(), err)
 				return

@@ -185,6 +185,40 @@ func ReplicantScan(id *models.CodeAlias) (*models.Scan, error) {
 	return models.Parse[models.Scan](res)
 }
 
+func ReplicantPing(id *models.CodeAlias, owner, deviceType string) (*models.Ping, error) {
+	var cursor int
+	base := "replicants/%s/scan/devices"
+	params := []string{"limit=50"}
+	if owner != "" {
+		params = append(params, fmt.Sprintf("owner_replicant_code=%s", owner))
+	}
+	if deviceType != "" {
+		params = append(params, fmt.Sprintf("device_type=%s", deviceType))
+	}
+	var res *models.Ping
+	for {
+		url := strings.Join(append([]string{fmt.Sprintf("%s?cursor=%d", base, cursor)}, params...), "&")
+		page, err := Get(url, id)
+		if err != nil {
+			return nil, err
+		}
+		ping, err := models.Parse[models.Ping](page)
+		if res == nil {
+			res = ping
+		} else {
+			res.Devices = append(res.Devices, ping.Devices...)
+		}
+		cursor = ping.NextCursor
+		if cursor == 0 {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	res.DeviceCount = len(res.Devices)
+
+	return res, nil
+}
+
 func ReplicantCensus(id *models.CodeAlias, cnt, page int) (*models.Census, error) {
 	res, err := cacheGET(fmt.Sprintf("%s-census-%d-%d", id, cnt, page), 0, "replicants/%s/stars?per_page=%d&page=%d", id, cnt, page)
 	if err != nil {
@@ -572,7 +606,49 @@ func UpdateTags(id *models.CodeAlias, operation TagOp, tags []string) (*models.D
 	if err != nil {
 		return nil, err
 	}
-	return models.Parse[models.Device](res)
+
+	dev, err := models.Parse[models.Device](res)
+	if err != nil {
+		return nil, err
+	}
+
+	var mutate func(*models.Device)
+	switch operation {
+	case AddTag:
+		mutate = func(d *models.Device) {
+			newTags := make(map[string]bool)
+			for _, t := range d.Tags {
+				newTags[t] = true
+			}
+			for _, t := range tags {
+				newTags[t] = true
+			}
+			d.Tags = d.Tags[:0]
+			for k := range newTags {
+				d.Tags = append(d.Tags, k)
+			}
+			slices.Sort(d.Tags)
+		}
+	case DelTag:
+		mutate = func(d *models.Device) {
+			var newTags []string
+			for _, t := range d.Tags {
+				if !slices.Contains(tags, t) {
+					newTags = append(newTags, t)
+				}
+			}
+			d.Tags = newTags
+			slices.Sort(d.Tags)
+		}
+	case SetTags:
+		mutate = func(d *models.Device) {
+			d.Tags = tags
+			slices.Sort(d.Tags)
+		}
+	}
+
+	mutate(dev)
+	return dev, nil
 }
 
 func GetTagged(tag string) (*models.TaggedDevices, error) {

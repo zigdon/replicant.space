@@ -231,3 +231,18 @@ func (r *Replicant) GetDeviceIDs() []string {
 func (r *Replicant) ListItem() (string, string) {
 	return fmt.Sprintf("%s: %s", r.Code.Alias(), r.Name), string(r.CurrentLocation)
 }
+
+type Ping struct {
+	Star        LocationID    `json:"star"`
+	DeviceCount int           `json:"device_count"`
+	Devices     []*PingDevice `json:"devices"`
+	NextCursor  int           `json:"next_cursor"`
+}
+
+type PingDevice struct {
+	DeviceCode         *CodeAlias `json:"device_code"`
+	DeviceType         string     `json:"device_type"`
+	Location           LocationID `json:"location"`
+	OwnerReplicantCode *CodeAlias `json:"owner_replicant_code"`
+	OwnerName          string     `json:"owner_name"`
+}

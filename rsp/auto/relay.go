@@ -449,6 +449,10 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				rm.dest = models.LocationID(dest)
 			} else {
 				rm.state = RelayMachine_Done
+				_, err := rest.UpdateTags(rm.dev.Code, rest.DelTag, []string{"auto"})
+				if err != nil {
+					log("Error removing the 'auto' tag from %q: %v", rm.dev, err)
+				}
 				return eta, MachineDoneErr(
 					fmt.Sprintf("Relay destination reached: %s", rm.dev.Location))
 			}
@@ -528,6 +532,11 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 }
 
 func (rm *RelayMachine) resupply() error {
+	dest := rm.dev.Location
+	if dest == "" && rm.dev.Travel != nil {
+		dest = rm.dev.Travel.Destination
+	}
+
 	// Handle supply vessal
 	switch rm.supply.Location {
 	case "":
@@ -567,9 +576,9 @@ func (rm *RelayMachine) resupply() error {
 				return err
 			}
 		}
-		if len(rm.supply.AttachedDevices) > 0 {
-			log("Shipping out to %q to deliver FRs", rm.dev.Location)
-			eta, err := common.Travel(rm.supply.Code, string(rm.dev.Location), rm.dryRun)
+		if len(rm.supply.AttachedDevices) > 0 && dest != "" {
+			log("Shipping out to %q to deliver FRs", dest)
+			eta, err := common.Travel(rm.supply.Code, string(dest), rm.dryRun)
 			if err != nil {
 				return err
 			}
@@ -580,10 +589,6 @@ func (rm *RelayMachine) resupply() error {
 	case rm.dev.Location:
 		log("Waiting for resupply at %q", rm.dev.Location)
 	default:
-		dest := rm.dev.Location
-		if dest == "" && rm.dev.Travel != nil {
-			dest = rm.dev.Travel.Destination
-		}
 		if dest != "" {
 			log("Following %s to %q", rm.dev.Code.Alias(), dest)
 			eta, err := common.Travel(rm.supply.Code, string(dest), rm.dryRun)

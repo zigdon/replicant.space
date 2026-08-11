@@ -418,11 +418,14 @@ func (es *eventState) complete() error {
 			rep = r
 		}
 
-		// Get the vessel tags
+		// If there's an 'auto' tag on the vessel, don't consider it an option.
 		var tags []string
 		hv, err := rest.DeviceInfo(r.HostedDeviceCode)
 		if err == nil {
 			tags = hv.Tags
+			if slices.Contains(tags, "auto") {
+				continue
+			}
 		} else {
 			log("Can't get vessel info: %v", err)
 		}
@@ -475,6 +478,11 @@ func (es *eventState) complete() error {
 	}
 
 	log("Manual travel required to %s", es.destination)
+	slices.SortFunc(data, func(a, b []any) int {
+		da := a[2].(float32)
+		db := b[2].(float32)
+		return cmp.Compare(da, db)
+	})
 	printTable([]string{"Replicant", "Location", "Distance LY", "Tags"}, data)
 	return fmt.Errorf("Manual travel required: %s is nearest (%.2f LY from %s)",
 		name, nearest, es.destination)

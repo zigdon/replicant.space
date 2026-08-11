@@ -1,3 +1,35 @@
 Signal Alpha: coordinates (175, 85, 30)
 Signal Beta: coordinates (155, -215, -140)
 Signal Gamma: coordinates (-350, 160, -80)
+
+Centers:
+solzone | GORUMIUN    | (10.66, -1.68, -7.65)
+alpha   | XIKHWAKHUX  | (140.45, 68.15, 21.05)
+beta    | CRAWDDYW    | (134.93, -186.62, -123.84)
+gamma   | NOOAO       | (-319.5, 146.58, -71.25)
+
+
+╰─λ curl -X POST -N "https://api.replicant.space/v1/devices/63195331/retrieve" \
+             -H "Authorization: Bearer $API_KEY" \
+             -H "Accept: text/event-stream"
+{
+  "local_slingshot_device_code": "648AA045",
+  "remote_slingshot_device_code": "5167A03D",
+  "stars": [
+    "ASILLUSTER",
+    "ARCULIS",
+    "ISKAT",
+    "BUBUPUS",
+    "ACRUX",
+    "ALGEN",
+    "ALZIRUR",
+    "YUNA",
+    "SAGIN",
+    "MEKBUDO",
+    "GLOES",
+    "ALKAID"
+  ],
+  "starting_star": "ASILLUSTER",
+  "status": "retrieved",
+  "vessel_device_code": "FA8565D9"
+}

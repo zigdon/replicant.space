@@ -37,6 +37,28 @@ var addTagCmd = &cobra.Command{
 	},
 }
 
+var setTagCmd = &cobra.Command{
+	Use:   "set",
+	Short: "Set the tags on a device to exactly this list",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		id := getString(cmd, "device")
+		res, err := rest.UpdateTags(models.NewCodeAlias(id), rest.SetTags, args)
+		if err != nil {
+			return err
+		}
+		if raw := getBool(cmd, "raw"); raw {
+			prettyPrint(res)
+			return nil
+		}
+		tags := res.Tags
+		if len(tags) == 0 {
+			tags = []string{"N/A"}
+		}
+		printTable([]string{"Device", "Tags"}, [][]any{{res, list(tags)}})
+		return nil
+	},
+}
+
 var delTagCmd = &cobra.Command{
 	Use:               "del",
 	Aliases:           []string{"remove"},
@@ -175,6 +197,7 @@ func init() {
 	deviceCmd.AddCommand(tagCmd)
 	tagCmd.AddCommand(addTagCmd)
 	tagCmd.AddCommand(delTagCmd)
+	tagCmd.AddCommand(setTagCmd)
 	rootCmd.AddCommand(listTagsCmd)
 	listTagsCmd.Flags().BoolP("mine", "m", false, "If set, show mining tags")
 }

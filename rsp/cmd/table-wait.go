@@ -226,6 +226,7 @@ func waitPending(cmd *cobra.Command, args []string) error {
 	}
 	// Fetch logs from particularly interesting devices, e.g. hubs
 	logDevices := []string{
+		"ftl_beacon",
 		"system_hub",
 	}
 	for cn, h := range []string{
@@ -263,6 +264,7 @@ func waitPending(cmd *cobra.Command, args []string) error {
 			models.SortDevices(devs)
 			var r int
 			for _, d := range devs {
+				time.Sleep(100 * time.Millisecond)
 				if slices.Contains(logDevices, d.Type) {
 					_, err := rest.DeviceLogs(d.Code, 0)
 					if err != nil {
