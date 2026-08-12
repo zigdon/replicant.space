@@ -64,9 +64,6 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			if info.Status != "idle" {
 				return
 			}
-			if string(info.Location) != home {
-				return
-			}
 
 			mu.Lock()
 			ships[info.Code.Alias()] = info
@@ -179,6 +176,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 			}
 
 			if info.Travel != nil {
+				mu.Lock()
 				dest := string(info.Travel.Destination)
 
 				// Initialize the line if needed
@@ -197,6 +195,7 @@ func autoRent(cmd *cobra.Command, args []string) error {
 					incoming[dest][c.ResourceType] += int(c.Quantity)
 					line.cargo[c.ResourceType] += int(c.Quantity)
 				}
+				mu.Unlock()
 			}
 			if info.Status != "idle" {
 				return

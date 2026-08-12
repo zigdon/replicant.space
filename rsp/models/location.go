@@ -70,13 +70,6 @@ func (p *Position) Delta(pb *Position) *Position {
 	return NewPosition(p.X-pb.X, p.Y-pb.Y, p.Z-pb.Z)
 }
 
-func (p *Position) MarshalJSON() ([]byte, error) {
-	if p == nil {
-		return []byte{}, nil
-	}
-	return json.Marshal(p)
-}
-
 func (p *Position) UnmarshalJSON(data []byte) error {
 	if p == nil {
 		p = new(Position)

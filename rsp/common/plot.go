@@ -368,7 +368,11 @@ func Distance(src, dst string) (float32, error) {
 			if err != nil {
 				return nil, err
 			}
-			ca = res.HostedDeviceCode
+			if res.HostedDeviceCode != nil {
+				ca = res.HostedDeviceCode
+			} else {
+				return nil, fmt.Errorf("Can't find hosting device for %s", ca)
+			}
 		}
 		dev, err := rest.DeviceInfo(ca)
 		if err != nil {

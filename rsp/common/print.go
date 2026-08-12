@@ -59,7 +59,11 @@ func CheckQueue(where, tag, devType string, qty int) (int, time.Time) {
 				continue
 			}
 			// It'll be _at least_ however much is left in the current print + print time
-			eta = later(eta, info.Printing.Completes.Time().Add(GetBP(pq.Type).PrintTime.Duration()))
+			if info.Printing != nil {
+				eta = later(eta, info.Printing.Completes.Time().Add(GetBP(pq.Type).PrintTime.Duration()))
+			} else {
+				eta = later(eta, time.Now().Add(GetBP(pq.Type).PrintTime.Duration()))
+			}
 			found++
 		}
 		if found >= qty {

@@ -38,7 +38,10 @@ func prettyPrint(i any) {
 }
 
 func prettyPrintf(f io.Writer, i any) {
-	s, _ := json.MarshalIndent(i, "", "  ")
+	s, err := json.MarshalIndent(i, "", "  ")
+	if err != nil {
+		fmt.Printf("Error marshalling %#v: %v\n", i, err)
+	}
 	fmt.Fprintln(f, string(s))
 }
 

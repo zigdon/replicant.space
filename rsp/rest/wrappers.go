@@ -319,8 +319,9 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 			}
 			switch k {
 			case "location":
-				limits = append(limits, fmt.Sprintf("%s LIKE $%d", k, len(vals)+1))
-				vals = append(vals, v+"%")
+				limits = append(limits,
+					fmt.Sprintf("(%s = $%d OR %s LIKE $%d)", k, len(vals)+1, k, len(vals)+2))
+				vals = append(vals, v, v+"-%")
 			case "tag":
 				limits = append(limits,
 					fmt.Sprintf(
@@ -389,7 +390,7 @@ func RefreshDevices(filters map[string]string) ([]*models.Device, error) {
 	for k, v := range filters {
 		params = append(params, fmt.Sprintf("%s=%s", k, v))
 	}
-	params = append([]string{"limit=50", "cursor=%d"}, params...)
+	params = append([]string{"limit=200", "cursor=%d"}, params...)
 	if len(params) > 0 {
 		url += "?" + strings.Join(params, "&")
 	}
@@ -507,6 +508,7 @@ func DeviceLogs(id *models.CodeAlias, limit int) (*models.DeviceLogs, error) {
 		}
 		ret.Events = append(ret.Events, e)
 	}
+	slices.Reverse(ret.Events)
 	return ret, rows.Close()
 }
 
@@ -669,7 +671,7 @@ func UpdateTags(id *models.CodeAlias, operation TagOp, tags []string) (*models.D
 	}
 
 	mutate(dev)
-	return dev, nil
+	return dev, dev.Cache()
 }
 
 func GetTagged(tag string) (*models.TaggedDevices, error) {

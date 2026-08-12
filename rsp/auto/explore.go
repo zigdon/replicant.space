@@ -129,6 +129,10 @@ func (em *ExploreMachine) Start(dev *models.Device, dryRun bool) error {
 			return fmt.Errorf("asc can't adopt drones: %v", err)
 		}
 	}
+
+	if em.sb == nil {
+		return fmt.Errorf("One service bot or maintenence drone is required")
+	}
 	dir := "service"
 	if em.sb.Type != "service_bot" {
 		dir = "patrol"

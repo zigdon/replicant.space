@@ -2,6 +2,7 @@ package cache
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -108,14 +109,12 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 
 	// See if there's already an alias
 	row := db.DB.QueryRow("SELECT name FROM aliases WHERE designation = $1", designation)
-	if row.Err() != nil {
-		log("Error getting alias for %q: %v", designation, row.Err())
-		return "", row.Err()
-	}
-	var alias string
-	err := row.Scan(&alias)
-	if err == nil {
-		return alias, nil
+	if row.Err() == nil {
+		var alias string
+		err := row.Scan(&alias)
+		if err == nil {
+			return alias, nil
+		}
 	}
 
 	// If we don't know the device type, can't make a new alias, so just return the original
@@ -127,23 +126,46 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 	// If we have one preset, use that
 	prefix, err := db.AliasType(deviceType)
 	if err != nil {
-		return prefix, err
+		return prefix, fmt.Errorf("Error getting alias type for %q: %v", deviceType, err)
 	}
 
-	// Find how many of these prefixes we already have
-	row = db.DB.QueryRow("SELECT COUNT(*) FROM aliases WHERE type = $1", deviceType)
-	var cnt int
-	if err := row.Scan(&cnt); err != nil {
-		return "", err
+	// Read all the existing aliases
+	rows, err := db.DB.Query("SELECT name FROM aliases WHERE type = $1", deviceType)
+	if err != nil {
+		return prefix, fmt.Errorf("Error getting existing aliases for %q: %v", deviceType, err)
+	}
+	var last int
+	for rows.Next() {
+		var a string
+		if err := rows.Scan(&a); err != nil {
+			log("No existing aliases found for %q: %v", deviceType, err)
+			continue
+		}
+		_, id, ok := strings.Cut(a, "-")
+		if !ok {
+			log("Invalid %q alias: %q", deviceType, a)
+			continue
+		}
+		n, err := strconv.Atoi(id)
+		if err != nil {
+			log("Invalid %q alias: %q: %v", deviceType, a, err)
+			continue
+		}
+		if n > last {
+			last = n
+		}
+	}
+	if err := rows.Close(); err != nil {
+		return "", fmt.Errorf("Error closing query: %v", err)
 	}
 
 	// Save the new prefix
-	alias = fmt.Sprintf("%s-%d", prefix, cnt+1)
+	alias := fmt.Sprintf("%s-%d", prefix, last+1)
 	log("Adding new alias %q (%q) -> %q", designation, deviceType, alias)
 	if _, err := db.DB.Exec(
 		"INSERT INTO aliases (designation, type, name) VALUES ($1, $2, $3)",
 		designation, deviceType, alias); err != nil {
-		return "", err
+		return "", fmt.Errorf("Error saving new alias %q: %v", alias, err)
 	}
 	return alias, nil
 }

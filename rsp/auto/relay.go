@@ -284,7 +284,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			_, err := deviceCommand(fr, "change_owner",
 				map[string]any{"target": rm.replicant.String()}, rm.dryRun)
 			if err != nil {
-				return eta, err
+				log("Ignoring owner change error: %v", err)
 			}
 			// Deploy
 			_, err = deviceCommand(fr, "deploy", nil, rm.dryRun)
@@ -419,6 +419,11 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				if err != nil {
 					return eta, fmt.Errorf("Can't get beacons: %v", err)
 				}
+				shs, err := rest.Devices(map[string]string{"device_type": "system_hub"})
+				if err != nil {
+					return eta, fmt.Errorf("Can't get hubs: %v", err)
+				}
+				fbs = append(fbs, shs...)
 				var nearest float32
 				var dest string
 				curStar, err := models.NewStar(rm.dev.Location.Star())
@@ -426,8 +431,9 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 					return eta, fmt.Errorf("Can't get current star %q: %v", rm.dev.Location, err)
 				}
 
+				var devType string
 				for _, fb := range fbs {
-					if fb.Status != "monitoring" {
+					if fb.Status != "monitoring" && fb.Type == "ftl_beacon" {
 						continue
 					}
 					if inNet[fb.Location.Star()] {
@@ -441,9 +447,10 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 					if dist := star.Position.Distance(curStar.Position); nearest == 0 || dist < nearest {
 						nearest = dist
 						dest = star.Designation.Star()
+						devType = fb.Type
 					}
 				}
-				log("Next beacon: %s (%.2f LY away)", dest, nearest)
+				log("Next %s: %s (%.2f LY away)", devType, dest, nearest)
 				rm.dest = models.LocationID(dest)
 			} else {
 				rm.state = RelayMachine_Done

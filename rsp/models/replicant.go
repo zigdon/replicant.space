@@ -88,38 +88,35 @@ func (t *Travel) Notification() *Notification {
 }
 
 type Replicant struct {
-	AttachedDevices     []string      `json:"attached_devices"`
-	Cargo               []*Inventory  `json:"cargo"`
-	Code                *CodeAlias    `json:"replicant_code"`
-	Created             *JSONTime     `json:"created_at"`
-	CurrentLocation     LocationID    `json:"current_location"`
-	CurrentLocationName string        `json:"current_location_name"`
-	CurrentStar         string        `json:"current_star"`
-	CurrentStarName     string        `json:"current_star_name"`
-	Description         string        `json:"description"`
-	DeviceCount         int           `json:"device_count"`
-	ExperiencePoints    int           `json:"experience_points"`
-	HostedDeviceCode    *CodeAlias    `json:"hosted_device_code"`
-	IsNPC               bool          `json:"is_npc"`
-	Location            LocationID    `json:"location"`
-	LocationName        string        `json:"location_name"`
-	Name                string        `json:"name"`
-	Plan                string        `json:"plan"`
-	Position            *Position     `json:"position"`
-	Printing            *DevicePrint  `json:"printing"`
-	PrintQueue          []*PrintQueue `json:"print_queue"`
-	Project             string        `json:"project"`
-	Pronouns            string        `json:"pronouns"`
-	Status              string        `json:"status"`
-	StowedDevices       []*Device     `json:"stowed_devices"`
-	Teleport            *Teleport     `json:"teleport"`
-	Travel              *Travel       `json:"travel"`
-	WaitingFor          struct {
-		Components map[string]*MissingResources `json:"components"`
-		Resources  map[string]*MissingResources `json:"resources"`
-	} `json:"waiting_for"`
+	AttachedDevices     []string                     `json:"attached_devices"`
+	Cargo               []*Inventory                 `json:"cargo"`
+	Code                *CodeAlias                   `json:"replicant_code"`
+	Created             *JSONTime                    `json:"created_at"`
+	CurrentLocation     LocationID                   `json:"current_location"`
+	CurrentLocationName string                       `json:"current_location_name"`
+	CurrentStar         string                       `json:"current_star"`
+	CurrentStarName     string                       `json:"current_star_name"`
+	Description         string                       `json:"description"`
+	DeviceCount         int                          `json:"device_count"`
+	ExperiencePoints    int                          `json:"experience_points"`
+	HostedDeviceCode    *CodeAlias                   `json:"hosted_device_code"`
+	IsNPC               bool                         `json:"is_npc"`
+	Location            LocationID                   `json:"location"`
+	LocationName        string                       `json:"location_name"`
+	Name                string                       `json:"name"`
+	Plan                string                       `json:"plan"`
+	Position            *Position                    `json:"position"`
+	Printing            *DevicePrint                 `json:"printing"`
+	PrintQueue          []*PrintQueue                `json:"print_queue"`
+	Project             string                       `json:"project"`
+	Pronouns            string                       `json:"pronouns"`
+	Status              string                       `json:"status"`
+	StowedDevices       []*Device                    `json:"stowed_devices"`
+	Teleport            *Teleport                    `json:"teleport"`
+	Travel              *Travel                      `json:"travel"`
+	WaitingFor          map[string]*MissingResources `json:"waiting_for"`
 
-	UpdateFn func(*CodeAlias) (*Replicant, error)
+	UpdateFn func(*CodeAlias) (*Replicant, error) `json:"-"`
 }
 
 func (r *Replicant) Update() error {

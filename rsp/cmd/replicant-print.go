@@ -36,18 +36,22 @@ var printCmd = &cobra.Command{
 			return fmt.Errorf("Exactly one of --clear, --cancel, or an argument must be passed.")
 		}
 		var res *models.PrintResp
-		if cancel {
+		switch {
+		case cancel:
 			res, err = rest.ReplicantPrint(rID, "cancel", "")
 			if err != nil {
 				return fmt.Errorf("Failed to cancel a job: %v", err)
 			}
-		} else if clear {
+		case clear:
 			res, err = rest.ReplicantPrint(rID, "clear_queue", "")
 			if err != nil {
 				return fmt.Errorf("Failed to clear the queue: %v", err)
 			}
-		} else {
+		default:
 			arg := args[0]
+			if a := db.GetTypeForPrefix(arg); a != "" {
+				arg = a
+			}
 			res, err = rest.ReplicantPrint(rID, "", arg)
 			if err != nil {
 				return fmt.Errorf("Failed to enqueue %q: %v", arg, err)

@@ -100,6 +100,10 @@ func autoState(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			if _, ok := errors.AsType[auto.MachineDoneErr](err); ok {
 				log("State machine %s (%s) done: %v", d, m.Name(), err)
+				_, err := rest.UpdateTags(d, rest.DelTag, []string{"auto"})
+				if err != nil {
+					log("Error removing the 'auto' tag: %v", err)
+				}
 				delete(sms, d.Alias())
 				return nil
 			}

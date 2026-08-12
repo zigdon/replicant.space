@@ -336,8 +336,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 				stowed++
 			}
 			log("Picked up %d BRs, shipping resupply back home", stowed)
-			var err error
-			eta, err = common.Travel(bm.supply.Code, home, bm.dryRun)
+			_, err := common.Travel(bm.supply.Code, home, bm.dryRun)
 			if err != nil {
 				return eta, err
 			}
@@ -393,7 +392,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		pos := bm.dev.GetPosition()
 		rows, err := DB.DB.Query(`
 		  SELECT * FROM (
-			SELECT p.designation, position<->$1::cube AS dist
+			SELECT p.designation as designation, position<->$1::cube AS dist
 			FROM planets p JOIN stars s ON p.star = s.designation
 			WHERE (life_stage = 'intelligent' or life_stage = 'spacefaring'))
 		  WHERE dist > 0.1

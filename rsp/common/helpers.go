@@ -22,7 +22,15 @@ func Log(tmpl string, args ...any) {
 	LogLevel(0, tmpl, args...)
 }
 
+func TimeLog(when time.Time, tmpl string, args ...any) {
+	TimeLogLevel(when, 0, tmpl, args...)
+}
+
 func LogLevel(level int, tmpl string, args ...any) {
+	TimeLogLevel(time.Now(), level, tmpl, args...)
+}
+
+func TimeLogLevel(when time.Time, level int, tmpl string, args ...any) {
 	var getCaller func(int) string
 	getCaller = func(skip int) string {
 		_, file, line, ok := runtime.Caller(skip)
@@ -70,7 +78,7 @@ func LogLevel(level int, tmpl string, args ...any) {
 			args[n] = ids
 		}
 	}
-	prefix := time.Now().Format("01-02 15:04:05") + " - "
+	prefix := when.Format("01-02 15:04:05") + " - "
 	if caller := getCaller(2 + level); caller != "" {
 		prefix += caller + " - "
 	}

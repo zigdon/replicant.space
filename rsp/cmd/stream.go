@@ -34,21 +34,23 @@ func change[T any](target *T, newVal T) {
 }
 
 func readStream(cmd *cobra.Command, args []string) error {
-	resources := []string{"carbon", "conductive", "rares", "silicates",
-		"structural", "volatiles"}
-	type util struct {
-		Actual, Capacity int
-	}
-	tmpl := "%20s:" + strings.Repeat(" %10s", len(resources))
-	titles := []any{"Location"}
-	for _, r := range resources {
-		if len(r) < 10 {
-			titles = append(titles, r)
-		} else {
-			titles = append(titles, r[:10])
+	/*
+		resources := []string{"carbon", "conductive", "rares", "silicates",
+			"structural", "volatiles"}
+		type util struct {
+			Actual, Capacity int
 		}
-	}
-	log(tmpl, titles...)
+		tmpl := "%20s:" + strings.Repeat(" %10s", len(resources))
+		titles := []any{"Location"}
+		for _, r := range resources {
+			if len(r) < 10 {
+				titles = append(titles, r)
+			} else {
+				titles = append(titles, r[:10])
+			}
+		}
+		log(tmpl, titles...)
+	*/
 
 	update := func(f func(*models.Device), devs ...*models.CodeAlias) {
 		var errs []error
@@ -73,6 +75,9 @@ func readStream(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			log("Error parsing %v: %v", ev, err)
 			return err
+		}
+		log := func(tmpl string, args ...any) {
+			common.TimeLog(env.Created.Time(), tmpl, args...)
 		}
 		payload, err := json.Marshal(env.Payload)
 		if err != nil {
@@ -118,13 +123,15 @@ func readStream(cmd *cobra.Command, args []string) error {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-			data := []any{ev.Report.Mining.Location}
-			for _, r := range resources {
-				data = append(data,
-					fmt.Sprintf("%d/%d", ev.Report.Mining.Resources[r].Actual,
-						ev.Report.Mining.Resources[r].Capacity))
-			}
-			log(tmpl, data...)
+			/*
+				data := []any{ev.Report.Mining.Location}
+				for _, r := range resources {
+					data = append(data,
+						fmt.Sprintf("%d/%d", ev.Report.Mining.Resources[r].Actual,
+							ev.Report.Mining.Resources[r].Capacity))
+				}
+				log(tmpl, data...)
+			*/
 			devBySt := make(map[string][]*models.CodeAlias)
 			for _, d := range ev.Devices {
 				if devBySt[d.Status] == nil {
@@ -223,12 +230,10 @@ func readStream(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			update(func(d *models.Device) {
-				change(
-					&d.AttachedDevices,
-					slices.DeleteFunc(
-						d.AttachedDevices, func(ad *models.Device) bool {
-							return ad.Code.String() != d.Code.String()
-						}))
+				ads := slices.DeleteFunc(d.AttachedDevices, func(ad *models.Device) bool {
+					return ad.Code.String() != d.Code.String()
+				})
+				change(&d.AttachedDevices, ads)
 			}, env.DeviceCode)
 			update(func(d *models.Device) {
 				change(&d.AttachedToDeviceCode, nil)
@@ -251,11 +256,11 @@ func readStream(cmd *cobra.Command, args []string) error {
 				}
 			}, env.DeviceCode)
 			update(func(d *models.Device) {
-				change(
-					&d.StowedDevices.Devices,
-					slices.DeleteFunc(d.StowedDevices.Devices, func(dp *models.DevicePointer) bool {
+				sds := slices.DeleteFunc(d.StowedDevices.Devices,
+					func(dp *models.DevicePointer) bool {
 						return dp.Code.String() != env.DeviceCode.String()
-					}))
+					})
+				change(&d.StowedDevices.Devices, sds)
 			}, ev.DeployedFromDeviceCode)
 		case "device.stowed":
 			ev, err := models.Parse[models.StreamDeviceStowed](payload)
@@ -270,7 +275,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 				change(&d.Status, "stowed")
 			}, env.DeviceCode)
 			update(func(d *models.Device) {
-				if d.StowedDevices.Devices == nil {
+				if d.StowedDevices == nil || d.StowedDevices.Devices == nil {
 					return
 				}
 				if !slices.ContainsFunc(d.StowedDevices.Devices, func(dp *models.DevicePointer) bool {
@@ -284,6 +289,11 @@ func readStream(cmd *cobra.Command, args []string) error {
 						}))
 				}
 			}, ev.StowedIn)
+		case "device.unfurled":
+			log("%s unfurled at %s", env.DeviceCode, env.Location)
+			update(func(d *models.Device) {
+				change(&d.Status, "idle")
+			}, env.DeviceCode)
 		case "diversion.activated":
 			ev, err := models.Parse[models.StreamDiversionActivated](payload)
 			if err != nil {
@@ -384,6 +394,16 @@ func readStream(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			log("XP gained: %d for %s at %s", ev.Amount, ev.Source, env.Location)
+		case "hub.activated":
+			ev, err := models.Parse[models.StreamHubActivated](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Hub %s activated at %s by %s", env.DeviceCode, ev.Location, env.ReplicantCode)
+			update(func(d *models.Device) {
+				change(&d.Status, "relaying")
+			}, env.DeviceCode)
 		case "message.new":
 			ev, err := models.Parse[models.StreamMessageNew](payload)
 			if err != nil {
@@ -391,6 +411,43 @@ func readStream(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			log("New message (%s): %s", ev.MessageType, ev.Title)
+		case "mining.started":
+			ev, err := models.Parse[models.StreamMiningStarted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s started mining %s at %s", env.DeviceCode, ev.ResourceType, ev.Site)
+			update(func(d *models.Device) {
+				change(&d.Status, fmt.Sprintf("mining (%s)", ev.ResourceType))
+				change(&d.Location, env.Location)
+			}, env.DeviceCode)
+		case "mining.stopped":
+			ev, err := models.Parse[models.StreamMiningStopped](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s mined %d %s at %s",
+				env.DeviceCode, ev.QuantityMined, ev.ResourceType, env.Location)
+			update(func(d *models.Device) {
+				change(&d.Status, "idle")
+				change(&d.Location, env.Location)
+			}, env.DeviceCode)
+		case "multiplayer.replicant_entered":
+			ev, err := models.Parse[models.StreamMultiplayerReplicantEntered](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s entered %s", ev.ReplicantName, ev.Star)
+		case "multiplayer.replicant_left":
+			ev, err := models.Parse[models.StreamMultiplayerReplicantLeft](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s left %s", ev.ReplicantName, ev.Star)
 		case "print.completed":
 			ev, err := models.Parse[models.StreamPrintCompleted](payload)
 			if err != nil {
@@ -437,6 +494,17 @@ func readStream(cmd *cobra.Command, args []string) error {
 				})
 			}, env.DeviceCode)
 			log("Printing %s at %s: ETA %s", ev.DeviceType, env.DeviceCode, ev.Completes)
+		case "relay.activated":
+			_, err := models.Parse[models.StreamRelayActivated](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Relay %s activated at %s", env.DeviceCode, env.Location)
+			update(func(d *models.Device) {
+				change(&d.Status, "relaying")
+				change(&d.Location, env.Location)
+			}, env.DeviceCode)
 		case "salvage.discovered":
 			ev, err := models.Parse[models.StreamSalvageDiscovered](payload)
 			if err != nil {
@@ -466,7 +534,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-			log("Teleport started: %s online at %s", ev.ReplicantCode, ev.DestinationStar)
+			log("Teleport complete: %s online at %s", ev.ReplicantCode, ev.DestinationStar)
 		case "teleport.started":
 			ev, err := models.Parse[models.StreamTeleportStarted](payload)
 			if err != nil {
@@ -584,6 +652,8 @@ func readStream(cmd *cobra.Command, args []string) error {
 			}, env.DeviceCode)
 			log("Departed from %s to %s: %s", ev.Destination, ev.Origin,
 				strings.Join(codeList(append(ev.AttachedDevices, env.DeviceCode)), ", "))
+
+		// Next case here
 
 		/*
 			ev, err := models.Parse[models.StreamTravelDeparted](payload)

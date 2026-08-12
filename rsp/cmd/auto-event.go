@@ -397,7 +397,8 @@ func (es *eventState) complete() error {
 	// 1. See if we just have someone already in the right place
 	// 2. See if we can teleport there
 	//    If there isn't add a TODO to install one
-	// 3. Report distances from all replicants
+	// 3. See if there's a matrix container nearby that can be moved over
+	// 4. Report distances from all replicants
 
 	var rep *models.Replicant
 	var data [][]any
@@ -474,6 +475,94 @@ func (es *eventState) complete() error {
 				return err
 			}
 			time.Sleep(time.Second)
+		}
+	}
+
+	log("Checking for nearby containers that can be moved over")
+	devs, err = rest.Devices(map[string]string{"device_type": "matrix_container"})
+	if err != nil {
+		return fmt.Errorf("Can't get matrix containers: %v", err)
+	}
+	dists := make(map[string]float32)
+	mcLocs := make(map[string][]*models.Device)
+	hasMC := make(map[string]bool)
+	var nearestMC float32 = -1
+	var spf *models.CodeAlias
+
+	for _, d := range devs {
+		d, err := rest.DeviceInfo(d.Code)
+		if err != nil {
+			log("Error getting info for %q: %v", d.Code, err)
+			continue
+		}
+
+		// If it's already in motion, ignore it
+		if d.Location == "" {
+			continue
+		}
+		star := d.Location.Star()
+
+		// If it doesn't actually host a matrix, skip it
+		if d.StowedDevices == nil || len(d.StowedDevices.Devices) == 0 {
+			continue
+		}
+		// If it's not attached to another device (e.g. spf), skip it, but note that system has one
+		if d.AttachedToDeviceCode == nil {
+			hasMC[star] = true
+			continue
+		}
+
+		dist, err := common.Distance(d.Code.Alias(), es.destination.Star())
+		if err != nil {
+			log("Can't get distance from %q: %v", d.Location, err)
+			continue
+		}
+		dists[star] = dist
+		mcLocs[star] = append(mcLocs[star], d)
+	}
+
+	// Look through the list of mobile MCs.
+	// - If there's already one deployed in that system, we can move the
+	//   platform.
+	// - If not, deploy one, then if there are any left on the platform,
+	//   - If the platform has _another_ MC, move it.
+	//   - If not, send the platform home.
+	for loc, mcs := range mcLocs {
+		// No local MC, deploy it
+		if !hasMC[loc] {
+			mc := mcs[0]
+			mcs = mcs[1:]
+			log("Deploying %s at %s", mc, loc)
+			_, err := _dc(mc.AttachedToDeviceCode, "detach", map[string]any{"target": mc.Code}, es.dryRun)
+			if err != nil {
+				log("Can't detach %q from %q: %v", mc.Code, mc.AttachedToDeviceCode, err)
+				continue
+			}
+			hasMC[loc] = true
+			if len(mcs) > 0 {
+				mcLocs[loc] = mcs
+			} else {
+				log("Sending the empty %q back home", mc.AttachedToDeviceCode)
+				common.Travel(mc.AttachedToDeviceCode, home, es.dryRun)
+				continue
+			}
+		}
+		// If we got here, there was at least one more MC available to move over
+		if nearestMC < 0 || dists[loc] < nearestMC {
+			nearestMC = dists[loc]
+			spf = mcs[0].AttachedToDeviceCode
+		}
+	}
+
+	if spf != nil {
+		log("Sending %s with a matrix container to %s", spf, es.event.Location)
+		if eta, err := common.Travel(spf, string(es.event.Location), es.dryRun); err != nil {
+			log("Error shipping %q: %v", spf, err)
+		} else {
+			return fmt.Errorf(
+				"Shipped matrix to %s, ETA %s (%s)", es.event.Location,
+				eta.Truncate(time.Second).Format(time.Kitchen),
+				time.Until(eta).Truncate(time.Second))
 		}
 	}
 
