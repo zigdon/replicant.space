@@ -377,6 +377,18 @@ type ControllerStatus struct {
 	RecallResult          string `json:"recall_result"`
 }
 
+type AssembleResp struct {
+	Assembled       []*CodeAlias `json:"assembled"`
+	Controller      *CodeAlias   `json:"controller_code"`
+	Destination     LocationID   `json:"destination"`
+	DestinationName string       `json:"destination_name"`
+	Skipped         []struct {
+		DeviceCode *CodeAlias `json:"device_code"`
+		Reason     string     `json:"reason"`
+	} `json:"skipped"`
+	Status string `json:"status"`
+}
+
 type CommandResp struct {
 	AdoptedDevices       *StowedDevices      `json:"adopted"`
 	AmiDirective         *DeviceDirective    `json:"ami_directive"`

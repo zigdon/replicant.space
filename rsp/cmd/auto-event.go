@@ -51,6 +51,16 @@ import (
 //   Reposition replicant
 //   Complete event
 
+type replicantTask struct {
+	vessel *models.CodeAlias
+	rep    *models.CodeAlias
+	dest   models.LocationID
+	ev     *models.Event
+	dist   float32
+}
+
+var tasks []replicantTask
+
 type eventState struct {
 	event       *models.Event
 	tag         string
@@ -452,6 +462,13 @@ func (es *eventState) complete() error {
 			name = r.Code.Alias()
 		}
 		data = append(data, []any{r.Code, r.CurrentLocation, dist, list(tags)})
+		tasks = append(tasks, replicantTask{
+			vessel: hv.Code,
+			rep:    r.Code,
+			dest:   es.destination,
+			ev:     es.event,
+			dist:   dist,
+		})
 	}
 	if rep == nil {
 		var repList []string
@@ -960,7 +977,32 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		})
 	}
 	log("All done.")
+	if err := errors.Join(errs...); err != nil {
+		log("Execution errors:\n%v\n\n", err)
+	}
 	printTable([]string{"ID", "Location", "Title", "Status"}, data)
 
-	return errors.Join(errs...)
+	if getBool(cmd, "ship_replicants") {
+		log("Auto-shipping enabled...")
+		sent := make(map[string]bool)
+		slices.SortFunc(tasks, func(a, b replicantTask) int {
+			return cmp.Compare(a.dist, b.dist)
+		})
+		for _, t := range tasks {
+			if t.dist > 100 {
+				break
+			}
+			if sent[t.rep.Alias()] {
+				continue
+			}
+			sent[t.rep.Alias()] = true
+			log("... Sending %s in %s on a trip to %s (%.2f LY away) to complete %s",
+				t.rep, t.vessel, t.dest, t.dist, t.ev.Designation)
+			if _, err := common.Travel(t.vessel, string(t.dest), dryRun); err != nil {
+				log("Shipping failed: %v", err)
+			}
+		}
+	}
+
+	return nil
 }

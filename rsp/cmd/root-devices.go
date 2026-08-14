@@ -89,7 +89,6 @@ var deviceListCmd = &cobra.Command{
 				"mine":   models.DeviceFilterMine(),
 			}
 		}
-		merge := getBool(cmd, "merge")
 		if !ignore {
 			devs, skipped = filterDevices(devs, filterFn)
 		}
@@ -97,6 +96,13 @@ var deviceListCmd = &cobra.Command{
 			prettyPrint(devs)
 			return nil
 		}
+		if ids := getBool(cmd, "ids"); ids {
+			for _, d := range devs {
+				fmt.Println(d.Code.String())
+			}
+			return nil
+		}
+		merge := getBool(cmd, "merge")
 		printDeviceList(devs, origin, merge)
 		var stats []string
 		for k, v := range skipped {
@@ -211,6 +217,7 @@ func init() {
 	deviceListCmd.Flags().StringSliceP("only_tags", "t", []string{}, "Show only results with these tags")
 	deviceListCmd.Flags().StringP("distance", "d", "", "Show distance from this object's star")
 	deviceListCmd.Flags().Bool("merge", true, "If set, group duplicate devices")
+	deviceListCmd.Flags().Bool("ids", false, "If set, only output matching device IDs")
 
 	rootCmd.AddCommand(networkCmd)
 }
@@ -288,9 +295,16 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 		} else {
 			dups[key] = []*models.Device{d}
 		}
-		var attached string
-		if d.AttachCapacity > 0 {
-			attached = fmt.Sprintf("%d/%d", len(d.AttachedDevices), d.AttachCapacity)
+		var cargo []string
+		if d.AttachCapacity > 0 && len(d.AttachedDevices) > 0 {
+			cargo = append(cargo, fmt.Sprintf("at: %d/%d", len(d.AttachedDevices), d.AttachCapacity))
+		}
+		if d.CargoCapacity > 0 && len(d.Cargo) > 0 {
+			var inv int
+			for _, i := range d.Cargo {
+				inv += i.Quantity
+			}
+			cargo = append(cargo, fmt.Sprintf("cg: %d/%d", inv, d.CargoCapacity))
 		}
 		line := []any{
 			d.Type,
@@ -304,7 +318,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 			d.StowedInDeviceCode.Alias() + d.AttachedToDeviceCode.Alias(),
 			list(d.Tags),
 			d.OwnerReplicant,
-			attached,
+			list(cargo),
 			key,
 		}
 		if reference != nil {
@@ -351,7 +365,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 		"With",
 		"Tags",
 		"Replicant",
-		"Attached",
+		"Contents",
 		"Duplicates",
 	}
 	if reference != nil {

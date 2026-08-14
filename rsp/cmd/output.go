@@ -65,12 +65,20 @@ func wrap(t string, w int) string {
 	return lg.NewStyle().Width(w).Render(t)
 }
 
-func list(s []string) string {
+func longList(s []string, trunc, width int) string {
 	res := strings.Join(s, ", ")
-	if len(res) > 30 {
-		res = fmt.Sprintf("(%d) %s...", len(s), res[:30])
+	if trunc > 0 && len(res) > trunc {
+		res = fmt.Sprintf("(%d) %s...", len(s), res[:trunc])
 	}
+	if width > 0 {
+		res = lg.Wrap(res, width, " ")
+	}
+
 	return res
+}
+
+func list(s []string) string {
+	return longList(s, 30, -1)
 }
 
 func lines(s []string) string {

@@ -108,8 +108,8 @@ var surveyCmd = &cobra.Command{
 }
 
 func init() {
-	mkDeviceCommand[models.CommandResp](
-		"assemble", "Bring the fleet home to the controller's current location without ending the directive", "assemble", nil, "",
+	mkDeviceCommand[models.AssembleResp](
+		"assemble", "Bring the fleet home to the controller's current location without ending the directive", "assemble", nil, "device-assemble",
 	)
 	mkDeviceCommand[models.CommandResp](
 		"clear_directive", "Drop the current directive entirely", "clear_directive", nil, "",
@@ -169,5 +169,30 @@ func init() {
 					resp.Controller.DirectiveStatusAfter),
 				lines(lists["a"]), lines(lists["d"]), lines(lists["f"]), lines(lists["s"]),
 			}}
+	}
+	outputTable["device-assemble"] = func(data any) ([]string, [][]any) {
+		resp := data.(*models.AssembleResp)
+		devs := make(map[string][]*models.CodeAlias)
+		out := [][]any{{"Controller", resp.Controller},
+			{"Status", resp.Status}}
+		for _, d := range resp.Assembled {
+			devs["Assembled"] = append(devs["Assembled"], d)
+		}
+		out = append(out, []any{"Assembled", longList(codeList(devs["Assembled"]), -1, 60)})
+		var reasons []string
+		for _, d := range resp.Skipped {
+			k := fmt.Sprintf("Skipped: %s", d.Reason)
+			if !slices.Contains(reasons, k) {
+				reasons = append(reasons, k)
+			}
+			devs[k] = append(devs[k], d.DeviceCode)
+		}
+		slices.Sort(reasons)
+		for _, r := range reasons {
+			out = append(out, []any{r, longList(codeList(devs[r]), -1, 60)})
+		}
+		return []string{
+			"Status", "Devices",
+		}, out
 	}
 }

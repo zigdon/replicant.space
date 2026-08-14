@@ -109,6 +109,7 @@ func init() {
 	autoEventCmd.Flags().String("home", "MENKUNT-2-L4", "Home system")
 	autoEventCmd.Flags().BoolP("dry_run", "n", false, "Only log what actions would happen")
 	autoEventCmd.Flags().Bool("all", false, "Iterate over all known events")
+	autoEventCmd.Flags().BoolP("ship_replicants", "s", false, "Automatically send replicants on trips that are less than 100 LY away")
 	autoEventCmd.RegisterFlagCompletionFunc("id", completeEventIDs)
 	autoEventCmd.RegisterFlagCompletionFunc("criteria", completeEventCriteria)
 

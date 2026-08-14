@@ -175,6 +175,16 @@ func readStream(cmd *cobra.Command, args []string) error {
 			}
 			slices.Sort(cnts)
 			log("Updating transports status: %s", strings.Join(cnts, ", "))
+		case "blueprint.unlocked":
+			ev, err := models.Parse[models.StreamBlueprintUnlocked](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Blueprint unlocked: %s - %s", ev.DeviceType, ev.ShortDescription)
+			if _, err := rest.Blueprints(true); err != nil {
+				log("ERROR refreshing blueprints: %v", err)
+			}
 		case "bobnet.new":
 			ev, err := models.Parse[models.StreamBobnetNew](payload)
 			if err != nil {
@@ -246,12 +256,12 @@ func readStream(cmd *cobra.Command, args []string) error {
 			}
 			log("%s deployed from %s @ %s", env.DeviceCode, ev.DeployedFromDeviceCode, env.Location)
 			update(func(d *models.Device) {
-				debug(&d.StowedInDeviceCode, nil)
-				debug(&d.Location, env.Location)
+				change(&d.StowedInDeviceCode, nil)
+				change(&d.Location, env.Location)
 				if d.Type == "ftl_beacon" {
-					debug(&d.Status, "monitoring")
+					change(&d.Status, "monitoring")
 				} else {
-					debug(&d.Status, "idle")
+					change(&d.Status, "idle")
 				}
 			}, env.DeviceCode)
 			update(func(d *models.Device) {
