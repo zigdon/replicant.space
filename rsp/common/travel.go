@@ -2,11 +2,53 @@ package common
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
+
+type tce struct {
+	ts   time.Time
+	from string
+	to   string
+	via  []string
+	cfg  map[string]any
+}
+
+var mu sync.RWMutex
+
+var travelCache = make(map[string]map[string]*tce)
+
+const maxAge = 10 * time.Minute
+
+func getCachedTrip(from, to string, via []string) *tce {
+	mu.RLock()
+	defer mu.RUnlock()
+	fromEnt, ok := travelCache[from]
+	if !ok {
+		travelCache[from] = make(map[string]*tce)
+		return nil
+	}
+	ent, ok := fromEnt[to]
+	if !ok {
+		return nil
+	}
+
+	if time.Since(ent.ts) > maxAge {
+		return nil
+	}
+	if len(ent.via) != len(via) {
+		return nil
+	}
+	for n, v := range via {
+		if ent.via[n] != v {
+			return nil
+		}
+	}
+	return ent
+}
 
 func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.Time, error) {
 	location := models.LocationID(loc)
@@ -42,94 +84,113 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 	Log("Plotting travel: %s -> %s (%.2fly)",
 		info.Location.Star(), location.Star(),
 		info.GetPosition().Distance(star.Position))
-	// Allow forcing direct travel, if we need that for some reason
-	if len(via) == 1 && via[0] == "-" {
-		Log("Direct travel requested, not applying auto-route")
-		cfg["via"] = "direct"
-	} else if len(via) > 0 {
-		Log("Using provided route: %v", via)
+
+	// See if we have this route already cached
+	cachedTrip := getCachedTrip(info.Location.Star(), location.Star(), via)
+	if cachedTrip != nil {
+		Log("Using cached plan from %s (%s)", cachedTrip.ts.Format(time.Kitchen),
+			time.Since(cachedTrip.ts).Truncate(time.Second))
+		cfg = cachedTrip.cfg
 	} else {
-		type opt struct {
-			t time.Duration
-			v any
+		cachedTrip = &tce{
+			ts:   time.Now(),
+			from: info.Location.Star(),
+			to:   location.Star(),
+			via:  via,
 		}
-		opts := make(map[string]opt)
-		Log("Auto-calculating route")
-		// Find the nearest hub
-		_, star, dist, err := NearestHub(location.Star())
-		if err != nil {
-			return eta, fmt.Errorf("Can't find nearest hub to %q: %v", location.Star(), err)
-		}
-		Log("Nearest hub: %s (%.2f ly from %s)", star, dist, location.Star())
-		// Check the route via the auto routing chip
-		cfg["dry_run"] = true
-		res, err := rest.DeviceCommand[models.CommandResp](id, "travel", cfg)
-		if err != nil {
-			Log("Auto-route failed: %v", err)
-		} else {
-			opts["auto"] = opt{
-				t: res.TotalTime.Duration(),
-				v: nil,
-			}
-		}
-		// Check the route "direct" (but only if we're going to the system edge)
-		cfg["dry_run"] = true
-		if string(location) == location.Star() {
+		// Allow forcing direct travel, if we need that for some reason
+		if len(via) == 1 && via[0] == "-" {
+			Log("Direct travel requested, not applying auto-route")
 			cfg["via"] = "direct"
+		} else if len(via) > 0 {
+			Log("Using provided route: %v", via)
 		} else {
-			cfg["via"] = []string{location.Star()}
-		}
-		res, err = rest.DeviceCommand[models.CommandResp](id, "travel", cfg)
-		if err != nil {
-			Log("Direct-route failed: %v", err)
-		} else {
-			opts["direct"] = opt{
-				t: res.TotalTime.Duration(),
-				v: cfg["via"],
+			type opt struct {
+				t time.Duration
+				v any
 			}
-		}
-		// Now check via the nearest hub
-		// - If its at our destination system, no need to 'via'
-		var via []string
-		if star != location.Star() {
-			via = append(via, star)
-		}
-		// - Are we going to the system edge, or to a particular object?
-		if string(location) != location.Star() {
-			via = append(via, location.Star())
-		}
-		if len(via) > 0 {
-			cfg["via"] = via
-		}
+			opts := make(map[string]opt)
+			Log("Auto-calculating route")
+			// Find the nearest hub
+			_, star, dist, err := NearestHub(location.Star())
+			if err != nil {
+				return eta, fmt.Errorf("Can't find nearest hub to %q: %v", location.Star(), err)
+			}
+			Log("Nearest hub: %s (%.2f ly from %s)", star, dist, location.Star())
+			// Check the route via the auto routing chip
+			cfg["dry_run"] = true
+			res, err := rest.DeviceCommand[models.CommandResp](id, "travel", cfg)
+			if err != nil {
+				Log("Auto-route failed: %v", err)
+			} else {
+				opts["auto"] = opt{
+					t: res.TotalTime.Duration(),
+					v: nil,
+				}
+			}
+			// Check the route "direct" (but only if we're going to the system edge)
+			cfg["dry_run"] = true
+			if string(location) == location.Star() {
+				cfg["via"] = "direct"
+			} else {
+				cfg["via"] = []string{location.Star()}
+			}
+			res, err = rest.DeviceCommand[models.CommandResp](id, "travel", cfg)
+			if err != nil {
+				Log("Direct-route failed: %v", err)
+			} else {
+				opts["direct"] = opt{
+					t: res.TotalTime.Duration(),
+					v: cfg["via"],
+				}
+			}
+			// Now check via the nearest hub
+			// - If its at our destination system, no need to 'via'
+			var via []string
+			if star != location.Star() {
+				via = append(via, star)
+			}
+			// - Are we going to the system edge, or to a particular object?
+			if string(location) != location.Star() {
+				via = append(via, location.Star())
+			}
+			if len(via) > 0 {
+				cfg["via"] = via
+			}
 
-		res, err = rest.DeviceCommand[models.CommandResp](id, "travel", cfg)
-		if err != nil {
-			Log("Hub-route failed: %v", err)
-		} else {
-			opts["hub"] = opt{
-				t: res.TotalTime.Duration(),
-				v: cfg["via"],
+			res, err = rest.DeviceCommand[models.CommandResp](id, "travel", cfg)
+			if err != nil {
+				Log("Hub-route failed: %v", err)
+			} else {
+				opts["hub"] = opt{
+					t: res.TotalTime.Duration(),
+					v: cfg["via"],
+				}
 			}
-		}
 
-		// Now compare our options
-		var best = "auto"
-		for _, t := range []string{"auto", "direct", "hub"} {
-			opt, ok := opts[t]
-			if !ok {
-				continue
+			// Now compare our options
+			var best = "auto"
+			for _, t := range []string{"auto", "direct", "hub"} {
+				opt, ok := opts[t]
+				if !ok {
+					continue
+				}
+				Log("Routing mode: %s: %v %s", t, opt.v, opt.t)
+				if opts[t].t > 0 && opt.t < opts[best].t {
+					Log("Faster by %v", opts[best].t-opt.t)
+					best = t
+				}
 			}
-			Log("Routing mode: %s: %v %s", t, opt.v, opt.t)
-			if opts[t].t > 0 && opt.t < opts[best].t {
-				Log("Faster by %v", opts[best].t-opt.t)
-				best = t
+			if opts[best].v == nil {
+				delete(cfg, "via")
+			} else {
+				cfg["via"] = opts[best].v
 			}
 		}
-		if opts[best].v == nil {
-			delete(cfg, "via")
-		} else {
-			cfg["via"] = opts[best].v
-		}
+		cachedTrip.cfg = cfg
+		mu.Lock()
+		travelCache[cachedTrip.from][cachedTrip.to] = cachedTrip
+		mu.Unlock()
 	}
 	cfg["dry_run"] = dryRun
 	res, err := rest.DeviceCommand[models.CommandResp](id, "travel", cfg)

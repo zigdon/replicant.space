@@ -34,23 +34,22 @@ func change[T any](target *T, newVal T) {
 }
 
 func readStream(cmd *cobra.Command, args []string) error {
-	/*
-		resources := []string{"carbon", "conductive", "rares", "silicates",
-			"structural", "volatiles"}
-		type util struct {
-			Actual, Capacity int
+	// Load the device network
+	relayNetwork := make(map[string]bool)
+	rows, err := db.DB.Query(`
+		SELECT location FROM json_devices WHERE type = 'ftl_relay' AND status = 'relaying'
+	`)
+	if err != nil {
+		return fmt.Errorf("Can't get relay network: %v", err)
+	}
+	for rows.Next() {
+		var loc string
+		if err := rows.Scan(&loc); err != nil {
+			return fmt.Errorf("Failed to scan locations: %v", err)
 		}
-		tmpl := "%20s:" + strings.Repeat(" %10s", len(resources))
-		titles := []any{"Location"}
-		for _, r := range resources {
-			if len(r) < 10 {
-				titles = append(titles, r)
-			} else {
-				titles = append(titles, r[:10])
-			}
-		}
-		log(tmpl, titles...)
-	*/
+		relayNetwork[loc] = true
+	}
+	log("Loaded %d relays", len(relayNetwork))
 
 	update := func(f func(*models.Device), devs ...*models.CodeAlias) {
 		var errs []error
@@ -247,12 +246,12 @@ func readStream(cmd *cobra.Command, args []string) error {
 			}
 			log("%s deployed from %s @ %s", env.DeviceCode, ev.DeployedFromDeviceCode, env.Location)
 			update(func(d *models.Device) {
-				change(&d.StowedInDeviceCode, nil)
-				change(&d.Location, env.Location)
+				debug(&d.StowedInDeviceCode, nil)
+				debug(&d.Location, env.Location)
 				if d.Type == "ftl_beacon" {
-					change(&d.Status, "monitoring")
+					debug(&d.Status, "monitoring")
 				} else {
-					change(&d.Status, "idle")
+					debug(&d.Status, "idle")
 				}
 			}, env.DeviceCode)
 			update(func(d *models.Device) {
@@ -354,6 +353,20 @@ func readStream(cmd *cobra.Command, args []string) error {
 				change(&d.OperationalCapacity, ev.OperationalCapacity)
 			}, env.DeviceCode)
 			log("Wear on %s, operational capacity: %.0f%%", env.DeviceCode.Alias(), ev.OperationalCapacity)
+		case "directive.resumed":
+			ev, err := models.Parse[models.StreamDirectiveResumed](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Directive %q resumed on %s",
+				ev.Directive, env.DeviceCode.Alias())
+			update(func(d *models.Device) {
+				if d.AmiDirective == nil {
+					return
+				}
+				change(&d.AmiDirective.Name, ev.Directive)
+			})
 		case "directive.set":
 			ev, err := models.Parse[models.StreamDirectiveSet](payload)
 			if err != nil {
@@ -404,6 +417,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 			update(func(d *models.Device) {
 				change(&d.Status, "relaying")
 			}, env.DeviceCode)
+			relayNetwork[ev.Location.Star()] = true
 		case "message.new":
 			ev, err := models.Parse[models.StreamMessageNew](payload)
 			if err != nil {
@@ -505,6 +519,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 				change(&d.Status, "relaying")
 				change(&d.Location, env.Location)
 			}, env.DeviceCode)
+			relayNetwork[env.Location.Star()] = true
 		case "salvage.discovered":
 			ev, err := models.Parse[models.StreamSalvageDiscovered](payload)
 			if err != nil {
@@ -601,6 +616,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 			update(func(d *models.Device) {
 				change(&d.Location, ev.Destination)
 				change(&d.Travel, nil)
+				change(&d.InControlRange, relayNetwork[ev.Destination.Star()])
 				change(&d.Status, "idle")
 			}, devs...)
 		case "travel.cancelled":

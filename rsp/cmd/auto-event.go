@@ -240,18 +240,24 @@ func (es *eventState) shipRes(res map[string]int) error {
 	}
 	var errs []error
 	for _, cf := range cfs {
+		cf, _ = rest.RefreshDeviceInfo(cf.Code)
+		log("Checking %s", cf.Code)
 		if len(cf.Tags) > 0 && cf.Tags[0] != es.txTag {
+			log("... %s: has tags: %v", cf.Code, cf.Tags)
 			continue
 		}
 		// if it's not already ours, it better be empty
 		if len(cf.Tags) == 0 && len(cf.Cargo) > 0 {
+			log("... %s: not empty: %v", cf.Code, cf.Cargo)
 			continue
 		}
 		avail := cf.CargoCapacity
 		for _, c := range cf.Cargo {
 			avail -= c.Quantity
 		}
+		log("... %s: %d available", cf.Code, avail)
 		if len(cf.Tags) == 0 {
+			log("... %s: tagging %s", cf.Code, es.txTag)
 			errs = append(errs, es.addTag(cf.Code, es.txTag))
 		}
 		manifest := make(map[string]int)
@@ -269,6 +275,10 @@ func (es *eventState) shipRes(res map[string]int) error {
 				break
 			}
 		}
+		if len(manifest) == 0 {
+			return fmt.Errorf("Attempting to load an empty manifest onto %s", cf.Code)
+		}
+		log("Loading %v onto %s", manifest, cf.Code)
 		_, err := _dc(cf.Code, "collect_resources", map[string]any{"resources": manifest}, es.dryRun)
 		errs = append(errs, err)
 		if err == nil {
@@ -338,6 +348,7 @@ func (es *eventState) shipDev(devs []*models.CodeAlias) error {
 				ds = devs[:avail]
 				devs = devs[avail:]
 			}
+			log("Attaching %d devices to %s", len(ds), p.Code)
 			_, err = _dc(p.Code, "attach", map[string]any{"targets": ds}, es.dryRun)
 			errs = append(errs, err)
 			if err == nil {
@@ -348,7 +359,8 @@ func (es *eventState) shipDev(devs []*models.CodeAlias) error {
 			}
 		}
 		if len(devs) > 0 {
-			errs = append(errs, fmt.Errorf("Not enough platforms available: %v remain", devs))
+			errs = append(errs,
+				fmt.Errorf("Not enough platforms available: %d (%v) remain", len(devs), devs))
 		}
 	}
 

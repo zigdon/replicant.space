@@ -287,6 +287,13 @@ func (d *Device) Fill() error {
 	if d.Travel != nil {
 		d.Travel.Device = d.Code
 	}
+	// Not sure why, but sometimes the cargo capacity just shows 0
+	if d.CargoCapacity == 0 && d.Type == "cargo_freighter" {
+		d.CargoCapacity = 500
+	}
+	if d.AttachCapacity == 0 && d.Type == "mobile_fleet" {
+		d.AttachCapacity = 36
+	}
 	return nil
 }
 
