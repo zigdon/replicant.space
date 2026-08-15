@@ -339,6 +339,9 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 		q += strings.Join(limits, " AND ")
 	}
 	log("**: query: %q %v", q, vals)
+	if db == nil || db.DB == nil {
+		return RefreshDevices(filters)
+	}
 	cached, err := db.DB.Query(q, vals...)
 	if err != nil {
 		log("** err: %v", err)
@@ -416,11 +419,13 @@ func RefreshDevices(filters map[string]string) ([]*models.Device, error) {
 	seen := make(map[string]bool)
 	if len(filters) == 0 {
 		log("Got full device list (%d), cleaning up cache", len(devs))
-		deleted, err := db.ExpireCache(seen)
-		if err != nil {
-			log("Error removing stale devices: %v", err)
-		} else {
-			log("Removed entries for %d devices", deleted)
+		if db != nil {
+			deleted, err := db.ExpireCache(seen)
+			if err != nil {
+				log("Error removing stale devices: %v", err)
+			} else {
+				log("Removed entries for %d devices", deleted)
+			}
 		}
 	}
 
@@ -459,7 +464,10 @@ func DeviceCommand[T any](id *models.CodeAlias, command string, args map[string]
 func DeviceLogs(id *models.CodeAlias, limit int) (*models.DeviceLogs, error) {
 	// If we pass a negative limit, just use the cached logs
 	if limit >= 0 {
-		cursor := db.DeviceLogCursor(id.String())
+		var cursor int
+		if db != nil {
+			cursor = db.DeviceLogCursor(id.String())
+		}
 		if debug {
 			log("Fetching new device logs for %q, starting at %d", id, cursor)
 		}
@@ -482,6 +490,9 @@ func DeviceLogs(id *models.CodeAlias, limit int) (*models.DeviceLogs, error) {
 	// Now that we've fetched the most recent events, return from the cache
 	if limit <= 0 {
 		limit = 100
+	}
+	if db == nil || db.DB == nil {
+		return nil, fmt.Errorf("Not connected to cache")
 	}
 	rows, err := db.DB.Query(`
 	  SELECT created, type, message, payload

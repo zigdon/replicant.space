@@ -49,6 +49,9 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 			return nil, err
 		}
 		Log("Plotting to arbitrary position %s", pos)
+		if db == nil || db.DB == nil {
+			return nil, fmt.Errorf("Can't find nearest star: not connected to cache")
+		}
 		nearest, dist, err := db.FindNearestStar(pos.X, pos.Y, pos.Z)
 		if err != nil {
 			return nil, fmt.Errorf("Can't find nearest star: %v", err)
@@ -231,6 +234,9 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 }
 
 func TripStepCandidate(start string, src, dst *models.Position, min_radius, max_radius float32) ([]*models.JourneyLeg, error) {
+	if db == nil || db.DB == nil {
+		return nil, fmt.Errorf("Not connected to cache")
+	}
 	rows, err := db.DB.Query(`
 		SELECT designation, position, from_src, from_dst
 		FROM (
@@ -284,14 +290,19 @@ func NearestHub(star string) (string, string, float32, error) {
 		}
 		star := h.Location.Star()
 		locs[star] = h.Code.Alias()
-		if _, err := db.DB.Exec(`UPDATE stars SET has_my_hub=true WHERE designation = $1`, star); err != nil {
-			return "", "", 0, fmt.Errorf("Can't update %s with hub: %v", star, err)
+		if db != nil && db.DB != nil {
+			if _, err := db.DB.Exec(`UPDATE stars SET has_my_hub=true WHERE designation = $1`, star); err != nil {
+				return "", "", 0, fmt.Errorf("Can't update %s with hub: %v", star, err)
+			}
 		}
 	}
 
 	s, err := models.NewStar(star)
 	if err != nil {
 		return "", "", 0, err
+	}
+	if db == nil || db.DB == nil {
+		return "", "", 0, fmt.Errorf("Not connected to cache")
 	}
 	nearest, dist, err := db.FindNearestHub(s.Position.X, s.Position.Y, s.Position.Z)
 	if err != nil {
@@ -301,6 +312,9 @@ func NearestHub(star string) (string, string, float32, error) {
 }
 
 func GetPartialJourney(j *models.Journey) (*models.Journey, error) {
+	if db == nil || db.DB == nil {
+		return j, fmt.Errorf("Not connected to cache")
+	}
 	src := j.Source
 	dst := j.Dest
 	row := db.DB.QueryRow(`

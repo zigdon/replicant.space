@@ -202,12 +202,16 @@ func NewCodeAlias(input string) *CodeAlias {
 	c := &CodeAlias{}
 	if strings.Contains(input, "-") {
 		c.alias = input
-		c.orig = db.Dealias(input)
+		if db != nil {
+			c.orig = db.Dealias(input)
+		}
 	} else {
 		c.orig = input
-		alias, err := db.Alias(input, "")
-		if err == nil {
-			c.alias = alias
+		if db != nil {
+			alias, err := db.Alias(input, "")
+			if err == nil {
+				c.alias = alias
+			}
 		}
 	}
 	return c

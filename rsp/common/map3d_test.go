@@ -194,3 +194,126 @@ func TestDrawLine3D(t *testing.T) {
 		t.Errorf("DrawLine3D should draw braille dots onto canvas")
 	}
 }
+
+func TestVec3Extended(t *testing.T) {
+	v := NewVec3(2, 3, 6)
+
+	// Mul
+	vm := v.Mul(2.0)
+	if vm.X != 4 || vm.Y != 6 || vm.Z != 12 {
+		t.Errorf("Vec3 Mul failed: got %v", vm)
+	}
+
+	// Length: sqrt(2^2 + 3^2 + 6^2) = sqrt(4 + 9 + 36) = sqrt(49) = 7
+	length := v.Length()
+	if length != 7.0 {
+		t.Errorf("Vec3 Length failed: got %f, expected 7.0", length)
+	}
+
+	// String
+	s := v.String()
+	if s != "[2.00, 3.00, 6.00]" {
+		t.Errorf("Vec3 String failed: got %q", s)
+	}
+}
+
+func TestRGBExtended(t *testing.T) {
+	col := RGB{R: 100, G: 150, B: 200}
+
+	// ANSI
+	ansi := col.ANSI()
+	if ansi != "\x1b[38;2;100;150;200m" {
+		t.Errorf("RGB ANSI mismatch: got %q", ansi)
+	}
+
+	// ANSIBg
+	ansibg := col.ANSIBg()
+	if ansibg != "\x1b[48;2;100;150;200m" {
+		t.Errorf("RGB ANSIBg mismatch: got %q", ansibg)
+	}
+
+	// Dim: normal (0.5)
+	dim50 := col.Dim(0.5)
+	if dim50.R != 50 || dim50.G != 75 || dim50.B != 100 {
+		t.Errorf("RGB Dim(0.5) failed: got %v", dim50)
+	}
+
+	// Dim: clamp < 0
+	dimNeg := col.Dim(-0.5)
+	if dimNeg.R != 0 || dimNeg.G != 0 || dimNeg.B != 0 {
+		t.Errorf("RGB Dim(-0.5) failed: got %v", dimNeg)
+	}
+
+	// Dim: clamp > 1
+	dimOver := col.Dim(1.5)
+	if dimOver.R != 100 || dimOver.G != 150 || dimOver.B != 200 {
+		t.Errorf("RGB Dim(1.5) failed: got %v", dimOver)
+	}
+}
+
+func TestColorConversion(t *testing.T) {
+	// Spectral Colors
+	classes := []string{"O", "B", "A", "F", "G", "K", "M", "g", "", "Z"}
+	for _, c := range classes {
+		col := GetSpectralColor(c)
+		if col.R == 0 && col.G == 0 && col.B == 0 {
+			t.Errorf("GetSpectralColor(%q) returned zero color", c)
+		}
+	}
+
+	// HSVtoRGB across hue angles
+	for h := 0.0; h <= 360.0; h += 30.0 {
+		rgb := HSVtoRGB(h, 0.8, 0.9)
+		if rgb.R == 0 && rgb.G == 0 && rgb.B == 0 {
+			t.Errorf("HSVtoRGB(%f) returned zero color", h)
+		}
+	}
+
+	// Known Regions
+	regSol := GetRegionColor("solzone")
+	if regSol.R != 0 || regSol.G != 229 || regSol.B != 255 {
+		t.Errorf("GetRegionColor(solzone) mismatch: %v", regSol)
+	}
+	regEmpty := GetRegionColor("")
+	if regEmpty.R != 160 {
+		t.Errorf("GetRegionColor(\"\") mismatch: %v", regEmpty)
+	}
+	// Unknown hashed region
+	regUnknown := GetRegionColor("unknown_cluster_42")
+	if regUnknown.R == 0 && regUnknown.G == 0 && regUnknown.B == 0 {
+		t.Errorf("GetRegionColor(unknown) returned zero color")
+	}
+}
+
+func TestFormatMapHeaderAndLegend(t *testing.T) {
+	cam := NewCamera3D(80, 40)
+	selectedStar := &StarMapPoint{
+		Star: &models.Star{
+			Designation:      "SOL",
+			Name:             "Sol",
+			SpectralType:     "G2V",
+			EstimatedPlanets: 8,
+			HasLife:          true,
+			HasMyHub:         true,
+			Position:         models.NewPosition(0, 0, 0),
+		},
+	}
+
+	hdr := FormatMapHeader(cam, 100, 15, selectedStar)
+	if !strings.Contains(hdr, "GALAXY 3D MAP") || !strings.Contains(hdr, "SOL") {
+		t.Errorf("FormatMapHeader output unexpected: %s", hdr)
+	}
+
+	// Legend without regions
+	leg := FormatMapLegend(nil)
+	if !strings.Contains(leg, "Classes:") || !strings.Contains(leg, "My Hub") {
+		t.Errorf("FormatMapLegend without regions mismatch: %s", leg)
+	}
+
+	// Legend with regions
+	opts := &MapLayerOptions{ShowRegions: true}
+	legRegions := FormatMapLegend(opts)
+	if !strings.Contains(legRegions, "Regions:") || !strings.Contains(legRegions, "Solzone") {
+		t.Errorf("FormatMapLegend with regions mismatch: %s", legRegions)
+	}
+}

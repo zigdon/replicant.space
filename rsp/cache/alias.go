@@ -15,6 +15,9 @@ var prefixes = map[string]string{
 }
 
 func (db *Cache) GetAliasAndType(code string) (string, string) {
+	if db == nil || db.DB == nil {
+		return "", ""
+	}
 	row := db.DB.QueryRow("SELECT name, type FROM aliases WHERE designation = $1", code)
 	if row.Err() != nil {
 		return "", ""
@@ -31,6 +34,9 @@ func (db *Cache) Dealias(alias string) string {
 	if !strings.Contains(alias, "-") {
 		return alias
 	}
+	if db == nil || db.DB == nil {
+		return alias
+	}
 
 	// Look it up
 	row := db.DB.QueryRow("SELECT designation FROM aliases WHERE name = $1", alias)
@@ -42,6 +48,9 @@ func (db *Cache) Dealias(alias string) string {
 }
 
 func (db *Cache) HasAlias(designation string) string {
+	if db == nil || db.DB == nil {
+		return ""
+	}
 	row := db.DB.QueryRow("SELECT name FROM aliases WHERE designation = $1", designation)
 	if row.Err() != nil {
 		return ""
