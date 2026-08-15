@@ -176,7 +176,7 @@ func init() {
 		out := [][]any{{"Controller", resp.Controller},
 			{"Status", resp.Status}}
 		for _, d := range resp.Assembled {
-			devs["Assembled"] = append(devs["Assembled"], d)
+			devs["Assembled"] = append(devs["Assembled"], d.DeviceCode)
 		}
 		out = append(out, []any{"Assembled", longList(codeList(devs["Assembled"]), -1, 60)})
 		var reasons []string

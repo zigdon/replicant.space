@@ -51,10 +51,206 @@ import (
 //   Reposition replicant
 //   Complete event
 
+type travelCoordinator struct {
+	queue  map[string]map[string][]*models.CodeAlias
+	added  map[string]bool
+	afc    *models.CodeAlias
+	dryRun bool
+	etas   map[string]map[string]time.Time
+}
+
+func newTravelCoordinator(afc *models.CodeAlias, dryRun bool) *travelCoordinator {
+	return &travelCoordinator{
+		afc:    afc,
+		dryRun: dryRun,
+		added:  make(map[string]bool),
+		queue:  make(map[string]map[string][]*models.CodeAlias),
+		etas:   make(map[string]map[string]time.Time),
+	}
+}
+
+func (tc *travelCoordinator) Queue(ca *models.CodeAlias, from, to string) (time.Time, error) {
+	if _, ok := tc.queue[from]; !ok {
+		tc.queue[from] = make(map[string][]*models.CodeAlias)
+	}
+	if _, ok := tc.etas[from]; !ok {
+		tc.etas[from] = make(map[string]time.Time)
+	}
+	if tc.added[ca.String()] {
+		return tc.etas[from][to], fmt.Errorf("%s already has been queued to ship", ca.Alias())
+	}
+
+	// Get the ETA for the trip
+	if _, ok := tc.etas[from][to]; !ok {
+		eta, err := common.Travel(ca, to, true)
+		if err != nil {
+			return tc.etas[from][to], fmt.Errorf("Error calculating trip to %s: %v", to, err)
+		}
+		tc.etas[from][to] = eta
+	}
+	log("Adding %s to a %s->%s convoy", ca, from, to)
+	tc.added[ca.String()] = true
+	tc.queue[from][to] = append(tc.queue[from][to], ca)
+
+	return tc.etas[from][to], nil
+}
+
+func (tc *travelCoordinator) Ship() error {
+	if tc.afc == nil {
+		return fmt.Errorf("Can't ship without an AFC")
+	}
+
+	log("Shipping manifest:")
+	for from, v := range tc.queue {
+		for to, ds := range v {
+			log("... %s -> %s: %d devices", from, to, len(ds))
+		}
+	}
+
+	adopt := func(ids []*models.CodeAlias) error {
+		var n int
+		for len(ids) > 0 {
+			if len(ids) > 100 {
+				n = 100
+			} else {
+				n = len(ids)
+			}
+			_, err := _dc(tc.afc, "adopt", map[string]any{"devices": ids[:n]}, tc.dryRun)
+			if err != nil {
+				log("Failed to adopt %s: %v", ids, err)
+			}
+			ids = ids[n:]
+		}
+		return nil
+	}
+
+	release := func(ids []*models.CodeAlias) error {
+		var n int
+		for len(ids) > 0 {
+			if len(ids) > 100 {
+				n = 100
+			} else {
+				n = len(ids)
+			}
+			_, err := _dc(tc.afc, "release", map[string]any{"devices": ids[:n]}, tc.dryRun)
+			if err != nil {
+				log("Failed to release %s: %v", ids, err)
+			}
+			ids = ids[n:]
+		}
+		return nil
+	}
+
+	manual := func(ids []*models.CodeAlias, dest string) error {
+		var errs []error
+		log("%d devices do not a convoy to %s make: %s", len(ids), dest, ids)
+		for _, id := range ids {
+			_, err := common.Travel(id, dest, tc.dryRun)
+			errs = append(errs, err)
+		}
+		return errors.Join(errs...)
+	}
+
+	// Make sure we're stationary before starting anything
+	afc, err := rest.RefreshDeviceInfo(tc.afc)
+	if err != nil {
+		return err
+	}
+	if afc.Location == "" {
+		return fmt.Errorf("AFC in motion")
+	}
+
+	// Loop over the from/to pairs
+	for from, dests := range tc.queue {
+		for to, passengers := range dests {
+			if len(passengers) == 0 {
+				continue
+			}
+
+			afc, err := rest.DeviceInfo(tc.afc)
+			if err != nil {
+				return err
+			}
+
+			// Make sure there aren't any adopted devices
+			if devs := afc.ControlledDevices; len(devs) > 0 {
+				var ids []*models.CodeAlias
+				for _, d := range devs {
+					ids = append(ids, d.Code)
+				}
+				if err := release(ids); err != nil {
+					return err
+				}
+			}
+
+			// If there are 3 or fewer devices to ship, just ship them normally, done.
+			if len(passengers) <= 0 { // TODO
+				if err := manual(passengers, to); err != nil {
+					return err
+				}
+				continue
+			}
+			log("Shipping %d devices from %s to %s...", len(passengers), from, to)
+			// Adopt all the devices that need to be shipped
+			if err := adopt(passengers); err != nil {
+				return err
+			}
+			// Send travel command to the afc
+			log("Launching convoy %s->%s: %s", from, to, passengers)
+			if string(afc.Location) != to {
+				if _, err := common.Travel(afc.Code, to, tc.dryRun); err != nil {
+					return fmt.Errorf("Failed to send AFC: %v", err)
+				}
+			} else {
+				if _, err := _dc(afc.Code, "assemble", nil, tc.dryRun); err != nil {
+					return fmt.Errorf("Failed to assemble fleet to AFC: %v", err)
+				}
+			}
+			// Punt all the devices
+			var errs []error
+			errs = append(errs, release(passengers))
+			// Even if there's an error, abort the AFC's travel
+			if string(afc.Location) != to {
+				_, err = _dc(afc.Code, "deactivate", nil, tc.dryRun)
+				errs = append(errs, err)
+			}
+			if err := errors.Join(errs...); err != nil {
+				return fmt.Errorf("Failed to punt %d devices to %s: %v", len(passengers), to, err)
+			}
+			delete(tc.queue[from], to)
+
+			// Wait until the AFC is stationary again, only poll the DB, it should be
+			// updated by the return event.
+			log("Waiting for %s to return")
+			check := time.Now()
+			var fn func(*models.CodeAlias) (*models.Device, error)
+			for {
+				if time.Since(check) > 5*time.Second {
+					fn = rest.RefreshDeviceInfo
+					check = time.Now()
+				} else {
+					fn = rest.DeviceInfo
+				}
+				afc, err := fn(tc.afc)
+				if err != nil {
+					log("Error getting AFC info: %v", err)
+				}
+				if afc != nil && afc.Location != "" {
+					log("AFC is stationary at %s", afc.Location)
+					break
+				}
+				time.Sleep(200 * time.Millisecond)
+			}
+		}
+	}
+	return nil
+}
+
 type replicantTask struct {
 	vessel *models.CodeAlias
 	rep    *models.CodeAlias
 	dest   models.LocationID
+	from   models.LocationID
 	ev     *models.Event
 	dist   float32
 }
@@ -69,6 +265,7 @@ type eventState struct {
 	eta         map[string]time.Time
 	transports  []*models.Device
 	dryRun      bool
+	convoy      *travelCoordinator
 
 	required   map[string]int
 	ready      map[string]int
@@ -78,13 +275,14 @@ type eventState struct {
 	transitRes map[string]int
 }
 
-func newEventState(ev *models.Event, dryRun bool) *eventState {
+func newEventState(ev *models.Event, tc *travelCoordinator, dryRun bool) *eventState {
 	return &eventState{
 		event:       ev,
 		tag:         fmt.Sprintf("event:%s", strings.ToLower(ev.Designation)),
 		txTag:       fmt.Sprintf("tx:%s", strings.ToLower(ev.Designation)),
 		destination: ev.Location,
 		dryRun:      dryRun,
+		convoy:      tc,
 
 		eta:        make(map[string]time.Time),
 		required:   make(map[string]int),
@@ -272,6 +470,9 @@ func (es *eventState) shipRes(res map[string]int) error {
 		}
 		manifest := make(map[string]int)
 		for k, v := range res {
+			if avail == 0 {
+				break
+			}
 			if v <= avail {
 				delete(res, k)
 				manifest[k] = v
@@ -281,18 +482,14 @@ func (es *eventState) shipRes(res map[string]int) error {
 				manifest[k] = avail
 				avail = 0
 			}
-			if avail == 0 {
-				break
-			}
 		}
-		if len(manifest) == 0 {
-			return fmt.Errorf("Attempting to load an empty manifest onto %s", cf.Code)
+		if len(manifest) > 0 {
+			log("Loading %v onto %s", manifest, cf.Code)
+			_, err := _dc(cf.Code, "collect_resources", map[string]any{"resources": manifest}, es.dryRun)
+			errs = append(errs, err)
 		}
-		log("Loading %v onto %s", manifest, cf.Code)
-		_, err := _dc(cf.Code, "collect_resources", map[string]any{"resources": manifest}, es.dryRun)
-		errs = append(errs, err)
 		if err == nil {
-			eta, err := common.Travel(cf.Code, string(es.destination), es.dryRun)
+			eta, err := es.convoy.Queue(cf.Code, string(cf.Location), string(es.destination))
 			errs = append(errs, err)
 			es.later("resources", eta)
 		}
@@ -358,7 +555,7 @@ func (es *eventState) shipDev(devs []*models.CodeAlias) error {
 				ds = devs[:avail]
 				devs = devs[avail:]
 			}
-			log("Attaching %d devices to %s", len(ds), p.Code)
+			log("Attaching %d devices to %s: %s", len(ds), p.Code, ds)
 			_, err = _dc(p.Code, "attach", map[string]any{"targets": ds}, es.dryRun)
 			errs = append(errs, err)
 			if err == nil {
@@ -379,7 +576,7 @@ func (es *eventState) shipDev(devs []*models.CodeAlias) error {
 		if sent[p.Alias()] {
 			continue
 		}
-		eta, err := common.Travel(p, string(es.destination), es.dryRun)
+		eta, err := es.convoy.Queue(p, home, string(es.destination))
 		errs = append(errs, err)
 		es.later("devices", eta)
 		sent[p.Alias()] = true
@@ -463,6 +660,7 @@ func (es *eventState) complete() error {
 			tasks = append(tasks, replicantTask{
 				vessel: hv.Code,
 				rep:    r.Code,
+				from:   r.CurrentLocation,
 				dest:   es.destination,
 				ev:     es.event,
 				dist:   dist,
@@ -517,6 +715,7 @@ func (es *eventState) complete() error {
 	hasMC := make(map[string]bool)
 	var nearestMC float32 = -1
 	var spf *models.CodeAlias
+	var spfLoc string
 
 	for _, d := range devs {
 		d, err := rest.DeviceInfo(d.Code)
@@ -572,7 +771,9 @@ func (es *eventState) complete() error {
 				mcLocs[loc] = mcs
 			} else {
 				log("Sending the empty %q back home", mc.AttachedToDeviceCode)
-				common.Travel(mc.AttachedToDeviceCode, home, es.dryRun)
+				if _, err := es.convoy.Queue(mc.AttachedToDeviceCode, loc, home); err != nil {
+					log("Error convoying %s home: %v", mc.AttachedToDeviceCode, err)
+				}
 				continue
 			}
 		}
@@ -580,13 +781,14 @@ func (es *eventState) complete() error {
 		if nearestMC < 0 || dists[loc] < nearestMC {
 			nearestMC = dists[loc]
 			spf = mcs[0].AttachedToDeviceCode
+			spfLoc = loc
 			log("%s can be relocated", spf)
 		}
 	}
 
 	if spf != nil {
 		log("Sending %s with a matrix container to %s", spf, es.event.Location)
-		if eta, err := common.Travel(spf, string(es.event.Location), es.dryRun); err != nil {
+		if eta, err := es.convoy.Queue(spf, spfLoc, string(es.event.Location)); err != nil {
 			log("Error shipping %q: %v", spf, err)
 		} else {
 			return fmt.Errorf(
@@ -620,7 +822,7 @@ func (es *eventState) actuate() error {
 			errs = append(errs, es.unload(t))
 			// Untag and ship home
 			errs = append(errs, es.unTag(t.Code, es.txTag))
-			_, err := common.Travel(t.Code, home, es.dryRun)
+			_, err := es.convoy.Queue(t.Code, string(t.Location), home)
 			errs = append(errs, err)
 		} else if t.Travel != nil {
 			es.later("transit", t.Travel.Arrives.Time())
@@ -651,7 +853,10 @@ func (es *eventState) actuate() error {
 	errs = append(errs, es.shipRes(toShip))
 
 	var toLoad []*models.CodeAlias
-	for _, v := range es.waiting {
+	for k, v := range es.waiting {
+		if isResource(k) {
+			continue
+		}
 		toLoad = append(toLoad, v...)
 	}
 	if len(toPrint) > 0 {
@@ -745,9 +950,9 @@ func (es *eventState) actuate() error {
 //	See which option is even possible
 //	See the resource cost for each
 //	Pick the cheapest
-func pickCriteria(ev *models.Event, dryRun bool) (*eventState, error) {
+func pickCriteria(ev *models.Event, tc *travelCoordinator, dryRun bool) (*eventState, error) {
 	opts := ev.Criteria
-	es := newEventState(ev, dryRun)
+	es := newEventState(ev, tc, dryRun)
 
 	if len(opts) == 1 {
 		return es, es.selectOption(0)
@@ -801,7 +1006,7 @@ func pickCriteria(ev *models.Event, dryRun bool) (*eventState, error) {
 	return es, fmt.Errorf("No valid option found")
 }
 
-func eventCleanup(currentEvents []*models.Event, dryRun bool) error {
+func eventCleanup(convoy *travelCoordinator, currentEvents []*models.Event, dryRun bool) error {
 	evTags := make(map[string]bool)
 	for _, e := range currentEvents {
 		evTags[fmt.Sprintf("event:%s", strings.ToLower(e.Designation))] = true
@@ -861,12 +1066,12 @@ func eventCleanup(currentEvents []*models.Event, dryRun bool) error {
 	}
 
 	shipped := make(map[string]bool)
-	goHome := func(d *models.CodeAlias) error {
+	goHome := func(from models.LocationID, d *models.CodeAlias) error {
 		if shipped[d.Alias()] {
 			return nil
 		}
 		log("... shipping %s home", d)
-		_, err := common.Travel(d, home, dryRun)
+		_, err := convoy.Queue(d, string(from), home)
 		shipped[d.Alias()] = true
 		return err
 	}
@@ -896,9 +1101,9 @@ func eventCleanup(currentEvents []*models.Event, dryRun bool) error {
 			if string(d.Location) == home {
 				errs = append(errs, unload(d))
 			} else if d.HasCapability("surge") {
-				errs = append(errs, goHome(d.Code))
+				errs = append(errs, goHome(d.Location, d.Code))
 			} else if d.AttachedToDeviceCode != nil {
-				errs = append(errs, goHome(d.AttachedToDeviceCode))
+				errs = append(errs, goHome(d.Location, d.AttachedToDeviceCode))
 			} else {
 				errs = append(errs, untag(d, t))
 			}
@@ -917,7 +1122,10 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	}
 	events := res.Events
 
-	if err := eventCleanup(events, dryRun); err != nil {
+	afc := models.NewCodeAlias(getString(cmd, "afc"))
+
+	tc := newTravelCoordinator(afc, dryRun)
+	if err := eventCleanup(tc, events, dryRun); err != nil {
 		log("**** Error cleaning up obsolete tags: %v", err)
 	}
 
@@ -941,7 +1149,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	var data [][]any
 	for _, ev := range events {
 		log("**** Processing event %s", ev.Designation)
-		es, err := pickCriteria(ev, dryRun)
+		es, err := pickCriteria(ev, tc, dryRun)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %v", ev.Designation, err))
 			continue
@@ -977,6 +1185,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			ev.Designation, ev.Location, ev.Title, "Complete",
 		})
 	}
+	errs = append(errs, tc.Ship())
+
 	log("All done.")
 	if err := errors.Join(errs...); err != nil {
 		log("Execution errors:\n%v\n\n", err)
@@ -999,7 +1209,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			sent[t.rep.Alias()] = true
 			log("... Sending %s in %s on a trip to %s (%.2f LY away) to complete %s",
 				t.rep, t.vessel, t.dest, t.dist, t.ev.Designation)
-			if _, err := common.Travel(t.vessel, string(t.dest), dryRun); err != nil {
+			if _, err := tc.Queue(t.vessel, string(t.from), string(t.dest)); err != nil {
 				log("Shipping failed: %v", err)
 			}
 		}

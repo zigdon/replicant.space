@@ -392,10 +392,13 @@ type ControllerStatus struct {
 }
 
 type AssembleResp struct {
-	Assembled       []*CodeAlias `json:"assembled"`
-	Controller      *CodeAlias   `json:"controller_code"`
-	Destination     LocationID   `json:"destination"`
-	DestinationName string       `json:"destination_name"`
+	Assembled []struct {
+		DeviceCode *CodeAlias `json:"device_code"`
+		Method     string     `json:"method"`
+	} `json:"assembled"`
+	Controller      *CodeAlias `json:"controller_code"`
+	Destination     LocationID `json:"destination"`
+	DestinationName string     `json:"destination_name"`
 	Skipped         []struct {
 		DeviceCode *CodeAlias `json:"device_code"`
 		Reason     string     `json:"reason"`
