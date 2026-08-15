@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
+	"github.com/zigdon/rsp/rest"
 )
 
 var mapCmd = &cobra.Command{
@@ -391,8 +392,103 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 	return launchInteractiveMap(center, radius, stars, opts, centerName)
 }
 
+// searchMapTarget resolves a query string to a Star system via system name, device code, or device alias.
+func searchMapTarget(query string, loadedStars []*models.Star) (*models.Star, string, error) {
+	if query == "" {
+		return nil, "", fmt.Errorf("empty search query")
+	}
+
+	q := strings.TrimSpace(query)
+	qLower := strings.ToLower(q)
+
+	// 1. Exact match across loaded stars
+	for _, st := range loadedStars {
+		if st == nil {
+			continue
+		}
+		if strings.EqualFold(string(st.Designation), q) || (st.Name != "" && strings.EqualFold(st.Name, q)) {
+			return st, fmt.Sprintf("Found system %s (%s)", st.Designation, st.Name), nil
+		}
+	}
+
+	// 2. Prefix match across loaded stars
+	for _, st := range loadedStars {
+		if st == nil {
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(string(st.Designation)), qLower) || (st.Name != "" && strings.HasPrefix(strings.ToLower(st.Name), qLower)) {
+			return st, fmt.Sprintf("Found system %s (%s)", st.Designation, st.Name), nil
+		}
+	}
+
+	// 3. Device alias or device code resolution (e.g. hv-1, r-1, af-2, sh-1, d-xxx)
+	dealiased := q
+	if db != nil {
+		dealiased = db.Dealias(q)
+	}
+
+	if db != nil && db.DB != nil {
+		var devCode, devType, devLoc string
+		row := db.DB.QueryRow(`
+			SELECT code, type, location 
+			FROM json_devices 
+			WHERE LOWER(code) = $1 OR LOWER(code) = $2 
+			LIMIT 1`, strings.ToLower(q), strings.ToLower(dealiased))
+		if err := row.Scan(&devCode, &devType, &devLoc); err == nil && devLoc != "" {
+			starName := models.LocationID(devLoc).Star()
+			st, err := models.NewStar(starName)
+			if err == nil && st != nil {
+				aliasName := q
+				if db != nil {
+					if a := db.HasAlias(devCode); a != "" {
+						aliasName = a
+					}
+				}
+				return st, fmt.Sprintf("Found device %s (%s) at %s (%s)", aliasName, devType, devLoc, starName), nil
+			}
+		}
+	}
+
+	// 4. Replicant resolution (e.g. r-1, r-2)
+	if strings.HasPrefix(qLower, "r-") || strings.HasPrefix(qLower, "replicant-") {
+		ca := models.NewCodeAlias(q)
+		if rep, err := rest.Replicant(ca); err == nil && rep != nil {
+			loc := rep.CurrentLocation
+			if loc == "" {
+				loc = rep.Location
+			}
+			if loc != "" {
+				starName := models.LocationID(loc).Star()
+				st, err := models.NewStar(starName)
+				if err == nil && st != nil {
+					return st, fmt.Sprintf("Found replicant %s at %s (%s)", q, loc, starName), nil
+				}
+			}
+		}
+	}
+
+	// 5. Look up star directly in database
+	st, err := models.NewStar(q)
+	if err == nil && st != nil && st.Position != nil {
+		return st, fmt.Sprintf("Found system %s (%s)", st.Designation, st.Name), nil
+	}
+
+	// 6. Substring match across loaded stars
+	for _, st := range loadedStars {
+		if st == nil {
+			continue
+		}
+		if strings.Contains(strings.ToLower(string(st.Designation)), qLower) || (st.Name != "" && strings.Contains(strings.ToLower(st.Name), qLower)) {
+			return st, fmt.Sprintf("Found system %s (%s)", st.Designation, st.Name), nil
+		}
+	}
+
+	return nil, "", fmt.Errorf("no system, device, or alias found matching %q", query)
+}
+
 func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.Star, opts *common.MapLayerOptions, initialTarget string) error {
 	app := tview.NewApplication()
+	app.EnableMouse(true)
 
 	cam := common.NewCamera3D(80, 24)
 	cam.Center = center
@@ -400,6 +496,8 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 
 	var selectedIndex int
 	var currentMapped []*common.StarMapPoint
+	var isSearching bool
+	var searchStatusMsg string
 
 	mapView := tview.NewTextView().
 		SetDynamicColors(true).
@@ -418,7 +516,13 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		SetDynamicColors(true).
 		SetWrap(false)
 
-	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD[-] Pan  [yellow]p[-] Proj  [yellow]Tab[-] Target  [yellow]1-8[-] Filters/Overlays  [yellow]r[-] Reset  [yellow]q[-] Quit")
+	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD/EC[-] Pan (X/Y/Z)  [yellow]/[-] Search  [yellow]Click[-] Select  [yellow]Tab[-] Target  [yellow]1-8[-] Filters  [yellow]r[-] Reset  [yellow]q[-] Quit")
+
+	searchInput := tview.NewInputField().
+		SetLabel(" [yellow::b]Search (System / Device / Alias):[-::-] ").
+		SetFieldWidth(40).
+		SetFieldBackgroundColor(tcell.ColorDarkSlateGray).
+		SetFieldTextColor(tcell.ColorWhite)
 
 	updateSidebar := func(target *common.StarMapPoint) {
 		sidebar.Clear()
@@ -646,6 +750,10 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		} else {
 			hudSb.WriteString("[gray]Target: None matching current filters[-]\n")
 		}
+
+		if searchStatusMsg != "" {
+			hudSb.WriteString(fmt.Sprintf("%s\n", searchStatusMsg))
+		}
 		hudSb.WriteString(fmt.Sprintf("Filters: %s", strings.Join(filterBadges, " ")))
 
 		hud.SetText(hudSb.String())
@@ -664,18 +772,135 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 	centerRow.AddItem(mapView, 0, 3, true)
 	centerRow.AddItem(sidebar, 28, 1, false)
 
-	mainFlex.AddItem(hud, 5, 0, false)
+	mainFlex.AddItem(hud, 6, 0, false)
 	mainFlex.AddItem(centerRow, 0, 1, true)
 	mainFlex.AddItem(help, 1, 0, false)
+
+	// Mouse Selection
+	mapView.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+		if action == tview.MouseLeftClick || action == tview.MouseLeftDoubleClick {
+			mx, my := event.Position()
+			vx, vy, vw, vh := mapView.GetInnerRect()
+			if mx >= vx && mx < vx+vw && my >= vy && my < vy+vh {
+				rx := mx - vx
+				ry := my - vy
+
+				var bestStar *common.StarMapPoint
+				var bestDist float32 = 999999
+				var bestIdx int = -1
+
+				for i, mp := range currentMapped {
+					if mp == nil || !mp.Visible {
+						continue
+					}
+					// 1. Direct hit on star glyph
+					if mp.ScreenX == rx && mp.ScreenY == ry {
+						bestStar = mp
+						bestIdx = i
+						break
+					}
+					// 2. Hit on label text (to the right of glyph)
+					labelLen := len(mp.Star.Name)
+					if labelLen == 0 {
+						labelLen = len(string(mp.Star.Designation))
+					}
+					if labelLen > 18 {
+						labelLen = 18
+					}
+					if mp.ScreenY == ry && rx >= mp.ScreenX && rx <= mp.ScreenX+2+labelLen {
+						bestStar = mp
+						bestIdx = i
+						break
+					}
+					// 3. Proximity hit within ~2 cells
+					dx := float32(mp.ScreenX - rx)
+					dy := float32((mp.ScreenY - ry) * 2)
+					dist := dx*dx + dy*dy
+					if dist < 8.0 && dist < bestDist {
+						bestDist = dist
+						bestStar = mp
+						bestIdx = i
+					}
+				}
+
+				if bestStar != nil {
+					selectedIndex = bestIdx
+					opts.SelectedStar = string(bestStar.Star.Designation)
+					searchStatusMsg = fmt.Sprintf("[green]Selected: %s (%s)[-]", bestStar.Star.Designation, bestStar.Star.Name)
+					redraw()
+					return action, nil
+				}
+			}
+		}
+		return action, event
+	})
+
+	// Search Input Handling
+	searchInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			query := strings.TrimSpace(searchInput.GetText())
+			if query != "" {
+				matched, info, err := searchMapTarget(query, stars)
+				if err != nil {
+					searchStatusMsg = fmt.Sprintf("[red::b]✗ %v[-::-]", err)
+				} else if matched != nil {
+					foundInSlice := false
+					for _, s := range stars {
+						if s != nil && s.Designation == matched.Designation {
+							foundInSlice = true
+							break
+						}
+					}
+					if !foundInSlice {
+						stars = append(stars, matched)
+					}
+
+					if matched.Position != nil {
+						cam.Center = common.Vec3{X: matched.Position.X, Y: matched.Position.Y, Z: matched.Position.Z}
+					}
+					opts.SelectedStar = string(matched.Designation)
+					initialTarget = string(matched.Designation)
+					searchStatusMsg = fmt.Sprintf("[green::b]✓ %s[-::-]", info)
+				}
+			}
+		}
+		isSearching = false
+		mainFlex.RemoveItem(searchInput)
+		mainFlex.AddItem(help, 1, 0, false)
+		app.SetFocus(mapView)
+		redraw()
+	})
 
 	// Keyboard Controls
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		key := event.Key()
 		r := event.Rune()
 
+		if isSearching {
+			if key == tcell.KeyEscape {
+				isSearching = false
+				mainFlex.RemoveItem(searchInput)
+				mainFlex.AddItem(help, 1, 0, false)
+				app.SetFocus(mapView)
+				redraw()
+				return nil
+			}
+			return event
+		}
+
 		switch {
 		case key == tcell.KeyEscape || r == 'q' || r == 'Q':
 			app.Stop()
+			return nil
+
+		// Search Hotkey
+		case r == '/':
+			isSearching = true
+			searchStatusMsg = ""
+			searchInput.SetText("")
+			mainFlex.RemoveItem(help)
+			mainFlex.AddItem(searchInput, 1, 0, true)
+			app.SetFocus(searchInput)
 			return nil
 
 		// Rotation: Yaw and Pitch
@@ -710,7 +935,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			redraw()
 			return nil
 
-		// Pan Center: W, A, S, D
+		// Pan Center: W/S (Y), A/D (X), E/C/Z (Z)
 		case r == 'w' || r == 'W':
 			cam.Center.Y += cam.Radius * 0.1
 			redraw()
@@ -725,6 +950,14 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			return nil
 		case r == 'd' || r == 'D':
 			cam.Center.X += cam.Radius * 0.1
+			redraw()
+			return nil
+		case r == 'e' || r == 'E' || key == tcell.KeyPgUp:
+			cam.Center.Z += cam.Radius * 0.1
+			redraw()
+			return nil
+		case r == 'c' || r == 'C' || r == 'z' || r == 'Z' || key == tcell.KeyPgDn:
+			cam.Center.Z -= cam.Radius * 0.1
 			redraw()
 			return nil
 
@@ -817,6 +1050,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.ShowGrid = true
 			opts.ShowLabels = true
 			opts.SelectedStar = initialTarget
+			searchStatusMsg = ""
 			selectedIndex = 0
 			redraw()
 			return nil
