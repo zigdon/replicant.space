@@ -452,6 +452,20 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				}
 				log("Next %s: %s (%.2f LY away)", devType, dest, nearest)
 				rm.dest = models.LocationID(dest)
+			} else if fill := getTags(rm.dev)["fill"]; fill == "oor" {
+				// find the closest system that has devices that report being out-of-range
+				row := DB.DB.QueryRow(`
+				  SELECT DISTINCT(location), position<->(SELECT position FROM stars WHERE designation=$1) AS dist
+				  FROM json_devices JOIN stars ON location = designation
+				  WHERE status = 'out_of_range'
+				  ORDER BY dist
+				  LIMIT 1;
+			  `, rm.dev.Location.Star())
+				var dist float32
+				if err := row.Scan(&rm.dest, &dist); err != nil {
+					return eta, err
+				}
+				log("Nearest system with out-of-range devices: %s (%.2f LY)", rm.dest, dist)
 			} else {
 				rm.state = RelayMachine_Done
 				_, err := rest.UpdateTags(rm.dev.Code, rest.DelTag, []string{"auto"})

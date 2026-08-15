@@ -292,9 +292,10 @@ type StreamEventCompleted struct {
 	EventType   string     `json:"event_type"`
 	Tier        int        `json:"tier"`
 	Rewards     struct {
-		Xp                 int            `json:"xp"`
-		Resources          map[string]int `json:"resources"`
-		CivilisationPoints int            `json:"civilisation_points"`
+		Xp                 int              `json:"xp"`
+		Resources          map[string]int   `json:"resources"`
+		Devices            []*DevicePointer `json:"devices"`
+		CivilisationPoints int              `json:"civilisation_points"`
 	} `json:"rewards"`
 	Consumed struct {
 		Devices   []*DevicePointer `json:"devices"`

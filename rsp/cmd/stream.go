@@ -441,10 +441,13 @@ func readStream(cmd *cobra.Command, args []string) error {
 			log("Event complete: %s - %s => %v", ev.Designation, ev.EventType, ev.Rewards)
 			var errs []error
 			for _, d := range ev.Consumed.Devices {
-				log("Consumed: %s (%s)", d.Code.Alias(), d.Code.String())
 				_, err := db.DB.Exec("DELETE FROM aliases WHERE designation = $1", d.Code.String())
 				errs = append(errs, err)
 				_, err = db.DB.Exec("DELETE FROM json_devices WHERE code = $1;", d.Code.String())
+				errs = append(errs, err)
+			}
+			for _, d := range ev.Rewards.Devices {
+				_, err := rest.DeviceInfo(d.Code)
 				errs = append(errs, err)
 			}
 			if err := errors.Join(errs...); err != nil {
@@ -717,7 +720,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 					change(&d.Status, "travelling")
 				}
 			}, env.DeviceCode)
-			log("Departed from %s to %s: %s", ev.Destination, ev.Origin,
+			log("Departed to %s from %s: %s", ev.Destination, ev.Origin,
 				strings.Join(codeList(append(ev.AttachedDevices, env.DeviceCode)), ", "))
 
 		// Next case here
