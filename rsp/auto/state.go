@@ -58,6 +58,19 @@ func later(a, b time.Time) time.Time {
 	return b
 }
 
+func sooner(a, b time.Time) time.Time {
+	if a.IsZero() {
+		return b
+	}
+	if b.IsZero() {
+		return a
+	}
+	if a.Before(b) {
+		return a
+	}
+	return b
+}
+
 func log(tmpl string, args ...any) {
 	common.LogLevel(1, tmpl, args...)
 }

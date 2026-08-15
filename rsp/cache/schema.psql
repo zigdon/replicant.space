@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS device_logs(
 );
 
 CREATE TABLE IF NOT EXISTS tasks(
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   added TIMESTAMPTZ,
   completed TIMESTAMPTZ,
   type TEXT,
@@ -179,20 +179,26 @@ CREATE TABLE IF NOT EXISTS tasks(
 );
 
 CREATE TABLE IF NOT EXISTS intent(
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   location TEXT UNIQUE,
-  resources JSONB,
-  devices JSONB,
-  special JSONB,
+  demand JSONB
+);
+
+CREATE TABLE IF NOT EXISTS deliveries(
+  id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  origin TEXT,
+  destination TEXT,
+  ship TEXT UNIQUE,
+  cargo JSONB
 );
 
 CREATE TABLE IF NOT EXISTS inventory(
   designation TEXT PRIMARY KEY,
   star TEXT REFERENCES stars(designation),
-  carbon INT,
-  conductive INT,
-  rares INT,
-  silicates INT,
-  structural INT,
-  volatiles INT
+  carbon INT NOT NULL DEFAULT 0,
+  conductive INT NOT NULL DEFAULT 0,
+  rares INT NOT NULL DEFAULT 0,
+  silicates INT NOT NULL DEFAULT 0,
+  structural INT NOT NULL DEFAULT 0,
+  volatiles INT NOT NULL DEFAULT 0
 );

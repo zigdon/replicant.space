@@ -57,7 +57,7 @@ type RelayMachine struct {
 
 func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 	// Make sure the device is a vessel
-	if !slices.Contains([]string{"heaven_vessel", "racing_vessel", "cargo_vessel"}, d.Type) {
+	if !slices.Contains([]string{"heaven_vessel", "racing_vessel", "cargo_vessel", "crystal_vessel"}, d.Type) {
 		return fmt.Errorf("%s is not a vessel: %q", d.Code.Alias(), d.Type)
 	}
 	rm.dev = d
@@ -355,6 +355,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			return eta, fmt.Errorf("Resupply vessage %q unexpectedly empty at %q",
 				rm.supply.Code.Alias(), rm.dev.Location)
 		}
+		cap := rm.dev.StowCapacity - len(rm.dev.StowedDevices.Devices)
 		var stowed = 0
 		for _, d := range rm.supply.AttachedDevices {
 			_, err := deviceCommand(rm.supply.Code, "detach",
@@ -368,6 +369,9 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				return eta, err
 			}
 			stowed++
+			if stowed > cap {
+				break
+			}
 		}
 		log("Picked up %d FRs, shipping resupply back home", stowed)
 		var err error
@@ -486,6 +490,10 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		if err != nil {
 			return eta, err
 		}
+		if curDist == 0 {
+			log("At destination, waiting...")
+			return eta, nil
+		}
 		relayDist, err := common.Distance(next, rm.dest.Star())
 		if err != nil {
 			return eta, err
@@ -567,7 +575,9 @@ func (rm *RelayMachine) resupply() error {
 	// Handle supply vessal
 	switch rm.supply.Location {
 	case "":
-		log("Resupply platform in transit...")
+		supplyETA := rm.supply.Travel.Arrives.Time().Truncate(time.Second)
+		log("Resupply platform %s in transit... ETA: %s (%s)",
+			rm.supply, supplyETA, time.Until(supplyETA).Truncate(time.Second))
 	case home:
 		slots := rm.supply.AttachCapacity - len(rm.supply.AttachedDevices)
 		devs, err := rest.RefreshDevices(map[string]string{

@@ -226,13 +226,13 @@ type StreamDeviceDetached struct {
 }
 
 type StreamDeviceStowed struct {
-	StowedIn  *CodeAlias `json:"stowed_in_device_code"`
-	_StowedIn *CodeAlias `json:"stowed_in"`
+	StowedInDC *CodeAlias `json:"stowed_in_device_code"`
+	StowedIn   *CodeAlias `json:"stowed_in"`
 }
 
 func (sds *StreamDeviceStowed) Fill() error {
-	if sds.StowedIn == nil && sds._StowedIn != nil {
-		sds.StowedIn = sds._StowedIn
+	if sds.StowedIn == nil && sds.StowedInDC != nil {
+		sds.StowedIn = sds.StowedInDC
 	}
 	return nil
 }

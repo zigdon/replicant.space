@@ -38,7 +38,9 @@ func readStream(cmd *cobra.Command, args []string) error {
 	// Load the device network
 	relayNetwork := make(map[string]bool)
 	rows, err := db.DB.Query(`
-		SELECT location FROM json_devices WHERE type = 'ftl_relay' AND status = 'relaying'
+		SELECT distinct(location)
+		FROM json_devices
+		WHERE status = 'relaying'
 	`)
 	if err != nil {
 		return fmt.Errorf("Can't get relay network: %v", err)
@@ -48,7 +50,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 		if err := rows.Scan(&loc); err != nil {
 			return fmt.Errorf("Failed to scan locations: %v", err)
 		}
-		relayNetwork[loc] = true
+		relayNetwork[models.LocationID(loc).Star()] = true
 	}
 	log("Loaded %d relays", len(relayNetwork))
 
@@ -317,6 +319,9 @@ func readStream(cmd *cobra.Command, args []string) error {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
+			if ev.StowedIn == nil {
+				return fmt.Errorf("device.stowed error:\npayload=%s\nenv=%v\nev=%v", payload, env, ev)
+			}
 			log("%s stowed in %s @ %s", env.DeviceCode, ev.StowedIn, env.Location)
 			update(func(d *models.Device) {
 				change(&d.StowedInDeviceCode, ev.StowedIn)
@@ -579,7 +584,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-			log("Salvadge discovered: %s @ %s: %v", ev.Name, ev.Location, ev.Resources)
+			log("Salvage discovered: %s @ %s: %v", ev.Name, ev.Location, ev.Resources)
 		case "site.depleted":
 			ev, err := models.Parse[models.StreamSiteDepleted](payload)
 			if err != nil {
@@ -639,6 +644,12 @@ func readStream(cmd *cobra.Command, args []string) error {
 				}
 				change(&d.Cargo, inv)
 			}, env.DeviceCode)
+			for k := range ev.Resources {
+				ev.Resources[k] *= -1
+			}
+			if err := db.UpdateInventory(false, string(env.Location), ev.Resources); err != nil {
+				log("Error updating inventory: %v", err)
+			}
 		case "transport.delivered":
 			ev, err := models.Parse[models.StreamTransportDelivered](payload)
 			if err != nil {
@@ -657,6 +668,9 @@ func readStream(cmd *cobra.Command, args []string) error {
 				}
 				change(&d.Cargo, newInv)
 			}, env.DeviceCode)
+			if err := db.UpdateInventory(false, string(env.Location), ev.Resources); err != nil {
+				log("Error updating inventory: %v", err)
+			}
 		case "travel.arrived":
 			ev, err := models.Parse[models.StreamTravelArrived](payload)
 			if err != nil {

@@ -2,6 +2,7 @@ package cache
 
 import (
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -160,10 +161,25 @@ func (db *Cache) UpdateSchema() error {
 	return err
 }
 
+func (db *Cache) Query(query string, args ...any) (*sql.Rows, error) {
+	log("%q: %v", query, args)
+	return db.DB.Query(query, args...)
+}
+
+func (db *Cache) QueryRow(query string, args ...any) *sql.Row {
+	log("%q: %v", query, args)
+	return db.DB.QueryRow(query, args...)
+}
+
+func (db *Cache) Exec(query string, args ...any) (sql.Result, error) {
+	log("%q: %v", query, args)
+	return db.DB.Exec(query, args...)
+}
+
 func (db *Cache) Stats() string {
 	var out []string
 	for _, t := range []string{"stars", "planets", "moons", "resources", "aliases"} {
-		res := db.DB.QueryRow(fmt.Sprintf("SELECT COUNT(*) AS c FROM %s", t))
+		res := db.QueryRow(fmt.Sprintf("SELECT COUNT(*) AS c FROM %s", t))
 		var cnt int
 		err := res.Scan(&cnt)
 		if err != nil {
@@ -177,7 +193,7 @@ func (db *Cache) Stats() string {
 
 func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
 	log("SELECT %s FROM %s WHERE %s = $1", strings.Join(cols[table], ", "), table, cols[table][0])
-	row := db.DB.QueryRow(
+	row := db.QueryRow(
 		fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1",
 			strings.Join(cols[table], ", "), table, cols[table][0]), key)
 	if row.Err() != nil {
@@ -188,7 +204,7 @@ func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
 
 func (db *Cache) GetVal(table Tables, col, key string) (func(...any) error, error) {
 	log("SELECT %s FROM %s WHERE %s = $1", col, table, cols[table][0])
-	row := db.DB.QueryRow(
+	row := db.QueryRow(
 		fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1", col, table, cols[table][0]), key)
 	if row.Err() != nil {
 		return nil, row.Err()
@@ -198,7 +214,7 @@ func (db *Cache) GetVal(table Tables, col, key string) (func(...any) error, erro
 
 func (db *Cache) GetAll(table Tables, key string) (*sql.Rows, error) {
 	log("SELECT %s FROM %s WHERE %s = $1", strings.Join(cols[table], ", "), table, cols[table][0])
-	rows, err := db.DB.Query(
+	rows, err := db.Query(
 		fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1",
 			strings.Join(cols[table], ", "), table, cols[table][0]), key)
 	if err != nil {
@@ -268,7 +284,7 @@ func (db *Cache) Reset(table Tables) error {
 
 func (db *Cache) ListIDs(table Tables) ([]any, error) {
 	log("SELECT %s FROM %s", cols[table][0], table)
-	rows, err := db.DB.Query(fmt.Sprintf("SELECT %s FROM %s", cols[table][0], table))
+	rows, err := db.Query(fmt.Sprintf("SELECT %s FROM %s", cols[table][0], table))
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +309,7 @@ func (db *Cache) PendingNotifications(read bool) (*sql.Rows, error) {
 		SELECT id, start_ts, end_ts, device, text
 		FROM %s
 		WHERE read = $1 AND end_ts < $2`, NotificationTable)
-	return db.DB.Query(q, read, now)
+	return db.Query(q, read, now)
 }
 
 func (db *Cache) ClearNotifications(ids []int) error {
@@ -311,6 +327,52 @@ func (db *Cache) ClearNotifications(ids []int) error {
 		SET read = true
 		WHERE id in (%s)`, NotificationTable, strings.Join(phs, ", "))
 	_, err := db.DB.Exec(q, as...)
+	return err
+}
+
+func (db *Cache) AddDelivery(dryRun bool, origin, destination, carrier string, cargo map[string]int) error {
+	data, err := json.Marshal(cargo)
+	if err != nil {
+		return err
+	}
+	if dryRun {
+		log("[DRYRUN] Adding delivery: %s %s->%s: %v", carrier, origin, destination, cargo)
+		return nil
+	}
+	_, err = db.Exec(`
+	  INSERT INTO deliveries (origin, destination, ship, cargo)
+	  VALUES ($1, $2, $3, $4)
+  `, origin, destination, carrier, data)
+	return err
+}
+
+func (db *Cache) ClearDelivery(dryRun bool, carrier string) error {
+	if dryRun {
+		log("[DRYRUN] Clearing delivery: %s", carrier)
+		return nil
+	}
+	_, err := db.Exec(`DELETE FROM deliveries WHERE ship=$1`, carrier)
+	return err
+}
+
+func (db *Cache) UpdateInventory(dryRun bool, location string, res map[string]int) error {
+	if dryRun {
+		log("[DRYRUN] Updating inventory at %s: %#v", location, res)
+		return nil
+	}
+	_, err := db.Exec(`
+		UPDATE inventory
+		SET carbon=carbon+$1,
+			conductive=conductive+$2,
+			rares=rares+$3,
+			silicates=silicates+$4,
+			structural=structural+$5,
+			volatiles=volatiles+$6
+		WHERE designation = $7`,
+		res["carbon"], res["conductive"], res["rares"],
+		res["silicates"], res["structural"], res["volatiles"],
+		location)
+
 	return err
 }
 
