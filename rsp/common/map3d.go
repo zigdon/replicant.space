@@ -362,22 +362,169 @@ type DeviceLocationInfo struct {
 	Status   string
 }
 
+// NetworkDevice represents a single relaying device in a star system.
+type NetworkDevice struct {
+	Code     string
+	Type     string
+	Location string
+	Status   string
+	RangeLy  float32
+}
+
+// NetworkLink represents an FTL connection between two network nodes.
+type NetworkLink struct {
+	FromStar      string
+	ToStar        string
+	FromPos       Vec3
+	ToPos         Vec3
+	Distance      float32
+	IsFromReach   bool // True if From can reach To (dist <= Range(From))
+	IsToReach     bool // True if To can reach From (dist <= Range(To))
+	Bidirectional bool // True if both can reach each other
+}
+
+// NetworkNode represents a star system hosting one or more relaying network devices.
+type NetworkNode struct {
+	Star        string
+	Position    Vec3
+	MaxRange    float32
+	Devices     []*NetworkDevice
+	SubnetID    int
+	Connections []*NetworkLink
+}
+
+// NetworkGraph represents the entire FTL communication grid.
+type NetworkGraph struct {
+	Nodes   map[string]*NetworkNode // Key: star designation
+	Links   []*NetworkLink
+	Subnets map[int][]*NetworkNode // Subnet ID -> list of nodes
+}
+
+// BuildNetworkGraph constructs an FTL communication graph from relaying devices and star positions.
+// Ranges: ftl_relay=7.5ly, deep_space_relay_station=10.0ly, system_hub=15.0ly.
+// Connections are asymmetric: link exists if distance <= max(Range(A), Range(B)).
+func BuildNetworkGraph(devices []*NetworkDevice, starLookup map[string]Vec3) *NetworkGraph {
+	g := &NetworkGraph{
+		Nodes:   make(map[string]*NetworkNode),
+		Subnets: make(map[int][]*NetworkNode),
+	}
+
+	// 1. Group devices by star designation
+	for _, d := range devices {
+		if d == nil {
+			continue
+		}
+		starName := strings.ToUpper(strings.TrimSpace(models.LocationID(d.Location).Star()))
+		pos, hasPos := starLookup[starName]
+		if !hasPos {
+			continue
+		}
+
+		node, exists := g.Nodes[starName]
+		if !exists {
+			node = &NetworkNode{
+				Star:     starName,
+				Position: pos,
+				MaxRange: d.RangeLy,
+			}
+			g.Nodes[starName] = node
+		}
+		node.Devices = append(node.Devices, d)
+		if d.RangeLy > node.MaxRange {
+			node.MaxRange = d.RangeLy
+		}
+	}
+
+	// 2. Discover links between all pairs of nodes
+	nodeList := make([]*NetworkNode, 0, len(g.Nodes))
+	for _, n := range g.Nodes {
+		nodeList = append(nodeList, n)
+	}
+
+	for i := 0; i < len(nodeList); i++ {
+		for j := i + 1; j < len(nodeList); j++ {
+			n1 := nodeList[i]
+			n2 := nodeList[j]
+
+			dist := n1.Position.Distance(n2.Position)
+			can1Reach2 := dist <= n1.MaxRange
+			can2Reach1 := dist <= n2.MaxRange
+
+			if can1Reach2 || can2Reach1 {
+				link := &NetworkLink{
+					FromStar:      n1.Star,
+					ToStar:        n2.Star,
+					FromPos:       n1.Position,
+					ToPos:         n2.Position,
+					Distance:      dist,
+					IsFromReach:   can1Reach2,
+					IsToReach:     can2Reach1,
+					Bidirectional: can1Reach2 && can2Reach1,
+				}
+				g.Links = append(g.Links, link)
+				n1.Connections = append(n1.Connections, link)
+				n2.Connections = append(n2.Connections, link)
+			}
+		}
+	}
+
+	// 3. Compute Connected Components (Subnets) via BFS
+	visited := make(map[string]bool)
+	subnetCounter := 1
+
+	for _, n := range nodeList {
+		if visited[n.Star] {
+			continue
+		}
+
+		var component []*NetworkNode
+		queue := []*NetworkNode{n}
+		visited[n.Star] = true
+
+		for len(queue) > 0 {
+			curr := queue[0]
+			queue = queue[1:]
+			curr.SubnetID = subnetCounter
+			component = append(component, curr)
+
+			for _, link := range curr.Connections {
+				neighborStar := link.ToStar
+				if neighborStar == curr.Star {
+					neighborStar = link.FromStar
+				}
+				if !visited[neighborStar] {
+					visited[neighborStar] = true
+					if neighborNode, ok := g.Nodes[neighborStar]; ok {
+						queue = append(queue, neighborNode)
+					}
+				}
+			}
+		}
+
+		g.Subnets[subnetCounter] = component
+		subnetCounter++
+	}
+
+	return g
+}
+
 // StarMapPoint represents a star mapped to screen space.
 type StarMapPoint struct {
-	Star      *models.Star
-	WorldPos  Vec3
-	CamPos    Vec3
-	ScreenX   int
-	ScreenY   int
-	Visible   bool
-	Glyph     rune
-	Color     RGB
-	IsHub     bool
-	IsMyHub   bool
-	HasLife   bool
-	IsRoute   bool
-	RouteStep int
-	Devices   []*DeviceLocationInfo
+	Star        *models.Star
+	WorldPos    Vec3
+	CamPos      Vec3
+	ScreenX     int
+	ScreenY     int
+	Visible     bool
+	Glyph       rune
+	Color       RGB
+	IsHub       bool
+	IsMyHub     bool
+	HasLife     bool
+	IsRoute     bool
+	RouteStep   int
+	Devices     []*DeviceLocationInfo
+	NetworkNode *NetworkNode
 }
 
 // MapLayerOptions configures visual layers in the renderer.
@@ -387,8 +534,10 @@ type MapLayerOptions struct {
 	FilterExploredOnly bool
 	FilterRegion       string
 	FilterDevicesOnly  bool
+	FilterNetworkOnly  bool
 	ShowRegions        bool
 	ShowDevices        bool
+	ShowNetwork        bool
 	ShowLabels         bool
 	ShowGrid           bool
 	ShowAxes           bool
@@ -398,6 +547,7 @@ type MapLayerOptions struct {
 	RouteLegs          []*models.JourneyLeg
 	DeviceTypes        []string
 	StarDevices        map[string][]*DeviceLocationInfo
+	Network            *NetworkGraph
 }
 
 func DefaultMapLayerOptions() *MapLayerOptions {
@@ -407,8 +557,10 @@ func DefaultMapLayerOptions() *MapLayerOptions {
 		FilterExploredOnly: false,
 		FilterRegion:       "",
 		FilterDevicesOnly:  false,
+		FilterNetworkOnly:  false,
 		ShowRegions:        false,
 		ShowDevices:        false,
+		ShowNetwork:        false,
 		ShowLabels:         true,
 		ShowGrid:           true,
 		ShowAxes:           true,
@@ -447,7 +599,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		drawGalacticGrid(cam, canvas, opts)
 	}
 
-	// 2. Draw route legs with Braille lines if enabled
+	// 2. Draw route legs and network links with Braille lines if enabled
 	var routeStars = make(map[string]int)
 	if opts.ShowRoute && len(opts.RouteLegs) > 0 {
 		for i, leg := range opts.RouteLegs {
@@ -460,6 +612,11 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			}
 		}
 	}
+	if opts.ShowNetwork && opts.Network != nil && len(opts.Network.Links) > 0 {
+		for _, link := range opts.Network.Links {
+			canvas.DrawLine3D(cam, link.FromPos, link.ToPos)
+		}
+	}
 
 	// 3. Project all stars and determine visibility
 	var mappedStars []*StarMapPoint
@@ -467,6 +624,11 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		var starDevs []*DeviceLocationInfo
 		if opts.StarDevices != nil {
 			starDevs = opts.StarDevices[string(st.Designation)]
+		}
+
+		var netNode *NetworkNode
+		if opts.Network != nil {
+			netNode = opts.Network.Nodes[string(st.Designation)]
 		}
 
 		if opts.FilterExploredOnly && !st.Explored {
@@ -482,6 +644,9 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			continue
 		}
 		if opts.FilterDevicesOnly && len(starDevs) == 0 {
+			continue
+		}
+		if opts.FilterNetworkOnly && netNode == nil {
 			continue
 		}
 		if st.Position == nil {
@@ -509,7 +674,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		}
 		starCol := baseCol.Dim(dimFactor)
 
-		// Choose glyph based on attributes, devices, and depth
+		// Choose glyph based on attributes, network, devices, and depth
 		var glyph rune
 		if st.HasMyHub {
 			glyph = '◆'
@@ -524,6 +689,9 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			glyph = '◉'
 			starCol = RGB{R: 255, G: 230, B: 100}
 			_ = step
+		} else if opts.ShowNetwork && netNode != nil {
+			glyph = '◈'                         // Diamond glyph for active relay network node
+			starCol = RGB{R: 0, G: 229, B: 255} // Neon Cyan
 		} else if opts.ShowDevices && len(starDevs) > 0 {
 			glyph = '⬢'                         // Solid Hexagon for device host
 			starCol = RGB{R: 255, G: 215, B: 0} // Gold/Amber
@@ -540,20 +708,21 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 
 		step, isRoute := routeStars[string(st.Designation)]
 		mp := &StarMapPoint{
-			Star:      st,
-			WorldPos:  wPos,
-			CamPos:    camPos,
-			ScreenX:   sx,
-			ScreenY:   sy,
-			Visible:   vis,
-			Glyph:     glyph,
-			Color:     starCol,
-			IsHub:     st.HasHub,
-			IsMyHub:   st.HasMyHub,
-			HasLife:   st.HasLife,
-			IsRoute:   isRoute,
-			RouteStep: step,
-			Devices:   starDevs,
+			Star:        st,
+			WorldPos:    wPos,
+			CamPos:      camPos,
+			ScreenX:     sx,
+			ScreenY:     sy,
+			Visible:     vis,
+			Glyph:       glyph,
+			Color:       starCol,
+			IsHub:       st.HasHub,
+			IsMyHub:     st.HasMyHub,
+			HasLife:     st.HasLife,
+			IsRoute:     isRoute,
+			RouteStep:   step,
+			Devices:     starDevs,
+			NetworkNode: netNode,
 		}
 
 		if vis {
@@ -586,11 +755,12 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		x, y := mp.ScreenX, mp.ScreenY
 		if x >= 0 && x < w && y >= 0 && y < h {
 			hasDevices := len(mp.Devices) > 0
+			inNet := opts.ShowNetwork && mp.NetworkNode != nil
 			cells[y][x] = CellLayer{
 				Rune:     mp.Glyph,
 				FgColor:  mp.Color,
 				HasColor: true,
-				IsBold:   mp.IsMyHub || mp.HasLife || mp.IsRoute || (opts.ShowDevices && hasDevices),
+				IsBold:   mp.IsMyHub || mp.HasLife || mp.IsRoute || (opts.ShowDevices && hasDevices) || inNet,
 				DepthZ:   mp.CamPos.Z,
 				Star:     mp,
 			}
@@ -601,9 +771,11 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 	if opts.ShowLabels {
 		for _, mp := range mappedStars {
 			hasDevices := len(mp.Devices) > 0
-			// Show names for prominent stars (Hubs, Life, Route, Device Hosts, Selected, or closest stars)
+			inNet := opts.ShowNetwork && mp.NetworkNode != nil
+			// Show names for prominent stars (Hubs, Life, Route, Device Hosts, Network Nodes, Selected, or closest stars)
 			isProminent := mp.IsMyHub || mp.HasLife || mp.IsRoute ||
 				(opts.ShowDevices && hasDevices) ||
+				inNet ||
 				string(mp.Star.Designation) == opts.SelectedStar ||
 				string(mp.Star.Designation) == opts.HighlightStar ||
 				mp.CamPos.Z < -cam.Radius*0.2
@@ -618,6 +790,9 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 				}
 				if opts.ShowDevices && hasDevices {
 					displayName = fmt.Sprintf("%s [%d dev]", displayName, len(mp.Devices))
+				}
+				if inNet {
+					displayName = fmt.Sprintf("%s [Net#%d]", displayName, mp.NetworkNode.SubnetID)
 				}
 				if len(displayName) > 18 {
 					displayName = displayName[:18]
@@ -854,6 +1029,9 @@ func FormatMapLegend(opts *MapLayerOptions) string {
 	parts = append(parts, "\x1b[1;35m◆\x1b[0m My Hub", "\x1b[1;32m✦\x1b[0m Life", "\x1b[1;36m◇\x1b[0m Hub", "\x1b[1;33m◉\x1b[0m Route")
 	if opts != nil && (opts.ShowDevices || len(opts.StarDevices) > 0) {
 		parts = append(parts, "\x1b[1;33m⬢\x1b[0m Device")
+	}
+	if opts != nil && (opts.ShowNetwork || opts.Network != nil) {
+		parts = append(parts, "\x1b[1;36m◈\x1b[0m Relay Net")
 	}
 	base := "\x1b[90mLegend: \x1b[0m" + strings.Join(parts, "  ")
 	if opts != nil && opts.ShowRegions {

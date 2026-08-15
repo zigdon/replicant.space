@@ -246,3 +246,51 @@ func (db *Cache) QueryDevicesByTypes(types []string) ([]*DeviceRecord, error) {
 	}
 	return devs, rows.Err()
 }
+
+type NetworkDeviceRecord struct {
+	Code     string
+	Type     string
+	Location string
+	Status   string
+	RangeLy  float32
+}
+
+func (db *Cache) QueryRelayingNetworkDevices() ([]*NetworkDeviceRecord, error) {
+	if db == nil || db.DB == nil {
+		return nil, fmt.Errorf("database cache is not connected")
+	}
+
+	q := `
+		SELECT code, type, location, COALESCE(status, '')
+		FROM json_devices
+		WHERE LOWER(type) IN ('ftl_relay', 'system_hub', 'deep_space_relay_station')
+		  AND LOWER(status) = 'relaying'
+		  AND location IS NOT NULL AND location != ''
+		ORDER BY location ASC, type ASC`
+
+	rows, err := db.DB.Query(q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devs []*NetworkDeviceRecord
+	for rows.Next() {
+		d := new(NetworkDeviceRecord)
+		if err := rows.Scan(&d.Code, &d.Type, &d.Location, &d.Status); err != nil {
+			return nil, err
+		}
+		switch strings.ToLower(d.Type) {
+		case "system_hub":
+			d.RangeLy = 15.0
+		case "deep_space_relay_station":
+			d.RangeLy = 10.0
+		case "ftl_relay":
+			d.RangeLy = 7.5
+		default:
+			d.RangeLy = 0.0
+		}
+		devs = append(devs, d)
+	}
+	return devs, rows.Err()
+}

@@ -41,6 +41,8 @@ func init() {
 	mapCmd.Flags().StringSliceP("devices", "d", []string{"heaven_vessel", "racing_vessel", "cargo_vessel"},
 		"List of device types to overlay (comma-separated, e.g. autofactory,mining_drone)")
 	mapCmd.Flags().Bool("device_only", false, "Filter map to only show stars with matching devices")
+	mapCmd.Flags().BoolP("network", "N", false, "Overlay FTL relay network connections")
+	mapCmd.Flags().Bool("network_only", false, "Filter map to only show stars with active relay network devices")
 	mapCmd.Flags().IntP("width", "w", 100, "Width in columns for static map")
 	mapCmd.Flags().IntP("height", "H", 35, "Height in rows for static map")
 
@@ -50,6 +52,7 @@ func init() {
 	plotMapCmd.Flags().BoolP("use_station", "u", false, "Allow using deep space relay stations")
 	plotMapCmd.Flags().BoolP("static", "s", false, "Render static ASCII snapshot to stdout")
 	plotMapCmd.Flags().StringSliceP("devices", "d", nil, "List of device types to overlay (comma-separated, e.g. autofactory,mining_drone)")
+	plotMapCmd.Flags().BoolP("network", "N", false, "Overlay FTL relay network connections")
 }
 
 func parseCenterPosition(input string) (common.Vec3, string, error) {
@@ -95,6 +98,40 @@ func loadDeviceLocations(deviceTypes []string) map[string][]*common.DeviceLocati
 		})
 	}
 	return starDevices
+}
+
+func loadNetworkGraph(stars []*models.Star) *common.NetworkGraph {
+	if db == nil {
+		return nil
+	}
+	devs, err := db.QueryRelayingNetworkDevices()
+	if err != nil {
+		log("Error querying network devices: %v", err)
+		return nil
+	}
+	if len(devs) == 0 {
+		return nil
+	}
+
+	starLookup := make(map[string]common.Vec3)
+	for _, s := range stars {
+		if s != nil && s.Position != nil {
+			starLookup[string(s.Designation)] = common.Vec3{X: s.Position.X, Y: s.Position.Y, Z: s.Position.Z}
+		}
+	}
+
+	var netDevs []*common.NetworkDevice
+	for _, d := range devs {
+		netDevs = append(netDevs, &common.NetworkDevice{
+			Code:     d.Code,
+			Type:     d.Type,
+			Location: d.Location,
+			Status:   d.Status,
+			RangeLy:  d.RangeLy,
+		})
+	}
+
+	return common.BuildNetworkGraph(netDevs, starLookup)
 }
 
 func loadStarsFromDB(center common.Vec3, radius float32) ([]*models.Star, error) {
@@ -205,6 +242,10 @@ func runPlotMapCmd(cmd *cobra.Command, args []string) error {
 		opts.ShowDevices = true
 		opts.StarDevices = loadDeviceLocations(deviceTypes)
 	}
+	opts.Network = loadNetworkGraph(stars)
+	if getBool(cmd, "network") {
+		opts.ShowNetwork = true
+	}
 
 	if staticMode {
 		cam := common.NewCamera3D(100, 35)
@@ -267,6 +308,14 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 			opts.FilterDevicesOnly = true
 		}
 	}
+	opts.Network = loadNetworkGraph(stars)
+	if getBool(cmd, "network") {
+		opts.ShowNetwork = true
+	}
+	if getBool(cmd, "network_only") {
+		opts.ShowNetwork = true
+		opts.FilterNetworkOnly = true
+	}
 	opts.SelectedStar = centerName
 
 	staticMode := getBool(cmd, "static")
@@ -314,6 +363,28 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 				fmt.Printf("  \x1b[1;36m%-16s\x1b[0m (%d devices): %s\n", s, len(devs), strings.Join(typeStrs, ", "))
 			}
 		}
+
+		if opts.ShowNetwork && opts.Network != nil && len(opts.Network.Nodes) > 0 {
+			fmt.Printf("\n\x1b[1;36m=== FTL RELAY NETWORK (%d nodes, %d links, %d subnets) ===\x1b[0m\n",
+				len(opts.Network.Nodes), len(opts.Network.Links), len(opts.Network.Subnets))
+			var subnetIDs []int
+			for id := range opts.Network.Subnets {
+				subnetIDs = append(subnetIDs, id)
+			}
+			slices.Sort(subnetIDs)
+			for _, id := range subnetIDs {
+				nodes := opts.Network.Subnets[id]
+				var starNames []string
+				for _, n := range nodes {
+					starNames = append(starNames, n.Star)
+				}
+				slices.Sort(starNames)
+				if len(starNames) > 8 {
+					starNames = append(starNames[:8], fmt.Sprintf("... +%d more", len(starNames)-8))
+				}
+				fmt.Printf("  \x1b[1;33mSubnet #%d\x1b[0m (%d stars): %s\n", id, len(nodes), strings.Join(starNames, ", "))
+			}
+		}
 		return nil
 	}
 
@@ -347,7 +418,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		SetDynamicColors(true).
 		SetWrap(false)
 
-	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD[-] Pan  [yellow]p[-] Proj  [yellow]Tab[-] Target  [yellow]1-7[-] Filters/Overlays  [yellow]r[-] Reset  [yellow]q[-] Quit")
+	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD[-] Pan  [yellow]p[-] Proj  [yellow]Tab[-] Target  [yellow]1-8[-] Filters/Overlays  [yellow]r[-] Reset  [yellow]q[-] Quit")
 
 	updateSidebar := func(target *common.StarMapPoint) {
 		sidebar.Clear()
@@ -418,6 +489,45 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 		}
 
+		if target.NetworkNode != nil {
+			netNode := target.NetworkNode
+			subnetSize := 1
+			if opts.Network != nil && opts.Network.Subnets != nil {
+				subnetSize = len(opts.Network.Subnets[netNode.SubnetID])
+			}
+			sb.WriteString(fmt.Sprintf("\n[cyan::b]=== FTL NETWORK NODE ===[-::-]\n"))
+			sb.WriteString(fmt.Sprintf("[white]Subnet:[-] [yellow]#%d[-] ([green]%d stars connected[-])\n", netNode.SubnetID, subnetSize))
+			sb.WriteString(fmt.Sprintf("[white]Max Reach:[-] [yellow]%.1fly[-]\n", netNode.MaxRange))
+			sb.WriteString(fmt.Sprintf("[white]Relaying Devices (%d):[-]\n", len(netNode.Devices)))
+			for _, d := range netNode.Devices {
+				sb.WriteString(fmt.Sprintf("  • [cyan]%s[-] ([gray]%s[-], reach: [yellow]%.1fly[-])\n", d.Type, d.Code, d.RangeLy))
+			}
+			sb.WriteString(fmt.Sprintf("[white]Direct Links (%d):[-]\n", len(netNode.Connections)))
+			for i, link := range netNode.Connections {
+				if i >= 6 {
+					sb.WriteString(fmt.Sprintf("  [gray]... and %d more[-]\n", len(netNode.Connections)-6))
+					break
+				}
+				otherStar := link.ToStar
+				reachMode := "[green]bi-dir[-]"
+				if otherStar == netNode.Star {
+					otherStar = link.FromStar
+					if !link.IsToReach {
+						reachMode = "[yellow]inbound-only[-]"
+					} else if !link.IsFromReach {
+						reachMode = "[cyan]outbound-only[-]"
+					}
+				} else {
+					if !link.IsFromReach {
+						reachMode = "[yellow]inbound-only[-]"
+					} else if !link.IsToReach {
+						reachMode = "[cyan]outbound-only[-]"
+					}
+				}
+				sb.WriteString(fmt.Sprintf("  • [yellow]%s[-] ([white]%.1fly[-], %s)\n", otherStar, link.Distance, reachMode))
+			}
+		}
+
 		sidebar.SetText(sb.String())
 	}
 
@@ -482,6 +592,11 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		} else {
 			filterBadges = append(filterBadges, "[gray][7:Devices][-]")
 		}
+		if opts.ShowNetwork {
+			filterBadges = append(filterBadges, "[#00e5ff::b][8:Network:ON][-::-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][8:Network][-]")
+		}
 
 		var devSummary string
 		if opts.StarDevices != nil && len(opts.StarDevices) > 0 {
@@ -492,9 +607,14 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			devSummary = fmt.Sprintf(" | Devs: [yellow]%d[-] in %d systems", totalDevs, len(opts.StarDevices))
 		}
 
+		var netSummary string
+		if opts.Network != nil && len(opts.Network.Nodes) > 0 {
+			netSummary = fmt.Sprintf(" | Net: [cyan]%d nodes, %d links[-]", len(opts.Network.Nodes), len(opts.Network.Links))
+		}
+
 		var hudSb strings.Builder
-		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total%s\n",
-			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars), devSummary))
+		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total%s%s\n",
+			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars), devSummary, netSummary))
 
 		if selectedPoint != nil && selectedPoint.Star != nil {
 			st := selectedPoint.Star
@@ -516,6 +636,9 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			devInfoStr := ""
 			if len(selectedPoint.Devices) > 0 {
 				devInfoStr = fmt.Sprintf(" | [yellow]Devices: %d[-]", len(selectedPoint.Devices))
+			}
+			if selectedPoint.NetworkNode != nil {
+				devInfoStr += fmt.Sprintf(" | [cyan]Net#%d:%.1fly[-]", selectedPoint.NetworkNode.SubnetID, selectedPoint.NetworkNode.MaxRange)
 			}
 
 			hudSb.WriteString(fmt.Sprintf("[white::b]Target:[-] [yellow::b]%s[-] ([white]%s[-]) | Class: [cyan]%s[-] | Planets: [white]%d[-] | Life: %s | Hub: %s%s | Pos: %s\n",
@@ -638,7 +761,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 			return nil
 
-		// Layer toggles: 1=Life, 2=Hubs, 3=Explored, 4=Grid, 5=Labels, 6=Regions, 7=Devices
+		// Layer toggles: 1=Life, 2=Hubs, 3=Explored, 4=Grid, 5=Labels, 6=Regions, 7=Devices, 8=Network
 		case r == '1':
 			opts.FilterLifeOnly = !opts.FilterLifeOnly
 			selectedIndex = 0
@@ -666,8 +789,12 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.ShowRegions = !opts.ShowRegions
 			redraw()
 			return nil
-		case r == '7' || r == 'd' || r == 'D':
+		case r == '7':
 			opts.ShowDevices = !opts.ShowDevices
+			redraw()
+			return nil
+		case r == '8' || r == 'n' || r == 'N':
+			opts.ShowNetwork = !opts.ShowNetwork
 			redraw()
 			return nil
 
@@ -683,8 +810,10 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.FilterExploredOnly = false
 			opts.FilterRegion = ""
 			opts.FilterDevicesOnly = false
+			opts.FilterNetworkOnly = false
 			opts.ShowRegions = false
 			opts.ShowDevices = (len(opts.DeviceTypes) > 0)
+			opts.ShowNetwork = (opts.Network != nil && len(opts.Network.Nodes) > 0)
 			opts.ShowGrid = true
 			opts.ShowLabels = true
 			opts.SelectedStar = initialTarget

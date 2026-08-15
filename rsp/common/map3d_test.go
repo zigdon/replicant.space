@@ -382,3 +382,110 @@ func TestDeviceOverlay(t *testing.T) {
 		t.Errorf("FilterDevicesOnly failed: expected 1 star (SOL), got %d", len(mappedOnly))
 	}
 }
+
+func TestBuildNetworkGraph(t *testing.T) {
+	// Star positions
+	starLookup := map[string]Vec3{
+		"SOL":   {X: 0, Y: 0, Z: 0},
+		"ALPHA": {X: 12, Y: 0, Z: 0}, // 12ly from SOL
+		"BETA":  {X: 24, Y: 0, Z: 0}, // 12ly from ALPHA, 24ly from SOL
+		"FAR":   {X: 100, Y: 0, Z: 0},
+	}
+
+	// Test 1: Relay at SOL (range 7.5) and Relay at ALPHA (range 7.5)
+	// Distance is 12ly -> Neither can reach -> No connection
+	devsRelayOnly := []*NetworkDevice{
+		{Code: "R1", Type: "ftl_relay", Location: "SOL-1", Status: "relaying", RangeLy: 7.5},
+		{Code: "R2", Type: "ftl_relay", Location: "ALPHA-1", Status: "relaying", RangeLy: 7.5},
+	}
+	g1 := BuildNetworkGraph(devsRelayOnly, starLookup)
+	if len(g1.Links) != 0 {
+		t.Errorf("Expected 0 links between relays 12ly apart, got %d", len(g1.Links))
+	}
+	if len(g1.Subnets) != 2 {
+		t.Errorf("Expected 2 separate subnets, got %d", len(g1.Subnets))
+	}
+
+	// Test 2: System Hub at SOL (range 15) and Relay at ALPHA (range 7.5)
+	// Distance is 12ly -> SOL reaches ALPHA (12 <= 15) -> Asymmetric connection valid!
+	devsHubAndRelay := []*NetworkDevice{
+		{Code: "H1", Type: "system_hub", Location: "SOL", Status: "relaying", RangeLy: 15.0},
+		{Code: "R2", Type: "ftl_relay", Location: "ALPHA-1", Status: "relaying", RangeLy: 7.5},
+	}
+	g2 := BuildNetworkGraph(devsHubAndRelay, starLookup)
+	if len(g2.Links) != 1 {
+		t.Fatalf("Expected 1 link between hub and relay 12ly apart, got %d", len(g2.Links))
+	}
+	link := g2.Links[0]
+	if !link.IsFromReach || link.IsToReach || link.Bidirectional {
+		t.Errorf("Expected asymmetric reach from SOL to ALPHA, got FromReach=%v, ToReach=%v, Bi=%v",
+			link.IsFromReach, link.IsToReach, link.Bidirectional)
+	}
+	if len(g2.Subnets) != 1 {
+		t.Errorf("Expected 1 connected subnet, got %d", len(g2.Subnets))
+	}
+
+	// Test 3: Deep space station (range 10) and relay
+	devsDeepSpace := []*NetworkDevice{
+		{Code: "D1", Type: "deep_space_relay_station", Location: "ALPHA", Status: "relaying", RangeLy: 10.0},
+		{Code: "R3", Type: "ftl_relay", Location: "BETA", Status: "relaying", RangeLy: 7.5},
+	}
+	g3 := BuildNetworkGraph(devsDeepSpace, starLookup)
+	if len(g3.Links) != 0 { // 12ly is > 10.0
+		t.Errorf("Expected 0 links between station and relay 12ly apart, got %d", len(g3.Links))
+	}
+}
+
+func TestNetworkOverlay(t *testing.T) {
+	cam := NewCamera3D(60, 25)
+	cam.Center = NewVec3(0, 0, 0)
+	cam.Radius = 20.0
+
+	stars := []*models.Star{
+		{Designation: "SOL", Name: "Sol", Position: models.NewPosition(0, 0, 0)},
+		{Designation: "BETILGEUSE", Name: "Betilgeuse", Position: models.NewPosition(5, 0, 0)},
+		{Designation: "ISOLATED", Name: "Isolated", Position: models.NewPosition(10, 10, 0)},
+	}
+
+	starLookup := map[string]Vec3{
+		"SOL":        {X: 0, Y: 0, Z: 0},
+		"BETILGEUSE": {X: 5, Y: 0, Z: 0},
+	}
+
+	devs := []*NetworkDevice{
+		{Code: "H1", Type: "system_hub", Location: "SOL", Status: "relaying", RangeLy: 15.0},
+		{Code: "R1", Type: "ftl_relay", Location: "BETILGEUSE", Status: "relaying", RangeLy: 7.5},
+	}
+	netGraph := BuildNetworkGraph(devs, starLookup)
+
+	opts := DefaultMapLayerOptions()
+	opts.ShowNetwork = true
+	opts.Network = netGraph
+	output, mapped := RenderGalaxyMap(cam, stars, opts)
+
+	if len(mapped) != 3 {
+		t.Errorf("Expected 3 mapped stars, got %d", len(mapped))
+	}
+
+	plainOutput := StripANSI(output)
+	if !strings.Contains(plainOutput, "Net#1") {
+		t.Errorf("Expected network badge 'Net#1' in output, got:\n%s", plainOutput)
+	}
+
+	// FilterNetworkOnly
+	optsOnly := DefaultMapLayerOptions()
+	optsOnly.ShowNetwork = true
+	optsOnly.FilterNetworkOnly = true
+	optsOnly.Network = netGraph
+	_, mappedOnly := RenderGalaxyMap(cam, stars, optsOnly)
+
+	if len(mappedOnly) != 2 {
+		t.Errorf("FilterNetworkOnly failed: expected 2 networked stars, got %d", len(mappedOnly))
+	}
+
+	// Legend test
+	leg := FormatMapLegend(opts)
+	if !strings.Contains(leg, "Relay Net") {
+		t.Errorf("FormatMapLegend with network mismatch: %s", leg)
+	}
+}
