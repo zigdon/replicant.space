@@ -250,7 +250,7 @@ func (es *eventState) shipRes(res map[string]int) error {
 	}
 	var errs []error
 	for _, cf := range cfs {
-		cf, _ = rest.RefreshDeviceInfo(cf.Code)
+		cf, _ = rest.DeviceInfo(cf.Code)
 		log("Checking %s", cf.Code)
 		if len(cf.Tags) > 0 && cf.Tags[0] != es.txTag {
 			log("... %s: has tags: %v", cf.Code, cf.Tags)
@@ -527,16 +527,19 @@ func (es *eventState) complete() error {
 
 		// If it's already in motion, ignore it
 		if d.Location == "" {
+			log("%s is in motion", d.Code)
 			continue
 		}
 		star := d.Location.Star()
 
 		// If it doesn't actually host a matrix, skip it
 		if d.StowedDevices == nil || len(d.StowedDevices.Devices) == 0 {
+			log("%s does not host a matrix", d.Code)
 			continue
 		}
 		// If it's not attached to another device (e.g. spf), skip it, but note that system has one
 		if d.AttachedToDeviceCode == nil {
+			log("%s @ %s is not mobile", d.Code, star)
 			hasMC[star] = true
 			continue
 		}
@@ -548,6 +551,7 @@ func (es *eventState) complete() error {
 		}
 		dists[star] = dist
 		mcLocs[star] = append(mcLocs[star], d)
+		log("%s is available", d.Code)
 	}
 
 	// Look through the list of mobile MCs.
@@ -580,6 +584,7 @@ func (es *eventState) complete() error {
 		if nearestMC < 0 || dists[loc] < nearestMC {
 			nearestMC = dists[loc]
 			spf = mcs[0].AttachedToDeviceCode
+			log("%s can be relocated", spf)
 		}
 	}
 

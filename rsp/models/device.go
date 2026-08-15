@@ -131,12 +131,15 @@ type DeviceUpdate struct {
 	AttachedToDeviceCode *CodeAlias          `json:"attached_to_device_code"`
 	AvailableCommands    []string            `json:"available_commands"`
 	AvailableDirectives  []string            `json:"available_directives"`
+	Cargo                []*Inventory        `json:"cargo"`
+	CargoCapacity        int                 `json:"cargo_capacity"`
 	Code                 *CodeAlias          `json:"device_code"`
 	Compact              *Compact            `json:"compact"`
 	ControllerDeviceCode *CodeAlias          `json:"controller_device_code"`
 	Created              *JSONTime           `json:"created_at"`
 	Features             []string            `json:"features"`
 	InControlRange       bool                `json:"in_control_range"`
+	LinkedDevice         *CodeAlias          `json:"linked_device"`
 	Location             LocationID          `json:"location"`
 	LocationName         string              `json:"location_name"`
 	OperationalCapacity  float32             `json:"operational_capacity"`
@@ -148,6 +151,9 @@ type DeviceUpdate struct {
 	ReplicantCode        *CodeAlias          `json:"replicant_code"`
 	Scan                 *DeviceScan         `json:"scan"`
 	Status               string              `json:"status"`
+	StowCapacity         int                 `json:"stow_capacity"`
+	StowUsed             int                 `json:"stow_used"`
+	StowedDevices        *StowedDevices      `json:"stowed_devices"`
 	StowedInDeviceCode   *CodeAlias          `json:"stowed_in_device_code"`
 	Tags                 []string            `json:"tags"`
 	Travel               *Trip               `json:"travel"`
@@ -163,16 +169,20 @@ func (pd *DeviceUpdate) Apply() *Device {
 	if err := d.Get(); err != nil || d.Type == "" {
 		d.AvailableCommands = pd.AvailableCommands
 		d.AvailableDirectives = pd.AvailableDirectives
+		d.CargoCapacity = pd.CargoCapacity
 		d.Created = pd.Created
+		d.StowCapacity = pd.StowCapacity
 		d.Type = pd.Type
 		d.Features = pd.Features
 	}
 	d.AmiDirective = pd.AmiDirective
 	d.AmiDirectiveStatus = pd.AmiDirectiveStatus
 	d.AttachedToDeviceCode = pd.AttachedToDeviceCode
+	d.Cargo = pd.Cargo
 	d.Compact = pd.Compact
 	d.ControllerDeviceCode = pd.ControllerDeviceCode
 	d.InControlRange = pd.InControlRange
+	d.LinkedDevice = pd.LinkedDevice
 	d.Location = pd.Location
 	d.LocationName = pd.LocationName
 	d.OperationalCapacity = pd.OperationalCapacity
@@ -184,10 +194,13 @@ func (pd *DeviceUpdate) Apply() *Device {
 	d.ReplicantCode = pd.ReplicantCode
 	d.Scan = pd.Scan
 	d.Status = pd.Status
+	d.StowUsed = pd.StowUsed
+	d.StowedDevices = pd.StowedDevices
 	d.StowedInDeviceCode = pd.StowedInDeviceCode
 	d.Tags = pd.Tags
 	d.Travel = pd.Travel
 	d.Unfurl = pd.Unfurl
+
 	d.Cache()
 	return d
 }
@@ -216,6 +229,7 @@ type Device struct {
 	Features             []string            `json:"features"`
 	GracePeriodRemaining int                 `json:"grace_period_remaining"`
 	InControlRange       bool                `json:"in_control_range"`
+	LinkedDevice         *CodeAlias          `json:"linked_device"`
 	Location             LocationID          `json:"location"`
 	LocationName         string              `json:"location_name"`
 	OperationalCapacity  float32             `json:"operational_capacity"`

@@ -279,11 +279,13 @@ func readStream(cmd *cobra.Command, args []string) error {
 				}
 			}, env.DeviceCode)
 			update(func(d *models.Device) {
-				sds := slices.DeleteFunc(d.StowedDevices.Devices,
-					func(dp *models.DevicePointer) bool {
-						return dp.Code.String() == env.DeviceCode.String()
-					})
-				change(&d.StowedDevices.Devices, sds)
+				if d.StowedDevices != nil {
+					sds := slices.DeleteFunc(d.StowedDevices.Devices,
+						func(dp *models.DevicePointer) bool {
+							return dp.Code.String() == env.DeviceCode.String()
+						})
+					change(&d.StowedDevices.Devices, sds)
+				}
 			}, ev.DeployedFromDeviceCode)
 		case "device.stowed":
 			ev, err := models.Parse[models.StreamDeviceStowed](payload)
@@ -652,11 +654,12 @@ func readStream(cmd *cobra.Command, args []string) error {
 			log("Travel canceled: %q aborted travel to %q, returning to %q in %s",
 				env.DeviceCode, ev.Destination, ev.Origin, ev.ReturnTime)
 			devs := append(ev.AttachedDevices, env.DeviceCode)
-			nt := new(models.JSONTime)
 			update(func(d *models.Device) {
-				nt.Set(time.Now().Add(ev.ReturnTime.Duration()))
-				change(&d.Travel.Arrives, nt)
-				change(&d.Travel.Destination, ev.Origin)
+				if nt := d.Travel; nt != nil {
+					nt.Arrives.Set(time.Now().Add(ev.ReturnTime.Duration()))
+					nt.Destination = ev.Origin
+					change(&d.Travel, nt)
+				}
 			}, devs...)
 		case "travel.departed":
 			ev, err := models.Parse[models.StreamTravelDeparted](payload)
