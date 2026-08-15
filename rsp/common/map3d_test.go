@@ -105,4 +105,92 @@ func TestRenderGalaxyMap(t *testing.T) {
 	if !strings.Contains(plainOutput, "Sol") && !strings.Contains(plainOutput, "SOL") {
 		t.Errorf("Output should contain star label 'Sol' or 'SOL', got:\n%s", plainOutput)
 	}
+
+	// Test FilterLifeOnly
+	optsLife := DefaultMapLayerOptions()
+	optsLife.FilterLifeOnly = true
+	_, mappedLife := RenderGalaxyMap(cam, stars, optsLife)
+	if len(mappedLife) != 1 || string(mappedLife[0].Star.Designation) != "SOL" {
+		t.Errorf("FilterLifeOnly failed: expected 1 star (SOL), got %d", len(mappedLife))
+	}
+
+	// Test FilterHubsOnly
+	optsHubs := DefaultMapLayerOptions()
+	optsHubs.FilterHubsOnly = true
+	_, mappedHubs := RenderGalaxyMap(cam, stars, optsHubs)
+	if len(mappedHubs) != 1 || string(mappedHubs[0].Star.Designation) != "SOL" {
+		t.Errorf("FilterHubsOnly failed: expected 1 star (SOL), got %d", len(mappedHubs))
+	}
+
+	// Test Region Colors & FilterRegion
+	stars[0].Region = "solzone"
+	stars[1].Region = "alpha"
+
+	optsRegion := DefaultMapLayerOptions()
+	optsRegion.FilterRegion = "alpha"
+	_, mappedRegion := RenderGalaxyMap(cam, stars, optsRegion)
+	if len(mappedRegion) != 1 || string(mappedRegion[0].Star.Designation) != "ALPHA" {
+		t.Errorf("FilterRegion failed: expected 1 star (ALPHA), got %d", len(mappedRegion))
+	}
+
+	optsShowRegions := DefaultMapLayerOptions()
+	optsShowRegions.ShowRegions = true
+	outRegions, _ := RenderGalaxyMap(cam, stars, optsShowRegions)
+	if len(outRegions) == 0 {
+		t.Fatalf("ShowRegions produced empty output")
+	}
+
+	solCol := GetRegionColor("solzone")
+	if solCol.R != 0 || solCol.G != 229 || solCol.B != 255 {
+		t.Errorf("GetRegionColor(solzone) failed: got %v", solCol)
+	}
+
+	// Test RenderGalaxyMapTview
+	tviewOut, tviewMapped := RenderGalaxyMapTview(cam, stars, optsShowRegions)
+	if len(tviewOut) == 0 || len(tviewMapped) != 2 {
+		t.Fatalf("RenderGalaxyMapTview failed: output len %d, mapped %d", len(tviewOut), len(tviewMapped))
+	}
+
+	// Test Perspective Projection & Planes
+	cam.Mode = Proj3DPerspective
+	_, _, _, visP := cam.Transform(NewVec3(0, 0, 0))
+	if !visP {
+		t.Errorf("Center should be visible in perspective mode")
+	}
+
+	cam.Mode = ProjPlaneXZ
+	_, _, _, visXZ := cam.Transform(NewVec3(0, 0, 0))
+	if !visXZ {
+		t.Errorf("Center should be visible in XZ mode")
+	}
+
+	cam.Mode = ProjPlaneYZ
+	_, _, _, visYZ := cam.Transform(NewVec3(0, 0, 0))
+	if !visYZ {
+		t.Errorf("Center should be visible in YZ mode")
+	}
+}
+
+func TestDrawLine3D(t *testing.T) {
+	cam := NewCamera3D(40, 20)
+	cam.Center = NewVec3(0, 0, 0)
+	cam.Radius = 10.0
+	cam.Mode = Proj3DOrthographic
+
+	canvas := NewBrailleCanvas(40, 20)
+	canvas.DrawLine3D(cam, NewVec3(-5, 0, 0), NewVec3(5, 0, 0))
+
+	// Check that runes were set along the line
+	hasDrawn := false
+	for y := 0; y < 20; y++ {
+		for x := 0; x < 40; x++ {
+			if canvas.RuneAt(x, y) != ' ' {
+				hasDrawn = true
+				break
+			}
+		}
+	}
+	if !hasDrawn {
+		t.Errorf("DrawLine3D should draw braille dots onto canvas")
+	}
 }

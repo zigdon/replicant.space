@@ -95,6 +95,59 @@ func GetSpectralColor(spec string) RGB {
 	return RGB{R: 170, G: 170, B: 170}
 }
 
+// Known region color palette
+var knownRegionColors = map[string]RGB{
+	"":        {R: 100, G: 100, B: 100}, // Dark Grey
+	"solzone": {R: 0, G: 229, B: 255},   // Bright Cyan
+	"alpha":   {R: 118, G: 255, B: 3},   // Neon Green
+	"beta":    {R: 255, G: 145, B: 0},   // Warm Amber / Orange
+	"gamma":   {R: 224, G: 64, B: 251},  // Vibrant Violet
+}
+
+func HSVtoRGB(h, s, v float64) RGB {
+	c := v * s
+	x := c * (1.0 - math.Abs(math.Mod(h/60.0, 2.0)-1.0))
+	m := v - c
+	var r, g, b float64
+	switch {
+	case h < 60:
+		r, g, b = c, x, 0
+	case h < 120:
+		r, g, b = x, c, 0
+	case h < 180:
+		r, g, b = 0, c, x
+	case h < 240:
+		r, g, b = 0, x, c
+	case h < 300:
+		r, g, b = x, 0, c
+	default:
+		r, g, b = c, 0, x
+	}
+	return RGB{
+		R: uint8(math.Round((r + m) * 255)),
+		G: uint8(math.Round((g + m) * 255)),
+		B: uint8(math.Round((b + m) * 255)),
+	}
+}
+
+func GetRegionColor(region string) RGB {
+	if region == "" {
+		return RGB{R: 160, G: 160, B: 160}
+	}
+	rLower := strings.ToLower(strings.TrimSpace(region))
+	if col, ok := knownRegionColors[rLower]; ok {
+		return col
+	}
+	// Deterministic color generation based on FNV-1a hash
+	h := uint32(2166136261)
+	for i := 0; i < len(rLower); i++ {
+		h ^= uint32(rLower[i])
+		h *= 16777619
+	}
+	hue := float64(h % 360)
+	return HSVtoRGB(hue, 0.85, 1.0)
+}
+
 // ProjectionMode enum
 type ProjectionMode string
 
@@ -320,27 +373,31 @@ type StarMapPoint struct {
 
 // MapLayerOptions configures visual layers in the renderer.
 type MapLayerOptions struct {
-	ShowLife         bool
-	ShowHubs         bool
-	ShowExploredOnly bool
-	ShowLabels       bool
-	ShowGrid         bool
-	ShowAxes         bool
-	ShowRoute        bool
-	HighlightStar    string
-	SelectedStar     string
-	RouteLegs        []*models.JourneyLeg
+	FilterLifeOnly     bool
+	FilterHubsOnly     bool
+	FilterExploredOnly bool
+	FilterRegion       string
+	ShowRegions        bool
+	ShowLabels         bool
+	ShowGrid           bool
+	ShowAxes           bool
+	ShowRoute          bool
+	HighlightStar      string
+	SelectedStar       string
+	RouteLegs          []*models.JourneyLeg
 }
 
 func DefaultMapLayerOptions() *MapLayerOptions {
 	return &MapLayerOptions{
-		ShowLife:         true,
-		ShowHubs:         true,
-		ShowExploredOnly: false,
-		ShowLabels:       true,
-		ShowGrid:         true,
-		ShowAxes:         true,
-		ShowRoute:        true,
+		FilterLifeOnly:     false,
+		FilterHubsOnly:     false,
+		FilterExploredOnly: false,
+		FilterRegion:       "",
+		ShowRegions:        false,
+		ShowLabels:         true,
+		ShowGrid:           true,
+		ShowAxes:           true,
+		ShowRoute:          true,
 	}
 }
 
@@ -392,7 +449,16 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 	// 3. Project all stars and determine visibility
 	var mappedStars []*StarMapPoint
 	for _, st := range stars {
-		if opts.ShowExploredOnly && !st.Explored {
+		if opts.FilterExploredOnly && !st.Explored {
+			continue
+		}
+		if opts.FilterLifeOnly && !st.HasLife {
+			continue
+		}
+		if opts.FilterHubsOnly && (!st.HasHub && !st.HasMyHub) {
+			continue
+		}
+		if opts.FilterRegion != "" && !strings.EqualFold(st.Region, opts.FilterRegion) {
 			continue
 		}
 		if st.Position == nil {
@@ -402,7 +468,12 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		wPos := Vec3{X: st.Position.X, Y: st.Position.Y, Z: st.Position.Z}
 		camPos, sx, sy, vis := cam.Transform(wPos)
 
-		baseCol := GetSpectralColor(st.SpectralType)
+		var baseCol RGB
+		if opts.ShowRegions {
+			baseCol = GetRegionColor(st.Region)
+		} else {
+			baseCol = GetSpectralColor(st.SpectralType)
+		}
 
 		// Depth brightness scaling (dim stars in background)
 		depthRatio := (camPos.Z + cam.Radius) / (cam.Radius * 2.0)
@@ -512,8 +583,11 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 				if displayName == "" {
 					displayName = string(mp.Star.Designation)
 				}
-				if len(displayName) > 12 {
-					displayName = displayName[:12]
+				if opts.ShowRegions && mp.Star.Region != "" {
+					displayName = fmt.Sprintf("%s (%s)", displayName, mp.Star.Region)
+				}
+				if len(displayName) > 16 {
+					displayName = displayName[:16]
 				}
 
 				labelStartX := mp.ScreenX + 2
@@ -741,7 +815,10 @@ func FormatMapHeader(cam *Camera3D, totalStars, visibleCount int, selectedStar *
 	return sb.String()
 }
 
-// FormatMapLegend returns a color-coded legend explaining glyphs and spectral colors.
-func FormatMapLegend() string {
+// FormatMapLegend returns a color-coded legend explaining glyphs, spectral colors, or region colors.
+func FormatMapLegend(opts *MapLayerOptions) string {
+	if opts != nil && opts.ShowRegions {
+		return "\x1b[90mLegend: \x1b[1;35m◆\x1b[0m My Hub  \x1b[1;32m✦\x1b[0m Life  \x1b[1;36m◇\x1b[0m Hub  \x1b[1;33m◉\x1b[0m Route  | \x1b[1;37mRegions:\x1b[0m \x1b[38;2;0;229;255mSolzone\x1b[0m \x1b[38;2;118;255;3mAlpha\x1b[0m \x1b[38;2;255;145;0mBeta\x1b[0m \x1b[38;2;224;64;251mGamma\x1b[0m\x1b[0m"
+	}
 	return "\x1b[90mLegend: \x1b[1;35m◆\x1b[0m My Hub  \x1b[1;32m✦\x1b[0m Life  \x1b[1;36m◇\x1b[0m Hub  \x1b[1;33m◉\x1b[0m Route  | Classes: \x1b[38;2;85;153;255mO\x1b[0m \x1b[38;2;136;204;255mB\x1b[0m \x1b[38;2;240;245;255mA\x1b[0m \x1b[38;2;255;244;204mF\x1b[0m \x1b[38;2;255;221;68mG\x1b[0m \x1b[38;2;255;153;51mK\x1b[0m \x1b[38;2;255;68;68mM\x1b[0m\x1b[0m"
 }

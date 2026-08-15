@@ -28,13 +28,15 @@ var plotMapCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(mapCmd)
-	mapCmd.Flags().Float32P("radius", "r", 30.0, "Viewing radius in light-years")
+	mapCmd.Flags().Float32P("radius", "r", 500.0, "Viewing radius in light-years")
 	mapCmd.Flags().StringP("center", "c", "GORUMIUN", "Center star or coordinates (X,Y,Z)")
 	mapCmd.Flags().StringP("plane", "p", "3d", "Projection plane: 3d, xy, xz, yz")
 	mapCmd.Flags().BoolP("static", "s", false, "Render static ASCII snapshot to stdout")
 	mapCmd.Flags().Bool("life", false, "Filter stars with intelligent life")
 	mapCmd.Flags().Bool("hubs", false, "Filter stars with hubs")
 	mapCmd.Flags().Bool("explored", false, "Filter explored stars only")
+	mapCmd.Flags().String("region", "", "Filter stars by region (e.g. solzone, alpha, beta, gamma)")
+	mapCmd.Flags().Bool("regions", false, "Overlay region colors and tags")
 	mapCmd.Flags().IntP("width", "w", 100, "Width in columns for static map")
 	mapCmd.Flags().IntP("height", "H", 35, "Height in rows for static map")
 
@@ -177,7 +179,7 @@ func runPlotMapCmd(cmd *cobra.Command, args []string) error {
 		output, mapped := common.RenderGalaxyMap(cam, stars, opts)
 		fmt.Print(common.FormatMapHeader(cam, len(stars), len(mapped), nil))
 		fmt.Println(output)
-		fmt.Println(common.FormatMapLegend())
+		fmt.Println(common.FormatMapLegend(opts))
 		fmt.Printf("\x1b[1;33mRoute:\x1b[0m %s -> %s (Total Distance: %.2fly, %d hops)\n",
 			src, dst, routeDist, len(trip.Legs))
 		return nil
@@ -208,13 +210,19 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 
 	opts := common.DefaultMapLayerOptions()
 	if getBool(cmd, "life") {
-		opts.ShowLife = true
+		opts.FilterLifeOnly = true
 	}
 	if getBool(cmd, "hubs") {
-		opts.ShowHubs = true
+		opts.FilterHubsOnly = true
 	}
 	if getBool(cmd, "explored") {
-		opts.ShowExploredOnly = true
+		opts.FilterExploredOnly = true
+	}
+	if getBool(cmd, "regions") {
+		opts.ShowRegions = true
+	}
+	if reg := getString(cmd, "region"); reg != "" {
+		opts.FilterRegion = reg
 	}
 	opts.SelectedStar = centerName
 
@@ -241,7 +249,7 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 		output, mapped := common.RenderGalaxyMap(cam, stars, opts)
 		fmt.Print(common.FormatMapHeader(cam, len(stars), len(mapped), nil))
 		fmt.Println(output)
-		fmt.Println(common.FormatMapLegend())
+		fmt.Println(common.FormatMapLegend(opts))
 		return nil
 	}
 
@@ -275,7 +283,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		SetDynamicColors(true).
 		SetWrap(false)
 
-	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD[-] Pan  [yellow]p[-] Proj  [yellow]Tab[-] Target  [yellow]1-5[-] Layers  [yellow]r[-] Reset  [yellow]q[-] Quit")
+	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD[-] Pan  [yellow]p[-] Proj  [yellow]Tab[-] Target  [yellow]1-6[-] Filters/Overlay  [yellow]r[-] Reset  [yellow]q[-] Quit")
 
 	updateSidebar := func(target *common.StarMapPoint) {
 		sidebar.Clear()
@@ -292,7 +300,8 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		}
 		sb.WriteString(fmt.Sprintf("[white]Spectral Class:[-] [cyan]%s[-]\n", st.SpectralType))
 		sb.WriteString(fmt.Sprintf("[white]Est. Planets:[-] [white]%d[-]\n", st.EstimatedPlanets))
-		sb.WriteString(fmt.Sprintf("[white]Region:[-] [white]%s[-]\n", st.Region))
+		regCol := common.GetRegionColor(st.Region)
+		sb.WriteString(fmt.Sprintf("[white]Region:[-] [#%02x%02x%02x::b]%s[-::-]\n", regCol.R, regCol.G, regCol.B, st.Region))
 
 		lifeStr := "[gray]No[-]"
 		if st.HasLife {
@@ -345,6 +354,40 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 			selectedPoint = currentMapped[selectedIndex]
 			opts.SelectedStar = string(selectedPoint.Star.Designation)
+		} else {
+			opts.SelectedStar = ""
+		}
+
+		var filterBadges []string
+		if opts.FilterLifeOnly {
+			filterBadges = append(filterBadges, "[#55ff55::b][1:Life:ON][-::-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][1:Life][-]")
+		}
+		if opts.FilterHubsOnly {
+			filterBadges = append(filterBadges, "[#ff55ff::b][2:Hubs:ON][-::-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][2:Hubs][-]")
+		}
+		if opts.FilterExploredOnly {
+			filterBadges = append(filterBadges, "[#55ffff::b][3:Explored:ON][-::-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][3:Explored][-]")
+		}
+		if opts.ShowGrid {
+			filterBadges = append(filterBadges, "[yellow][4:Grid][-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][4:Grid:OFF][-]")
+		}
+		if opts.ShowLabels {
+			filterBadges = append(filterBadges, "[yellow][5:Labels][-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][5:Labels:OFF][-]")
+		}
+		if opts.ShowRegions {
+			filterBadges = append(filterBadges, "[#00e5ff::b][6:Regions:ON][-::-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][6:Regions][-]")
 		}
 
 		var hudSb strings.Builder
@@ -368,9 +411,12 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 				hubStr = "[cyan::b]System Hub[-::-]"
 			}
 
-			hudSb.WriteString(fmt.Sprintf("[white::b]Target:[-] [yellow::b]%s[-] ([white]%s[-]) | Class: [cyan]%s[-] | Planets: [white]%d[-] | Life: %s | Hub: %s | Pos: %s",
+			hudSb.WriteString(fmt.Sprintf("[white::b]Target:[-] [yellow::b]%s[-] ([white]%s[-]) | Class: [cyan]%s[-] | Planets: [white]%d[-] | Life: %s | Hub: %s | Pos: %s\n",
 				st.Designation, name, st.SpectralType, st.EstimatedPlanets, lifeStr, hubStr, st.Position.String()))
+		} else {
+			hudSb.WriteString("[gray]Target: None matching current filters[-]\n")
 		}
+		hudSb.WriteString(fmt.Sprintf("Filters: %s", strings.Join(filterBadges, " ")))
 
 		hud.SetText(hudSb.String())
 		mapView.SetText(output)
@@ -388,7 +434,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 	centerRow.AddItem(mapView, 0, 3, true)
 	centerRow.AddItem(sidebar, 28, 1, false)
 
-	mainFlex.AddItem(hud, 4, 0, false)
+	mainFlex.AddItem(hud, 5, 0, false)
 	mainFlex.AddItem(centerRow, 0, 1, true)
 	mainFlex.AddItem(help, 1, 0, false)
 
@@ -485,17 +531,20 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 			return nil
 
-		// Layer toggles: 1=Life, 2=Hubs, 3=Explored, 4=Grid, 5=Labels
+		// Layer toggles: 1=Life, 2=Hubs, 3=Explored, 4=Grid, 5=Labels, 6=Regions
 		case r == '1':
-			opts.ShowLife = !opts.ShowLife
+			opts.FilterLifeOnly = !opts.FilterLifeOnly
+			selectedIndex = 0
 			redraw()
 			return nil
 		case r == '2':
-			opts.ShowHubs = !opts.ShowHubs
+			opts.FilterHubsOnly = !opts.FilterHubsOnly
+			selectedIndex = 0
 			redraw()
 			return nil
 		case r == '3':
-			opts.ShowExploredOnly = !opts.ShowExploredOnly
+			opts.FilterExploredOnly = !opts.FilterExploredOnly
+			selectedIndex = 0
 			redraw()
 			return nil
 		case r == '4':
@@ -506,6 +555,10 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.ShowLabels = !opts.ShowLabels
 			redraw()
 			return nil
+		case r == '6':
+			opts.ShowRegions = !opts.ShowRegions
+			redraw()
+			return nil
 
 		// Reset View
 		case r == 'r' || r == 'R':
@@ -514,7 +567,15 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			cam.Pitch = 0.35
 			cam.Yaw = 0.45
 			cam.Mode = common.Proj3DOrthographic
+			opts.FilterLifeOnly = false
+			opts.FilterHubsOnly = false
+			opts.FilterExploredOnly = false
+			opts.FilterRegion = ""
+			opts.ShowRegions = false
+			opts.ShowGrid = true
+			opts.ShowLabels = true
 			opts.SelectedStar = initialTarget
+			selectedIndex = 0
 			redraw()
 			return nil
 		}
