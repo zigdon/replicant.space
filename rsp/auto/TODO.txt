@@ -1,4 +1,6 @@
 State machines of the future:
 
+- reconcile - compare intent to reality, make them more similar
 - deliver - pickup:<ids and/or type x count>, deliver:<location/id>
 - taskmaster - deploy beacons, build fr routes
+

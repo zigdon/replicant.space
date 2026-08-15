@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
@@ -51,6 +52,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 	}
 	log("Loaded %d relays", len(relayNetwork))
 
+	const DEBUG = "xxx"
 	update := func(f func(*models.Device), devs ...*models.CodeAlias) {
 		var errs []error
 		for _, d := range devs {
@@ -59,7 +61,19 @@ func readStream(cmd *cobra.Command, args []string) error {
 				errs = append(errs, err)
 				continue
 			}
+			before, err := json.MarshalIndent(dev, "", "  ")
+			if err != nil {
+				panic(err)
+			}
 			f(dev)
+			after, err := json.MarshalIndent(dev, "", "  ")
+			if err != nil {
+				panic(err)
+			}
+			if dev.Type == DEBUG {
+				log("Changes:")
+				log("\n" + cmp.Diff(before, after))
+			}
 			if err := dev.Cache(); err != nil {
 				errs = append(errs, fmt.Errorf("%s: %v", d.Alias(), err))
 			}
@@ -267,7 +281,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 			update(func(d *models.Device) {
 				sds := slices.DeleteFunc(d.StowedDevices.Devices,
 					func(dp *models.DevicePointer) bool {
-						return dp.Code.String() != env.DeviceCode.String()
+						return dp.Code.String() == env.DeviceCode.String()
 					})
 				change(&d.StowedDevices.Devices, sds)
 			}, ev.DeployedFromDeviceCode)

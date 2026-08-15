@@ -468,8 +468,16 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		if err != nil {
 			return eta, err
 		}
-		log("Nearest relay to %s is %s", rm.dest.Star(), next)
-		if next != rm.dev.Location.Star() {
+		curDist, err := common.Distance(rm.dev.Location.Star(), rm.dest.Star())
+		if err != nil {
+			return eta, err
+		}
+		relayDist, err := common.Distance(next, rm.dest.Star())
+		if err != nil {
+			return eta, err
+		}
+		log("Nearest relay to %s is %s (%.2f LY away)", rm.dest.Star(), next, relayDist)
+		if next != rm.dev.Location.Star() && relayDist < curDist {
 			eta, err = common.Travel(rm.dev.Code, next, rm.dryRun)
 			if err != nil {
 				return eta, err
@@ -477,7 +485,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			rm.dev.Location = models.LocationID(next)
 			nextState = RelayMachine_Transit
 		} else {
-			log("Already at %s, venturing out to %s", next, rm.dest.Star())
+			log("Already %.2f LY away, venturing out to %s", curDist, rm.dest.Star())
 
 			// plot the next hop
 			route, err := common.PlotTrip(string(rm.dev.Location), rm.dest.Star(), nil)

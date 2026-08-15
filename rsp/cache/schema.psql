@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS stars (
   region TEXT NOT NULL
 );
 
+CREATE INDEX idx_stars_position ON stars USING GIST (position);
+
 CREATE TABLE IF NOT EXISTS planets (
   designation TEXT PRIMARY KEY,
   star TEXT NOT NULL,
@@ -174,6 +176,14 @@ CREATE TABLE IF NOT EXISTS tasks(
   type TEXT,
   title TEXT,
   details JSONB
+);
+
+CREATE TABLE IF NOT EXISTS intent(
+  id INTEGER PRIMARY KEY,
+  location TEXT UNIQUE,
+  resources JSONB,
+  devices JSONB,
+  special JSONB,
 );
 
 CREATE TABLE IF NOT EXISTS inventory(

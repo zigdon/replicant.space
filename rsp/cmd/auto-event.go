@@ -460,15 +460,15 @@ func (es *eventState) complete() error {
 		} else if r.CurrentLocation != "" && (nearest < 0 || dist < nearest) {
 			nearest = dist
 			name = r.Code.Alias()
+			tasks = append(tasks, replicantTask{
+				vessel: hv.Code,
+				rep:    r.Code,
+				dest:   es.destination,
+				ev:     es.event,
+				dist:   dist,
+			})
 		}
 		data = append(data, []any{r.Code, r.CurrentLocation, dist, list(tags)})
-		tasks = append(tasks, replicantTask{
-			vessel: hv.Code,
-			rep:    r.Code,
-			dest:   es.destination,
-			ev:     es.event,
-			dist:   dist,
-		})
 	}
 	if rep == nil {
 		var repList []string
