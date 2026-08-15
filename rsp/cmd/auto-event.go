@@ -70,6 +70,9 @@ func newTravelCoordinator(afc *models.CodeAlias, dryRun bool) *travelCoordinator
 }
 
 func (tc *travelCoordinator) Queue(ca *models.CodeAlias, from, to string) (time.Time, error) {
+	if from == to {
+		return time.Time{}, nil
+	}
 	if _, ok := tc.queue[from]; !ok {
 		tc.queue[from] = make(map[string][]*models.CodeAlias)
 	}
@@ -77,7 +80,8 @@ func (tc *travelCoordinator) Queue(ca *models.CodeAlias, from, to string) (time.
 		tc.etas[from] = make(map[string]time.Time)
 	}
 	if tc.added[ca.String()] {
-		return tc.etas[from][to], fmt.Errorf("%s already has been queued to ship", ca.Alias())
+		log("%s already has been queued to ship", ca.Alias())
+		return tc.etas[from][to], nil
 	}
 
 	// Get the ETA for the trip
@@ -183,45 +187,64 @@ func (tc *travelCoordinator) Ship() error {
 				}
 			}
 
-			// If there are 3 or fewer devices to ship, just ship them normally, done.
-			if len(passengers) <= 0 { // TODO
+			// If there are 5 or fewer devices to ship, just ship them normally, done.
+			if len(passengers) <= 5 {
 				if err := manual(passengers, to); err != nil {
 					return err
 				}
 				continue
 			}
 			log("Shipping %d devices from %s to %s...", len(passengers), from, to)
-			// Adopt all the devices that need to be shipped
-			if err := adopt(passengers); err != nil {
-				return err
-			}
-			// Send travel command to the afc
-			log("Launching convoy %s->%s: %s", from, to, passengers)
-			if string(afc.Location) != to {
-				if _, err := common.Travel(afc.Code, to, tc.dryRun); err != nil {
-					return fmt.Errorf("Failed to send AFC: %v", err)
+			// Adopt all the devices that need to be shipped, batch 100 at a time
+			for n := 0; n < len(passengers); n += 100 {
+				// Make sure the AFC is settled before we start
+				for {
+					afc, err = rest.RefreshDeviceInfo(afc.Code)
+					if err != nil {
+						return err
+					}
+					if afc.Location != "" {
+						break
+					}
+					time.Sleep(time.Second)
 				}
-			} else {
-				if _, err := _dc(afc.Code, "assemble", nil, tc.dryRun); err != nil {
-					return fmt.Errorf("Failed to assemble fleet to AFC: %v", err)
+				var ids []*models.CodeAlias
+				if n+100 < len(passengers) {
+					ids = passengers[n : n+100]
+				} else {
+					ids = passengers[n:]
 				}
-			}
-			// Punt all the devices
-			var errs []error
-			errs = append(errs, release(passengers))
-			// Even if there's an error, abort the AFC's travel
-			if string(afc.Location) != to {
-				_, err = _dc(afc.Code, "deactivate", nil, tc.dryRun)
-				errs = append(errs, err)
-			}
-			if err := errors.Join(errs...); err != nil {
-				return fmt.Errorf("Failed to punt %d devices to %s: %v", len(passengers), to, err)
+				if err := adopt(ids); err != nil {
+					return err
+				}
+				// Send travel command to the afc
+				log("Launching convoy %s->%s: %s", from, to, ids)
+				if string(afc.Location) != to {
+					if _, err := common.Travel(afc.Code, to, tc.dryRun); err != nil {
+						return fmt.Errorf("Failed to send AFC: %v", err)
+					}
+				} else {
+					if _, err := _dc(afc.Code, "assemble", nil, tc.dryRun); err != nil {
+						return fmt.Errorf("Failed to assemble fleet to AFC: %v", err)
+					}
+				}
+				// Punt all the devices
+				var errs []error
+				errs = append(errs, release(ids))
+				// Even if there's an error, abort the AFC's travel
+				if string(afc.Location) != to {
+					_, err = _dc(afc.Code, "deactivate", nil, tc.dryRun)
+					errs = append(errs, err)
+				}
+				if err := errors.Join(errs...); err != nil {
+					return fmt.Errorf("Failed to punt %d devices to %s: %v", len(ids), to, err)
+				}
 			}
 			delete(tc.queue[from], to)
 
 			// Wait until the AFC is stationary again, only poll the DB, it should be
 			// updated by the return event.
-			log("Waiting for %s to return")
+			log("Waiting for %s to return", afc.Code)
 			check := time.Now()
 			var fn func(*models.CodeAlias) (*models.Device, error)
 			for {
@@ -386,7 +409,7 @@ func (es *eventState) updateState() error {
 	if err != nil {
 		return fmt.Errorf("Can't get %q devices: %v", es.tag, err)
 	}
-	log("Finding devices tagged %q:", es.tag)
+	log("Finding devices tagged %q: %d devices", es.tag, len(devs.Devices))
 	for _, d := range devs.Devices {
 		log("... %s @ %s", d.Code, d.Location)
 		switch d.Location {
@@ -404,6 +427,7 @@ func (es *eventState) updateState() error {
 	if err != nil {
 		return fmt.Errorf("Can't get %q transports: %v", es.txTag, err)
 	}
+	log("Finding devices tagged %q: %d devices", es.txTag, len(devs.Devices))
 	for _, d := range devs.Devices {
 		es.transports = append(es.transports, d)
 		switch d.Location {
@@ -818,6 +842,7 @@ func (es *eventState) actuate() error {
 	// Keep track of any resources in flight, unload ones that have arrived
 	for _, t := range es.transports {
 		if t.Location == es.destination {
+			log("checking %s... waiting at %s", t.Code, es.destination)
 			// Unload any deliveries that have arrived
 			errs = append(errs, es.unload(t))
 			// Untag and ship home
@@ -825,7 +850,16 @@ func (es *eventState) actuate() error {
 			_, err := es.convoy.Queue(t.Code, string(t.Location), home)
 			errs = append(errs, err)
 		} else if t.Travel != nil {
+			log("checking %s... en-route to %s", t.Code, es.destination)
 			es.later("transit", t.Travel.Arrives.Time())
+		} else if len(t.Cargo) > 0 {
+			log("checking %s... at %s, continuing to %s", t.Code, t.Location, es.destination)
+			_, err := es.convoy.Queue(t.Code, string(t.Location), string(es.destination))
+			errs = append(errs, err)
+		} else {
+			log("checking %s... at %s, returning home", t.Code, t.Location)
+			_, err := es.convoy.Queue(t.Code, string(t.Location), home)
+			errs = append(errs, err)
 		}
 	}
 
@@ -1209,7 +1243,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 			sent[t.rep.Alias()] = true
 			log("... Sending %s in %s on a trip to %s (%.2f LY away) to complete %s",
 				t.rep, t.vessel, t.dest, t.dist, t.ev.Designation)
-			if _, err := tc.Queue(t.vessel, string(t.from), string(t.dest)); err != nil {
+			if _, err := common.Travel(t.vessel, string(t.dest), dryRun); err != nil {
 				log("Shipping failed: %v", err)
 			}
 		}
