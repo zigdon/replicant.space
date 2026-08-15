@@ -354,6 +354,14 @@ func (bc *BrailleCanvas) RuneAt(x, y int) rune {
 	return rune(0x2800 + uint32(mask))
 }
 
+// DeviceLocationInfo stores summary info of a device at a location.
+type DeviceLocationInfo struct {
+	Code     string
+	Type     string
+	Location string
+	Status   string
+}
+
 // StarMapPoint represents a star mapped to screen space.
 type StarMapPoint struct {
 	Star      *models.Star
@@ -369,6 +377,7 @@ type StarMapPoint struct {
 	HasLife   bool
 	IsRoute   bool
 	RouteStep int
+	Devices   []*DeviceLocationInfo
 }
 
 // MapLayerOptions configures visual layers in the renderer.
@@ -377,7 +386,9 @@ type MapLayerOptions struct {
 	FilterHubsOnly     bool
 	FilterExploredOnly bool
 	FilterRegion       string
+	FilterDevicesOnly  bool
 	ShowRegions        bool
+	ShowDevices        bool
 	ShowLabels         bool
 	ShowGrid           bool
 	ShowAxes           bool
@@ -385,6 +396,8 @@ type MapLayerOptions struct {
 	HighlightStar      string
 	SelectedStar       string
 	RouteLegs          []*models.JourneyLeg
+	DeviceTypes        []string
+	StarDevices        map[string][]*DeviceLocationInfo
 }
 
 func DefaultMapLayerOptions() *MapLayerOptions {
@@ -393,7 +406,9 @@ func DefaultMapLayerOptions() *MapLayerOptions {
 		FilterHubsOnly:     false,
 		FilterExploredOnly: false,
 		FilterRegion:       "",
+		FilterDevicesOnly:  false,
 		ShowRegions:        false,
+		ShowDevices:        false,
 		ShowLabels:         true,
 		ShowGrid:           true,
 		ShowAxes:           true,
@@ -449,6 +464,11 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 	// 3. Project all stars and determine visibility
 	var mappedStars []*StarMapPoint
 	for _, st := range stars {
+		var starDevs []*DeviceLocationInfo
+		if opts.StarDevices != nil {
+			starDevs = opts.StarDevices[string(st.Designation)]
+		}
+
 		if opts.FilterExploredOnly && !st.Explored {
 			continue
 		}
@@ -459,6 +479,9 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			continue
 		}
 		if opts.FilterRegion != "" && !strings.EqualFold(st.Region, opts.FilterRegion) {
+			continue
+		}
+		if opts.FilterDevicesOnly && len(starDevs) == 0 {
 			continue
 		}
 		if st.Position == nil {
@@ -486,7 +509,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		}
 		starCol := baseCol.Dim(dimFactor)
 
-		// Choose glyph based on attributes and depth
+		// Choose glyph based on attributes, devices, and depth
 		var glyph rune
 		if st.HasMyHub {
 			glyph = '◆'
@@ -501,6 +524,9 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			glyph = '◉'
 			starCol = RGB{R: 255, G: 230, B: 100}
 			_ = step
+		} else if opts.ShowDevices && len(starDevs) > 0 {
+			glyph = '⬢'                         // Solid Hexagon for device host
+			starCol = RGB{R: 255, G: 215, B: 0} // Gold/Amber
 		} else {
 			// Depth glyphs
 			if camPos.Z < -cam.Radius*0.3 {
@@ -527,6 +553,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			HasLife:   st.HasLife,
 			IsRoute:   isRoute,
 			RouteStep: step,
+			Devices:   starDevs,
 		}
 
 		if vis {
@@ -558,11 +585,12 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 	for _, mp := range mappedStars {
 		x, y := mp.ScreenX, mp.ScreenY
 		if x >= 0 && x < w && y >= 0 && y < h {
+			hasDevices := len(mp.Devices) > 0
 			cells[y][x] = CellLayer{
 				Rune:     mp.Glyph,
 				FgColor:  mp.Color,
 				HasColor: true,
-				IsBold:   mp.IsMyHub || mp.HasLife || mp.IsRoute,
+				IsBold:   mp.IsMyHub || mp.HasLife || mp.IsRoute || (opts.ShowDevices && hasDevices),
 				DepthZ:   mp.CamPos.Z,
 				Star:     mp,
 			}
@@ -572,8 +600,10 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 	// 7. Overlay Star Labels if enabled
 	if opts.ShowLabels {
 		for _, mp := range mappedStars {
-			// Show names for prominent stars (Hubs, Life, Route, Selected, or closest stars)
+			hasDevices := len(mp.Devices) > 0
+			// Show names for prominent stars (Hubs, Life, Route, Device Hosts, Selected, or closest stars)
 			isProminent := mp.IsMyHub || mp.HasLife || mp.IsRoute ||
+				(opts.ShowDevices && hasDevices) ||
 				string(mp.Star.Designation) == opts.SelectedStar ||
 				string(mp.Star.Designation) == opts.HighlightStar ||
 				mp.CamPos.Z < -cam.Radius*0.2
@@ -586,8 +616,11 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 				if opts.ShowRegions && mp.Star.Region != "" {
 					displayName = fmt.Sprintf("%s (%s)", displayName, mp.Star.Region)
 				}
-				if len(displayName) > 16 {
-					displayName = displayName[:16]
+				if opts.ShowDevices && hasDevices {
+					displayName = fmt.Sprintf("%s [%d dev]", displayName, len(mp.Devices))
+				}
+				if len(displayName) > 18 {
+					displayName = displayName[:18]
 				}
 
 				labelStartX := mp.ScreenX + 2
@@ -817,8 +850,14 @@ func FormatMapHeader(cam *Camera3D, totalStars, visibleCount int, selectedStar *
 
 // FormatMapLegend returns a color-coded legend explaining glyphs, spectral colors, or region colors.
 func FormatMapLegend(opts *MapLayerOptions) string {
-	if opts != nil && opts.ShowRegions {
-		return "\x1b[90mLegend: \x1b[1;35m◆\x1b[0m My Hub  \x1b[1;32m✦\x1b[0m Life  \x1b[1;36m◇\x1b[0m Hub  \x1b[1;33m◉\x1b[0m Route  | \x1b[1;37mRegions:\x1b[0m \x1b[38;2;0;229;255mSolzone\x1b[0m \x1b[38;2;118;255;3mAlpha\x1b[0m \x1b[38;2;255;145;0mBeta\x1b[0m \x1b[38;2;224;64;251mGamma\x1b[0m\x1b[0m"
+	var parts []string
+	parts = append(parts, "\x1b[1;35m◆\x1b[0m My Hub", "\x1b[1;32m✦\x1b[0m Life", "\x1b[1;36m◇\x1b[0m Hub", "\x1b[1;33m◉\x1b[0m Route")
+	if opts != nil && (opts.ShowDevices || len(opts.StarDevices) > 0) {
+		parts = append(parts, "\x1b[1;33m⬢\x1b[0m Device")
 	}
-	return "\x1b[90mLegend: \x1b[1;35m◆\x1b[0m My Hub  \x1b[1;32m✦\x1b[0m Life  \x1b[1;36m◇\x1b[0m Hub  \x1b[1;33m◉\x1b[0m Route  | Classes: \x1b[38;2;85;153;255mO\x1b[0m \x1b[38;2;136;204;255mB\x1b[0m \x1b[38;2;240;245;255mA\x1b[0m \x1b[38;2;255;244;204mF\x1b[0m \x1b[38;2;255;221;68mG\x1b[0m \x1b[38;2;255;153;51mK\x1b[0m \x1b[38;2;255;68;68mM\x1b[0m\x1b[0m"
+	base := "\x1b[90mLegend: \x1b[0m" + strings.Join(parts, "  ")
+	if opts != nil && opts.ShowRegions {
+		return base + "  | \x1b[1;37mRegions:\x1b[0m \x1b[38;2;0;229;255mSolzone\x1b[0m \x1b[38;2;118;255;3mAlpha\x1b[0m \x1b[38;2;255;145;0mBeta\x1b[0m \x1b[38;2;224;64;251mGamma\x1b[0m\x1b[0m"
+	}
+	return base + "  | Classes: \x1b[38;2;85;153;255mO\x1b[0m \x1b[38;2;136;204;255mB\x1b[0m \x1b[38;2;240;245;255mA\x1b[0m \x1b[38;2;255;244;204mF\x1b[0m \x1b[38;2;255;221;68mG\x1b[0m \x1b[38;2;255;153;51mK\x1b[0m \x1b[38;2;255;68;68mM\x1b[0m\x1b[0m"
 }

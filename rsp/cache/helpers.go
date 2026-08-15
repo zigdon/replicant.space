@@ -1,6 +1,10 @@
 package cache
 
-import "fmt"
+import (
+	"database/sql"
+	"fmt"
+	"strings"
+)
 
 func (db *Cache) FindNearestStar(x, y, z float32) (string, float32, error) {
 	row := db.DB.QueryRow(
@@ -175,4 +179,70 @@ func (db *Cache) QueryAllStars(limit int) ([]*StarRecord, error) {
 		stars = append(stars, s)
 	}
 	return stars, rows.Err()
+}
+
+type DeviceRecord struct {
+	Code     string
+	Type     string
+	Location string
+	Status   string
+}
+
+func (db *Cache) QueryDevicesByTypes(types []string) ([]*DeviceRecord, error) {
+	if db == nil || db.DB == nil {
+		return nil, fmt.Errorf("database cache is not connected")
+	}
+
+	var filterTypes []string
+	matchAll := false
+	for _, t := range types {
+		trimmed := strings.ToLower(strings.TrimSpace(t))
+		if trimmed == "*" || trimmed == "all" {
+			matchAll = true
+			break
+		}
+		if trimmed != "" {
+			filterTypes = append(filterTypes, trimmed)
+		}
+	}
+
+	var rows *sql.Rows
+	var err error
+
+	if matchAll || len(filterTypes) == 0 {
+		q := `
+			SELECT code, type, location, COALESCE(status, '')
+			FROM json_devices
+			WHERE location IS NOT NULL AND location != ''
+			ORDER BY type ASC, code ASC`
+		rows, err = db.DB.Query(q)
+	} else {
+		placeholders := make([]string, len(filterTypes))
+		vals := make([]any, len(filterTypes))
+		for i, t := range filterTypes {
+			placeholders[i] = fmt.Sprintf("$%d", i+1)
+			vals[i] = t
+		}
+		q := fmt.Sprintf(`
+			SELECT code, type, location, COALESCE(status, '')
+			FROM json_devices
+			WHERE LOWER(type) IN (%s) AND location IS NOT NULL AND location != ''
+			ORDER BY type ASC, code ASC`, strings.Join(placeholders, ", "))
+		rows, err = db.DB.Query(q, vals...)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devs []*DeviceRecord
+	for rows.Next() {
+		d := new(DeviceRecord)
+		if err := rows.Scan(&d.Code, &d.Type, &d.Location, &d.Status); err != nil {
+			return nil, err
+		}
+		devs = append(devs, d)
+	}
+	return devs, rows.Err()
 }

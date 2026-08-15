@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -37,6 +38,9 @@ func init() {
 	mapCmd.Flags().Bool("explored", false, "Filter explored stars only")
 	mapCmd.Flags().String("region", "", "Filter stars by region (e.g. solzone, alpha, beta, gamma)")
 	mapCmd.Flags().Bool("regions", false, "Overlay region colors and tags")
+	mapCmd.Flags().StringSliceP("devices", "d", []string{"heaven_vessel", "racing_vessel", "cargo_vessel"},
+		"List of device types to overlay (comma-separated, e.g. autofactory,mining_drone)")
+	mapCmd.Flags().Bool("device_only", false, "Filter map to only show stars with matching devices")
 	mapCmd.Flags().IntP("width", "w", 100, "Width in columns for static map")
 	mapCmd.Flags().IntP("height", "H", 35, "Height in rows for static map")
 
@@ -45,6 +49,7 @@ func init() {
 	plotMapCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allowed hop, in ly")
 	plotMapCmd.Flags().BoolP("use_station", "u", false, "Allow using deep space relay stations")
 	plotMapCmd.Flags().BoolP("static", "s", false, "Render static ASCII snapshot to stdout")
+	plotMapCmd.Flags().StringSliceP("devices", "d", nil, "List of device types to overlay (comma-separated, e.g. autofactory,mining_drone)")
 }
 
 func parseCenterPosition(input string) (common.Vec3, string, error) {
@@ -68,6 +73,28 @@ func parseCenterPosition(input string) (common.Vec3, string, error) {
 		return common.Vec3{}, input, fmt.Errorf("star %q has no coordinate position", input)
 	}
 	return common.Vec3{X: st.Position.X, Y: st.Position.Y, Z: st.Position.Z}, string(st.Designation), nil
+}
+
+func loadDeviceLocations(deviceTypes []string) map[string][]*common.DeviceLocationInfo {
+	if db == nil || len(deviceTypes) == 0 {
+		return nil
+	}
+	devRecords, err := db.QueryDevicesByTypes(deviceTypes)
+	if err != nil {
+		log("Error querying devices: %v", err)
+		return nil
+	}
+	starDevices := make(map[string][]*common.DeviceLocationInfo)
+	for _, d := range devRecords {
+		star := models.LocationID(d.Location).Star()
+		starDevices[star] = append(starDevices[star], &common.DeviceLocationInfo{
+			Code:     d.Code,
+			Type:     d.Type,
+			Location: d.Location,
+			Status:   d.Status,
+		})
+	}
+	return starDevices
 }
 
 func loadStarsFromDB(center common.Vec3, radius float32) ([]*models.Star, error) {
@@ -172,6 +199,13 @@ func runPlotMapCmd(cmd *cobra.Command, args []string) error {
 	opts.SelectedStar = src
 	opts.HighlightStar = dst
 
+	deviceTypes := getStringSlice(cmd, "devices")
+	if len(deviceTypes) > 0 {
+		opts.DeviceTypes = deviceTypes
+		opts.ShowDevices = true
+		opts.StarDevices = loadDeviceLocations(deviceTypes)
+	}
+
 	if staticMode {
 		cam := common.NewCamera3D(100, 35)
 		cam.Center = center
@@ -224,6 +258,15 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 	if reg := getString(cmd, "region"); reg != "" {
 		opts.FilterRegion = reg
 	}
+	deviceTypes := getStringSlice(cmd, "devices")
+	if len(deviceTypes) > 0 {
+		opts.DeviceTypes = deviceTypes
+		opts.ShowDevices = true
+		opts.StarDevices = loadDeviceLocations(deviceTypes)
+		if getBool(cmd, "device_only") {
+			opts.FilterDevicesOnly = true
+		}
+	}
 	opts.SelectedStar = centerName
 
 	staticMode := getBool(cmd, "static")
@@ -250,6 +293,27 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 		fmt.Print(common.FormatMapHeader(cam, len(stars), len(mapped), nil))
 		fmt.Println(output)
 		fmt.Println(common.FormatMapLegend(opts))
+
+		if opts.ShowDevices && len(opts.StarDevices) > 0 {
+			fmt.Println("\n\x1b[1;33m=== DEVICE LOCATIONS ===\x1b[0m")
+			var devStars []string
+			for s := range opts.StarDevices {
+				devStars = append(devStars, s)
+			}
+			slices.Sort(devStars)
+			for _, s := range devStars {
+				devs := opts.StarDevices[s]
+				typeMap := make(map[string]int)
+				for _, d := range devs {
+					typeMap[d.Type]++
+				}
+				var typeStrs []string
+				for t, c := range typeMap {
+					typeStrs = append(typeStrs, fmt.Sprintf("%d × %s", c, t))
+				}
+				fmt.Printf("  \x1b[1;36m%-16s\x1b[0m (%d devices): %s\n", s, len(devs), strings.Join(typeStrs, ", "))
+			}
+		}
 		return nil
 	}
 
@@ -283,7 +347,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		SetDynamicColors(true).
 		SetWrap(false)
 
-	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD[-] Pan  [yellow]p[-] Proj  [yellow]Tab[-] Target  [yellow]1-6[-] Filters/Overlay  [yellow]r[-] Reset  [yellow]q[-] Quit")
+	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD[-] Pan  [yellow]p[-] Proj  [yellow]Tab[-] Target  [yellow]1-7[-] Filters/Overlays  [yellow]r[-] Reset  [yellow]q[-] Quit")
 
 	updateSidebar := func(target *common.StarMapPoint) {
 		sidebar.Clear()
@@ -328,6 +392,30 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 				st.Position.X, st.Position.Y, st.Position.Z))
 			distFromCenter := cam.Center.Distance(common.Vec3{X: st.Position.X, Y: st.Position.Y, Z: st.Position.Z})
 			sb.WriteString(fmt.Sprintf("[white]Dist to Center:[-] [yellow]%.2fly[-]\n", distFromCenter))
+		}
+
+		if len(target.Devices) > 0 {
+			sb.WriteString(fmt.Sprintf("\n[yellow::b]=== DEVICES AT STAR (%d) ===[-::-]\n", len(target.Devices)))
+			typeCounts := make(map[string]int)
+			for _, dev := range target.Devices {
+				typeCounts[dev.Type]++
+			}
+			for dtype, cnt := range typeCounts {
+				sb.WriteString(fmt.Sprintf("• [cyan]%s[-]: [white]%d[-] devices\n", dtype, cnt))
+			}
+			sb.WriteString("\n[gray]Device List:[-]\n")
+			for i, dev := range target.Devices {
+				if i >= 6 {
+					sb.WriteString(fmt.Sprintf("  [gray]... and %d more[-]\n", len(target.Devices)-6))
+					break
+				}
+				statusStr := dev.Status
+				if statusStr == "" {
+					statusStr = "-"
+				}
+				sb.WriteString(fmt.Sprintf("  [yellow]%s[-] ([white]%s[-])\n    Loc: [gray]%s[-]  Stat: [gray]%s[-]\n",
+					dev.Code, dev.Type, dev.Location, statusStr))
+			}
 		}
 
 		sidebar.SetText(sb.String())
@@ -389,10 +477,24 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		} else {
 			filterBadges = append(filterBadges, "[gray][6:Regions][-]")
 		}
+		if opts.ShowDevices {
+			filterBadges = append(filterBadges, "[#ffff55::b][7:Devices:ON][-::-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][7:Devices][-]")
+		}
+
+		var devSummary string
+		if opts.StarDevices != nil && len(opts.StarDevices) > 0 {
+			var totalDevs int
+			for _, devs := range opts.StarDevices {
+				totalDevs += len(devs)
+			}
+			devSummary = fmt.Sprintf(" | Devs: [yellow]%d[-] in %d systems", totalDevs, len(opts.StarDevices))
+		}
 
 		var hudSb strings.Builder
-		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total\n",
-			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars)))
+		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total%s\n",
+			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars), devSummary))
 
 		if selectedPoint != nil && selectedPoint.Star != nil {
 			st := selectedPoint.Star
@@ -411,8 +513,13 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 				hubStr = "[cyan::b]System Hub[-::-]"
 			}
 
-			hudSb.WriteString(fmt.Sprintf("[white::b]Target:[-] [yellow::b]%s[-] ([white]%s[-]) | Class: [cyan]%s[-] | Planets: [white]%d[-] | Life: %s | Hub: %s | Pos: %s\n",
-				st.Designation, name, st.SpectralType, st.EstimatedPlanets, lifeStr, hubStr, st.Position.String()))
+			devInfoStr := ""
+			if len(selectedPoint.Devices) > 0 {
+				devInfoStr = fmt.Sprintf(" | [yellow]Devices: %d[-]", len(selectedPoint.Devices))
+			}
+
+			hudSb.WriteString(fmt.Sprintf("[white::b]Target:[-] [yellow::b]%s[-] ([white]%s[-]) | Class: [cyan]%s[-] | Planets: [white]%d[-] | Life: %s | Hub: %s%s | Pos: %s\n",
+				st.Designation, name, st.SpectralType, st.EstimatedPlanets, lifeStr, hubStr, devInfoStr, st.Position.String()))
 		} else {
 			hudSb.WriteString("[gray]Target: None matching current filters[-]\n")
 		}
@@ -531,7 +638,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 			return nil
 
-		// Layer toggles: 1=Life, 2=Hubs, 3=Explored, 4=Grid, 5=Labels, 6=Regions
+		// Layer toggles: 1=Life, 2=Hubs, 3=Explored, 4=Grid, 5=Labels, 6=Regions, 7=Devices
 		case r == '1':
 			opts.FilterLifeOnly = !opts.FilterLifeOnly
 			selectedIndex = 0
@@ -559,6 +666,10 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.ShowRegions = !opts.ShowRegions
 			redraw()
 			return nil
+		case r == '7' || r == 'd' || r == 'D':
+			opts.ShowDevices = !opts.ShowDevices
+			redraw()
+			return nil
 
 		// Reset View
 		case r == 'r' || r == 'R':
@@ -571,7 +682,9 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.FilterHubsOnly = false
 			opts.FilterExploredOnly = false
 			opts.FilterRegion = ""
+			opts.FilterDevicesOnly = false
 			opts.ShowRegions = false
+			opts.ShowDevices = (len(opts.DeviceTypes) > 0)
 			opts.ShowGrid = true
 			opts.ShowLabels = true
 			opts.SelectedStar = initialTarget

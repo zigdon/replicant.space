@@ -316,4 +316,69 @@ func TestFormatMapHeaderAndLegend(t *testing.T) {
 	if !strings.Contains(legRegions, "Regions:") || !strings.Contains(legRegions, "Solzone") {
 		t.Errorf("FormatMapLegend with regions mismatch: %s", legRegions)
 	}
+
+	// Legend with devices
+	optsDev := &MapLayerOptions{ShowDevices: true}
+	legDev := FormatMapLegend(optsDev)
+	if !strings.Contains(legDev, "Device") {
+		t.Errorf("FormatMapLegend with devices mismatch: %s", legDev)
+	}
+}
+
+func TestDeviceOverlay(t *testing.T) {
+	cam := NewCamera3D(60, 25)
+	cam.Center = NewVec3(0, 0, 0)
+	cam.Radius = 15.0
+
+	stars := []*models.Star{
+		{
+			Designation:      "SOL",
+			Name:             "Sol",
+			SpectralType:     "G2V",
+			Position:         models.NewPosition(0, 0, 0),
+			EstimatedPlanets: 8,
+		},
+		{
+			Designation:      "ALPHA",
+			Name:             "Alpha Centauri",
+			SpectralType:     "K1V",
+			Position:         models.NewPosition(4.3, 1.2, -0.8),
+			EstimatedPlanets: 3,
+		},
+	}
+
+	starDevices := map[string][]*DeviceLocationInfo{
+		"SOL": {
+			{Code: "AF-01", Type: "autofactory", Location: "SOL-1", Status: "idle"},
+			{Code: "MD-01", Type: "mining_drone", Location: "SOL-1-1", Status: "mining"},
+		},
+	}
+
+	// Test ShowDevices overlay
+	opts := DefaultMapLayerOptions()
+	opts.ShowDevices = true
+	opts.StarDevices = starDevices
+	output, mapped := RenderGalaxyMap(cam, stars, opts)
+
+	if len(mapped) != 2 {
+		t.Errorf("Expected 2 mapped stars, got %d", len(mapped))
+	}
+	if len(mapped[0].Devices) != 2 && len(mapped[1].Devices) != 2 {
+		t.Errorf("Expected SOL to have 2 devices mapped")
+	}
+
+	plainOutput := StripANSI(output)
+	if !strings.Contains(plainOutput, "[2 dev]") {
+		t.Errorf("Expected star label with device count '[2 dev]', got:\n%s", plainOutput)
+	}
+
+	// Test FilterDevicesOnly
+	optsOnly := DefaultMapLayerOptions()
+	optsOnly.FilterDevicesOnly = true
+	optsOnly.StarDevices = starDevices
+	_, mappedOnly := RenderGalaxyMap(cam, stars, optsOnly)
+
+	if len(mappedOnly) != 1 || string(mappedOnly[0].Star.Designation) != "SOL" {
+		t.Errorf("FilterDevicesOnly failed: expected 1 star (SOL), got %d", len(mappedOnly))
+	}
 }
