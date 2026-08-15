@@ -832,7 +832,7 @@ func ReloadStars() (string, error) {
 			return true
 		}
 		if a.Explored != b.Explored {
-			log("%q: explore updated: %v -> %v", a.Designation, a.Explored, b.Explored)
+			// log("%q: explore updated: %v -> %v", a.Designation, a.Explored, b.Explored)
 			return true
 		}
 		if a.EstimatedPlanets != b.EstimatedPlanets {
@@ -840,7 +840,7 @@ func ReloadStars() (string, error) {
 			return true
 		}
 		if a.HasLife != b.HasLife {
-			log("%q: has life updated: %v -> %v", a.Designation, a.HasLife, b.HasLife)
+			// log("%q: has life updated: %v -> %v", a.Designation, a.HasLife, b.HasLife)
 			return true
 		}
 		if a.SpectralType != b.SpectralType {
@@ -886,6 +886,60 @@ func ReloadStars() (string, error) {
 			return res(), err
 		}
 	}
+
+	// Update has_life based on the exploration we've already done
+	updt, err := db.DB.Exec(`
+		UPDATE stars
+		SET has_life=true
+		WHERE designation IN (
+		  SELECT DISTINCT star
+		  FROM planets
+		  WHERE life_stage = 'intelligent' OR life_stage = 'spacefaring'
+		)`)
+	if err != nil {
+		return res(), fmt.Errorf("Error updating life: %v", err)
+	}
+	lifeCnt, err := updt.RowsAffected()
+	if err != nil {
+		return res(), fmt.Errorf("Error counting stars with life: %v", err)
+	}
+
+	// Update has_my_hub based on, well, where the hubs are
+	updt, err = db.DB.Exec(`
+		UPDATE stars
+		SET has_my_hub=true
+		WHERE designation IN (
+		  SELECT DISTINCT split_part(location, '-', 1)
+		  FROM json_devices
+		  WHERE type = 'system_hub' AND status = 'relaying'
+		)`)
+	if err != nil {
+		return res(), fmt.Errorf("Error updating hubs: %v", err)
+	}
+	hubCnt, err := updt.RowsAffected()
+	if err != nil {
+		return res(), fmt.Errorf("Error counting hubs: %v", err)
+	}
+
+	// Set a star to be explored if any of its planets have been scanned
+	updt, err = db.DB.Exec(`
+		UPDATE stars
+		SET explored=true
+		WHERE designation IN (
+		  SELECT DISTINCT star
+		  FROM planets
+		  WHERE scanned
+		)`)
+	if err != nil {
+		return res(), fmt.Errorf("Error updating hubs: %v", err)
+	}
+	expCnt, err := updt.RowsAffected()
+	if err != nil {
+		return res(), fmt.Errorf("Error counting hubs: %v", err)
+	}
+
+	log("Manual system update: %d systems with life, %d with my hubs, %d explored", lifeCnt, hubCnt, expCnt)
+
 	log("Updated done.")
 	return res(), nil
 }

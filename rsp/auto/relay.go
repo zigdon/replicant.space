@@ -141,7 +141,7 @@ func (rm *RelayMachine) UpdateState() error {
 	// Check the current location
 	if rm.dev.Location != "" {
 		star := rm.dev.Location.Star()
-		frs, err := rest.Devices(map[string]string{
+		frs, err := rest.RefreshDevices(map[string]string{
 			"device_type": "ftl_relay",
 			"location":    star,
 		})

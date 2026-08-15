@@ -201,7 +201,7 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 			log("Diversion in progress, need %.2f, no ETA yet", need)
 		}
 	case DivertMachine_Cleanup:
-		props, err := rest.Devices(map[string]string{"device_type": "propulsor", "location": dm.dev.Location.Star()})
+		props, err := rest.Devices(map[string]string{"device_type": "propulsor", "location": string(dm.dev.Location)})
 		if err != nil {
 			return eta, err
 		}

@@ -59,6 +59,10 @@ func autoFR(cmd *cobra.Command, args []string) error {
 		_, err := travel(r.HostedDeviceCode, string(s.EntryPoint))
 		return err
 	}
+	if _, err = rest.DeviceCommand[models.CommandResp](
+		fr.Code, "change_owner", map[string]any{"target": r.Code.String()}); err != nil {
+		log("Error changing owner: %v", err)
+	}
 	if _, err = rest.DeviceCommand[models.CommandResp](fr.Code, "deploy", nil); err != nil {
 		return err
 	}
