@@ -290,6 +290,15 @@ func (a *CodeAlias) Alias() string {
 	return ""
 }
 
+func (a *CodeAlias) Contained(l []*CodeAlias) bool {
+	for _, i := range l {
+		if a.orig == i.orig {
+			return true
+		}
+	}
+	return false
+}
+
 type LocationID string
 
 func (l LocationID) Star() string {

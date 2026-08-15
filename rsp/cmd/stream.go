@@ -158,6 +158,30 @@ func readStream(cmd *cobra.Command, args []string) error {
 					change(&d.Location, models.LocationID(ev.Report.Mining.Location))
 				}, v...)
 			}
+		case "ami.released":
+			ev, err := models.Parse[models.StreamAmiReleased](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			ids := make([]*models.CodeAlias, len(ev.Devices))
+			for n := range ev.Devices {
+				ids[n] = ev.Devices[n].Code
+			}
+			update(func(d *models.Device) {
+				change(&d.ControllerDeviceCode, nil)
+			}, ids...)
+			update(func(d *models.Device) {
+				var cd []*models.ControlledDevice
+				for _, dev := range d.ControlledDevices {
+					if dev.Code.Contained(ids) {
+						continue
+					}
+					cd = append(cd, dev)
+				}
+				change(&d.ControlledDevices, cd)
+			}, env.DeviceCode)
+			log("%s released %d devices: %s", env.DeviceCode, len(ids), ids)
 		case "ami.survey.digest":
 			ev, err := models.Parse[models.StreamAmiDigest](payload)
 			if err != nil {
