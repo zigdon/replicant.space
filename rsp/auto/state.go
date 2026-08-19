@@ -72,7 +72,7 @@ func sooner(a, b time.Time) time.Time {
 }
 
 func log(tmpl string, args ...any) {
-	common.LogLevel(1, tmpl, args...)
+	common.LogLevel(2, tmpl, args...)
 }
 
 func deviceCommand(id *models.CodeAlias, cmd string, args map[string]any, dryRun bool) (*models.CommandResp, error) {
