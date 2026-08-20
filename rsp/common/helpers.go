@@ -161,7 +161,7 @@ func GetBP(bp string) *models.Blueprint {
 	}
 	b := &models.Blueprint{DeviceType: bp}
 	if err := b.Get(); err != nil {
-		Log("Can load blueprint for %s: %v", bp, err)
+		Log("Can't load blueprint for %s: %v", bp, err)
 		return nil
 	}
 	bps[bp] = b

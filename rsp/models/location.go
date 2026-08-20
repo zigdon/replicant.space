@@ -219,6 +219,7 @@ type Belt struct {
 	OuterRadiusAu float32           `json:"outer_radius_au"`
 	Resources     map[string]string `json:"resources"`
 	Star          LocationID
+	Mining        bool
 }
 
 func (b *Belt) String() string {
@@ -230,18 +231,15 @@ func (b *Belt) Cache() error {
 		return nil
 	}
 	var errs []error
+	var res []byte
+	res, err := json.Marshal(b.Resources)
+	errs = append(errs, err)
 	errs = append(errs, db.Update(cache.BeltsTable, map[string]any{
 		"designation": b.Designation,
 		"star":        b.Star,
 		"density":     b.Density,
+		"resources":   res,
 	}))
-	for k, v := range b.Resources {
-		errs = append(errs, db.Update(cache.BeltResTable, map[string]any{
-			"belt":     b.Designation,
-			"resource": k,
-			"density":  v,
-		}))
-	}
 
 	return errors.Join(errs...)
 }
@@ -258,9 +256,9 @@ func (b *Belt) Get() error {
 	if err != nil {
 		return fmt.Errorf("Error querying cache: %v", err)
 	}
-	errs = append(errs, scan(&b.Designation, &b.Star, &b.Density))
-
-	// TODO load resources from cache.
+	var data []byte
+	errs = append(errs, scan(&b.Designation, &b.Star, &b.Density, &b.Mining, &data))
+	errs = append(errs, json.Unmarshal(data, &b.Resources))
 
 	return errors.Join(errs...)
 }
@@ -457,6 +455,12 @@ func (l *Location) Cache() error {
 	}
 	for _, o := range objs {
 		errs = append(errs, o.Cache())
+	}
+	for k, v := range l.Locations {
+		if v.Resources == 0 {
+			_, err := db.Exec(`DELETE FROM inventory WHERE designation = $1`, k)
+			errs = append(errs, err)
+		}
 	}
 	if len(l.Inventory) > 0 {
 		res := make(map[string]any)

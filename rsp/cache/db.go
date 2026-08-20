@@ -42,7 +42,6 @@ type Tables string
 const (
 	AliasTable             Tables = "aliases"
 	AliasTypesTable        Tables = "alias_types"
-	BeltResTable           Tables = "belt_resources"
 	BeltsTable             Tables = "belts"
 	BlueprintCmpTable      Tables = "blueprint_components"
 	BlueprintDirsTable     Tables = "blueprint_directives"
@@ -71,9 +70,7 @@ var cols = map[Tables][]string{
 	MoonsTable: {
 		"designation", "planet", "star", "name", "scanned", "type"},
 	BeltsTable: {
-		"designation", "star", "density"},
-	BeltResTable: {
-		"belt", "resource", "density"},
+		"designation", "star", "density", "mining", "resources"},
 	AliasTable: {
 		"designation", "type", "name"},
 	AliasTypesTable: {
@@ -105,7 +102,6 @@ var cols = map[Tables][]string{
 }
 
 var constraints = map[Tables]string{
-	BeltResTable:           "belt, resource",
 	BeltsTable:             "designation",
 	BlueprintCmpTable:      "blueprint_type, type",
 	BlueprintDirsTable:     "blueprint_type, directive",

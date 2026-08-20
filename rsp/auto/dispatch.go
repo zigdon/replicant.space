@@ -11,6 +11,7 @@ import (
 
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
+	"github.com/zigdon/rsp/rest"
 )
 
 // - Read the current intent table
@@ -280,6 +281,9 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 
 func (dm *DispatchMachine) Process() (time.Time, error) {
 	eta := time.Now()
+	if err := dm.UpdateState(); err != nil {
+		return eta, err
+	}
 	toDeliver := dm.balanceBooks()
 	var errs []error
 	var newTasks []*pickupTask
@@ -307,6 +311,14 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 	// - If it's anywhere else, just delete the task, let a new one be minted
 	for _, t := range dm.tasks {
 		log("Processing delivery of %#v %s->%s", t.resources, t.pickup, t.dropoff)
+		if t.ship != nil {
+			info, err := rest.DeviceInfo(t.ship.Code)
+			if err != nil {
+				log("Error updating ship info %s: %v", t.ship.Code, err)
+			} else {
+				t.ship = info
+			}
+		}
 		switch {
 		case t.ship == nil:
 			log("... finding a ship near %s", t.pickup)

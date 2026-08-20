@@ -988,10 +988,6 @@ func pickCriteria(ev *models.Event, tc *travelCoordinator, dryRun bool) (*eventS
 	opts := ev.Criteria
 	es := newEventState(ev, tc, dryRun)
 
-	if len(opts) == 1 {
-		return es, es.selectOption(0)
-	}
-
 	type optCost struct {
 		optID int
 		res   int
@@ -1012,12 +1008,12 @@ func pickCriteria(ev *models.Event, tc *travelCoordinator, dryRun bool) (*eventS
 			bp := common.GetBP(d.DeviceType)
 			if bp == nil {
 				oc.valid = false
-				continue
+				break
 			}
 			res, err := bp.RawResources()
 			if err != nil {
 				oc.valid = false
-				continue
+				break
 			}
 			for _, v := range res {
 				oc.res += v

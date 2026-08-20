@@ -41,14 +41,8 @@ CREATE TABLE IF NOT EXISTS belts (
   designation TEXT PRIMARY KEY,
   star TEXT NOT NULL REFERENCES stars(designation),
   density TEXT NOT NULL,
-  mining BOOLEAN
-);
-
-CREATE TABLE IF NOT EXISTS belt_resources (
-  belt TEXT NOT NULL REFERENCES belts(designation),
-  resource TEXT NOT NULL,
-  density TEXT NOT NULL,
-  PRIMARY KEY (belt, resource)
+  mining BOOLEAN,
+  resources JSONB
 );
 
 CREATE TABLE IF NOT EXISTS aliases (

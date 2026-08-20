@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -63,6 +64,11 @@ func Execute() {
 					if slices.Contains([]string{"discovery", "notification"}, m.Type) {
 						ids = append(ids, m.ID)
 						skipped[m.Type]++
+						continue
+					}
+					if m.Type == "achievement" && strings.HasPrefix(m.Title, "Event completed") {
+						ids = append(ids, m.ID)
+						skipped["event completed"]++
 						continue
 					}
 					data = append(data, []any{m.Created.Time().Format(time.Kitchen), m.Title})

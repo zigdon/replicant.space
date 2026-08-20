@@ -153,7 +153,6 @@ func resetUniverse(cmd *cobra.Command, args []string) error {
 		cache.PlanetsTable,
 		cache.MoonsTable,
 		cache.BeltsTable,
-		cache.BeltResTable,
 		cache.BlueprintsTable,
 		cache.BlueprintResTable,
 		cache.BlueprintDirsTable,

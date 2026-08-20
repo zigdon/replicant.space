@@ -13,7 +13,7 @@ import (
 var blueprintsCmd = &cobra.Command{
 	Use:     "blueprints",
 	Aliases: []string{"blueprint", "bp"},
-	Short:   "List owne blueprints",
+	Short:   "List owned blueprints",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		filter := getString(cmd, "filter")
 		feature := getString(cmd, "feature")
