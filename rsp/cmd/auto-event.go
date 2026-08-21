@@ -114,11 +114,7 @@ func (tc *travelCoordinator) Ship() error {
 	adopt := func(ids []*models.CodeAlias) error {
 		var n int
 		for len(ids) > 0 {
-			if len(ids) > 100 {
-				n = 100
-			} else {
-				n = len(ids)
-			}
+			n = min(len(ids), 100)
 			_, err := _dc(tc.afc, "adopt", map[string]any{"devices": ids[:n]}, tc.dryRun)
 			if err != nil {
 				log("Failed to adopt %s: %v", ids, err)
@@ -131,11 +127,7 @@ func (tc *travelCoordinator) Ship() error {
 	release := func(ids []*models.CodeAlias) error {
 		var n int
 		for len(ids) > 0 {
-			if len(ids) > 100 {
-				n = 100
-			} else {
-				n = len(ids)
-			}
+			n = min(len(ids), 100)
 			_, err := _dc(tc.afc, "release", map[string]any{"devices": ids[:n]}, tc.dryRun)
 			if err != nil {
 				log("Failed to release %s: %v", ids, err)
@@ -417,8 +409,10 @@ func (es *eventState) updateState() error {
 			es.ready[d.Type]++
 		case home:
 			es.waiting[d.Type] = append(es.waiting[d.Type], d.Code)
-		default:
+		case "":
 			es.transitDev[d.Type] = append(es.transitDev[d.Type], d.Code)
+		default:
+			log("TODO: send someone to pick it up")
 		}
 	}
 
@@ -511,11 +505,11 @@ func (es *eventState) shipRes(res map[string]int) error {
 			log("Loading %v onto %s", manifest, cf.Code)
 			_, err := _dc(cf.Code, "collect_resources", map[string]any{"resources": manifest}, es.dryRun)
 			errs = append(errs, err)
-		}
-		if err == nil {
-			eta, err := es.convoy.Queue(cf.Code, string(cf.Location), string(es.destination))
-			errs = append(errs, err)
-			es.later("resources", eta)
+			if err == nil {
+				eta, err := es.convoy.Queue(cf.Code, string(cf.Location), string(es.destination))
+				errs = append(errs, err)
+				es.later("resources", eta)
+			}
 		}
 		if len(res) == 0 {
 			break

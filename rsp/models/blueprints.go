@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 
+	"github.com/lib/pq"
 	"github.com/zigdon/rsp/cache"
 )
 
@@ -14,8 +16,8 @@ type Blueprint struct {
 	Components       map[string]int `json:"components"`
 	DeviceType       string         `json:"device_type"`
 	Description      string         `json:"description"`
-	Directives       []string       `json:"directives"`
-	Features         []string       `json:"features"`
+	Directives       pq.StringArray `json:"directives"`
+	Features         pq.StringArray `json:"features"`
 	PrintTime        *JSONTimeDelta `json:"print_time"`
 	Resources        map[string]int `json:"resources"`
 	ShortDescription string         `json:"short_description"`
@@ -24,7 +26,10 @@ type Blueprint struct {
 }
 
 func (b *Blueprint) Cache() error {
-	if err := db.Update(cache.BlueprintsTable, map[string]any{
+	ing := make(map[string]int)
+	maps.Copy(ing, b.Components)
+	maps.Copy(ing, b.Resources)
+	return db.Update(cache.BlueprintsTable, map[string]any{
 		"type":            b.DeviceType,
 		"print_time":      b.PrintTime.seconds,
 		"attach_capacity": b.AttachCapacity,
@@ -32,49 +37,10 @@ func (b *Blueprint) Cache() error {
 		"stow_capacity":   b.StowCapacity,
 		"short":           b.ShortDescription,
 		"description":     b.Description,
-	}); err != nil {
-		return err
-	}
-
-	for r, q := range b.Resources {
-		if err := db.Update(cache.BlueprintResTable, map[string]any{
-			"blueprint_type": b.DeviceType,
-			"type":           r,
-			"qty":            q,
-		}); err != nil {
-			return err
-		}
-	}
-
-	for r, q := range b.Components {
-		if err := db.Update(cache.BlueprintCmpTable, map[string]any{
-			"blueprint_type": b.DeviceType,
-			"type":           r,
-			"qty":            q,
-		}); err != nil {
-			return err
-		}
-	}
-
-	for _, f := range b.Features {
-		if err := db.Update(cache.BlueprintFeaturesTable, map[string]any{
-			"blueprint_type": b.DeviceType,
-			"feature":        f,
-		}); err != nil {
-			return err
-		}
-	}
-
-	for _, d := range b.Directives {
-		if err := db.Update(cache.BlueprintDirsTable, map[string]any{
-			"blueprint_type": b.DeviceType,
-			"directive":      d,
-		}); err != nil {
-			return err
-		}
-	}
-
-	return nil
+		"directives":      b.Directives,
+		"features":        b.Features,
+		"ingredients":     cache.Encode(ing),
+	})
 }
 
 func (b *Blueprint) Get() error {
@@ -89,9 +55,10 @@ func (b *Blueprint) Get() error {
 		return fmt.Errorf("Error querying cache: %v", err)
 	}
 	var pt string
+	var ing cache.JSONB[map[string]int]
 	err = scan(
 		&b.DeviceType, &pt, &b.AttachCapacity, &b.CargoCapacity, &b.StowCapacity,
-		&b.ShortDescription, &b.Description)
+		&b.ShortDescription, &b.Description, &b.Features, &b.Directives, &ing)
 	if err != nil {
 		return err
 	}
@@ -100,47 +67,19 @@ func (b *Blueprint) Get() error {
 		return err
 	}
 	b.PrintTime = &JSONTimeDelta{float32(d.Seconds()), d}
-
-	if b.Resources == nil {
-		b.Resources = make(map[string]int)
-	}
-	rows, err := db.GetAll(cache.BlueprintResTable, b.DeviceType)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var t, r string
-		var q int
-		if err := rows.Scan(&t, &r, &q); err != nil {
-			return err
-		}
-		b.Resources[r] = q
-	}
 	if b.Components == nil {
 		b.Components = make(map[string]int)
 	}
-	rows, err = db.GetAll(cache.BlueprintCmpTable, b.DeviceType)
-	if err != nil {
-		return err
+	if b.Resources == nil {
+		b.Resources = make(map[string]int)
 	}
-	for rows.Next() {
-		var t, r string
-		var q int
-		if err := rows.Scan(&t, &r, &q); err != nil {
-			return err
+	for k, v := range ing.Data {
+		if slices.Contains(
+			[]string{"carbon", "conductive", "rares", "silicates", "structural", "volatiles"}, k) {
+			b.Resources[k] = v
+		} else {
+			b.Components[k] = v
 		}
-		b.Components[r] = q
-	}
-	rows, err = db.GetAll(cache.BlueprintFeaturesTable, b.DeviceType)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var t, f string
-		if err := rows.Scan(&t, &f); err != nil {
-			return err
-		}
-		b.Features = append(b.Features, f)
 	}
 	return nil
 }
@@ -183,7 +122,8 @@ func (bs *Blueprints) Get() error {
 	}
 	bpm := make(map[string]*Blueprint)
 	if rows, err := db.DB.Query(`
-		SELECT type, print_time, attach_capacity, cargo_capacity, stow_capacity, short, description
+		SELECT type, print_time, attach_capacity, cargo_capacity, stow_capacity, short, description,
+			   directives, features, ingredients
 		FROM blueprints
 	`); err != nil {
 		return err
@@ -196,9 +136,10 @@ func (bs *Blueprints) Get() error {
 				Components: make(map[string]int),
 			}
 			var pt string
+			var ing cache.JSONB[map[string]int]
 			if err := rows.Scan(
 				&bp.DeviceType, &pt, &bp.AttachCapacity, &bp.CargoCapacity, &bp.StowCapacity,
-				&bp.ShortDescription, &bp.Description,
+				&bp.ShortDescription, &bp.Description, &bp.Directives, &bp.Features, &ing,
 			); err != nil {
 				return err
 			}
@@ -207,57 +148,15 @@ func (bs *Blueprints) Get() error {
 				return err
 			}
 			bp.PrintTime.td = d
+			for k, v := range ing.Data {
+				if slices.Contains(
+					[]string{"carbon", "conductive", "rares", "silicates", "structural", "volatiles"}, k) {
+					bp.Resources[k] = v
+				} else {
+					bp.Components[k] = v
+				}
+			}
 			bpm[bp.DeviceType] = bp
-		}
-		if err := rows.Err(); err != nil {
-			return err
-		}
-	}
-	if rows, err := db.DB.Query(`SELECT blueprint_type, type, qty FROM blueprint_resources`); err != nil {
-		return err
-	} else {
-		for rows.Next() {
-			var bt, t string
-			var q int
-			rows.Scan(&bt, &t, &q)
-			bpm[bt].Resources[t] = q
-		}
-		if err := rows.Err(); err != nil {
-			return err
-		}
-	}
-	if rows, err := db.DB.Query(`SELECT blueprint_type, type, qty FROM blueprint_components`); err != nil {
-		return err
-	} else {
-		for rows.Next() {
-			var bt, t string
-			var q int
-			rows.Scan(&bt, &t, &q)
-			bpm[bt].Components[t] = q
-		}
-		if err := rows.Err(); err != nil {
-			return err
-		}
-	}
-	if rows, err := db.DB.Query(`SELECT blueprint_type, feature FROM blueprint_features`); err != nil {
-		return err
-	} else {
-		for rows.Next() {
-			var bt, f string
-			rows.Scan(&bt, &f)
-			bpm[bt].Features = append(bpm[bt].Features, f)
-		}
-		if err := rows.Err(); err != nil {
-			return err
-		}
-	}
-	if rows, err := db.DB.Query(`SELECT blueprint_type, directive FROM blueprint_directives`); err != nil {
-		return err
-	} else {
-		for rows.Next() {
-			var bt, d string
-			rows.Scan(&bt, &d)
-			bpm[bt].Directives = append(bpm[bt].Directives, d)
 		}
 		if err := rows.Err(); err != nil {
 			return err

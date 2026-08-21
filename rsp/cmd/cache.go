@@ -154,9 +154,6 @@ func resetUniverse(cmd *cobra.Command, args []string) error {
 		cache.MoonsTable,
 		cache.BeltsTable,
 		cache.BlueprintsTable,
-		cache.BlueprintResTable,
-		cache.BlueprintDirsTable,
-		cache.BlueprintFeaturesTable,
 	} {
 		if err := db.Reset(t); err != nil {
 			return fmt.Errorf("Couldn't clear %s: %v", t, err)
