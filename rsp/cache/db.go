@@ -2,7 +2,6 @@ package cache
 
 import (
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -327,18 +326,14 @@ func (db *Cache) ClearNotifications(ids []int) error {
 }
 
 func (db *Cache) AddDelivery(dryRun bool, origin, destination, carrier string, cargo map[string]int) error {
-	data, err := json.Marshal(cargo)
-	if err != nil {
-		return err
-	}
 	if dryRun {
 		log("[DRYRUN] Adding delivery: %s %s->%s: %v", carrier, origin, destination, cargo)
 		return nil
 	}
-	_, err = db.Exec(`
+	_, err := db.Exec(`
 	  INSERT INTO deliveries (origin, destination, ship, cargo)
 	  VALUES ($1, $2, $3, $4)
-  `, origin, destination, carrier, data)
+  `, origin, destination, carrier, Encode(cargo))
 	return err
 }
 

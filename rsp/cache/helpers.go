@@ -2,9 +2,41 @@ package cache
 
 import (
 	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
+
+func Encode[T any](in T) JSONB[T] {
+	return JSONB[T]{Data: in}
+}
+
+type JSONB[T any] struct {
+	Data T
+}
+
+// Value implements driver.Valuer (Marshals Go struct -> JSONB for INSERT/UPDATE)
+func (j JSONB[T]) Value() (driver.Value, error) {
+	return json.Marshal(j.Data)
+}
+
+// Scan implements sql.Scanner (Unmarshals JSONB -> Go struct for SELECT)
+func (j *JSONB[T]) Scan(value any) error {
+	if value == nil {
+		return nil
+	}
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return fmt.Errorf("cannot scan %T into JSONB", value)
+	}
+	return json.Unmarshal(bytes, &j.Data)
+}
 
 func (db *Cache) FindNearestStar(x, y, z float32) (string, float32, error) {
 	row := db.DB.QueryRow(

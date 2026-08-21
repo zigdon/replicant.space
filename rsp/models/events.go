@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -190,13 +189,12 @@ func (n *Notification) Save() error {
 	if n == nil {
 		return nil
 	}
-	obj, _ := json.Marshal(n.Object)
 	return db.Update(cache.NotificationTable, map[string]any{
 		"start_ts": n.Start,
 		"end_ts":   n.End,
 		"device":   n.Device,
 		"text":     n.Text,
 		"read":     false,
-		"object":   obj,
+		"object":   cache.Encode(n.Object),
 	})
 }

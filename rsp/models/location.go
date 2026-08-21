@@ -231,14 +231,11 @@ func (b *Belt) Cache() error {
 		return nil
 	}
 	var errs []error
-	var res []byte
-	res, err := json.Marshal(b.Resources)
-	errs = append(errs, err)
 	errs = append(errs, db.Update(cache.BeltsTable, map[string]any{
 		"designation": b.Designation,
 		"star":        b.Star,
 		"density":     b.Density,
-		"resources":   res,
+		"resources":   cache.Encode(b.Resources),
 	}))
 
 	return errors.Join(errs...)
@@ -256,9 +253,9 @@ func (b *Belt) Get() error {
 	if err != nil {
 		return fmt.Errorf("Error querying cache: %v", err)
 	}
-	var data []byte
-	errs = append(errs, scan(&b.Designation, &b.Star, &b.Density, &b.Mining, &data))
-	errs = append(errs, json.Unmarshal(data, &b.Resources))
+	var scannedRes cache.JSONB[map[string]string]
+	errs = append(errs, scan(&b.Designation, &b.Star, &b.Density, &b.Mining, &scannedRes))
+	b.Resources = scannedRes.Data
 
 	return errors.Join(errs...)
 }
