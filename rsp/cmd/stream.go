@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -480,6 +481,12 @@ func readStream(cmd *cobra.Command, args []string) error {
 				_, err := rest.DeviceInfo(d.Code)
 				errs = append(errs, err)
 			}
+			delta := make(map[string]int)
+			maps.Copy(delta, ev.Rewards.Resources)
+			for k, v := range ev.Consumed.Resources {
+				delta[k] -= v
+			}
+			errs = append(errs, db.UpdateInventory(false, string(env.Location), delta))
 			if err := errors.Join(errs...); err != nil {
 				log("Error removing devices from the cache: %v", err)
 			}
@@ -496,14 +503,10 @@ func readStream(cmd *cobra.Command, args []string) error {
 					Name:      c.Name,
 					Resources: c.Resources,
 				}
-				devs := make(map[string]int)
-				for _, ty := range c.Devices {
-					devs[ty]++
-				}
-				for k, v := range devs {
+				for _, ed := range c.Devices {
 					cr.Devices = append(cr.Devices, &models.EventDevice{
-						DeviceType: k,
-						Required:   v,
+						DeviceType: ed.DeviceType,
+						Required:   ed.Count,
 					})
 				}
 				crit = append(crit, cr)

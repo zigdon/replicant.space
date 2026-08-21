@@ -312,8 +312,11 @@ type StreamEventDiscovered struct {
 	Title       string     `json:"title"`
 	Description string     `json:"description"`
 	Criteria    []struct {
-		Name      string         `json:"name"`
-		Devices   []string       `json:"devices"`
+		Name    string `json:"name"`
+		Devices []struct {
+			Count      int    `json:"count"`
+			DeviceType string `json:"device_type"`
+		} `json:"devices"`
 		Resources map[string]int `json:"resources"`
 	} `json:"criteria"`
 	Rewards struct {

@@ -1173,6 +1173,17 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	var data [][]any
 	for _, ev := range events {
 		log("**** Processing event %s", ev.Designation)
+
+		// Skip events in DELTA and similar areas unless explicitly requested
+		dist, err := common.Distance(home, string(ev.Location))
+		if err != nil {
+			log("Can't get distance to %s: %v", ev.Location, err)
+			continue
+		}
+		if dist > 1000 {
+			log("Skipping %s, as it is %.2f LY away from home", ev.Designation, dist)
+			continue
+		}
 		es, err := pickCriteria(ev, tc, dryRun)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %v", ev.Designation, err))

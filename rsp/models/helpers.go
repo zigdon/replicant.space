@@ -391,7 +391,14 @@ func DeviceFilterTags(reject, require []string) DeviceFilter {
 
 func DeviceFilterMatrix() DeviceFilter {
 	return func(d *Device) bool {
-		return !strings.Contains(d.Type, "matrix") || (d.Status != "stowed" && d.Status != "idle")
+		switch d.Type {
+		case "empty_replicant_matrix":
+			return d.StowedInDeviceCode == nil
+		case "matrix_container":
+			return d.StowUsed == 0
+		default:
+			return true
+		}
 	}
 }
 
