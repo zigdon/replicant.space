@@ -39,22 +39,26 @@ func log(tmpl string, args ...any) {
 type Tables string
 
 const (
-	AliasTable        Tables = "aliases"
-	AliasTypesTable   Tables = "alias_types"
-	BeltsTable        Tables = "belts"
-	BlueprintsTable   Tables = "blueprints"
-	DeviceLogsTable   Tables = "device_logs"
-	EventsStreamTable Tables = "event_stream"
-	EventsTable       Tables = "events"
-	InventoryTable    Tables = "inventory"
-	JSONDevices       Tables = "json_devices"
-	JourneyStepsTable Tables = "cached_journey_steps"
-	JourneyTable      Tables = "cached_journey"
-	MoonsTable        Tables = "moons"
-	MsgTable          Tables = "messages"
-	NotificationTable Tables = "notifications"
-	PlanetsTable      Tables = "planets"
-	StarsTable        Tables = "stars"
+	AliasTable             Tables = "aliases"
+	AliasTypesTable        Tables = "alias_types"
+	BeltsTable             Tables = "belts"
+	BlueprintCmpTable      Tables = "blueprint_components"
+	BlueprintDirsTable     Tables = "blueprint_directives"
+	BlueprintFeaturesTable Tables = "blueprint_features"
+	BlueprintResTable      Tables = "blueprint_resources"
+	BlueprintsTable        Tables = "blueprints"
+	DeviceLogsTable        Tables = "device_logs"
+	EventsStreamTable      Tables = "event_stream"
+	EventsTable            Tables = "events"
+	InventoryTable         Tables = "inventory"
+	JSONDevices            Tables = "json_devices"
+	JourneyStepsTable      Tables = "cached_journey_steps"
+	JourneyTable           Tables = "cached_journey"
+	MoonsTable             Tables = "moons"
+	MsgTable               Tables = "messages"
+	NotificationTable      Tables = "notifications"
+	PlanetsTable           Tables = "planets"
+	StarsTable             Tables = "stars"
 )
 
 var cols = map[Tables][]string{
@@ -95,20 +99,24 @@ var cols = map[Tables][]string{
 }
 
 var constraints = map[Tables]string{
-	BeltsTable:        "designation",
-	BlueprintsTable:   "type",
-	DeviceLogsTable:   "id, device",
-	EventsStreamTable: "id",
-	EventsTable:       "designation",
-	InventoryTable:    "designation",
-	JSONDevices:       "code",
-	JourneyStepsTable: "journey_id, step",
-	JourneyTable:      "id",
-	MoonsTable:        "designation",
-	MsgTable:          "id",
-	NotificationTable: "id",
-	PlanetsTable:      "designation",
-	StarsTable:        "designation",
+	BeltsTable:             "designation",
+	BlueprintCmpTable:      "blueprint_type, type",
+	BlueprintDirsTable:     "blueprint_type, directive",
+	BlueprintFeaturesTable: "blueprint_type, feature",
+	BlueprintResTable:      "blueprint_type, type",
+	BlueprintsTable:        "type",
+	DeviceLogsTable:        "id, device",
+	EventsStreamTable:      "id",
+	EventsTable:            "designation",
+	InventoryTable:         "designation",
+	JSONDevices:            "code",
+	JourneyStepsTable:      "journey_id, step",
+	JourneyTable:           "id",
+	MoonsTable:             "designation",
+	MsgTable:               "id",
+	NotificationTable:      "id",
+	PlanetsTable:           "designation",
+	StarsTable:             "designation",
 }
 
 type Cache struct {

@@ -230,7 +230,7 @@ func TestPlanetAndMoon(t *testing.T) {
 		Designation:     "SOL-3",
 		Name:            "Earth",
 		InHabitableZone: true,
-		Atmosphere:      "nitrogen-oxygen",
+		Atmosphere:      true,
 		DensityGcc:      5.51,
 		MoonCount:       1,
 	}

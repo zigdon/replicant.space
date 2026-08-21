@@ -225,3 +225,56 @@ func completeDeviceTags(cmd *cobra.Command, args []string, toComplete string) ([
 
 	return res, cobra.ShellCompDirectiveNoFileComp
 }
+
+var StandardResources = []string{
+	"carbon",
+	"conductive",
+	"rares",
+	"silicates",
+	"structural",
+	"volatiles",
+}
+
+func completeResources(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	var res []string
+	toComplete = strings.ToLower(toComplete)
+	for _, r := range StandardResources {
+		if strings.HasPrefix(r, toComplete) {
+			res = append(res, r)
+		}
+	}
+	return res, cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeIntents(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	var res []string
+	if db == nil || db.DB == nil {
+		return res, cobra.ShellCompDirectiveNoFileComp
+	}
+	rows, err := db.DB.Query("SELECT location FROM intent WHERE starts_with(location, $1) ORDER BY location", strings.ToUpper(toComplete))
+	if err != nil {
+		return res, cobra.ShellCompDirectiveNoFileComp
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var loc string
+		if err := rows.Scan(&loc); err == nil {
+			res = append(res, loc)
+		}
+	}
+	return res, cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeIntentAddArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) == 0 {
+		return completeStarsAndPlanets(cmd, args, toComplete)
+	}
+	return completeResources(cmd, args, toComplete)
+}
+
+func completeIntentRemoveArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) == 0 {
+		return completeIntents(cmd, args, toComplete)
+	}
+	return completeResources(cmd, args, toComplete)
+}

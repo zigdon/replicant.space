@@ -84,7 +84,7 @@ func TestStreamEventDiscovered(t *testing.T) {
 		"criteria": [
 			{
 				"name": "Analyze",
-				"devices": {"probe": 1},
+				"devices": [{"count": 1, "device_type": "probe"}],
 				"resources": {"carbon": 100}
 			}
 		]
@@ -98,7 +98,7 @@ func TestStreamEventDiscovered(t *testing.T) {
 	if ev.Title != "Ancient Relic" || len(ev.Criteria) != 1 {
 		t.Errorf("StreamEventDiscovered mismatch: %v", ev)
 	}
-	if ev.Criteria[0].Devices["probe"] != 1 || ev.Criteria[0].Resources["carbon"] != 100 {
+	if len(ev.Criteria[0].Devices) != 1 || ev.Criteria[0].Devices[0].Count != 1 || ev.Criteria[0].Devices[0].DeviceType != "probe" || ev.Criteria[0].Resources["carbon"] != 100 {
 		t.Errorf("Criteria mismatch: %v", ev.Criteria[0])
 	}
 }

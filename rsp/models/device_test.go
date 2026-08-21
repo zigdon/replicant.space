@@ -248,16 +248,16 @@ func TestDeviceFilters(t *testing.T) {
 	}
 
 	// 2. DeviceFilterMatrix
-	devMatrixStowed := &Device{Type: "replicant_matrix", Status: "stowed"}
-	devMatrixActive := &Device{Type: "replicant_matrix", Status: "active"}
+	devMatrixStowed := &Device{Type: "empty_replicant_matrix", StowedInDeviceCode: NewCodeAlias("c-1")}
+	devMatrixActive := &Device{Type: "empty_replicant_matrix", StowedInDeviceCode: nil}
 	devOther := &Device{Type: "probe", Status: "idle"}
 
 	filterMatrix := DeviceFilterMatrix()
 	if filterMatrix(devMatrixStowed) {
-		t.Errorf("FilterMatrix should filter out stowed replicant_matrix")
+		t.Errorf("FilterMatrix should filter out stowed empty_replicant_matrix")
 	}
 	if !filterMatrix(devMatrixActive) {
-		t.Errorf("FilterMatrix should keep active replicant_matrix")
+		t.Errorf("FilterMatrix should keep unstowed empty_replicant_matrix")
 	}
 	if !filterMatrix(devOther) {
 		t.Errorf("FilterMatrix should keep non-matrix device")

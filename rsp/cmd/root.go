@@ -35,15 +35,17 @@ func Execute() {
 		common.ConnectDB(db)
 		models.ConnectDB(db)
 		rest.ConnectDB(db)
+		defer db.DB.Close()
 	}
-	defer db.DB.Close()
 
 	// if the first arg looks like a device alias, assume "device -d"
 	args := os.Args
-	if db.Dealias(args[1]) != args[1] {
-		args = slices.Insert(args, 1, "device", "-d")
-	} else if args[1] == "device" && db.Dealias(args[2]) != args[2] {
-		args = slices.Insert(args, 2, "-d")
+	if len(args) > 1 && db != nil {
+		if db.Dealias(args[1]) != args[1] {
+			args = slices.Insert(args, 1, "device", "-d")
+		} else if len(args) > 2 && args[1] == "device" && db.Dealias(args[2]) != args[2] {
+			args = slices.Insert(args, 2, "-d")
+		}
 	}
 	rootCmd.SetArgs(args[1:])
 
@@ -51,7 +53,7 @@ func Execute() {
 	if err != nil {
 		die(err.Error())
 	}
-	if msg := getBool(rootCmd, "msg"); !slices.Contains(os.Args, "__complete") && msg {
+	if msg := getBool(rootCmd, "msg"); db != nil && !slices.Contains(os.Args, "__complete") && msg {
 		if rest.UnreadMessages > 0 {
 			msgs, err := rest.Messages(0, rest.UnreadMessages, true, true)
 			if err != nil {
