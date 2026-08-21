@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
@@ -124,6 +125,30 @@ func readStream(cmd *cobra.Command, args []string) error {
 			update(func(d *models.Device) {
 				change(&d.ControllerDeviceCode, env.DeviceCode)
 			}, ids...)
+		case "ami.assembled":
+			ev, err := models.Parse[models.StreamAmiAssembled](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s assembled %d devices to %s", env.DeviceCode, ev.AssembledCount, ev.Destination)
+			ami, err := rest.CachedDeviceInfo(env.DeviceCode, true)
+			if err == nil {
+				var ids []*models.CodeAlias
+				for _, cd := range ami.ControlledDevices {
+					ids = append(ids, cd.Code)
+				}
+				update(func(d *models.Device) {
+					change(&d.Status, "travelling")
+					change(&d.Travel, &models.Trip{
+						Departed:    (&models.JSONTime{}).Set(time.Now()),
+						Destination: ev.Destination,
+						Origin:      d.Location,
+						Status:      "travelling",
+						Device:      d.Code,
+					})
+				}, ids...)
+			}
 		case "ami.launched":
 			ev, err := models.Parse[models.StreamAmiLaunched](payload)
 			if err != nil {
@@ -458,6 +483,65 @@ func readStream(cmd *cobra.Command, args []string) error {
 			if err := errors.Join(errs...); err != nil {
 				log("Error removing devices from the cache: %v", err)
 			}
+		case "event.discovered":
+			ev, err := models.Parse[models.StreamEventDiscovered](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Tier %d event discovered @ %s: %s %v", ev.Tier, env.Location, ev.Title, ev.Criteria)
+			var crit []*models.EventCriteria
+			for _, c := range ev.Criteria {
+				cr := &models.EventCriteria{
+					Name:      c.Name,
+					Resources: c.Resources,
+				}
+				devs := make(map[string]int)
+				for _, ty := range c.Devices {
+					devs[ty]++
+				}
+				for k, v := range devs {
+					cr.Devices = append(cr.Devices, &models.EventDevice{
+						DeviceType: k,
+						Required:   v,
+					})
+				}
+				crit = append(crit, cr)
+			}
+			reward := &models.EventReward{
+				CivilisationPoints:    ev.Rewards.CivilisationPoints,
+				CompletionAchievement: ev.Rewards.CompletionAchievement,
+				Resources:             ev.Rewards.Resources,
+				XP:                    ev.Rewards.Xp,
+			}
+
+			if err := db.Update(cache.EventsTable, map[string]any{
+				"designation": ev.Designation,
+				"category":    ev.Category,
+				"description": ev.Description,
+				"type":        ev.EventType,
+				"location":    ev.Location,
+				"title":       ev.Title,
+				"tier":        ev.Tier,
+				"criteria":    cache.Encode(crit),
+				"rewards":     cache.Encode(reward),
+			}); err != nil {
+				log("Error inserting event: %v", err)
+			}
+			// {"category":"resource_trade"
+			//"criteria":[{"devices":[]
+			//"name":"default"
+			//"resources":{"structural":400}}]
+			//"description":"A civilisation is undergoing rapid urbanisation and needs bulk structural materials to keep pace."
+			//"designation":"NUKAWIY-2-EVT-004"
+			//"event_type":"construction_boom"
+			//"location":"NUKAWIY-2"
+			//"rewards":{"civilisation_points":1
+			//"completion_achievement":"construction_boom_completed"
+			//"resources":{"rares":500}
+			//"xp":400}
+			//"tier":1
+			//"title":"Construction Boom"}
 		case "experience.gained":
 			ev, err := models.Parse[models.StreamExperienceGained](payload)
 			if err != nil {

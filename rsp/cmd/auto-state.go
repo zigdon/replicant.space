@@ -52,7 +52,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 		}
 
 		for n, d := range devs {
-			if dev, err := rest.RefreshDeviceInfo(d.Code); err == nil {
+			if dev, err := rest.DeviceInfo(d.Code); err == nil {
 				devs[n] = dev
 				d = dev
 			} else {

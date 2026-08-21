@@ -32,7 +32,7 @@ func (se *StreamEnvelope) Cache() error {
 		return err
 	}
 
-	return db.Update(cache.EventsTable, map[string]any{
+	return db.Update(cache.EventsStreamTable, map[string]any{
 		"eventid":  se.EventID,
 		"category": se.Category,
 		"created":  se.Created.Time(),
@@ -305,6 +305,7 @@ type StreamEventCompleted struct {
 
 type StreamEventDiscovered struct {
 	Designation string     `json:"designation"`
+	Category    string     `json:"category"`
 	Location    LocationID `json:"location"`
 	EventType   string     `json:"event_type"`
 	Tier        int        `json:"tier"`
@@ -312,9 +313,16 @@ type StreamEventDiscovered struct {
 	Description string     `json:"description"`
 	Criteria    []struct {
 		Name      string         `json:"name"`
-		Devices   map[string]int `json:"devices"`
+		Devices   []string       `json:"devices"`
 		Resources map[string]int `json:"resources"`
 	} `json:"criteria"`
+	Rewards struct {
+		CivilisationPoints    int            `json:"civilisation_points"`
+		CompletionAchievement string         `json:"completion_achievement"`
+		Resources             map[string]int `json:"resources"`
+		Devices               map[string]int `json:"devices"`
+		Xp                    int            `json:"xp"`
+	} `json:"rewards"`
 }
 
 type StreamExperienceGained struct {

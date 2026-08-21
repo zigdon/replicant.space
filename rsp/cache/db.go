@@ -44,7 +44,8 @@ const (
 	BeltsTable        Tables = "belts"
 	BlueprintsTable   Tables = "blueprints"
 	DeviceLogsTable   Tables = "device_logs"
-	EventsTable       Tables = "event_stream"
+	EventsStreamTable Tables = "event_stream"
+	EventsTable       Tables = "events"
 	InventoryTable    Tables = "inventory"
 	JSONDevices       Tables = "json_devices"
 	JourneyStepsTable Tables = "cached_journey_steps"
@@ -84,8 +85,11 @@ var cols = map[Tables][]string{
 		"journey_id", "src", "dest", "dist_src", "dist_dest"},
 	JSONDevices: {
 		"code", "updated_ts", "location", "data"},
-	EventsTable: {
+	EventsStreamTable: {
 		"id", "category", "created", "code", "event", "location", "data"},
+	EventsTable: {
+		"designation", "category", "description", "type", "location",
+		"title", "tier", "criteria", "rewards"},
 	InventoryTable: {
 		"designation", "star", "carbon", "conductive", "rares", "silicates", "structural", "volatiles"},
 }
@@ -94,7 +98,8 @@ var constraints = map[Tables]string{
 	BeltsTable:        "designation",
 	BlueprintsTable:   "type",
 	DeviceLogsTable:   "id, device",
-	EventsTable:       "id",
+	EventsStreamTable: "id",
+	EventsTable:       "designation",
 	InventoryTable:    "designation",
 	JSONDevices:       "code",
 	JourneyStepsTable: "journey_id, step",

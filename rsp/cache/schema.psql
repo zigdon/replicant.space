@@ -119,6 +119,11 @@ CREATE TABLE IF NOT EXISTS json_devices(
   data JSONB
 );
 
+CREATE INDEX idx_devices_status ON json_devices (status);
+CREATE INDEX idx_devices_type ON json_devices (type);
+CREATE INDEX idx_devices_location ON json_devices (location text_pattern_ops);
+CREATE INDEX idx_json_devices ON json_devices USING gin (data jsonb_path_ops);
+
 CREATE TABLE IF NOT EXISTS event_stream(
   id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   evenid TEXT UNIQUE,
@@ -172,4 +177,16 @@ CREATE TABLE IF NOT EXISTS inventory(
   silicates INT NOT NULL DEFAULT 0,
   structural INT NOT NULL DEFAULT 0,
   volatiles INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS events(
+  designation TEXT PRIMARY KEY,
+  category TEXT,
+  description TEXT,
+  type TEXT,
+  location TEXT,
+  title TEXT,
+  tier INT,
+  criteria JSONB,
+  rewards JSONB
 );

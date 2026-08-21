@@ -32,6 +32,14 @@ type pickupTask struct {
 	complete  bool
 }
 
+func (pt *pickupTask) String() string {
+	var ship string
+	if pt.ship != nil {
+		ship = pt.ship.Code.Alias()
+	}
+	return fmt.Sprintf("Task: %s->%s %v %s", pt.pickup, pt.dropoff, pt.resources, ship)
+}
+
 type DispatchMachine struct {
 	dryRun bool
 	// location -> type -> qty
@@ -357,7 +365,6 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 				}
 			}
 			delete(dm.manifest, t.ship.Code.String())
-			errs = append(errs, DB.ClearDelivery(dm.dryRun, t.ship.Code.String()))
 			t.complete = true
 		case t.ship.Location == t.pickup:
 			log("%s ready for pick up at %s->%s", t.ship, t.ship.Location, t.dropoff)
@@ -380,8 +387,9 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 					errs = append(errs,
 						fmt.Errorf("Can't %s can't collect %v at %s: %v",
 							t.ship.Code, t.resources, t.pickup, err))
-					// Refresh the inventory in the location because we trust nothing.
+					// Refresh the inventory, reset the delivery task
 					rest.Location(string(t.pickup))
+					t.complete = true
 					continue
 				}
 			}
@@ -402,14 +410,20 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 				}
 			}
 			delete(dm.manifest, t.ship.Code.String())
-			errs = append(errs, DB.ClearDelivery(dm.dryRun, t.ship.Code.String()))
 			t.complete = true
 		}
 	}
 
-	dm.tasks = slices.DeleteFunc(dm.tasks, func(t *pickupTask) bool {
-		return t.complete
-	})
+	var next []*pickupTask
+	for _, t := range dm.tasks {
+		if t.complete {
+			log("Marking task complete: %v", t)
+			errs = append(errs, DB.ClearDelivery(dm.dryRun, t.ship.Code.String()))
+		} else {
+			next = append(next, t)
+		}
+	}
+	dm.tasks = next
 
 	return eta, errors.Join(errs...)
 }

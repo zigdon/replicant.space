@@ -101,6 +101,42 @@ type Event struct {
 	Type             string           `json:"event_type"`
 }
 
+func (e *Event) Cache() error {
+	if e == nil {
+		return nil
+	}
+	return db.Update(cache.EventsTable, map[string]any{
+		"designation": e.Designation,
+		"category":    e.Category,
+		"description": e.Description,
+		"type":        e.Type,
+		"location":    e.Location,
+		"title":       e.Title,
+		"tier":        e.Tier,
+		"criteria":    cache.Encode(e.Criteria),
+		"rewards":     cache.Encode(e.Rewards),
+	})
+}
+
+func (e *Event) Get() error {
+	if e == nil || e.Designation == "" {
+		return fmt.Errorf("Can't load unknown event")
+	}
+	scan, err := db.Get(cache.EventsTable, e.Designation)
+	if err != nil {
+		return err
+	}
+	var crit cache.JSONB[[]*EventCriteria]
+	var reward cache.JSONB[*EventReward]
+	if err := scan(&e.Designation, &e.Category, &e.Description, &e.Type, &e.Location,
+		&e.Title, &e.Tier, crit, reward); err != nil {
+		return err
+	}
+	e.Criteria = crit.Data
+	e.Rewards = reward.Data
+	return nil
+}
+
 func (e *Event) Fill() error {
 	var errs []error
 	errs = append(errs, fill(e.Criteria))
@@ -117,6 +153,18 @@ type Events struct {
 
 func (es *Events) Fill() error {
 	return fill(es.Events)
+}
+
+func (es *Events) Cache() error {
+	var errs []error
+	for _, e := range es.Events {
+		errs = append(errs, e.Cache())
+	}
+	return errors.Join(errs...)
+}
+
+func (es *Events) Get() error {
+	return fmt.Errorf("Not implemented")
 }
 
 type AcceptedContribution struct {

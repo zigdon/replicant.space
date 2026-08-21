@@ -483,7 +483,7 @@ func DeviceLogs(id *models.CodeAlias, limit int) (*models.DeviceLogs, error) {
 			if logs.NextCursor == 0 {
 				break
 			}
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(500 * time.Millisecond)
 			cursor = logs.NextCursor
 		}
 	}
