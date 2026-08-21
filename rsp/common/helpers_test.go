@@ -190,6 +190,7 @@ func TestStringify(t *testing.T) {
 	jt := new(models.JSONTime).Set(now)
 	var jtd models.JSONTimeDelta
 	_ = jtd.UnmarshalJSON([]byte(`"300s"`))
+	dur := time.Duration(5 * time.Minute)
 
 	tests := []struct {
 		input    any
@@ -198,7 +199,7 @@ func TestStringify(t *testing.T) {
 		{"hello", "hello"},
 		{1234567, "1,234,567"},
 		{float32(1234.5), "1,234.50"},
-		{durPtr(5 * time.Minute), "in 5m0s"},
+		{dur, "in 5m0s"},
 		{devPtr, "af-1"},
 		{dev, "af-1"},
 		{ca, "af-1"},
@@ -223,10 +224,6 @@ func TestStringify(t *testing.T) {
 	if !strings.Contains(customStr, `"name": "test"`) {
 		t.Errorf("stringify(struct) JSON output mismatch: got %q", customStr)
 	}
-}
-
-func durPtr(d time.Duration) time.Duration {
-	return d
 }
 
 func TestCountList(t *testing.T) {

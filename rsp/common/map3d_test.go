@@ -182,8 +182,8 @@ func TestDrawLine3D(t *testing.T) {
 
 	// Check that runes were set along the line
 	hasDrawn := false
-	for y := 0; y < 20; y++ {
-		for x := 0; x < 40; x++ {
+	for y := range 20 {
+		for x := range 40 {
 			if canvas.RuneAt(x, y) != ' ' {
 				hasDrawn = true
 				break
@@ -417,9 +417,14 @@ func TestBuildNetworkGraph(t *testing.T) {
 		t.Fatalf("Expected 1 link between hub and relay 12ly apart, got %d", len(g2.Links))
 	}
 	link := g2.Links[0]
-	if !link.IsFromReach || link.IsToReach || link.Bidirectional {
-		t.Errorf("Expected asymmetric reach from SOL to ALPHA, got FromReach=%v, ToReach=%v, Bi=%v",
-			link.IsFromReach, link.IsToReach, link.Bidirectional)
+	if link.Bidirectional {
+		t.Errorf("Expected asymmetric connection, got bidirectional")
+	}
+	solCanReach := (link.FromStar == "SOL" && link.IsFromReach) || (link.ToStar == "SOL" && link.IsToReach)
+	alphaCanReach := (link.FromStar == "ALPHA" && link.IsFromReach) || (link.ToStar == "ALPHA" && link.IsToReach)
+	if !solCanReach || alphaCanReach {
+		t.Errorf("Expected asymmetric reach from SOL to ALPHA, got solCanReach=%v, alphaCanReach=%v (FromStar=%s, ToStar=%s, FromReach=%v, ToReach=%v)",
+			solCanReach, alphaCanReach, link.FromStar, link.ToStar, link.IsFromReach, link.IsToReach)
 	}
 	if len(g2.Subnets) != 1 {
 		t.Errorf("Expected 1 connected subnet, got %d", len(g2.Subnets))

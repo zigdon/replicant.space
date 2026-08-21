@@ -7,12 +7,7 @@ import (
 )
 
 // Aliases
-var prefixes = map[string]string{
-	"maintenance_drone": "mtd",
-	"mass_driver":       "mdr",
-	"service_bot":       "svb",
-	"surge_platform":    "spf",
-}
+var prefixes = make(map[string]string)
 
 func (db *Cache) GetAliasAndType(code string) (string, string) {
 	if db == nil || db.DB == nil {
