@@ -436,6 +436,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				}
 
 				var devType string
+				var todo int
 				for _, fb := range fbs {
 					if fb.Status != "monitoring" && fb.Type == "ftl_beacon" {
 						continue
@@ -448,11 +449,16 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 						return eta, fmt.Errorf("Can't get star %q for %s: %v",
 							fb.Location, fb.Code.Alias(), err)
 					}
+					todo++
 					if dist := star.Position.Distance(curStar.Position); nearest == 0 || dist < nearest {
 						nearest = dist
 						dest = star.Designation.Star()
 						devType = fb.Type
 					}
+				}
+				log("%d beacons out of network", todo)
+				if todo == 0 {
+					return time.Now().Add(5 * time.Minute), nil
 				}
 				log("Next %s: %s (%.2f LY away)", devType, dest, nearest)
 				rm.dest = models.LocationID(dest)

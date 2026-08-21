@@ -3,6 +3,7 @@ package auto
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/zigdon/rsp/common"
@@ -296,7 +297,9 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		// because Reasons(tm), we should make sure the device is owned by our resident replicant
 		if _, err := deviceCommand(fb, "change_owner",
 			map[string]any{"target": bm.replicant.String()}, bm.dryRun); err != nil {
-			return eta, err
+			if !strings.Contains(err.Error(), "Device already belongs to that replicant") {
+				return eta, err
+			}
 		}
 		if _, err := deviceCommand(fb, "deploy", nil, bm.dryRun); err != nil {
 			return eta, err

@@ -269,7 +269,7 @@ type Site struct {
 }
 
 type Planet struct {
-	Atmosphere          string       `json:"atmosphere"`
+	Atmosphere          bool         `json:"atmosphere"`
 	AxialTiltDeg        float32      `json:"axial_tilt_deg"`
 	DensityGcc          float32      `json:"density_gcc"`
 	Designation         LocationID   `json:"designation"`
@@ -461,6 +461,9 @@ func (l *Location) Cache() error {
 	}
 	if len(l.Inventory) > 0 {
 		res := make(map[string]any)
+		for _, r := range []string{"carbon", "conductive", "rares", "silicates", "structural", "volatiles"} {
+			res[r] = 0
+		}
 		for _, i := range l.Inventory {
 			res[i.ResourceType] = i.Quantity
 		}

@@ -72,10 +72,10 @@ func getTeleportDests(loc string) ([]*models.Device, error) {
 	var cradles []*models.Device
 	// By accident, we prefer shorter names than longer - hub > vessel > matrix
 	rows, err := db.DB.Query(`
-	  SELECT blueprint_type
-	  FROM blueprint_features
-	  WHERE feature = 'cradle'
-	  ORDER BY length(blueprint_type);`)
+	  SELECT type
+	  FROM blueprints
+	  WHERE 'cradle' = any(features)
+	  ORDER BY length(type);`)
 	if err != nil {
 		return nil, err
 	}

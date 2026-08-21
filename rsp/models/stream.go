@@ -327,6 +327,11 @@ type StreamHubActivated struct {
 	Location LocationID `json:"location"`
 }
 
+type StreamHubMaintained struct {
+	Capacity          float32        `json:"capacity"`
+	ResourcesConsumed map[string]int `json:"resources_consumed"`
+}
+
 type StreamHubDestroyed struct {
 	Star     LocationID `json:"star"`
 	Location LocationID `json:"location"`

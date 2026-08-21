@@ -229,6 +229,10 @@ func waitPending(cmd *cobra.Command, args []string) error {
 		"ftl_beacon",
 		"system_hub",
 	}
+	// Fetch inventory from locations that have silent consumers
+	invDevices := []string{
+		"system_hub",
+	}
 	for cn, h := range []string{
 		"Code",
 		"Type",
@@ -269,6 +273,12 @@ func waitPending(cmd *cobra.Command, args []string) error {
 					_, err := rest.DeviceLogs(d.Code, 0)
 					if err != nil {
 						log("Error fetching logs from %q: %v", d.Code, err)
+					}
+				}
+				if slices.Contains(invDevices, d.Type) {
+					_, err := rest.Location(string(d.Location))
+					if err != nil {
+						log("Error fetching inventory from %q: %v", d.Location, err)
 					}
 				}
 				if !slices.Contains(activeDevices, d.Type) {

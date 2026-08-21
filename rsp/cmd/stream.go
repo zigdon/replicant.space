@@ -476,6 +476,23 @@ func readStream(cmd *cobra.Command, args []string) error {
 				change(&d.Status, "relaying")
 			}, env.DeviceCode)
 			relayNetwork[ev.Location.Star()] = true
+		case "hub.maintained":
+			ev, err := models.Parse[models.StreamHubMaintained](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s @ %s (%.0f%%) consumed for maintanence: %v",
+				env.DeviceCode.Alias(), env.Location, ev.Capacity, ev.ResourcesConsumed)
+			update(func(d *models.Device) {
+				change(&d.OperationalCapacity, ev.Capacity)
+			}, env.DeviceCode)
+			for k, v := range ev.ResourcesConsumed {
+				ev.ResourcesConsumed[k] = -v
+			}
+			if err := db.UpdateInventory(false, string(env.Location), ev.ResourcesConsumed); err != nil {
+				log("Error updating inventory: %v", err)
+			}
 		case "message.new":
 			ev, err := models.Parse[models.StreamMessageNew](payload)
 			if err != nil {

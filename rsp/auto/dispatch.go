@@ -114,6 +114,7 @@ func (dm *DispatchMachine) UpdateState() error {
 	if err != nil {
 		return fmt.Errorf("Can't get deliveries: %v", err)
 	}
+	dm.tasks = dm.tasks[:0]
 	for rows.Next() {
 		var from, to, ship string
 		var cData, data []byte
@@ -261,13 +262,14 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 				dropoff:   loc,
 				resources: make(map[string]int),
 			}
+			space := 500
 			for k, v := range missing {
-				if missing[k] <= res[k] {
-					task.resources[k] = v
+				v = min(v, space, res[k])
+				task.resources[k] = v
+				missing[k] -= v
+				space -= v
+				if missing[k] <= 0 {
 					delete(missing, k)
-				} else {
-					task.resources[k] = res[k]
-					missing[k] = v - res[k]
 				}
 			}
 			tasks = append(tasks, task)
@@ -309,6 +311,7 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 	// - If the assigned freighter is at the pickup, load up the resource, head to destination
 	// - If the assigned freighter is at the destination, unload and remove the task
 	// - If it's anywhere else, just delete the task, let a new one be minted
+	log("%d tasks pending", len(dm.tasks))
 	for _, t := range dm.tasks {
 		log("Processing delivery of %#v %s->%s", t.resources, t.pickup, t.dropoff)
 		if t.ship != nil {
@@ -377,6 +380,8 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 					errs = append(errs,
 						fmt.Errorf("Can't %s can't collect %v at %s: %v",
 							t.ship.Code, t.resources, t.pickup, err))
+					// Refresh the inventory in the location because we trust nothing.
+					rest.Location(string(t.pickup))
 					continue
 				}
 			}

@@ -110,7 +110,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 				delete(sms, d.Alias())
 				return nil
 			}
-			return fmt.Errorf("%s error: %v", d.Alias(), err)
+			log("%s error: %v", d.Alias(), err)
 		} else if t.IsZero() {
 			err = fmt.Errorf("%s: No time for next step", d.Alias())
 		}
