@@ -28,6 +28,14 @@ var plotMapCmd = &cobra.Command{
 	RunE:              runPlotMapCmd,
 }
 
+var travelMapCmd = &cobra.Command{
+	Use:               "travel [center_or_coords]",
+	Aliases:           []string{"travelling", "routes", "transit"},
+	Short:             "Visualize routes and estimated positions of travelling devices",
+	ValidArgsFunction: completeStars,
+	RunE:              runTravelMapCmd,
+}
+
 func init() {
 	rootCmd.AddCommand(mapCmd)
 	mapCmd.Flags().Float32P("radius", "r", 500.0, "Viewing radius in light-years")
@@ -44,8 +52,28 @@ func init() {
 	mapCmd.Flags().Bool("device_only", false, "Filter map to only show stars with matching devices")
 	mapCmd.Flags().BoolP("network", "N", false, "Overlay FTL relay network connections")
 	mapCmd.Flags().Bool("network_only", false, "Filter map to only show stars with active relay network devices")
+	mapCmd.Flags().BoolP("travel", "t", false, "Overlay routes and estimated markers of travelling devices")
+	mapCmd.Flags().Bool("travel_only", false, "Filter map to only show stars with travelling devices")
+	mapCmd.Flags().StringSlice("travel_devices", nil, "Filter travelling devices by code or alias")
+	mapCmd.Flags().StringSlice("travel_types", nil, "Filter travelling devices by type")
+	mapCmd.Flags().StringSlice("travel_from", nil, "Filter travelling devices by source star system")
+	mapCmd.Flags().StringSlice("travel_to", nil, "Filter travelling devices by destination star system")
 	mapCmd.Flags().IntP("width", "w", 100, "Width in columns for static map")
 	mapCmd.Flags().IntP("height", "H", 35, "Height in rows for static map")
+
+	// Register travel subcommand under map
+	mapCmd.AddCommand(travelMapCmd)
+	travelMapCmd.Flags().Float32P("radius", "r", 0.0, "Viewing radius in light-years (auto-scaled if 0)")
+	travelMapCmd.Flags().StringP("center", "c", "", "Center star or coordinates (X,Y,Z) (auto-centered if empty)")
+	travelMapCmd.Flags().StringP("plane", "p", "3d", "Projection plane: 3d, xy, xz, yz")
+	travelMapCmd.Flags().BoolP("static", "s", false, "Render static ASCII snapshot to stdout")
+	travelMapCmd.Flags().StringSliceP("devices", "d", nil, "Filter by specific device codes or aliases (comma-separated, e.g. hv-1,cv-2)")
+	travelMapCmd.Flags().StringSliceP("types", "T", nil, "Filter by device types (comma-separated, e.g. cargo_freighter,heaven_vessel)")
+	travelMapCmd.Flags().StringSliceP("from", "f", nil, "Filter by source star systems (comma-separated, e.g. GORUMIUN,SOL)")
+	travelMapCmd.Flags().StringSliceP("to", "t", nil, "Filter by destination star systems (comma-separated, e.g. ALPHA,BETILGEUSE)")
+	travelMapCmd.Flags().Bool("travel_only", false, "Filter map to only show stars with travelling devices")
+	travelMapCmd.Flags().IntP("width", "w", 100, "Width in columns for static map")
+	travelMapCmd.Flags().IntP("height", "H", 35, "Height in rows for static map")
 
 	// Also register under plot
 	plotCmd.AddCommand(plotMapCmd)
@@ -54,6 +82,7 @@ func init() {
 	plotMapCmd.Flags().BoolP("static", "s", false, "Render static ASCII snapshot to stdout")
 	plotMapCmd.Flags().StringSliceP("devices", "d", nil, "List of device types to overlay (comma-separated, e.g. autofactory,mining_drone)")
 	plotMapCmd.Flags().BoolP("network", "N", false, "Overlay FTL relay network connections")
+	plotCmd.AddCommand(travelMapCmd)
 }
 
 func parseCenterPosition(input string) (common.Vec3, string, error) {
@@ -162,6 +191,283 @@ func loadStarsFromDB(center common.Vec3, radius float32) ([]*models.Star, error)
 		})
 	}
 	return stars, nil
+}
+
+func loadTravellingDevices(filter *common.TravelFilterOptions, stars []*models.Star) ([]*common.TravellingDevice, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database cache is not connected")
+	}
+
+	starLookup := make(map[string]common.Vec3)
+	for _, s := range stars {
+		if s != nil && s.Position != nil {
+			starLookup[string(s.Designation)] = common.Vec3{X: s.Position.X, Y: s.Position.Y, Z: s.Position.Z}
+		}
+	}
+
+	rows, err := db.DB.Query(`
+		SELECT code, type, location, COALESCE(status, ''), data
+		FROM json_devices
+		WHERE data->'travel' IS NOT NULL 
+		  AND data->'travel' != 'null'::jsonb
+	`)
+	var devs []*models.Device
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var code, dType, loc, stat string
+			var data []byte
+			if err := rows.Scan(&code, &dType, &loc, &stat, &data); err == nil {
+				if d, err := models.Parse[models.Device](data); err == nil && d != nil {
+					d.Alias()
+					devs = append(devs, d)
+				}
+			}
+		}
+	} else {
+		var err2 error
+		devs, err2 = rest.CachedDevices(nil, true)
+		if err2 != nil {
+			return nil, err2
+		}
+		for _, d := range devs {
+			d.Alias()
+		}
+	}
+
+	for _, d := range devs {
+		if d.Travel != nil {
+			orig := strings.ToUpper(strings.TrimSpace(d.Travel.Origin.Star()))
+			if orig == "" && d.Location != "" {
+				orig = strings.ToUpper(strings.TrimSpace(d.Location.Star()))
+			}
+			dest := strings.ToUpper(strings.TrimSpace(d.Travel.Destination.Star()))
+			if orig != "" {
+				if _, ok := starLookup[orig]; !ok {
+					if st, err := models.NewStar(orig); err == nil && st != nil && st.Position != nil {
+						starLookup[orig] = common.Vec3{X: st.Position.X, Y: st.Position.Y, Z: st.Position.Z}
+					}
+				}
+			}
+			if dest != "" {
+				if _, ok := starLookup[dest]; !ok {
+					if st, err := models.NewStar(dest); err == nil && st != nil && st.Position != nil {
+						starLookup[dest] = common.Vec3{X: st.Position.X, Y: st.Position.Y, Z: st.Position.Z}
+					}
+				}
+			}
+			for _, leg := range d.Travel.Route {
+				fromStar := strings.ToUpper(strings.TrimSpace(leg.From.Star()))
+				toStar := strings.ToUpper(strings.TrimSpace(leg.To.Star()))
+				if fromStar != "" {
+					if _, ok := starLookup[fromStar]; !ok {
+						if st, err := models.NewStar(fromStar); err == nil && st != nil && st.Position != nil {
+							starLookup[fromStar] = common.Vec3{X: st.Position.X, Y: st.Position.Y, Z: st.Position.Z}
+						}
+					}
+				}
+				if toStar != "" {
+					if _, ok := starLookup[toStar]; !ok {
+						if st, err := models.NewStar(toStar); err == nil && st != nil && st.Position != nil {
+							starLookup[toStar] = common.Vec3{X: st.Position.X, Y: st.Position.Y, Z: st.Position.Z}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return common.BuildTravellingDevices(devs, starLookup, filter), nil
+}
+
+func runTravelMapCmd(cmd *cobra.Command, args []string) error {
+	filter := &common.TravelFilterOptions{
+		Devices:     getStringSlice(cmd, "devices"),
+		DeviceTypes: getStringSlice(cmd, "types"),
+		SourceStars: getStringSlice(cmd, "from"),
+		DestStars:   getStringSlice(cmd, "to"),
+	}
+
+	tds, err := loadTravellingDevices(filter, nil)
+	if err != nil {
+		return fmt.Errorf("failed to query travelling devices: %w", err)
+	}
+
+	staticMode := getBool(cmd, "static")
+	plane := strings.ToLower(getString(cmd, "plane"))
+	width := getInt(cmd, "width")
+	height := getInt(cmd, "height")
+
+	if len(tds) == 0 {
+		if staticMode {
+			fmt.Println("\x1b[1;33mNo travelling devices found matching criteria.\x1b[0m")
+			return nil
+		}
+	}
+
+	var center common.Vec3
+	var centerName string
+	centerInput := getString(cmd, "center")
+	if len(args) > 0 {
+		centerInput = args[0]
+	}
+
+	radius := getFloat32(cmd, "radius")
+
+	if centerInput != "" {
+		c, cName, err := parseCenterPosition(centerInput)
+		if err != nil {
+			return err
+		}
+		center = c
+		centerName = cName
+	} else if len(tds) > 0 {
+		var minX, maxX, minY, maxY, minZ, maxZ float32
+		first := true
+		for _, td := range tds {
+			points := []common.Vec3{td.OriginPos, td.DestinationPos, td.EstimatedPos}
+			for _, leg := range td.RouteLegs {
+				if leg.FromPosition != nil {
+					points = append(points, common.Vec3{X: leg.FromPosition.X, Y: leg.FromPosition.Y, Z: leg.FromPosition.Z})
+				}
+				if leg.ToPosition != nil {
+					points = append(points, common.Vec3{X: leg.ToPosition.X, Y: leg.ToPosition.Y, Z: leg.ToPosition.Z})
+				}
+			}
+			for _, pt := range points {
+				if first {
+					minX, maxX = pt.X, pt.X
+					minY, maxY = pt.Y, pt.Y
+					minZ, maxZ = pt.Z, pt.Z
+					first = false
+				} else {
+					if pt.X < minX {
+						minX = pt.X
+					}
+					if pt.X > maxX {
+						maxX = pt.X
+					}
+					if pt.Y < minY {
+						minY = pt.Y
+					}
+					if pt.Y > maxY {
+						maxY = pt.Y
+					}
+					if pt.Z < minZ {
+						minZ = pt.Z
+					}
+					if pt.Z > maxZ {
+						maxZ = pt.Z
+					}
+				}
+			}
+		}
+		center = common.Vec3{
+			X: (minX + maxX) / 2.0,
+			Y: (minY + maxY) / 2.0,
+			Z: (minZ + maxZ) / 2.0,
+		}
+		centerName = center.String()
+	} else {
+		center, centerName, _ = parseCenterPosition("GORUMIUN")
+	}
+
+	if radius <= 0 {
+		if len(tds) > 0 {
+			var maxDist float32
+			for _, td := range tds {
+				points := []common.Vec3{td.OriginPos, td.DestinationPos, td.EstimatedPos}
+				for _, leg := range td.RouteLegs {
+					if leg.FromPosition != nil {
+						points = append(points, common.Vec3{X: leg.FromPosition.X, Y: leg.FromPosition.Y, Z: leg.FromPosition.Z})
+					}
+					if leg.ToPosition != nil {
+						points = append(points, common.Vec3{X: leg.ToPosition.X, Y: leg.ToPosition.Y, Z: leg.ToPosition.Z})
+					}
+				}
+				for _, pt := range points {
+					d := center.Distance(pt)
+					if d > maxDist {
+						maxDist = d
+					}
+				}
+			}
+			radius = maxDist * 1.4
+			if radius < 15.0 {
+				radius = 15.0
+			}
+		} else {
+			radius = 30.0
+		}
+	}
+
+	stars, err := loadStarsFromDB(center, radius)
+	if err != nil {
+		return fmt.Errorf("failed to query stars: %w", err)
+	}
+
+	existingStarMap := make(map[string]bool)
+	for _, s := range stars {
+		existingStarMap[string(s.Designation)] = true
+	}
+	for _, td := range tds {
+		checkStars := []string{td.Origin, td.Destination}
+		for _, leg := range td.RouteLegs {
+			checkStars = append(checkStars, leg.From, leg.To)
+		}
+		for _, sName := range checkStars {
+			if sName != "" && !existingStarMap[sName] {
+				if st, err := models.NewStar(sName); err == nil && st != nil {
+					stars = append(stars, st)
+					existingStarMap[sName] = true
+				}
+			}
+		}
+	}
+
+	opts := common.DefaultMapLayerOptions()
+	opts.ShowTravel = true
+	opts.TravellingDevices = tds
+	opts.TravelFilter = filter
+	if getBool(cmd, "travel_only") {
+		opts.FilterTravelOnly = true
+	}
+
+	if staticMode {
+		cam := common.NewCamera3D(width, height)
+		cam.Center = center
+		cam.Radius = radius
+		switch plane {
+		case "xy":
+			cam.Mode = common.ProjPlaneXY
+		case "xz":
+			cam.Mode = common.ProjPlaneXZ
+		case "yz":
+			cam.Mode = common.ProjPlaneYZ
+		default:
+			cam.Mode = common.Proj3DOrthographic
+		}
+
+		output, mapped := common.RenderGalaxyMap(cam, stars, opts)
+		fmt.Print(common.FormatMapHeader(cam, len(stars), len(mapped), nil))
+		fmt.Println(output)
+		fmt.Println(common.FormatMapLegend(opts))
+
+		if len(tds) > 0 {
+			fmt.Printf("\n\x1b[1;33m=== TRAVELLING DEVICES (%d in transit) ===\x1b[0m\n", len(tds))
+			for _, td := range tds {
+				eta := td.Eta
+				if eta == "" {
+					eta = "-"
+				}
+				fmt.Printf("  \x1b[1;33m▲ %-14s\x1b[0m (\x1b[36m%s\x1b[0m): \x1b[32m%s\x1b[0m -> \x1b[35m%s\x1b[0m  |  \x1b[1;37m%.0f%%\x1b[0m  |  ETA: \x1b[36m%s\x1b[0m  |  Pos: %s\n",
+					td.Alias, td.Type, td.Origin, td.Destination, td.ProgressPercent, eta, td.EstimatedPos.String())
+			}
+		}
+		return nil
+	}
+
+	return launchInteractiveMap(center, radius, stars, opts, centerName)
 }
 
 func runPlotMapCmd(cmd *cobra.Command, args []string) error {
@@ -317,6 +623,27 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 		opts.ShowNetwork = true
 		opts.FilterNetworkOnly = true
 	}
+	if getBool(cmd, "travel") || getBool(cmd, "travel_only") ||
+		len(getStringSlice(cmd, "travel_devices")) > 0 ||
+		len(getStringSlice(cmd, "travel_types")) > 0 ||
+		len(getStringSlice(cmd, "travel_from")) > 0 ||
+		len(getStringSlice(cmd, "travel_to")) > 0 {
+		tFilter := &common.TravelFilterOptions{
+			Devices:     getStringSlice(cmd, "travel_devices"),
+			DeviceTypes: getStringSlice(cmd, "travel_types"),
+			SourceStars: getStringSlice(cmd, "travel_from"),
+			DestStars:   getStringSlice(cmd, "travel_to"),
+		}
+		tds, err := loadTravellingDevices(tFilter, stars)
+		if err == nil && len(tds) > 0 {
+			opts.ShowTravel = true
+			opts.TravellingDevices = tds
+			opts.TravelFilter = tFilter
+			if getBool(cmd, "travel_only") {
+				opts.FilterTravelOnly = true
+			}
+		}
+	}
 	opts.SelectedStar = centerName
 
 	staticMode := getBool(cmd, "static")
@@ -386,6 +713,18 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 				fmt.Printf("  \x1b[1;33mSubnet #%d\x1b[0m (%d stars): %s\n", id, len(nodes), strings.Join(starNames, ", "))
 			}
 		}
+
+		if opts.ShowTravel && len(opts.TravellingDevices) > 0 {
+			fmt.Printf("\n\x1b[1;33m=== TRAVELLING DEVICES (%d in transit) ===\x1b[0m\n", len(opts.TravellingDevices))
+			for _, td := range opts.TravellingDevices {
+				eta := td.Eta
+				if eta == "" {
+					eta = "-"
+				}
+				fmt.Printf("  \x1b[1;33m▲ %-14s\x1b[0m (\x1b[36m%s\x1b[0m): \x1b[32m%s\x1b[0m -> \x1b[35m%s\x1b[0m  |  \x1b[1;37m%.0f%%\x1b[0m  |  ETA: \x1b[36m%s\x1b[0m  |  Pos: %s\n",
+					td.Alias, td.Type, td.Origin, td.Destination, td.ProgressPercent, eta, td.EstimatedPos.String())
+			}
+		}
 		return nil
 	}
 
@@ -429,22 +768,38 @@ func searchMapTarget(query string, loadedStars []*models.Star) (*models.Star, st
 
 	if db != nil && db.DB != nil {
 		var devCode, devType, devLoc string
+		var devData []byte
 		row := db.DB.QueryRow(`
-			SELECT code, type, location 
+			SELECT code, type, location, data 
 			FROM json_devices 
 			WHERE LOWER(code) = $1 OR LOWER(code) = $2 
 			LIMIT 1`, strings.ToLower(q), strings.ToLower(dealiased))
-		if err := row.Scan(&devCode, &devType, &devLoc); err == nil && devLoc != "" {
-			starName := models.LocationID(devLoc).Star()
-			st, err := models.NewStar(starName)
-			if err == nil && st != nil {
-				aliasName := q
-				if db != nil {
+		if err := row.Scan(&devCode, &devType, &devLoc, &devData); err == nil {
+			if d, err := models.Parse[models.Device](devData); err == nil && d != nil && d.Travel != nil && d.Travel.Destination != "" {
+				starName := models.LocationID(d.Travel.Destination).Star()
+				if starName == "" {
+					starName = models.LocationID(devLoc).Star()
+				}
+				st, err := models.NewStar(starName)
+				if err == nil && st != nil {
+					aliasName := q
 					if a := db.HasAlias(devCode); a != "" {
 						aliasName = a
 					}
+					travelInfo := fmt.Sprintf(" [in transit %s -> %s, %.0f%%]", d.Travel.Origin, d.Travel.Destination, d.Travel.ProgressPercent)
+					return st, fmt.Sprintf("Found device %s (%s)%s", aliasName, devType, travelInfo), nil
 				}
-				return st, fmt.Sprintf("Found device %s (%s) at %s (%s)", aliasName, devType, devLoc, starName), nil
+			}
+			if devLoc != "" {
+				starName := models.LocationID(devLoc).Star()
+				st, err := models.NewStar(starName)
+				if err == nil && st != nil {
+					aliasName := q
+					if a := db.HasAlias(devCode); a != "" {
+						aliasName = a
+					}
+					return st, fmt.Sprintf("Found device %s (%s) at %s (%s)", aliasName, devType, devLoc, starName), nil
+				}
 			}
 		}
 	}
@@ -516,7 +871,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		SetDynamicColors(true).
 		SetWrap(false)
 
-	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD/EC[-] Pan (X/Y/Z)  [yellow]/[-] Search  [yellow]Click[-] Select  [yellow]Tab[-] Target  [yellow]1-8[-] Filters  [yellow]r[-] Reset  [yellow]q[-] Quit")
+	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD/EC[-] Pan (X/Y/Z)  [yellow]/[-] Search  [yellow]Click[-] Select  [yellow]Tab[-] Target  [yellow]1-9[-] Filters  [yellow]r[-] Reset  [yellow]q[-] Quit")
 
 	searchInput := tview.NewInputField().
 		SetLabel(" [yellow::b]Search (System / Device / Alias):[-::-] ").
@@ -526,6 +881,51 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 
 	updateSidebar := func(target *common.StarMapPoint) {
 		sidebar.Clear()
+
+		// If a travelling device is explicitly selected
+		if opts.SelectedTravelDevice != "" {
+			var selectedTD *common.TravellingDevice
+			for _, td := range opts.TravellingDevices {
+				if strings.EqualFold(td.Code, opts.SelectedTravelDevice) || strings.EqualFold(td.Alias, opts.SelectedTravelDevice) {
+					selectedTD = td
+					break
+				}
+			}
+			if selectedTD != nil {
+				var tsb strings.Builder
+				tsb.WriteString(fmt.Sprintf("[yellow::b]=== TRAVELLING: %s ===[-::-]\n\n", selectedTD.Alias))
+				tsb.WriteString(fmt.Sprintf("[white]Device:[-] [yellow]%s[-] ([gray]%s[-])\n", selectedTD.Alias, selectedTD.Code))
+				tsb.WriteString(fmt.Sprintf("[white]Type:[-] [cyan]%s[-]\n", selectedTD.Type))
+				statusStr := selectedTD.Status
+				if statusStr == "" {
+					statusStr = "in transit"
+				}
+				tsb.WriteString(fmt.Sprintf("[white]Status:[-] [green]%s[-]\n\n", statusStr))
+				tsb.WriteString(fmt.Sprintf("[white]Origin:[-] [yellow]%s[-]\n", selectedTD.Origin))
+				tsb.WriteString(fmt.Sprintf("[white]Destination:[-] [yellow]%s[-]\n", selectedTD.Destination))
+				tsb.WriteString(fmt.Sprintf("[white]Progress:[-] [#ffaa00::b]%.1f%%[-::-]\n", selectedTD.ProgressPercent))
+				if selectedTD.Eta != "" {
+					tsb.WriteString(fmt.Sprintf("[white]ETA:[-] [green]%s[-]\n", selectedTD.Eta))
+				}
+				tsb.WriteString(fmt.Sprintf("\n[white]Est. Position:[-]\n  %s\n", selectedTD.EstimatedPos.String()))
+				if len(selectedTD.RouteLegs) > 0 {
+					tsb.WriteString(fmt.Sprintf("\n[cyan::b]=== ROUTE HOPS (%d) ===[-::-]\n", len(selectedTD.RouteLegs)))
+					for i, leg := range selectedTD.RouteLegs {
+						statusTag := "[gray][PENDING][-]"
+						if i < selectedTD.ActiveLegIndex {
+							statusTag = "[green][DONE][-]"
+						} else if i == selectedTD.ActiveLegIndex {
+							statusTag = "[yellow::b][ACTIVE][-::-]"
+						}
+						tsb.WriteString(fmt.Sprintf("%d. [yellow]%s[-] -> [yellow]%s[-] (%.1fly) %s\n",
+							i+1, leg.From, leg.To, leg.DistFromSrc, statusTag))
+					}
+				}
+				sidebar.SetText(tsb.String())
+				return
+			}
+		}
+
 		if target == nil || target.Star == nil {
 			sidebar.SetText("[cyan::b]=== TARGET DETAILS ===[-::-]\n\n[gray]No star selected.[-]\nUse [yellow]Tab[-] to cycle stars.")
 			return
@@ -567,6 +967,18 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 				st.Position.X, st.Position.Y, st.Position.Z))
 			distFromCenter := cam.Center.Distance(common.Vec3{X: st.Position.X, Y: st.Position.Y, Z: st.Position.Z})
 			sb.WriteString(fmt.Sprintf("[white]Dist to Center:[-] [yellow]%.2fly[-]\n", distFromCenter))
+		}
+
+		if len(target.Travelling) > 0 {
+			sb.WriteString(fmt.Sprintf("\n[yellow::b]=== INCOMING / OUTGOING TRAVEL (%d) ===[-::-]\n", len(target.Travelling)))
+			for _, td := range target.Travelling {
+				dir := "Departing to"
+				if strings.EqualFold(td.Destination, string(st.Designation)) {
+					dir = "Arriving from"
+				}
+				sb.WriteString(fmt.Sprintf("• [yellow::b]%s[-] ([white]%s[-])\n    %s: [cyan]%s[-] (%.0f%%, ETA: %s)\n",
+					td.Alias, td.Type, dir, td.Destination, td.ProgressPercent, td.Eta))
+			}
 		}
 
 		if len(target.Devices) > 0 {
@@ -655,9 +1067,13 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 				selectedIndex = 0
 			}
 			selectedPoint = currentMapped[selectedIndex]
-			opts.SelectedStar = string(selectedPoint.Star.Designation)
+			if opts.SelectedTravelDevice == "" {
+				opts.SelectedStar = string(selectedPoint.Star.Designation)
+			}
 		} else {
-			opts.SelectedStar = ""
+			if opts.SelectedTravelDevice == "" {
+				opts.SelectedStar = ""
+			}
 		}
 
 		var filterBadges []string
@@ -701,6 +1117,11 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		} else {
 			filterBadges = append(filterBadges, "[gray][8:Network][-]")
 		}
+		if opts.ShowTravel {
+			filterBadges = append(filterBadges, "[#ffaa00::b][9:Travel:ON][-::-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][9:Travel][-]")
+		}
 
 		var devSummary string
 		if opts.StarDevices != nil && len(opts.StarDevices) > 0 {
@@ -716,11 +1137,28 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			netSummary = fmt.Sprintf(" | Net: [cyan]%d nodes, %d links[-]", len(opts.Network.Nodes), len(opts.Network.Links))
 		}
 
-		var hudSb strings.Builder
-		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total%s%s\n",
-			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars), devSummary, netSummary))
+		var travelSummary string
+		if opts.ShowTravel && len(opts.TravellingDevices) > 0 {
+			travelSummary = fmt.Sprintf(" | In Transit: [yellow]%d dev[-]", len(opts.TravellingDevices))
+		}
 
-		if selectedPoint != nil && selectedPoint.Star != nil {
+		var hudSb strings.Builder
+		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total%s%s%s\n",
+			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars), devSummary, netSummary, travelSummary))
+
+		if opts.SelectedTravelDevice != "" {
+			var selTD *common.TravellingDevice
+			for _, td := range opts.TravellingDevices {
+				if strings.EqualFold(td.Code, opts.SelectedTravelDevice) || strings.EqualFold(td.Alias, opts.SelectedTravelDevice) {
+					selTD = td
+					break
+				}
+			}
+			if selTD != nil {
+				hudSb.WriteString(fmt.Sprintf("[white::b]Travelling Device:[-] [yellow::b]%s[-] ([cyan]%s[-]) | [white]%s -> %s[-] | Progress: [#ffaa00::b]%.1f%%[-::-] | ETA: [green]%s[-] | Pos: %s\n",
+					selTD.Alias, selTD.Type, selTD.Origin, selTD.Destination, selTD.ProgressPercent, selTD.Eta, selTD.EstimatedPos.String()))
+			}
+		} else if selectedPoint != nil && selectedPoint.Star != nil {
 			st := selectedPoint.Star
 			name := st.Name
 			if name == "" {
@@ -744,6 +1182,9 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			if selectedPoint.NetworkNode != nil {
 				devInfoStr += fmt.Sprintf(" | [cyan]Net#%d:%.1fly[-]", selectedPoint.NetworkNode.SubnetID, selectedPoint.NetworkNode.MaxRange)
 			}
+			if len(selectedPoint.Travelling) > 0 {
+				devInfoStr += fmt.Sprintf(" | [yellow]Transit: %d[-]", len(selectedPoint.Travelling))
+			}
 
 			hudSb.WriteString(fmt.Sprintf("[white::b]Target:[-] [yellow::b]%s[-] ([white]%s[-]) | Class: [cyan]%s[-] | Planets: [white]%d[-] | Life: %s | Hub: %s%s | Pos: %s\n",
 				st.Designation, name, st.SpectralType, st.EstimatedPlanets, lifeStr, hubStr, devInfoStr, st.Position.String()))
@@ -766,11 +1207,11 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 	hud.SetBorder(true).SetTitle(" Stellar Cartography ")
 	help.SetBorder(false)
 	mapView.SetBorder(true).SetTitle(" 3D Viewport ")
-	sidebar.SetBorder(true).SetTitle(" Star Inspector ")
+	sidebar.SetBorder(true).SetTitle(" Star / Target Inspector ")
 
 	centerRow := tview.NewFlex().SetDirection(tview.FlexColumn)
 	centerRow.AddItem(mapView, 0, 3, true)
-	centerRow.AddItem(sidebar, 28, 1, false)
+	centerRow.AddItem(sidebar, 30, 1, false)
 
 	mainFlex.AddItem(hud, 6, 0, false)
 	mainFlex.AddItem(centerRow, 0, 1, true)
@@ -784,6 +1225,34 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			if mx >= vx && mx < vx+vw && my >= vy && my < vy+vh {
 				rx := mx - vx
 				ry := my - vy
+
+				// Check travelling device hits first
+				if opts.ShowTravel && len(opts.MappedTravelling) > 0 {
+					for _, mp := range opts.MappedTravelling {
+						if mp == nil || !mp.Visible {
+							continue
+						}
+						// 1. Direct hit on travel marker
+						if mp.ScreenX == rx && mp.ScreenY == ry {
+							opts.SelectedTravelDevice = mp.Device.Code
+							opts.SelectedStar = ""
+							searchStatusMsg = fmt.Sprintf("[green]Selected travelling device: %s (%s) [%.0f%% to %s][-]",
+								mp.Device.Alias, mp.Device.Type, mp.Device.ProgressPercent, mp.Device.Destination)
+							redraw()
+							return action, nil
+						}
+						// 2. Hit on travel label
+						labelLen := len(mp.Device.Alias) + 8
+						if mp.ScreenY == ry && rx >= mp.ScreenX && rx <= mp.ScreenX+2+labelLen {
+							opts.SelectedTravelDevice = mp.Device.Code
+							opts.SelectedStar = ""
+							searchStatusMsg = fmt.Sprintf("[green]Selected travelling device: %s (%s) [%.0f%% to %s][-]",
+								mp.Device.Alias, mp.Device.Type, mp.Device.ProgressPercent, mp.Device.Destination)
+							redraw()
+							return action, nil
+						}
+					}
+				}
 
 				var bestStar *common.StarMapPoint
 				var bestDist float32 = 999999
@@ -826,6 +1295,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 				if bestStar != nil {
 					selectedIndex = bestIdx
 					opts.SelectedStar = string(bestStar.Star.Designation)
+					opts.SelectedTravelDevice = ""
 					searchStatusMsg = fmt.Sprintf("[green]Selected: %s (%s)[-]", bestStar.Star.Designation, bestStar.Star.Name)
 					redraw()
 					return action, nil
@@ -840,27 +1310,46 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		if key == tcell.KeyEnter {
 			query := strings.TrimSpace(searchInput.GetText())
 			if query != "" {
-				matched, info, err := searchMapTarget(query, stars)
-				if err != nil {
-					searchStatusMsg = fmt.Sprintf("[red::b]✗ %v[-::-]", err)
-				} else if matched != nil {
-					foundInSlice := false
-					for _, s := range stars {
-						if s != nil && s.Designation == matched.Designation {
-							foundInSlice = true
+				// Check travelling devices first
+				foundTravel := false
+				if opts.ShowTravel && len(opts.TravellingDevices) > 0 {
+					for _, td := range opts.TravellingDevices {
+						if strings.EqualFold(td.Code, query) || strings.EqualFold(td.Alias, query) {
+							opts.SelectedTravelDevice = td.Code
+							opts.SelectedStar = ""
+							cam.Center = td.EstimatedPos
+							searchStatusMsg = fmt.Sprintf("[green::b]✓ In-transit %s (%s) [%.0f%% to %s][-::-]",
+								td.Alias, td.Type, td.ProgressPercent, td.Destination)
+							foundTravel = true
 							break
 						}
 					}
-					if !foundInSlice {
-						stars = append(stars, matched)
-					}
+				}
 
-					if matched.Position != nil {
-						cam.Center = common.Vec3{X: matched.Position.X, Y: matched.Position.Y, Z: matched.Position.Z}
+				if !foundTravel {
+					matched, info, err := searchMapTarget(query, stars)
+					if err != nil {
+						searchStatusMsg = fmt.Sprintf("[red::b]✗ %v[-::-]", err)
+					} else if matched != nil {
+						foundInSlice := false
+						for _, s := range stars {
+							if s != nil && s.Designation == matched.Designation {
+								foundInSlice = true
+								break
+							}
+						}
+						if !foundInSlice {
+							stars = append(stars, matched)
+						}
+
+						if matched.Position != nil {
+							cam.Center = common.Vec3{X: matched.Position.X, Y: matched.Position.Y, Z: matched.Position.Z}
+						}
+						opts.SelectedStar = string(matched.Designation)
+						opts.SelectedTravelDevice = ""
+						initialTarget = string(matched.Designation)
+						searchStatusMsg = fmt.Sprintf("[green::b]✓ %s[-::-]", info)
 					}
-					opts.SelectedStar = string(matched.Designation)
-					initialTarget = string(matched.Designation)
-					searchStatusMsg = fmt.Sprintf("[green::b]✓ %s[-::-]", info)
 				}
 			}
 		}
@@ -983,6 +1472,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			if len(currentMapped) > 0 {
 				selectedIndex = (selectedIndex + 1) % len(currentMapped)
 				opts.SelectedStar = string(currentMapped[selectedIndex].Star.Designation)
+				opts.SelectedTravelDevice = ""
 				redraw()
 			}
 			return nil
@@ -990,11 +1480,12 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			if len(currentMapped) > 0 {
 				selectedIndex = (selectedIndex - 1 + len(currentMapped)) % len(currentMapped)
 				opts.SelectedStar = string(currentMapped[selectedIndex].Star.Designation)
+				opts.SelectedTravelDevice = ""
 				redraw()
 			}
 			return nil
 
-		// Layer toggles: 1=Life, 2=Hubs, 3=Explored, 4=Grid, 5=Labels, 6=Regions, 7=Devices, 8=Network
+		// Layer toggles: 1=Life, 2=Hubs, 3=Explored, 4=Grid, 5=Labels, 6=Regions, 7=Devices, 8=Network, 9=Travel
 		case r == '1':
 			opts.FilterLifeOnly = !opts.FilterLifeOnly
 			selectedIndex = 0
@@ -1030,6 +1521,16 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.ShowNetwork = !opts.ShowNetwork
 			redraw()
 			return nil
+		case r == '9' || r == 't' || r == 'T':
+			opts.ShowTravel = !opts.ShowTravel
+			if opts.ShowTravel && len(opts.TravellingDevices) == 0 {
+				tds, err := loadTravellingDevices(opts.TravelFilter, stars)
+				if err == nil {
+					opts.TravellingDevices = tds
+				}
+			}
+			redraw()
+			return nil
 
 		// Reset View
 		case r == 'r' || r == 'R':
@@ -1044,12 +1545,15 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.FilterRegion = ""
 			opts.FilterDevicesOnly = false
 			opts.FilterNetworkOnly = false
+			opts.FilterTravelOnly = false
 			opts.ShowRegions = false
 			opts.ShowDevices = (len(opts.DeviceTypes) > 0)
 			opts.ShowNetwork = (opts.Network != nil && len(opts.Network.Nodes) > 0)
+			opts.ShowTravel = (len(opts.TravellingDevices) > 0)
 			opts.ShowGrid = true
 			opts.ShowLabels = true
 			opts.SelectedStar = initialTarget
+			opts.SelectedTravelDevice = ""
 			searchStatusMsg = ""
 			selectedIndex = 0
 			redraw()

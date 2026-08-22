@@ -3,6 +3,7 @@ package common
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zigdon/rsp/models"
 )
@@ -494,3 +495,214 @@ func TestNetworkOverlay(t *testing.T) {
 		t.Errorf("FormatMapLegend with network mismatch: %s", leg)
 	}
 }
+
+func TestBuildTravellingDevices(t *testing.T) {
+	starLookup := map[string]Vec3{
+		"SOL":        {X: 0, Y: 0, Z: 0},
+		"ALPHA":      {X: 10, Y: 0, Z: 0},
+		"BETILGEUSE": {X: 20, Y: 0, Z: 0},
+		"VEGA":       {X: 0, Y: 30, Z: 0},
+	}
+
+	devs := []*models.Device{
+		{
+			Code: models.NewCodeAlias("hv-1"),
+			Type: "heaven_vessel",
+			Travel: &models.Trip{
+				Origin:          "SOL",
+				Destination:     "BETILGEUSE",
+				ProgressPercent: 50.0,
+				Eta:             &models.JSONTimeDelta{},
+				Route: []*models.TripLeg{
+					{From: "SOL", To: "ALPHA", DistanceLy: 10.0, Leg: 1},
+					{From: "ALPHA", To: "BETILGEUSE", DistanceLy: 10.0, Leg: 2},
+				},
+			},
+		},
+		{
+			Code: models.NewCodeAlias("cf-1"),
+			Type: "cargo_freighter",
+			Travel: &models.Trip{
+				Origin:          "ALPHA",
+				Destination:     "VEGA",
+				ProgressPercent: 25.0,
+			},
+		},
+		{
+			Code: models.NewCodeAlias("md-1"),
+			Type: "mining_drone",
+			Travel: &models.Trip{
+				Origin:          "SOL",
+				Destination:     "SOL",
+				ProgressPercent: 75.0,
+			},
+		},
+		{
+			Code: models.NewCodeAlias("idle-1"),
+			Type: "autofactory",
+		},
+	}
+
+	// 1. Unfiltered
+	tds := BuildTravellingDevices(devs, starLookup, nil)
+	if len(tds) != 3 {
+		t.Fatalf("Expected 3 travelling devices, got %d", len(tds))
+	}
+
+	// Verify hv-1 position: Sol(0,0,0) -> Alpha(10,0,0) -> Betilgeuse(20,0,0) at 50% = (10, 0, 0)
+	var hv1 *TravellingDevice
+	for _, td := range tds {
+		if td.Code == "hv-1" {
+			hv1 = td
+			break
+		}
+	}
+	if hv1 == nil {
+		t.Fatalf("hv-1 not found in travelling devices")
+	}
+	if hv1.EstimatedPos.X != 10 || hv1.EstimatedPos.Y != 0 || hv1.EstimatedPos.Z != 0 {
+		t.Errorf("hv-1 estimated pos mismatch: got %v, expected [10, 0, 0]", hv1.EstimatedPos)
+	}
+	if len(hv1.RouteLegs) != 2 {
+		t.Errorf("hv-1 expected 2 route legs, got %d", len(hv1.RouteLegs))
+	}
+
+	// 2. Filter by specific device
+	filterDev := &TravelFilterOptions{Devices: []string{"hv-1"}}
+	tdsDev := BuildTravellingDevices(devs, starLookup, filterDev)
+	if len(tdsDev) != 1 || tdsDev[0].Code != "hv-1" {
+		t.Errorf("Filter by device failed: got %d devices", len(tdsDev))
+	}
+
+	// 3. Filter by device type
+	filterType := &TravelFilterOptions{DeviceTypes: []string{"cargo_freighter"}}
+	tdsType := BuildTravellingDevices(devs, starLookup, filterType)
+	if len(tdsType) != 1 || tdsType[0].Code != "cf-1" {
+		t.Errorf("Filter by type failed: got %d devices", len(tdsType))
+	}
+
+	// 4. Filter by source star
+	filterSrc := &TravelFilterOptions{SourceStars: []string{"SOL"}}
+	tdsSrc := BuildTravellingDevices(devs, starLookup, filterSrc)
+	if len(tdsSrc) != 2 {
+		t.Errorf("Filter by source failed: expected 2, got %d", len(tdsSrc))
+	}
+
+	// 5. Filter by destination star
+	filterDst := &TravelFilterOptions{DestStars: []string{"VEGA"}}
+	tdsDst := BuildTravellingDevices(devs, starLookup, filterDst)
+	if len(tdsDst) != 1 || tdsDst[0].Destination != "VEGA" {
+		t.Errorf("Filter by dest failed: expected 1 (VEGA), got %d", len(tdsDst))
+	}
+
+	// 6. Test Time-based Progress Fallback
+	now := time.Now()
+	tDeparted := &models.JSONTime{}
+	tDeparted.Set(now.Add(-10 * time.Minute))
+	tArrives := &models.JSONTime{}
+	tArrives.Set(now.Add(10 * time.Minute))
+
+	devTime := &models.Device{
+		Code: models.NewCodeAlias("rv-1"),
+		Type: "racing_vessel",
+		Travel: &models.Trip{
+			Origin:          "SOL",
+			Destination:     "ALPHA",
+			ProgressPercent: 0,
+			Departed:        tDeparted,
+			Arrives:         tArrives,
+		},
+	}
+
+	tdsTime := BuildTravellingDevices([]*models.Device{devTime}, starLookup, nil)
+	if len(tdsTime) != 1 {
+		t.Fatalf("Expected 1 travelling device with time-based progress, got %d", len(tdsTime))
+	}
+	// Total duration = 20 mins, 10 mins passed => ~50%
+	if tdsTime[0].ProgressPercent < 45 || tdsTime[0].ProgressPercent > 55 {
+		t.Errorf("Expected ~50%% progress from timestamps, got %f", tdsTime[0].ProgressPercent)
+	}
+}
+
+func TestTravelOverlay(t *testing.T) {
+	cam := NewCamera3D(60, 25)
+	cam.Center = NewVec3(10, 0, 0)
+	cam.Radius = 20.0
+
+	stars := []*models.Star{
+		{Designation: "SOL", Name: "Sol", Position: models.NewPosition(0, 0, 0)},
+		{Designation: "BETILGEUSE", Name: "Betilgeuse", Position: models.NewPosition(20, 0, 0)},
+		{Designation: "ISOLATED", Name: "Isolated", Position: models.NewPosition(10, 5, 0)},
+	}
+
+	starLookup := map[string]Vec3{
+		"SOL":        {X: 0, Y: 0, Z: 0},
+		"BETILGEUSE": {X: 20, Y: 0, Z: 0},
+	}
+
+	devs := []*models.Device{
+		{
+			Code: models.NewCodeAlias("hv-1"),
+			Type: "heaven_vessel",
+			Travel: &models.Trip{
+				Origin:          "SOL",
+				Destination:     "BETILGEUSE",
+				ProgressPercent: 50.0,
+			},
+		},
+	}
+
+	tds := BuildTravellingDevices(devs, starLookup, nil)
+
+	opts := DefaultMapLayerOptions()
+	opts.ShowTravel = true
+	opts.TravellingDevices = tds
+	opts.ShowLabels = true
+	output, mapped := RenderGalaxyMap(cam, stars, opts)
+
+	if len(mapped) != 3 {
+		t.Errorf("Expected 3 mapped stars, got %d", len(mapped))
+	}
+	if len(opts.MappedTravelling) != 1 {
+		t.Fatalf("Expected 1 mapped travelling device, got %d", len(opts.MappedTravelling))
+	}
+
+	plainOutput := StripANSI(output)
+	if !strings.Contains(plainOutput, "hv-1") || !strings.Contains(plainOutput, "50%") {
+		t.Errorf("Expected travel label 'hv-1 (50%%)' in map output, got:\n%s", plainOutput)
+	}
+
+	// Check Legend
+	leg := FormatMapLegend(opts)
+	if !strings.Contains(leg, "Travelling") {
+		t.Errorf("FormatMapLegend should include Travelling, got: %s", leg)
+	}
+
+	// Test FilterTravelOnly
+	optsOnly := DefaultMapLayerOptions()
+	optsOnly.ShowTravel = true
+	optsOnly.FilterTravelOnly = true
+	optsOnly.TravellingDevices = tds
+	_, mappedOnly := RenderGalaxyMap(cam, stars, optsOnly)
+
+	if len(mappedOnly) != 2 {
+		t.Errorf("FilterTravelOnly failed: expected 2 travel-related stars (SOL, BETILGEUSE), got %d", len(mappedOnly))
+	}
+
+	// Test Selection
+	optsSelect := DefaultMapLayerOptions()
+	optsSelect.ShowTravel = true
+	optsSelect.TravellingDevices = tds
+	optsSelect.SelectedTravelDevice = "hv-1"
+	outSelect, _ := RenderGalaxyMap(cam, stars, optsSelect)
+	if !strings.Contains(StripANSI(outSelect), "[") {
+		t.Errorf("Expected selection brackets '[' in output for selected travel device")
+	}
+
+	// Test RenderGalaxyMapTview
+	tviewOut, tviewMapped := RenderGalaxyMapTview(cam, stars, opts)
+	if len(tviewOut) == 0 || len(tviewMapped) != 3 {
+		t.Errorf("RenderGalaxyMapTview failed with travelling device")
+	}
+}
+

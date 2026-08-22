@@ -74,3 +74,59 @@ func TestSearchMapTarget(t *testing.T) {
 		t.Errorf("Expected error for empty query, got nil")
 	}
 }
+
+func TestTravelMapCmdFlags(t *testing.T) {
+	// Verify travelMapCmd is attached to mapCmd and plotCmd
+	subCmds := mapCmd.Commands()
+	hasTravel := false
+	for _, c := range subCmds {
+		if c.Name() == "travel" {
+			hasTravel = true
+			break
+		}
+	}
+	if !hasTravel {
+		t.Errorf("mapCmd does not contain 'travel' subcommand")
+	}
+
+	plotSubCmds := plotCmd.Commands()
+	hasPlotTravel := false
+	for _, c := range plotSubCmds {
+		if c.Name() == "travel" {
+			hasPlotTravel = true
+			break
+		}
+	}
+	if !hasPlotTravel {
+		t.Errorf("plotCmd does not contain 'travel' subcommand")
+	}
+
+	// Verify flags on travelMapCmd
+	if travelMapCmd.Flags().Lookup("devices") == nil {
+		t.Errorf("travelMapCmd missing --devices flag")
+	}
+	if travelMapCmd.Flags().Lookup("types") == nil {
+		t.Errorf("travelMapCmd missing --types flag")
+	}
+	if travelMapCmd.Flags().Lookup("from") == nil {
+		t.Errorf("travelMapCmd missing --from flag")
+	}
+	if travelMapCmd.Flags().Lookup("to") == nil {
+		t.Errorf("travelMapCmd missing --to flag")
+	}
+	if travelMapCmd.Flags().Lookup("travel_only") == nil {
+		t.Errorf("travelMapCmd missing --travel_only flag")
+	}
+	if travelMapCmd.Flags().Lookup("static") == nil {
+		t.Errorf("travelMapCmd missing --static flag")
+	}
+
+	// Verify flags on mapCmd
+	if mapCmd.Flags().Lookup("travel") == nil {
+		t.Errorf("mapCmd missing --travel flag")
+	}
+	if mapCmd.Flags().Lookup("travel_only") == nil {
+		t.Errorf("mapCmd missing --travel_only flag")
+	}
+}
+

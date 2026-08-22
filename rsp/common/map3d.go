@@ -6,6 +6,7 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/zigdon/rsp/models"
 )
@@ -508,6 +509,317 @@ func BuildNetworkGraph(devices []*NetworkDevice, starLookup map[string]Vec3) *Ne
 	return g
 }
 
+// TravellingDevice represents a device currently in transit between locations.
+type TravellingDevice struct {
+	Code            string
+	Alias           string
+	Type            string
+	Origin          string
+	OriginPos       Vec3
+	Destination     string
+	DestinationPos  Vec3
+	ProgressPercent float32
+	Eta             string
+	Status          string
+	Departed        time.Time
+	Arrives         time.Time
+	EstimatedPos    Vec3
+	RouteLegs       []*models.JourneyLeg
+	ActiveLegIndex  int
+}
+
+// TravelFilterOptions specifies criteria to filter travelling devices.
+type TravelFilterOptions struct {
+	Devices     []string // Specific device codes or aliases
+	DeviceTypes []string // Specific device types or prefixes
+	SourceStars []string // Specific source/origin star designations
+	DestStars   []string // Specific destination star designations
+}
+
+func (f *TravelFilterOptions) Matches(d *models.Device) bool {
+	if f == nil {
+		return true
+	}
+	if len(f.Devices) > 0 {
+		match := false
+		code := strings.ToLower(d.Code.String())
+		alias := strings.ToLower(d.Code.Alias())
+		for _, dev := range f.Devices {
+			dev = strings.ToLower(strings.TrimSpace(dev))
+			if dev != "" && (code == dev || alias == dev || strings.EqualFold(d.Code.String(), dev) || strings.EqualFold(d.Code.Alias(), dev)) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	if len(f.DeviceTypes) > 0 {
+		match := false
+		dType := strings.ToLower(d.Type)
+		for _, t := range f.DeviceTypes {
+			t = strings.ToLower(strings.TrimSpace(t))
+			if t != "" && (dType == t || strings.HasPrefix(dType, t) || strings.EqualFold(d.Type, t)) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	if len(f.SourceStars) > 0 {
+		match := false
+		origStar := ""
+		if d.Travel != nil && d.Travel.Origin != "" {
+			origStar = strings.ToUpper(strings.TrimSpace(d.Travel.Origin.Star()))
+		} else if d.Location != "" {
+			origStar = strings.ToUpper(strings.TrimSpace(d.Location.Star()))
+		}
+		for _, s := range f.SourceStars {
+			s = strings.ToUpper(strings.TrimSpace(models.LocationID(s).Star()))
+			if s != "" && origStar == s {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	if len(f.DestStars) > 0 {
+		match := false
+		destStar := ""
+		if d.Travel != nil && d.Travel.Destination != "" {
+			destStar = strings.ToUpper(strings.TrimSpace(d.Travel.Destination.Star()))
+		}
+		for _, s := range f.DestStars {
+			s = strings.ToUpper(strings.TrimSpace(models.LocationID(s).Star()))
+			if s != "" && destStar == s {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	return true
+}
+
+// BuildTravellingDevices parses and filters travelling devices, computing route legs and estimated 3D positions.
+func BuildTravellingDevices(devices []*models.Device, starLookup map[string]Vec3, filter *TravelFilterOptions) []*TravellingDevice {
+	var result []*TravellingDevice
+	now := time.Now()
+
+	for _, d := range devices {
+		if d == nil || d.Travel == nil {
+			continue
+		}
+		if d.Travel.Destination == "" && len(d.Travel.Route) == 0 {
+			continue
+		}
+		if filter != nil && !filter.Matches(d) {
+			continue
+		}
+
+		origStar := strings.ToUpper(strings.TrimSpace(d.Travel.Origin.Star()))
+		if origStar == "" && d.Location != "" {
+			origStar = strings.ToUpper(strings.TrimSpace(d.Location.Star()))
+		}
+		destStar := strings.ToUpper(strings.TrimSpace(d.Travel.Destination.Star()))
+
+		origPos, hasOrigPos := starLookup[origStar]
+		destPos, hasDestPos := starLookup[destStar]
+
+		var routeLegs []*models.JourneyLeg
+		if len(d.Travel.Route) > 0 {
+			for i, rLeg := range d.Travel.Route {
+				fromStar := strings.ToUpper(strings.TrimSpace(rLeg.From.Star()))
+				toStar := strings.ToUpper(strings.TrimSpace(rLeg.To.Star()))
+				fPos, hasF := starLookup[fromStar]
+				tPos, hasT := starLookup[toStar]
+				var fromModelPos, toModelPos *models.Position
+				if hasF {
+					fromModelPos = &models.Position{X: fPos.X, Y: fPos.Y, Z: fPos.Z}
+				}
+				if hasT {
+					toModelPos = &models.Position{X: tPos.X, Y: tPos.Y, Z: tPos.Z}
+				}
+				dist := rLeg.DistanceLy
+				if dist == 0 && hasF && hasT {
+					dist = fPos.Distance(tPos)
+				}
+				jl := &models.JourneyLeg{
+					From:         fromStar,
+					FromPosition: fromModelPos,
+					To:           toStar,
+					ToPosition:   toModelPos,
+					DistFromSrc:  dist,
+					Step:         i + 1,
+				}
+				routeLegs = append(routeLegs, jl)
+			}
+		} else if origStar != "" && destStar != "" && origStar != destStar {
+			var fromModelPos, toModelPos *models.Position
+			if hasOrigPos {
+				fromModelPos = &models.Position{X: origPos.X, Y: origPos.Y, Z: origPos.Z}
+			}
+			if hasDestPos {
+				toModelPos = &models.Position{X: destPos.X, Y: destPos.Y, Z: destPos.Z}
+			}
+			routeLegs = append(routeLegs, &models.JourneyLeg{
+				From:         origStar,
+				FromPosition: fromModelPos,
+				To:           destStar,
+				ToPosition:   toModelPos,
+				DistFromSrc:  origPos.Distance(destPos),
+				Step:         1,
+			})
+		}
+
+		var f float32
+		if d.Travel.ProgressPercent > 0 {
+			if d.Travel.ProgressPercent > 1.0 {
+				f = d.Travel.ProgressPercent / 100.0
+			} else {
+				f = d.Travel.ProgressPercent
+			}
+		}
+		var depTime, arrTime time.Time
+		if d.Travel.Departed != nil {
+			depTime = d.Travel.Departed.Time()
+		}
+		if d.Travel.Arrives != nil {
+			arrTime = d.Travel.Arrives.Time()
+		}
+		if f == 0 && !depTime.IsZero() && !arrTime.IsZero() && arrTime.After(depTime) {
+			if now.After(arrTime) {
+				f = 1.0
+			} else if now.Before(depTime) {
+				f = 0.0
+			} else {
+				f = float32(now.Sub(depTime)) / float32(arrTime.Sub(depTime))
+			}
+		}
+		if f < 0 {
+			f = 0
+		}
+		if f > 1 {
+			f = 1
+		}
+
+		estPos := origPos
+		activeLegIdx := 0
+
+		if len(routeLegs) > 0 {
+			var waypoints []Vec3
+			for i, leg := range routeLegs {
+				if leg.FromPosition != nil {
+					pFrom := Vec3{X: leg.FromPosition.X, Y: leg.FromPosition.Y, Z: leg.FromPosition.Z}
+					if i == 0 || len(waypoints) == 0 {
+						waypoints = append(waypoints, pFrom)
+					}
+				}
+				if leg.ToPosition != nil {
+					pTo := Vec3{X: leg.ToPosition.X, Y: leg.ToPosition.Y, Z: leg.ToPosition.Z}
+					waypoints = append(waypoints, pTo)
+				}
+			}
+
+			if len(waypoints) >= 2 {
+				var totalDist float32
+				for i := 0; i < len(waypoints)-1; i++ {
+					totalDist += waypoints[i].Distance(waypoints[i+1])
+				}
+
+				if totalDist > 0 {
+					targetDist := f * totalDist
+					var cumDist float32
+					estPos = waypoints[len(waypoints)-1]
+					activeLegIdx = len(waypoints) - 2
+
+					for i := 0; i < len(waypoints)-1; i++ {
+						segLen := waypoints[i].Distance(waypoints[i+1])
+						if segLen > 0 && cumDist+segLen >= targetDist {
+							segFraction := (targetDist - cumDist) / segLen
+							if segFraction < 0 {
+								segFraction = 0
+							}
+							if segFraction > 1 {
+								segFraction = 1
+							}
+							estPos = waypoints[i].Add(waypoints[i+1].Sub(waypoints[i]).Mul(segFraction))
+							activeLegIdx = i
+							break
+						}
+						cumDist += segLen
+					}
+				} else {
+					estPos = waypoints[0]
+				}
+			} else if hasOrigPos && hasDestPos {
+				estPos = origPos.Add(destPos.Sub(origPos).Mul(f))
+			} else if hasOrigPos {
+				estPos = origPos
+			} else if hasDestPos {
+				estPos = destPos
+			}
+		} else if hasOrigPos && hasDestPos {
+			estPos = origPos.Add(destPos.Sub(origPos).Mul(f))
+		}
+
+		codeStr := d.Code.String()
+		aliasStr := d.Code.Alias()
+		if codeStr == "" {
+			codeStr = aliasStr
+		}
+		if aliasStr == "" {
+			aliasStr = codeStr
+		}
+
+		etaStr := ""
+		if d.Travel.Eta != nil {
+			etaStr = d.Travel.Eta.String()
+		}
+
+		td := &TravellingDevice{
+			Code:            codeStr,
+			Alias:           aliasStr,
+			Type:            d.Type,
+			Origin:          origStar,
+			OriginPos:       origPos,
+			Destination:     destStar,
+			DestinationPos:  destPos,
+			ProgressPercent: f * 100.0,
+			Eta:             etaStr,
+			Status:          d.Status,
+			Departed:        depTime,
+			Arrives:         arrTime,
+			EstimatedPos:    estPos,
+			RouteLegs:       routeLegs,
+			ActiveLegIndex:  activeLegIdx,
+		}
+
+		result = append(result, td)
+	}
+
+	return result
+}
+
+// TravellingDeviceMapPoint represents a travelling device projected onto screen space.
+type TravellingDeviceMapPoint struct {
+	Device   *TravellingDevice
+	WorldPos Vec3
+	CamPos   Vec3
+	ScreenX  int
+	ScreenY  int
+	Visible  bool
+	Glyph    rune
+	Color    RGB
+}
+
 // StarMapPoint represents a star mapped to screen space.
 type StarMapPoint struct {
 	Star        *models.Star
@@ -525,29 +837,36 @@ type StarMapPoint struct {
 	RouteStep   int
 	Devices     []*DeviceLocationInfo
 	NetworkNode *NetworkNode
+	Travelling  []*TravellingDevice
 }
 
 // MapLayerOptions configures visual layers in the renderer.
 type MapLayerOptions struct {
-	FilterLifeOnly     bool
-	FilterHubsOnly     bool
-	FilterExploredOnly bool
-	FilterRegion       string
-	FilterDevicesOnly  bool
-	FilterNetworkOnly  bool
-	ShowRegions        bool
-	ShowDevices        bool
-	ShowNetwork        bool
-	ShowLabels         bool
-	ShowGrid           bool
-	ShowAxes           bool
-	ShowRoute          bool
-	HighlightStar      string
-	SelectedStar       string
-	RouteLegs          []*models.JourneyLeg
-	DeviceTypes        []string
-	StarDevices        map[string][]*DeviceLocationInfo
-	Network            *NetworkGraph
+	FilterLifeOnly       bool
+	FilterHubsOnly       bool
+	FilterExploredOnly   bool
+	FilterRegion         string
+	FilterDevicesOnly    bool
+	FilterNetworkOnly    bool
+	FilterTravelOnly     bool
+	ShowRegions          bool
+	ShowDevices          bool
+	ShowNetwork          bool
+	ShowTravel           bool
+	ShowLabels           bool
+	ShowGrid             bool
+	ShowAxes             bool
+	ShowRoute            bool
+	HighlightStar        string
+	SelectedStar         string
+	SelectedTravelDevice string
+	RouteLegs            []*models.JourneyLeg
+	DeviceTypes          []string
+	StarDevices          map[string][]*DeviceLocationInfo
+	Network              *NetworkGraph
+	TravellingDevices    []*TravellingDevice
+	TravelFilter         *TravelFilterOptions
+	MappedTravelling     []*TravellingDeviceMapPoint
 }
 
 func DefaultMapLayerOptions() *MapLayerOptions {
@@ -558,9 +877,11 @@ func DefaultMapLayerOptions() *MapLayerOptions {
 		FilterRegion:       "",
 		FilterDevicesOnly:  false,
 		FilterNetworkOnly:  false,
+		FilterTravelOnly:   false,
 		ShowRegions:        false,
 		ShowDevices:        false,
 		ShowNetwork:        false,
+		ShowTravel:         false,
 		ShowLabels:         true,
 		ShowGrid:           true,
 		ShowAxes:           true,
@@ -576,6 +897,7 @@ type CellLayer struct {
 	IsBold   bool
 	DepthZ   float32
 	Star     *StarMapPoint
+	Travel   *TravellingDeviceMapPoint
 }
 
 // prepareGalaxyGrid computes the 3D projection, Braille canvas, and cell layers.
@@ -599,7 +921,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		drawGalacticGrid(cam, canvas, opts)
 	}
 
-	// 2. Draw route legs and network links with Braille lines if enabled
+	// 2. Draw route legs, network links, and travel routes with Braille lines if enabled
 	var routeStars = make(map[string]int)
 	if opts.ShowRoute && len(opts.RouteLegs) > 0 {
 		for i, leg := range opts.RouteLegs {
@@ -615,6 +937,43 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 	if opts.ShowNetwork && opts.Network != nil && len(opts.Network.Links) > 0 {
 		for _, link := range opts.Network.Links {
 			canvas.DrawLine3D(cam, link.FromPos, link.ToPos)
+		}
+	}
+	if opts.ShowTravel && len(opts.TravellingDevices) > 0 {
+		for _, td := range opts.TravellingDevices {
+			if len(td.RouteLegs) > 0 {
+				for _, leg := range td.RouteLegs {
+					if leg.FromPosition != nil && leg.ToPosition != nil {
+						p0 := Vec3{X: leg.FromPosition.X, Y: leg.FromPosition.Y, Z: leg.FromPosition.Z}
+						p1 := Vec3{X: leg.ToPosition.X, Y: leg.ToPosition.Y, Z: leg.ToPosition.Z}
+						canvas.DrawLine3D(cam, p0, p1)
+					}
+				}
+			} else if td.Origin != "" && td.Destination != "" {
+				canvas.DrawLine3D(cam, td.OriginPos, td.DestinationPos)
+			}
+		}
+	}
+
+	// Index travelling devices by star for StarMapPoint
+	var starTravelling map[string][]*TravellingDevice
+	var travelStars map[string]bool
+	if len(opts.TravellingDevices) > 0 {
+		starTravelling = make(map[string][]*TravellingDevice)
+		travelStars = make(map[string]bool)
+		for _, td := range opts.TravellingDevices {
+			if td.Origin != "" {
+				starTravelling[td.Origin] = append(starTravelling[td.Origin], td)
+				travelStars[td.Origin] = true
+			}
+			if td.Destination != "" {
+				starTravelling[td.Destination] = append(starTravelling[td.Destination], td)
+				travelStars[td.Destination] = true
+			}
+			for _, leg := range td.RouteLegs {
+				travelStars[leg.From] = true
+				travelStars[leg.To] = true
+			}
 		}
 	}
 
@@ -647,6 +1006,9 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			continue
 		}
 		if opts.FilterNetworkOnly && netNode == nil {
+			continue
+		}
+		if opts.FilterTravelOnly && travelStars != nil && !travelStars[string(st.Designation)] {
 			continue
 		}
 		if st.Position == nil {
@@ -706,6 +1068,11 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			}
 		}
 
+		var trDevs []*TravellingDevice
+		if starTravelling != nil {
+			trDevs = starTravelling[string(st.Designation)]
+		}
+
 		step, isRoute := routeStars[string(st.Designation)]
 		mp := &StarMapPoint{
 			Star:        st,
@@ -723,6 +1090,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			RouteStep:   step,
 			Devices:     starDevs,
 			NetworkNode: netNode,
+			Travelling:  trDevs,
 		}
 
 		if vis {
@@ -734,6 +1102,28 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 	slices.SortFunc(mappedStars, func(a, b *StarMapPoint) int {
 		return cmp.Compare(b.CamPos.Z, a.CamPos.Z)
 	})
+
+	// Project travelling device positions
+	var mappedTravelling []*TravellingDeviceMapPoint
+	if opts.ShowTravel && len(opts.TravellingDevices) > 0 {
+		for _, td := range opts.TravellingDevices {
+			camPos, sx, sy, vis := cam.Transform(td.EstimatedPos)
+			mp := &TravellingDeviceMapPoint{
+				Device:   td,
+				WorldPos: td.EstimatedPos,
+				CamPos:   camPos,
+				ScreenX:  sx,
+				ScreenY:  sy,
+				Visible:  vis,
+				Glyph:    '▲',
+				Color:    RGB{R: 255, G: 190, B: 30}, // Bright Amber/Gold
+			}
+			if vis {
+				mappedTravelling = append(mappedTravelling, mp)
+			}
+		}
+	}
+	opts.MappedTravelling = mappedTravelling
 
 	// 5. Transfer Braille canvas background to cell buffer
 	for y := 0; y < h; y++ {
@@ -763,6 +1153,23 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 				IsBold:   mp.IsMyHub || mp.HasLife || mp.IsRoute || (opts.ShowDevices && hasDevices) || inNet,
 				DepthZ:   mp.CamPos.Z,
 				Star:     mp,
+			}
+		}
+	}
+
+	// 6b. Draw Travelling Device Markers over canvas
+	if opts.ShowTravel && len(mappedTravelling) > 0 {
+		for _, mp := range mappedTravelling {
+			x, y := mp.ScreenX, mp.ScreenY
+			if x >= 0 && x < w && y >= 0 && y < h {
+				cells[y][x] = CellLayer{
+					Rune:     mp.Glyph,
+					FgColor:  mp.Color,
+					HasColor: true,
+					IsBold:   true,
+					DepthZ:   mp.CamPos.Z,
+					Travel:   mp,
+				}
 			}
 		}
 	}
@@ -804,8 +1211,8 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 					for i, ch := range displayName {
 						lx := labelStartX + i
 						if lx < w && lx >= 0 {
-							// Don't overwrite another star glyph
-							if cells[labelY][lx].Star == nil {
+							// Don't overwrite another star glyph or travel marker
+							if cells[labelY][lx].Star == nil && cells[labelY][lx].Travel == nil {
 								labelCol := mp.Color.Dim(0.85)
 								cells[labelY][lx] = CellLayer{
 									Rune:     ch,
@@ -819,12 +1226,50 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 				}
 			}
 		}
+
+		// Overlay Travelling Device Labels
+		if opts.ShowTravel && len(mappedTravelling) > 0 {
+			for _, mp := range mappedTravelling {
+				label := fmt.Sprintf("%s (%.0f%%)", mp.Device.Alias, mp.Device.ProgressPercent)
+				if len(label) > 16 {
+					label = label[:16]
+				}
+				labelStartX := mp.ScreenX + 2
+				labelY := mp.ScreenY
+				if labelY >= 0 && labelY < h {
+					for i, ch := range label {
+						lx := labelStartX + i
+						if lx < w && lx >= 0 {
+							if cells[labelY][lx].Star == nil && cells[labelY][lx].Travel == nil {
+								cells[labelY][lx] = CellLayer{
+									Rune:     ch,
+									FgColor:  mp.Color.Dim(0.85),
+									HasColor: true,
+									DepthZ:   mp.CamPos.Z,
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
-	// 8. Draw Cursor / Selected Star Target box
+	// 8. Draw Cursor / Selected Star or Travel Device Target box
 	if opts.SelectedStar != "" {
 		for _, mp := range mappedStars {
 			if string(mp.Star.Designation) == opts.SelectedStar {
+				sx, sy := mp.ScreenX, mp.ScreenY
+				if sx > 0 && sx < w-1 && sy >= 0 && sy < h {
+					cells[sy][sx-1] = CellLayer{Rune: '[', FgColor: RGB{R: 255, G: 255, B: 0}, HasColor: true, IsBold: true}
+					cells[sy][sx+1] = CellLayer{Rune: ']', FgColor: RGB{R: 255, G: 255, B: 0}, HasColor: true, IsBold: true}
+				}
+			}
+		}
+	}
+	if opts.SelectedTravelDevice != "" {
+		for _, mp := range mappedTravelling {
+			if strings.EqualFold(mp.Device.Code, opts.SelectedTravelDevice) || strings.EqualFold(mp.Device.Alias, opts.SelectedTravelDevice) {
 				sx, sy := mp.ScreenX, mp.ScreenY
 				if sx > 0 && sx < w-1 && sy >= 0 && sy < h {
 					cells[sy][sx-1] = CellLayer{Rune: '[', FgColor: RGB{R: 255, G: 255, B: 0}, HasColor: true, IsBold: true}
@@ -1032,6 +1477,9 @@ func FormatMapLegend(opts *MapLayerOptions) string {
 	}
 	if opts != nil && (opts.ShowNetwork || opts.Network != nil) {
 		parts = append(parts, "\x1b[1;36m◈\x1b[0m Relay Net")
+	}
+	if opts != nil && (opts.ShowTravel || len(opts.TravellingDevices) > 0) {
+		parts = append(parts, "\x1b[1;33m▲\x1b[0m Travelling")
 	}
 	base := "\x1b[90mLegend: \x1b[0m" + strings.Join(parts, "  ")
 	if opts != nil && opts.ShowRegions {
