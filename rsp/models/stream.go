@@ -323,8 +323,11 @@ type StreamEventDiscovered struct {
 		CivilisationPoints    int            `json:"civilisation_points"`
 		CompletionAchievement string         `json:"completion_achievement"`
 		Resources             map[string]int `json:"resources"`
-		Devices               map[string]int `json:"devices"`
-		Xp                    int            `json:"xp"`
+		Devices               []struct {
+			Count      int    `json:"count"`
+			DeviceType string `json:"device_type"`
+		} `json:"devices"`
+		Xp int `json:"xp"`
 	} `json:"rewards"`
 }
 

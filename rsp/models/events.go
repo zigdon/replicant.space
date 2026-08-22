@@ -79,6 +79,7 @@ func (ep *EventProgress) Fill() error {
 type EventReward struct {
 	CivilisationPoints    int            `json:"civilisation_points"`
 	CompletionAchievement string         `json:"completion_achievement"`
+	Devices               []*EventDevice `json:"devices"`
 	Resources             map[string]int `json:"resources"`
 	XP                    int            `json:"xp"`
 }

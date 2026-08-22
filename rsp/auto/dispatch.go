@@ -221,16 +221,16 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		return tasks, fmt.Errorf("Nothing is missing at %s", loc)
 	}
 
-	params = append(params, loc.Star())
+	params = append(params, loc, loc.Star())
 	rows, err := DB.Query(fmt.Sprintf(`
 		SELECT i.designation, %s
 		FROM inventory i JOIN stars s ON i.star = s.designation
-		WHERE %s
+		WHERE i.designation != $%d AND (%s)
 		ORDER BY s.position <=> (
 		  SELECT position
 		  FROM stars
 		  WHERE designation = $%d
-		)`, strings.Join(fields, ", "), strings.Join(wheres, " OR "), n), params...)
+		)`, strings.Join(fields, ", "), n, strings.Join(wheres, " OR "), n+1), params...)
 	if err != nil {
 		return tasks, fmt.Errorf("Error finding potential systems: %v ", err)
 	}
