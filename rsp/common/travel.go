@@ -21,7 +21,7 @@ var mu sync.RWMutex
 
 var travelCache = make(map[string]map[string]*tce)
 
-const maxAge = 10 * time.Minute
+const maxAge = 1 * time.Hour
 
 func getCachedTrip(from, to string, via []string) *tce {
 	mu.RLock()

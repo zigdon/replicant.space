@@ -302,6 +302,10 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				return eta, fmt.Errorf("Can't update tags on %q: %v", fr.Alias(), err)
 			}
 			log("Relay deployed at %s", rm.dev.Location)
+			// Refresh the location, so newly in-network devices will notice
+			if _, err = rest.RefreshDevices(map[string]string{"location": rm.dev.Location.Star()}); err != nil {
+				log("Error refreshing system: %v", err)
+			}
 			nextState = RelayMachine_Cleanup
 		}
 	case RelayMachine_Cleanup:
@@ -465,7 +469,9 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			} else if fill := getTags(rm.dev)["fill"]; fill == "oor" {
 				// find the closest system that has devices that report being out-of-range
 				row := DB.DB.QueryRow(`
-				  SELECT DISTINCT(location), position<->(SELECT position FROM stars WHERE designation=$1) AS dist
+				  SELECT DISTINCT(location), position<->(
+					  SELECT position FROM stars WHERE designation=$1
+				  ) AS dist
 				  FROM json_devices JOIN stars ON location = designation
 				  WHERE status = 'out_of_range'
 				    AND location NOT IN (
@@ -475,9 +481,10 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				        AND data->'tags' @> '"auto:relay"'
 				        AND data->'travel'->>'destination' IS NOT NULL
 				    )
+				  WHERE status = 'out_of_range' AND region = ANY($2)
 				  ORDER BY dist
 				  LIMIT 1;
-			  `, rm.dev.Location.Star())
+			  `, rm.dev.Location.Star(), []string{"solzone", "alpha", "beta", "gamma"})
 				var dist float32
 				if err := row.Scan(&rm.dest, &dist); err != nil {
 					return eta, err
