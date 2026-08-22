@@ -53,6 +53,7 @@ type RelayMachine struct {
 	state     RelayMachine_State
 	replicant *models.CodeAlias
 	status    string
+	regions   []string
 }
 
 func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
@@ -83,6 +84,12 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 	}
 	if rm.replicant == nil {
 		return fmt.Errorf("No replicant found in %q", d.Code.Alias())
+	}
+
+	if regions := getTags(rm.dev)["regions"]; regions != "" {
+		rm.regions = strings.Split(regions, ":")
+	} else {
+		rm.regions = []string{"solzone", "alpha", "beta", "gamma"}
 	}
 
 	rm.dryRun = dryRun
@@ -445,6 +452,12 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 					if fb.Status != "monitoring" && fb.Type == "ftl_beacon" {
 						continue
 					}
+					if fb.Status != "relaying" && fb.Type == "system_hub" {
+						continue
+					}
+					if fb.Location == "" {
+						continue
+					}
 					if inNet[fb.Location.Star()] {
 						continue
 					}
@@ -484,7 +497,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				  WHERE status = 'out_of_range' AND region = ANY($2)
 				  ORDER BY dist
 				  LIMIT 1;
-			  `, rm.dev.Location.Star(), []string{"solzone", "alpha", "beta", "gamma"})
+			  `, rm.dev.Location.Star(), rm.regions)
 				var dist float32
 				if err := row.Scan(&rm.dest, &dist); err != nil {
 					return eta, err

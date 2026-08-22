@@ -75,17 +75,21 @@ func log(tmpl string, args ...any) {
 	common.LogLevel(2, tmpl, args...)
 }
 
-func deviceCommand(id *models.CodeAlias, cmd string, args map[string]any, dryRun bool) (*models.CommandResp, error) {
+func typedDeviceCommand[T any](id *models.CodeAlias, cmd string, args map[string]any, dryRun bool) (*T, error) {
 	if dryRun {
 		log("[DRYRUN] Issuing %q to %s: %v", cmd, id.Alias(), args)
-		return new(models.CommandResp), nil
+		return new(T), nil
 	}
 	log("Issuing %q to %s: %v", cmd, id.Alias(), args)
-	res, err := rest.DeviceCommand[models.CommandResp](id, cmd, args)
+	res, err := rest.DeviceCommand[T](id, cmd, args)
 	if err != nil {
 		return res, fmt.Errorf("Error sending %q command to %q: %v", cmd, id.Alias(), err)
 	}
 	return res, nil
+}
+
+func deviceCommand(id *models.CodeAlias, cmd string, args map[string]any, dryRun bool) (*models.CommandResp, error) {
+	return typedDeviceCommand[models.CommandResp](id, cmd, args, dryRun)
 }
 
 type Event struct {

@@ -255,10 +255,10 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 			}
 		}
 		log("System scanned")
-		if _, err := deviceCommand(em.sb.Code, "launch", nil, em.dryRun); err != nil {
+		if _, err := typedDeviceCommand[models.AssembleResp](em.sb.Code, "launch", nil, em.dryRun); err != nil {
 			return eta, err
 		}
-		if _, err := deviceCommand(em.asc.Code, "launch", nil, em.dryRun); err != nil {
+		if _, err := typedDeviceCommand[models.AssembleResp](em.asc.Code, "launch", nil, em.dryRun); err != nil {
 			return eta, err
 		}
 		log("Devices deployed")

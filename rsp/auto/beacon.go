@@ -147,7 +147,8 @@ func (bm *BeaconMachine) UpdateState() error {
 
 	// Find beacons already deployed
 	hasBeacon := make(map[string]bool)
-	beacons, err := rest.Devices(map[string]string{"location": dev.Location.Star(), "device_type": "ftl_beacon"})
+	beacons, err := rest.Devices(map[string]string{
+		"location": dev.Location.Star(), "device_type": "ftl_beacon"})
 	if err != nil {
 		return err
 	}

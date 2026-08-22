@@ -406,6 +406,29 @@ type AssembleResp struct {
 	Status string `json:"status"`
 }
 
+type LaunchResp struct {
+	AssignedDevices struct {
+		AlreadyDeployed []string `json:"already_deployed"`
+		Deployed        []string `json:"deployed"`
+		Failed          []struct {
+			DeviceCode *CodeAlias `json:"device_code"`
+			DeviceType string     `json:"device_type"`
+			Error      string     `json:"error"`
+		} `json:"failed"`
+		Skipped []string `json:"skipped"`
+	} `json:"assigned_devices"`
+	Controller struct {
+		DeployResult          string `json:"deploy_result"`
+		Deployed              bool   `json:"deployed"`
+		DirectiveResumed      bool   `json:"directive_resumed"`
+		DirectiveStatusAfter  string `json:"directive_status_after"`
+		DirectiveStatusBefore string `json:"directive_status_before"`
+		Evaluated             bool   `json:"evaluated"`
+	} `json:"controller"`
+	DeviceCode *CodeAlias `json:"device_code"`
+	Status     string     `json:"status"`
+}
+
 type CommandResp struct {
 	AdoptedDevices       *StowedDevices      `json:"adopted"`
 	AmiDirective         *DeviceDirective    `json:"ami_directive"`
