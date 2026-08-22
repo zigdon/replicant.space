@@ -150,3 +150,9 @@ func (eq *EventQueue) Wait() *Event {
 func (eq *EventQueue) List() []*Event {
 	return eq.queue
 }
+
+func (eq *EventQueue) Remove(name string) {
+	eq.queue = slices.DeleteFunc(eq.queue, func(e *Event) bool {
+		return e.Name == name
+	})
+}

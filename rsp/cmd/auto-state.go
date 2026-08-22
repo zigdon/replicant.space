@@ -50,6 +50,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 		if len(devs) == 0 {
 			return fmt.Errorf("No devices tagged 'auto' found.")
 		}
+		seen := make(map[string]bool)
 
 		for n, d := range devs {
 			if dev, err := rest.DeviceInfo(d.Code); err == nil {
@@ -60,6 +61,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			alias := d.Code.Alias()
+			seen[alias] = true
 			if _, ok := sms[alias]; ok {
 				continue
 			}
@@ -98,6 +100,15 @@ func autoState(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			errs = append(errs, runStep(d.Code, sms[alias]))
+		}
+
+		for a := range sms {
+			if seen[a] {
+				continue
+			}
+			log("Disabling %q, 'auto' tag removed", a)
+			delete(sms, a)
+			eq.Remove(a)
 		}
 		return errors.Join(errs...)
 	}

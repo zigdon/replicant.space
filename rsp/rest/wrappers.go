@@ -544,7 +544,7 @@ func CachedDeviceInfo(id *models.CodeAlias, useCache bool) (*models.Device, erro
 		return RefreshDeviceInfo(id)
 	}
 	if time.Since(d.Updated()) <= cacheTimeout {
-		log("**: Using cache for %q (%s)", id.Alias(), time.Since(d.Updated()))
+		// log("**: Using cache for %q (%s)", id.Alias(), time.Since(d.Updated()))
 		return d, nil
 	}
 

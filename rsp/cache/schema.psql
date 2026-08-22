@@ -111,8 +111,8 @@ CREATE TABLE IF NOT EXISTS cached_journey_steps(
 
 CREATE TABLE IF NOT EXISTS json_devices(
   code TEXT PRIMARY KEY,
-  fetched_ts TIMESTAMPTZ,
-  updated_ts TIMESTAMPTZ,
+  fetched_ts TIMESTAMPTZ NOT NULL,
+  updated_ts TIMESTAMPTZ NOT NULL,
   location TEXT,
   type TEXT,
   status TEXT,

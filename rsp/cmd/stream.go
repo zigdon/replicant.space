@@ -62,7 +62,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 		for _, d := range devs {
 			dev := &models.Device{Code: d}
 			if err := dev.Get(); err != nil {
-				errs = append(errs, err)
+				errs = append(errs, fmt.Errorf("Failed to load %q: %v", d, err))
 				continue
 			}
 			before, err := json.MarshalIndent(dev, "", "  ")
@@ -635,6 +635,15 @@ func readStream(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				log("Error creating a new alias for %s (%s): %v",
 					ev.NewDeviceCode.String(), ev.DeviceType, err)
+			}
+			// Add an entry in the device table
+			if err := db.Update(cache.JSONDevices, map[string]any{
+				"code":     ev.NewDeviceCode.String(),
+				"location": env.Location,
+				"type":     ev.DeviceType,
+				"data":     cache.Encode(new(models.Device)),
+			}); err != nil {
+				log("Error creating blank device entry for %s: %v", ev.NewDeviceCode, err)
 			}
 			log("%s finished printing %s at %s: %s (%s)",
 				env.DeviceCode, ev.DeviceType, env.Location, alias, ev.NewDeviceCode.String())

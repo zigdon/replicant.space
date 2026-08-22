@@ -27,7 +27,7 @@ import (
 // starting    | idle        | setup    | prospect
 type ProspectMachine struct {
 	dev    *models.Device
-	state  string
+	state  ProspectMachine_State
 	tag    string
 	dest   *models.Position
 	plat   *models.Device
@@ -35,6 +35,19 @@ type ProspectMachine struct {
 	dryRun bool
 	status string
 }
+
+type ProspectMachine_State string
+
+const (
+	ProspectMachine_Prospecting ProspectMachine_State = "prospecting"
+	ProspectMachine_Finished    ProspectMachine_State = "finished"
+	ProspectMachine_Compacting  ProspectMachine_State = "compacting"
+	ProspectMachine_Leaving     ProspectMachine_State = "leaving"
+	ProspectMachine_Travelling  ProspectMachine_State = "travelling"
+	ProspectMachine_Setup       ProspectMachine_State = "setup"
+	ProspectMachine_Unfurling   ProspectMachine_State = "unfurling"
+	ProspectMachine_Starting    ProspectMachine_State = "starting"
+)
 
 func (pm *ProspectMachine) Status() string {
 	return pm.status
@@ -190,21 +203,21 @@ func (pm *ProspectMachine) UpdateState() error {
 	pm.plat = plat
 	switch {
 	case status == "prospecting":
-		pm.state = "prospecting"
+		pm.state = ProspectMachine_Prospecting
 	case status == "idle" && pm.tag == "teardown":
-		pm.state = "finished"
+		pm.state = ProspectMachine_Finished
 	case status == "compacting":
-		pm.state = "compacting"
+		pm.state = ProspectMachine_Compacting
 	case status == "compacted" && pm.tag == "teardown":
-		pm.state = "leaving"
+		pm.state = ProspectMachine_Leaving
 	case status == "travelling":
-		pm.state = "travelling"
+		pm.state = ProspectMachine_Travelling
 	case status == "compacted" && pm.tag == "setup":
-		pm.state = "setup"
+		pm.state = ProspectMachine_Setup
 	case status == "unfurling":
-		pm.state = "unfurling"
+		pm.state = ProspectMachine_Unfurling
 	case status == "idle" && pm.tag == "setup":
-		pm.state = "starting"
+		pm.state = ProspectMachine_Starting
 	default:
 		return fmt.Errorf("Invalid state (%s): status=%q, tag=%q", pm.dev.Code.Alias(), status, pm.tag)
 	}
@@ -218,10 +231,10 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 	}
 	nextTag := pm.tag
 	switch pm.state {
-	case "prospecting":
+	case ProspectMachine_Prospecting:
 		nextTag = "teardown"
 		eta = pm.dev.Prospect.Completes.Time()
-	case "finished":
+	case ProspectMachine_Finished:
 		res, err := deviceCommand(pm.dev.Code, "compact", nil, pm.dryRun)
 		if err != nil {
 			return eta, err
@@ -236,7 +249,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 			log("Prospecting results: %s", report)
 		}
 
-	case "compacting":
+	case ProspectMachine_Compacting:
 		eta = pm.dev.Compact.Completes.Time()
 		if pm.plat.Location != pm.dev.Location {
 			res, err := pm.platform("travel", string(pm.dev.Location))
@@ -249,7 +262,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 			}
 		}
 		nextTag = "teardown"
-	case "leaving":
+	case ProspectMachine_Leaving:
 		nextTag = "setup"
 		if pm.dev.AttachedToDeviceCode == nil {
 			_, err := pm.platform("attach", pm.dev.Code.Alias())
@@ -266,10 +279,10 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		eta = res.Arrives.Time()
-	case "travelling":
+	case ProspectMachine_Travelling:
 		nextTag = "setup"
 		eta = pm.dev.Travel.Arrives.Time()
-	case "setup":
+	case ProspectMachine_Setup:
 		if pm.dev.AttachedToDeviceCode != nil {
 			_, err := pm.platform("detach", pm.dev.Code.Alias())
 			if err != nil {
@@ -282,11 +295,11 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		}
 		nextTag = "setup"
 		eta = res.Completes.Time()
-	case "unfurling":
+	case ProspectMachine_Unfurling:
 		eta = pm.dev.Unfurl.Completes.Time()
 		nextTag = "setup"
 		// Wait
-	case "starting":
+	case ProspectMachine_Starting:
 		delta := pm.dest.Delta(pm.dev.GetPosition())
 		_, err := deviceCommand(pm.dev.Code, "prospect",
 			map[string]any{"direction": []float32{delta.X, delta.Y, delta.Z}}, pm.dryRun)

@@ -3,10 +3,11 @@ Signal Beta: coordinates (155, -215, -140)
 Signal Gamma: coordinates (-350, 160, -80)
 
 Centers:
-solzone | GORUMIUN        | (10.66, -1.68, -7.65)      |
-alpha   | XIKHWAKHUX-5-L4 | (140.45, 68.15, 21.05)     | sh-30
-beta    | CRAWDDYW-1-L4   | (134.93, -186.62, -123.84) | sh-41
-gamma   | NOOAO-8-L4      | (-319.5, 146.58, -71.25)   | sh-35
+  solzone | GORUMIUN        | (10.66, -1.68, -7.65)        |
+  alpha   | XIKHWAKHUX-5-L4 | (140.45, 68.15, 21.05)       | sh-30
+  beta    | CRAWDDYW-1-L4   | (134.93, -186.62, -123.84)   | sh-41
+  gamma   | NOOAO-8-L4      | (-319.5, 146.58, -71.25)     | sh-35
+  delta   | CAELZAROR-4-L4  | (10260.33, 26913.77, 177.02) |
 
 signatures:
   6ddbf5331bda69d7
@@ -21,20 +22,36 @@ signatures:
   "local_slingshot_device_code": "648AA045",
   "remote_slingshot_device_code": "5167A03D",
   "stars": [
-    "ASILLUSTER",
-    "ARCULIS",
-    "ISKAT",
-    "BUBUPUS",
-    "ACRUX",
-    "ALGEN",
-    "ALZIRUR",
-    "YUNA",
-    "SAGIN",
-    "MEKBUDO",
-    "GLOES",
-    "ALKAID"
+    "ASILLUSTER", "ARCULIS", "ISKAT", "BUBUPUS", "ACRUX", "ALGEN",
+    "ALZIRUR", "YUNA", "SAGIN", "MEKBUDO", "GLOES", "ALKAID"
   ],
   "starting_star": "ASILLUSTER",
   "status": "retrieved",
   "vessel_device_code": "FA8565D9"
 }
+
+closest star in the core to delta:
+
+  rsp=# SELECT
+      s1.designation AS source_star,
+      s1.region      AS source_region,
+      s2.designation AS delta_star,
+      s2.region      AS delta_region,
+      ROUND((s1.position <-> s2.position)::numeric, 2) AS distance
+  FROM stars s2
+  CROSS JOIN LATERAL (
+      SELECT
+          s1.designation,
+          s1.region,
+          s1.position
+      FROM stars s1
+      WHERE s1.region IN ('solzone', 'alpha', 'beta', 'gamma')
+      ORDER BY s1.position <-> s2.position ASC
+      LIMIT 1
+  ) s1
+  WHERE s2.region = 'delta'
+  ORDER BY (s1.position <-> s2.position) ASC
+  LIMIT 1;
+  source_star | source_region | delta_star | delta_region | distance
+  -------------+---------------+------------+--------------+----------
+  VORLITHEUS  | solzone       | ALJORYR    | delta        | 28305.73
