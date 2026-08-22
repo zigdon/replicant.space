@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"time"
+
+	"github.com/zigdon/rsp/cache"
 )
 
 type Destination struct {
@@ -67,6 +69,25 @@ func (o *Object) Short() string {
 		time.Until(o.ImpactEta.Time()).Truncate(time.Second))
 }
 
+func (o *Object) Cache() error {
+	if o == nil {
+		return nil
+	}
+	return db.Update(cache.ObjectsTable, map[string]any{
+		"designation": o.Designation,
+		"star":        o.Designation.Star(),
+		"status":      o.Status,
+		"target":      o.ImpactTarget,
+		"size":        o.SizeClass,
+		"strength":    o.RequiredStrength,
+		"impact_time": o.ImpactEta.Time(),
+	})
+}
+
+func (o *Object) Get() error {
+	return fmt.Errorf("Not implemented")
+}
+
 type LocationEvent struct {
 	Designation LocationID `json:"designation"`
 	EventType   string     `json:"event_type"`
@@ -122,11 +143,14 @@ func (s *Scan) Cache() error {
 	for _, p := range s.Planets {
 		errs = append(errs, p.Cache())
 	}
+	for _, o := range s.SystemObjects {
+		errs = append(errs, o.Cache())
+	}
 	return errors.Join(errs...)
 }
 
-func (s *Scan) Get() any {
-	return &Scan{}
+func (s *Scan) Get() error {
+	return fmt.Errorf("not implemented")
 }
 
 func (s *Scan) ExtractLocations() []string {

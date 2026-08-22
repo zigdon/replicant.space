@@ -234,7 +234,9 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 	case ProspectMachine_Prospecting:
 		nextTag = "teardown"
 		eta = pm.dev.Prospect.Completes.Time()
+		pm.status = fmt.Sprintf("prospecting: ETA %s", eta.Format(time.Kitchen))
 	case ProspectMachine_Finished:
+		pm.status = "collecting results"
 		res, err := deviceCommand(pm.dev.Code, "compact", nil, pm.dryRun)
 		if err != nil {
 			return eta, err
@@ -248,9 +250,9 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		} else {
 			log("Prospecting results: %s", report)
 		}
-
 	case ProspectMachine_Compacting:
 		eta = pm.dev.Compact.Completes.Time()
+		pm.status = fmt.Sprintf("compacting: ETA %s", eta.Format(time.Kitchen))
 		if pm.plat.Location != pm.dev.Location {
 			res, err := pm.platform("travel", string(pm.dev.Location))
 			if err != nil {
@@ -263,6 +265,7 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		}
 		nextTag = "teardown"
 	case ProspectMachine_Leaving:
+		pm.status = "departing to next location"
 		nextTag = "setup"
 		if pm.dev.AttachedToDeviceCode == nil {
 			_, err := pm.platform("attach", pm.dev.Code.Alias())
@@ -280,9 +283,11 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		}
 		eta = res.Arrives.Time()
 	case ProspectMachine_Travelling:
+		pm.status = fmt.Sprintf("in transit: ETA %s", eta.Format(time.Kitchen))
 		nextTag = "setup"
 		eta = pm.dev.Travel.Arrives.Time()
 	case ProspectMachine_Setup:
+		pm.status = "setting up"
 		if pm.dev.AttachedToDeviceCode != nil {
 			_, err := pm.platform("detach", pm.dev.Code.Alias())
 			if err != nil {
@@ -296,10 +301,12 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 		nextTag = "setup"
 		eta = res.Completes.Time()
 	case ProspectMachine_Unfurling:
+		pm.status = fmt.Sprintf("unfurling: ETA %s", eta.Format(time.Kitchen))
 		eta = pm.dev.Unfurl.Completes.Time()
 		nextTag = "setup"
 		// Wait
 	case ProspectMachine_Starting:
+		pm.status = "starting prospecting"
 		delta := pm.dest.Delta(pm.dev.GetPosition())
 		_, err := deviceCommand(pm.dev.Code, "prospect",
 			map[string]any{"direction": []float32{delta.X, delta.Y, delta.Z}}, pm.dryRun)

@@ -481,12 +481,13 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				rm.dest = models.LocationID(dest)
 			} else if fill := getTags(rm.dev)["fill"]; fill == "oor" {
 				// find the closest system that has devices that report being out-of-range
-				row := DB.DB.QueryRow(`
+				row := DB.QueryRow(`
 				  SELECT DISTINCT(location), position<->(
 					  SELECT position FROM stars WHERE designation=$1
 				  ) AS dist
 				  FROM json_devices JOIN stars ON location = designation
 				  WHERE status = 'out_of_range'
+				    AND region = ANY($2)
 				    AND location NOT IN (
 				      SELECT split_part(data->'travel'->>'destination', '-', 1)
 				      FROM json_devices
@@ -494,7 +495,6 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				        AND data->'tags' @> '"auto:relay"'
 				        AND data->'travel'->>'destination' IS NOT NULL
 				    )
-				  WHERE status = 'out_of_range' AND region = ANY($2)
 				  ORDER BY dist
 				  LIMIT 1;
 			  `, rm.dev.Location.Star(), rm.regions)

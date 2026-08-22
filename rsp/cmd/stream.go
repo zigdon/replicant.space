@@ -642,11 +642,13 @@ func readStream(cmd *cobra.Command, args []string) error {
 					ev.NewDeviceCode.String(), ev.DeviceType, err)
 			}
 			// Add an entry in the device table
+			d := new(models.Device)
+			d.Tags = []string{}
 			if err := db.Update(cache.JSONDevices, map[string]any{
 				"code":       ev.NewDeviceCode.String(),
 				"location":   env.Location,
 				"type":       ev.DeviceType,
-				"data":       cache.Encode(new(models.Device)),
+				"data":       cache.Encode(d),
 				"fetched_ts": time.Time{},
 				"updated_ts": time.Time{},
 			}); err != nil {
@@ -721,6 +723,25 @@ func readStream(cmd *cobra.Command, args []string) error {
 				out = append(out, fmt.Sprintf("%d %s", i.Quantity, i.ResourceType[:2]))
 			}
 			log("%s depleted: %s", ev.Site, strings.Join(out, ", "))
+		case "system.object_detected":
+			ev, err := models.Parse[models.StreamSystemObjectDetected](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Object %q detected: %s object headed to %s", ev.Designation, ev.Size, ev.ImpactTarget)
+			db.Update(cache.ObjectsTable, map[string]any{
+				"designation": ev.Designation,
+				"star":        env.Location.Star(),
+				"source":      ev.DiscoverySource,
+				"target":      ev.ImpactTarget,
+				"size":        ev.Size,
+				"status":      "active",
+			})
+			// Fetch the impact ETA, since it's not yet included in the event
+			if _, err := rest.Location(ev.Designation); err != nil {
+				log("Error fetching object details: %v", err)
+			}
 		case "teleport.completed":
 			ev, err := models.Parse[models.StreamTeleportCompleted](payload)
 			if err != nil {
@@ -857,7 +878,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 			log("Departed to %s from %s: %s", ev.Destination, ev.Origin,
 				strings.Join(codeList(append(ev.AttachedDevices, env.DeviceCode)), ", "))
 
-			// Next case here
+		// Next case here
 
 		/*
 			ev, err := models.Parse[models.StreamTravelDeparted](payload)

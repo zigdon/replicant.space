@@ -437,10 +437,15 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 	if devLoc == "" && bm.dev.Travel != nil {
 		devLoc = bm.dev.Travel.Destination
 	}
-	relay, err := common.NearestRelay(devLoc.Star())
+	relayName, err := common.NearestRelay(devLoc.Star())
 	if err != nil {
 		return eta, err
 	}
+	relayStar, err := models.NewStar(relayName)
+	if err != nil {
+		return eta, err
+	}
+	relay := relayStar.EntryPoint
 
 	switch {
 	case bm.supply.Location == "":
@@ -482,7 +487,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		}
 		if len(bm.supply.AttachedDevices) > 0 {
 			log("Shipping out to %q to deliver FBs", relay)
-			eta, err := common.Travel(bm.supply.Code, relay, bm.dryRun)
+			eta, err := common.Travel(bm.supply.Code, string(relay), bm.dryRun)
 			if err != nil {
 				return eta, err
 			}
@@ -490,11 +495,11 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		} else {
 			log("Supply ship waiting for new beacons")
 		}
-	case bm.supply.Location.Star() == relay:
-		log("Waiting to resupply at %q", relay)
+	case bm.supply.Location == relay:
+		log("Resupply ready at %q", relay)
 	default:
 		log("Restaging to %s", relay)
-		eta, err := common.Travel(bm.supply.Code, relay, bm.dryRun)
+		eta, err := common.Travel(bm.supply.Code, string(relay), bm.dryRun)
 		if err != nil {
 			return eta, err
 		}

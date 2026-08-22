@@ -531,27 +531,27 @@ type StreamStoryHint struct {
 	Designation string     `json:"designation"`
 }
 
-type StreamSystemBody_renamed struct {
+type StreamSystemBodyRenamed struct {
 	BodyType    string     `json:"body_type"`
 	Designation LocationID `json:"designation"`
 	NewName     string     `json:"new_name"`
 }
 
-type StreamSystemDevices_halted struct {
+type StreamSystemDevicesHalted struct {
 	Star          LocationID `json:"star"`
 	DevicesHalted int        `json:"devices_halted"`
 }
 
-type StreamSystemEntry_point_set struct {
+type StreamSystemEntryPointSet struct {
 	Star       LocationID `json:"star"`
 	EntryPoint LocationID `json:"entry_point"`
 }
 
-type StreamSystemObject_detected struct {
-	ObjectDesignation string     `json:"object_designation"`
-	SizeClass         string     `json:"size_class"`
-	ImpactTarget      LocationID `json:"impact_target"`
-	DiscoverySource   string     `json:"discovery_source"`
+type StreamSystemObjectDetected struct {
+	Designation     string     `json:"object_designation"`
+	Size            string     `json:"size_class"`
+	ImpactTarget    LocationID `json:"impact_target"`
+	DiscoverySource string     `json:"discovery_source"`
 }
 
 type StreamTeleportCompleted struct {

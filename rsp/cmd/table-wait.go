@@ -225,14 +225,9 @@ func waitPending(cmd *cobra.Command, args []string) error {
 		"transport_hauler",
 	}
 	// Fetch logs from particularly interesting devices, e.g. hubs
-	logDevices := []string{
-		"ftl_beacon",
-		"system_hub",
-	}
+	logDevices := []string{}
 	// Fetch inventory from locations that have silent consumers
-	invDevices := []string{
-		"system_hub",
-	}
+	invDevices := []string{}
 	for cn, h := range []string{
 		"Code",
 		"Type",

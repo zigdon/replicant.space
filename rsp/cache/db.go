@@ -57,6 +57,7 @@ const (
 	MoonsTable             Tables = "moons"
 	MsgTable               Tables = "messages"
 	NotificationTable      Tables = "notifications"
+	ObjectsTable           Tables = "objects"
 	PlanetsTable           Tables = "planets"
 	StarsTable             Tables = "stars"
 )
@@ -96,6 +97,8 @@ var cols = map[Tables][]string{
 		"title", "tier", "criteria", "rewards"},
 	InventoryTable: {
 		"designation", "star", "carbon", "conductive", "rares", "silicates", "structural", "volatiles"},
+	ObjectsTable: {
+		"designation", "star", "status", "source", "target", "size", "impact_time", "strength"},
 }
 
 var constraints = map[Tables]string{
@@ -115,6 +118,7 @@ var constraints = map[Tables]string{
 	MoonsTable:             "designation",
 	MsgTable:               "id",
 	NotificationTable:      "id",
+	ObjectsTable:           "designation",
 	PlanetsTable:           "designation",
 	StarsTable:             "designation",
 }
@@ -186,7 +190,6 @@ func (db *Cache) Stats() string {
 }
 
 func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
-	log("SELECT %s FROM %s WHERE %s = $1", strings.Join(cols[table], ", "), table, cols[table][0])
 	row := db.QueryRow(
 		fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1",
 			strings.Join(cols[table], ", "), table, cols[table][0]), key)
@@ -197,7 +200,6 @@ func (db *Cache) Get(table Tables, key string) (func(...any) error, error) {
 }
 
 func (db *Cache) GetVal(table Tables, col, key string) (func(...any) error, error) {
-	log("SELECT %s FROM %s WHERE %s = $1", col, table, cols[table][0])
 	row := db.QueryRow(
 		fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1", col, table, cols[table][0]), key)
 	if row.Err() != nil {
@@ -206,11 +208,9 @@ func (db *Cache) GetVal(table Tables, col, key string) (func(...any) error, erro
 	return row.Scan, nil
 }
 
-func (db *Cache) GetAll(table Tables, key string) (*sql.Rows, error) {
-	log("SELECT %s FROM %s WHERE %s = $1", strings.Join(cols[table], ", "), table, cols[table][0])
+func (db *Cache) GetAll(table Tables) (*sql.Rows, error) {
 	rows, err := db.Query(
-		fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1",
-			strings.Join(cols[table], ", "), table, cols[table][0]), key)
+		fmt.Sprintf("SELECT %s FROM %s", strings.Join(cols[table], ", "), table))
 	if err != nil {
 		return nil, err
 	}

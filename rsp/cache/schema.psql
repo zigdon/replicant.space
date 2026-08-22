@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS cached_journey_steps(
 );
 
 CREATE TABLE IF NOT EXISTS json_devices(
-  code TEXT PRIMARY KEY,
+  code TEXT PRIMARY KEY CHECK (code != ''),
   fetched_ts TIMESTAMPTZ NOT NULL,
   updated_ts TIMESTAMPTZ NOT NULL,
   location TEXT,
@@ -189,4 +189,15 @@ CREATE TABLE IF NOT EXISTS events(
   tier INT,
   criteria JSONB,
   rewards JSONB
+);
+
+CREATE TABLE IF NOT EXISTS objects(
+  designation TEXT PRIMARY KEY,
+  star TEXT,
+  status TEXT DEFAULT 'active',
+  source TEXT,
+  target TEXT,
+  size TEXT,
+  strength REAL DEFAULT 0,
+  impact_time TIMESTAMPTZ
 );

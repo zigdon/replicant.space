@@ -423,7 +423,7 @@ func (l *Location) Fill() error {
 func (l *Location) Cache() error {
 	var errs []error
 	var objs []Cachable
-	for _, c := range []Cachable{l.Star, l.Planet, l.Belt, l.Moon} {
+	for _, c := range []Cachable{l.Star, l.Planet, l.Belt, l.Moon, l.Object} {
 		if c == nil {
 			continue
 		}

@@ -169,6 +169,7 @@ func (pd *DeviceUpdate) Apply() *Device {
 	if err := d.Get(); err != nil || d.Type == "" {
 		d.AvailableCommands = pd.AvailableCommands
 		d.AvailableDirectives = pd.AvailableDirectives
+		d.Code = pd.Code
 		d.CargoCapacity = pd.CargoCapacity
 		d.Created = pd.Created
 		d.StowCapacity = pd.StowCapacity
