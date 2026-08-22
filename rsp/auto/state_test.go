@@ -76,3 +76,22 @@ func TestEventQueue(t *testing.T) {
 		t.Errorf("EventQueue.Next() = %v, expected %v", next, ev2)
 	}
 }
+
+func TestRelayMachineBasics(t *testing.T) {
+	rm := &RelayMachine{
+		status: "collecting spare relays",
+	}
+
+	if rm.Name() != "Relay Machine" {
+		t.Errorf("RelayMachine.Name() = %q, expected %q", rm.Name(), "Relay Machine")
+	}
+
+	if rm.Status() != "collecting spare relays" {
+		t.Errorf("RelayMachine.Status() = %q, expected %q", rm.Status(), "collecting spare relays")
+	}
+
+	if err := rm.SaveState("any"); err != nil {
+		t.Errorf("SaveState returned unexpected error: %v", err)
+	}
+}
+

@@ -15,17 +15,17 @@ const (
 	FollowState_Initializing = "initializing"
 	FollowState_Transit      = "transit"
 	FollowState_Waiting      = "waiting"
-	FollowState_Idle    = "idle"
+	FollowState_Idle         = "idle"
 	FollowState_Departing    = "departing"
 )
 
 type FollowMachine struct {
-	dev        *models.Device
-	target     *models.Device
-	dest       models.LocationID
-	state      FollowState
-	status     string
-	dryRun     bool
+	dev    *models.Device
+	target *models.Device
+	dest   models.LocationID
+	state  FollowState
+	status string
+	dryRun bool
 }
 
 func (fm *FollowMachine) Start(d *models.Device, dryRun bool) error {

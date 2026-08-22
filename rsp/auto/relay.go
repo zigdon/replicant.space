@@ -468,6 +468,13 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				  SELECT DISTINCT(location), position<->(SELECT position FROM stars WHERE designation=$1) AS dist
 				  FROM json_devices JOIN stars ON location = designation
 				  WHERE status = 'out_of_range'
+				    AND location NOT IN (
+				      SELECT split_part(data->'travel'->>'destination', '-', 1)
+				      FROM json_devices
+				      WHERE status = 'travelling'
+				        AND data->'tags' @> '"auto:relay"'
+				        AND data->'travel'->>'destination' IS NOT NULL
+				    )
 				  ORDER BY dist
 				  LIMIT 1;
 			  `, rm.dev.Location.Star())
