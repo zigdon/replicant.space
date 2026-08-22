@@ -122,6 +122,7 @@ var findTagsCmd = &cobra.Command{
 
 var listTagsCmd = &cobra.Command{
 	Use:   "list_tags",
+	Aliases: []string{"listtags", "taglist", "tags_list"},
 	Short: "List all defined tags",
 	RunE:  listTags,
 }
