@@ -9,7 +9,7 @@ import (
 
 func TestJSONTime(t *testing.T) {
 	fixedTime := time.Date(2026, 8, 20, 15, 30, 45, 0, time.UTC)
-	jt := new(JSONTime).Set(fixedTime)
+	jt := NewJsonTime(fixedTime)
 
 	if !jt.Time().Equal(fixedTime) {
 		t.Errorf("JSONTime.Time() mismatch: got %v, expected %v", jt.Time(), fixedTime)

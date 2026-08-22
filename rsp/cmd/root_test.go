@@ -16,31 +16,31 @@ func TestMessageFiltering(t *testing.T) {
 			ID:      1,
 			Type:    "discovery",
 			Title:   "New Star Discovered",
-			Created: new(models.JSONTime).Set(time.Now()),
+			Created: models.NewJsonTime(time.Now()),
 		},
 		{
 			ID:      2,
 			Type:    "notification",
 			Title:   "Device low fuel",
-			Created: new(models.JSONTime).Set(time.Now()),
+			Created: models.NewJsonTime(time.Now()),
 		},
 		{
 			ID:      3,
 			Type:    "achievement",
 			Title:   "Event completed: EV-01",
-			Created: new(models.JSONTime).Set(time.Now()),
+			Created: models.NewJsonTime(time.Now()),
 		},
 		{
 			ID:      4,
 			Type:    "achievement",
 			Title:   "First Replicant Built",
-			Created: new(models.JSONTime).Set(time.Now()),
+			Created: models.NewJsonTime(time.Now()),
 		},
 		{
 			ID:      5,
 			Type:    "system",
 			Title:   "System Alert",
-			Created: new(models.JSONTime).Set(time.Now()),
+			Created: models.NewJsonTime(time.Now()),
 		},
 	}
 

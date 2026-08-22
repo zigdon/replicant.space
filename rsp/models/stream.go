@@ -237,6 +237,10 @@ func (sds *StreamDeviceStowed) Fill() error {
 	return nil
 }
 
+type StreamDeviceUnfurling struct {
+	Completes *JSONTime `json:"completes_at"`
+}
+
 type StreamDirectiveCleared struct {
 	PreviousDirective string `json:"previous_directive"`
 }

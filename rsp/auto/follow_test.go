@@ -150,7 +150,7 @@ func TestFollowMachineProcessTiming(t *testing.T) {
 			Code: models.NewCodeAlias("sh-1"),
 			Travel: &models.Trip{
 				Destination: models.LocationID("SOL-3"),
-				Arrives:     new(models.JSONTime).Set(targetArrival),
+				Arrives:     models.NewJsonTime(targetArrival),
 			},
 		},
 		dest: models.LocationID("SOL-3"),

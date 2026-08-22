@@ -39,7 +39,7 @@ func change[T any](target *T, newVal T) {
 func readStream(cmd *cobra.Command, args []string) error {
 	// Load the device network
 	relayNetwork := make(map[string]bool)
-	rows, err := db.DB.Query(`
+	rows, err := db.Query(`
 		SELECT distinct(location)
 		FROM json_devices
 		WHERE status = 'relaying'
@@ -142,7 +142,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 				update(func(d *models.Device) {
 					change(&d.Status, "travelling")
 					change(&d.Travel, &models.Trip{
-						Departed:    (&models.JSONTime{}).Set(time.Now()),
+						Departed:    models.NewJsonTime(time.Now()),
 						Destination: ev.Destination,
 						Origin:      d.Location,
 						Status:      "travelling",
@@ -373,6 +373,22 @@ func readStream(cmd *cobra.Command, args []string) error {
 			log("%s unfurled at %s", env.DeviceCode, env.Location)
 			update(func(d *models.Device) {
 				change(&d.Status, "idle")
+				change(&d.Unfurl, nil)
+			}, env.DeviceCode)
+		case "device.unfurling":
+			ev, err := models.Parse[models.StreamDeviceUnfurling](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s unfurling", env.DeviceCode)
+			update(func(d *models.Device) {
+				change(&d.Status, "unfurling")
+				change(&d.Unfurl, &models.Compact{
+					Completes: ev.Completes,
+					Eta:       models.NewJsonTimeDelta(time.Until(ev.Completes.Time())),
+					Started:   env.Created,
+				})
 			}, env.DeviceCode)
 		case "diversion.activated":
 			ev, err := models.Parse[models.StreamDiversionActivated](payload)
@@ -472,9 +488,9 @@ func readStream(cmd *cobra.Command, args []string) error {
 			log("Event complete: %s - %s => %v", ev.Designation, ev.EventType, ev.Rewards)
 			var errs []error
 			for _, d := range ev.Consumed.Devices {
-				_, err := db.DB.Exec("DELETE FROM aliases WHERE designation = $1", d.Code.String())
+				_, err := db.Exec("DELETE FROM aliases WHERE designation = $1", d.Code.String())
 				errs = append(errs, err)
-				_, err = db.DB.Exec("DELETE FROM json_devices WHERE code = $1;", d.Code.String())
+				_, err = db.Exec("DELETE FROM json_devices WHERE code = $1", d.Code.String())
 				errs = append(errs, err)
 			}
 			for _, d := range ev.Rewards.Devices {
@@ -489,6 +505,9 @@ func readStream(cmd *cobra.Command, args []string) error {
 			errs = append(errs, db.UpdateInventory(false, string(env.Location), delta))
 			if err := errors.Join(errs...); err != nil {
 				log("Error removing devices from the cache: %v", err)
+			}
+			if _, err := db.Exec("DELETE FROM events WHERE designation = $1", ev.Designation); err != nil {
+				log("Error deleting event %q entry: %v", ev.Designation, err)
 			}
 		case "event.discovered":
 			ev, err := models.Parse[models.StreamEventDiscovered](payload)
@@ -531,20 +550,6 @@ func readStream(cmd *cobra.Command, args []string) error {
 			}); err != nil {
 				log("Error inserting event: %v", err)
 			}
-			// {"category":"resource_trade"
-			//"criteria":[{"devices":[]
-			//"name":"default"
-			//"resources":{"structural":400}}]
-			//"description":"A civilisation is undergoing rapid urbanisation and needs bulk structural materials to keep pace."
-			//"designation":"NUKAWIY-2-EVT-004"
-			//"event_type":"construction_boom"
-			//"location":"NUKAWIY-2"
-			//"rewards":{"civilisation_points":1
-			//"completion_achievement":"construction_boom_completed"
-			//"resources":{"rares":500}
-			//"xp":400}
-			//"tier":1
-			//"title":"Construction Boom"}
 		case "experience.gained":
 			ev, err := models.Parse[models.StreamExperienceGained](payload)
 			if err != nil {
@@ -638,10 +643,12 @@ func readStream(cmd *cobra.Command, args []string) error {
 			}
 			// Add an entry in the device table
 			if err := db.Update(cache.JSONDevices, map[string]any{
-				"code":     ev.NewDeviceCode.String(),
-				"location": env.Location,
-				"type":     ev.DeviceType,
-				"data":     cache.Encode(new(models.Device)),
+				"code":       ev.NewDeviceCode.String(),
+				"location":   env.Location,
+				"type":       ev.DeviceType,
+				"data":       cache.Encode(new(models.Device)),
+				"fetched_ts": time.Time{},
+				"updated_ts": time.Time{},
 			}); err != nil {
 				log("Error creating blank device entry for %s: %v", ev.NewDeviceCode, err)
 			}
@@ -651,11 +658,11 @@ func readStream(cmd *cobra.Command, args []string) error {
 				if len(d.PrintQueue) > 0 {
 					pq := d.PrintQueue[0]
 					change(&d.Printing, &models.DevicePrint{
-						Completes: new(models.JSONTime).Set(
+						Completes: models.NewJsonTime(
 							time.Now().Add(common.GetBP(pq.Type).PrintTime.Duration())),
 						Eta:        common.GetBP(pq.Type).PrintTime,
 						DeviceType: pq.Type,
-						Started:    new(models.JSONTime).Set(time.Now()),
+						Started:    models.NewJsonTime(time.Now()),
 						Tags:       pq.Tags,
 					})
 					change(&d.PrintQueue, d.PrintQueue[1:])
@@ -850,7 +857,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 			log("Departed to %s from %s: %s", ev.Destination, ev.Origin,
 				strings.Join(codeList(append(ev.AttachedDevices, env.DeviceCode)), ", "))
 
-		// Next case here
+			// Next case here
 
 		/*
 			ev, err := models.Parse[models.StreamTravelDeparted](payload)
@@ -871,7 +878,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		lastEvent = args[0]
 	} else {
-		row := db.DB.QueryRow("SELECT eventid FROM event_stream ORDER BY id desc LIMIT 1")
+		row := db.QueryRow("SELECT eventid FROM event_stream ORDER BY id desc LIMIT 1")
 		if err := row.Scan(&lastEvent); err != nil {
 			return err
 		}

@@ -23,7 +23,7 @@ func TestLogging(t *testing.T) {
 	devs := []*models.Device{dev}
 	aliases := []*models.CodeAlias{models.NewCodeAlias("sh-1"), models.NewCodeAlias("af-2")}
 	dur := 15 * time.Second
-	jsonTime := new(models.JSONTime).Set(fixedTime)
+	jsonTime := models.NewJsonTime(fixedTime)
 	var jsonDelta models.JSONTimeDelta
 	_ = jsonDelta.UnmarshalJSON([]byte(`"15s"`))
 
@@ -187,7 +187,7 @@ func TestStringify(t *testing.T) {
 	ca := models.NewCodeAlias("af-1")
 	dev := &models.Device{Code: ca}
 	devPtr := &models.DevicePointer{Code: ca}
-	jt := new(models.JSONTime).Set(now)
+	jt := models.NewJsonTime(now)
 	var jtd models.JSONTimeDelta
 	_ = jtd.UnmarshalJSON([]byte(`"300s"`))
 	dur := time.Duration(5 * time.Minute)

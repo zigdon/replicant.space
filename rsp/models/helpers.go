@@ -136,6 +136,10 @@ func (jtd *JSONTimeDelta) Duration() time.Duration {
 	return jtd.td
 }
 
+func NewJsonTimeDelta(d time.Duration) *JSONTimeDelta {
+	return &JSONTimeDelta{td: d}
+}
+
 type JSONTime struct {
 	orig string
 	ts   time.Time
@@ -196,6 +200,10 @@ func (jt *JSONTime) Set(ts time.Time) *JSONTime {
 	}
 	jt.ts = ts
 	return jt
+}
+
+func NewJsonTime(t time.Time) *JSONTime {
+	return &JSONTime{ts: t}
 }
 
 func NewCodeAlias(input string) *CodeAlias {

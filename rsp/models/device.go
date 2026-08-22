@@ -119,10 +119,10 @@ func SortDevices(ds []*Device) {
 }
 
 type Compact struct {
-	Completes       JSONTime      `json:"completes_at"`
-	Eta             JSONTimeDelta `json:"eta_seconds"`
-	ProgressPercent float32       `json:"progress_percent"`
-	Started         JSONTime      `json:"started_at"`
+	Completes       *JSONTime      `json:"completes_at"`
+	Eta             *JSONTimeDelta `json:"eta_seconds"`
+	ProgressPercent float32        `json:"progress_percent"`
+	Started         *JSONTime      `json:"started_at"`
 }
 
 type DeviceUpdate struct {
