@@ -199,7 +199,7 @@ func (bm *BeaconMachine) UpdateState() error {
 		log("Blank state, moving")
 		bm.state = BeaconStates_Transit
 	case !fbInv:
-		log("No more beacons")
+		log("No more beacons in inventory")
 		bm.state = BeaconStates_Empty
 	case !isScanned:
 		log("System not scanned")

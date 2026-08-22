@@ -157,14 +157,14 @@ func init() {
 	intentCmd.AddCommand(intentAddCmd)
 	intentAddCmd.Flags().StringP("location", "l", "", "Location designation")
 	intentAddCmd.Flags().StringSliceP("resources", "r", []string{}, "Resources to add, type:qty (repeatable)")
-	_ = intentAddCmd.RegisterFlagCompletionFunc("resources", completeResources)
-	_ = intentAddCmd.RegisterFlagCompletionFunc("location", completeStarsAndPlanets)
+	intentAddCmd.RegisterFlagCompletionFunc("resources", completeResources)
+	intentAddCmd.RegisterFlagCompletionFunc("location", completeStarsAndPlanets)
 
 	intentCmd.AddCommand(intentRemoveCmd)
 	intentRemoveCmd.Flags().StringP("location", "l", "", "Location designation")
 	intentRemoveCmd.Flags().StringSliceP("resources", "r", []string{}, "Specific resources to remove (repeatable)")
-	_ = intentRemoveCmd.RegisterFlagCompletionFunc("resources", completeResources)
-	_ = intentRemoveCmd.RegisterFlagCompletionFunc("location", completeIntents)
+	intentRemoveCmd.RegisterFlagCompletionFunc("resources", completeResources)
+	intentRemoveCmd.RegisterFlagCompletionFunc("location", completeIntents)
 }
 
 var intentCmd = &cobra.Command{
@@ -319,53 +319,22 @@ var intentAddCmd = &cobra.Command{
 		demand := make(map[string]int)
 
 		for _, r := range resSlice {
-			if r == "" {
-				continue
+			if err := parseResourceArgs(&demand, r); err != nil {
+				return err
 			}
-			k, v, ok := strings.Cut(r, ":")
-			if !ok {
-				k, v, ok = strings.Cut(r, "=")
-			}
-			if !ok {
-				return fmt.Errorf("Invalid resource format %q: expected resource:qty", r)
-			}
-			qty, err := strconv.Atoi(strings.TrimSpace(v))
-			if err != nil {
-				return fmt.Errorf("Invalid quantity in %q: %w", r, err)
-			}
-			if qty < 0 {
-				return fmt.Errorf("Quantity cannot be negative: %d", qty)
-			}
-			demand[strings.ToLower(strings.TrimSpace(k))] = qty
 		}
 
 		for i := 0; i < len(resArgs); i++ {
 			arg := resArgs[i]
 			if strings.Contains(arg, ":") || strings.Contains(arg, "=") {
-				k, v, ok := strings.Cut(arg, ":")
-				if !ok {
-					k, v, _ = strings.Cut(arg, "=")
+				if err := parseResourceArgs(&demand, arg); err != nil {
+					return err
 				}
-				qty, err := strconv.Atoi(strings.TrimSpace(v))
-				if err != nil {
-					return fmt.Errorf("Invalid quantity in %q: %w", arg, err)
+			} else if i+1 < len(resArgs) {
+				if err := parseResourceArgs(&demand, strings.Join(resArgs[i:i+1], " ")); err != nil {
+					return err
 				}
-				if qty < 0 {
-					return fmt.Errorf("Quantity cannot be negative: %d", qty)
-				}
-				demand[strings.ToLower(strings.TrimSpace(k))] = qty
 			} else {
-				if i+1 < len(resArgs) {
-					qty, err := strconv.Atoi(strings.TrimSpace(resArgs[i+1]))
-					if err == nil {
-						if qty < 0 {
-							return fmt.Errorf("Quantity cannot be negative: %d", qty)
-						}
-						demand[strings.ToLower(strings.TrimSpace(arg))] = qty
-						i++
-						continue
-					}
-				}
 				return fmt.Errorf("Invalid resource argument %q: expected resource:qty (e.g. carbon:500) or resource qty (e.g. carbon 500)", arg)
 			}
 		}
@@ -451,5 +420,44 @@ func reloadStars(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	log(out)
+	return nil
+}
+
+func parseResourceArgs(demand *map[string]int, r string) error {
+	if r == "" {
+		return nil
+	}
+	k, v, ok := strings.Cut(r, ":")
+	if !ok {
+		k, v, ok = strings.Cut(r, "=")
+	}
+	if !ok {
+		k, v, ok = strings.Cut(r, " ")
+	}
+	if !ok {
+		return fmt.Errorf("Invalid resource format %q: expected resource:qty", r)
+	}
+	var mag = 1
+	if v, ok = strings.CutSuffix(v, "k"); ok {
+		mag = 1000
+	} else if v, ok = strings.CutSuffix(v, "m"); ok {
+		mag = 1000000
+	}
+	qty, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil {
+		return fmt.Errorf("Invalid quantity in %q: %w", r, err)
+	}
+	if qty < 0 {
+		return fmt.Errorf("Quantity cannot be negative: %d", qty)
+	}
+	qty *= mag
+	if k == "all" {
+		for _, r := range StandardResources {
+			(*demand)[r] += qty
+		}
+		return nil
+	}
+
+	(*demand)[strings.ToLower(strings.TrimSpace(k))] = qty
 	return nil
 }

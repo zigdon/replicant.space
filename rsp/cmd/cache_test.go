@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -41,120 +39,74 @@ func TestStandardResourcesCompletion(t *testing.T) {
 	}
 }
 
-func parseIntentResourceArgs(resSlice []string, resArgs []string) (map[string]int, error) {
-	demand := make(map[string]int)
-
-	for _, r := range resSlice {
-		if r == "" {
-			continue
-		}
-		k, v, ok := strings.Cut(r, ":")
-		if !ok {
-			k, v, ok = strings.Cut(r, "=")
-		}
-		if !ok {
-			return nil, fmt.Errorf("invalid resource format %q", r)
-		}
-		qty, err := strconv.Atoi(strings.TrimSpace(v))
-		if err != nil {
-			return nil, err
-		}
-		if qty < 0 {
-			return nil, fmt.Errorf("quantity cannot be negative")
-		}
-		demand[strings.ToLower(strings.TrimSpace(k))] = qty
+func TestParseIntentResourceArgs(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      []string
+		want    map[string]int
+		wantErr bool
+	}{
+		{
+			name: "Colon syntax",
+			in:   []string{"carbon:400", "conductive:200"},
+			want: map[string]int{"carbon": 400, "conductive": 200},
+		},
+		{
+			name: "Wildcard",
+			in:   []string{"carbon:400", "all:200"},
+			want: map[string]int{
+				"carbon": 600, "conductive": 200, "rares": 200,
+				"silicates": 200, "structural": 200, "volatiles": 200,
+			},
+		},
+		{
+			name: "Units",
+			in:   []string{"carbon:4k", "conductive:2m"},
+			want: map[string]int{"carbon": 4000, "conductive": 2000000},
+		},
+		{
+			name: "Space-separated syntax",
+			in:   []string{"carbon 500", "volatiles 150"},
+			want: map[string]int{"carbon": 500, "volatiles": 150},
+		},
+		{
+			name: "Equals syntax",
+			in:   []string{"rares=75"},
+			want: map[string]int{"rares": 75},
+		},
+		{
+			name:    "Invalid qty",
+			in:      []string{"rares:foo"},
+			wantErr: true,
+		},
+		{
+			name:    "Missing qty",
+			in:      []string{"rares"},
+			wantErr: true,
+		},
 	}
 
-	for i := 0; i < len(resArgs); i++ {
-		arg := resArgs[i]
-		if strings.Contains(arg, ":") || strings.Contains(arg, "=") {
-			k, v, ok := strings.Cut(arg, ":")
-			if !ok {
-				k, v, _ = strings.Cut(arg, "=")
-			}
-			qty, err := strconv.Atoi(strings.TrimSpace(v))
-			if err != nil {
-				return nil, err
-			}
-			if qty < 0 {
-				return nil, fmt.Errorf("quantity cannot be negative")
-			}
-			demand[strings.ToLower(strings.TrimSpace(k))] = qty
-		} else {
-			if i+1 < len(resArgs) {
-				qty, err := strconv.Atoi(strings.TrimSpace(resArgs[i+1]))
-				if err == nil {
-					if qty < 0 {
-						return nil, fmt.Errorf("quantity cannot be negative")
-					}
-					demand[strings.ToLower(strings.TrimSpace(arg))] = qty
-					i++
-					continue
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			res := make(map[string]int)
+			for _, a := range tc.in {
+				err := parseResourceArgs(&res, a)
+				if (err != nil) != tc.wantErr {
+					t.Fatalf("Unexpected error, want %v, got %v", tc.wantErr, err)
 				}
 			}
-			return nil, fmt.Errorf("invalid resource argument %q", arg)
-		}
-	}
-
-	return demand, nil
-}
-
-func TestParseIntentResourceArgs(t *testing.T) {
-	// Colon syntax
-	res, err := parseIntentResourceArgs(nil, []string{"carbon:500", "conductive:200"})
-	if err != nil {
-		t.Fatalf("Unexpected error for colon syntax: %v", err)
-	}
-	if res["carbon"] != 500 || res["conductive"] != 200 {
-		t.Errorf("Unexpected result: %v", res)
-	}
-
-	// Space-separated syntax
-	res, err = parseIntentResourceArgs(nil, []string{"carbon", "500", "volatiles", "150"})
-	if err != nil {
-		t.Fatalf("Unexpected error for space syntax: %v", err)
-	}
-	if res["carbon"] != 500 || res["volatiles"] != 150 {
-		t.Errorf("Unexpected result: %v", res)
-	}
-
-	// Equals syntax
-	res, err = parseIntentResourceArgs(nil, []string{"rares=75"})
-	if err != nil {
-		t.Fatalf("Unexpected error for equals syntax: %v", err)
-	}
-	if res["rares"] != 75 {
-		t.Errorf("Unexpected result: %v", res)
-	}
-
-	// Flag slice syntax
-	res, err = parseIntentResourceArgs([]string{"carbon:100", "silicates:300"}, nil)
-	if err != nil {
-		t.Fatalf("Unexpected error for flag syntax: %v", err)
-	}
-	if res["carbon"] != 100 || res["silicates"] != 300 {
-		t.Errorf("Unexpected result: %v", res)
-	}
-
-	// Combined flag and positional
-	res, err = parseIntentResourceArgs([]string{"carbon:100"}, []string{"conductive:200", "rares", "50"})
-	if err != nil {
-		t.Fatalf("Unexpected error for combined syntax: %v", err)
-	}
-	if res["carbon"] != 100 || res["conductive"] != 200 || res["rares"] != 50 {
-		t.Errorf("Unexpected result: %v", res)
-	}
-
-	// Invalid quantity
-	_, err = parseIntentResourceArgs(nil, []string{"carbon:abc"})
-	if err == nil {
-		t.Errorf("Expected error for non-integer quantity")
-	}
-
-	// Invalid format without quantity
-	_, err = parseIntentResourceArgs(nil, []string{"carbon"})
-	if err == nil {
-		t.Errorf("Expected error for missing quantity")
+			for k, v := range tc.want {
+				if v != res[k] {
+					t.Errorf("Wrong value for %q: want %d, got %d", k, v, res[k])
+				}
+			}
+			for k, v := range res {
+				if _, ok := tc.want[k]; ok {
+					continue
+				}
+				t.Errorf("Unexpected value for %q: want 0, got %d", k, v)
+			}
+		})
 	}
 }
 

@@ -238,7 +238,7 @@ var StandardResources = []string{
 func completeResources(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	var res []string
 	toComplete = strings.ToLower(toComplete)
-	for _, r := range StandardResources {
+	for _, r := range append(StandardResources, "all") {
 		if strings.HasPrefix(r, toComplete) {
 			res = append(res, r)
 		}

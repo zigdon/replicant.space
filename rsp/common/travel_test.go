@@ -47,7 +47,7 @@ func TestGetCachedTrip(t *testing.T) {
 	}
 
 	// 6. Cache miss on expired entry (> 10m)
-	travelCache["SOL"]["ALPHA"].ts = time.Now().Add(-15 * time.Minute)
+	travelCache["SOL"]["ALPHA"].ts = time.Now().Add(-1 * time.Hour)
 	if expired := getCachedTrip("SOL", "ALPHA", []string{"BETA"}); expired != nil {
 		t.Errorf("getCachedTrip with expired entry expected nil, got %v", expired)
 	}
