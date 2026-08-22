@@ -60,7 +60,7 @@ func TestFollowMachineStateTransitions(t *testing.T) {
 		fm1.dest = fm1.target.Location
 	}
 	if fm1.dev.Location.Star() == fm1.target.Location.Star() {
-		fm1.state = FollowState_Idle	
+		fm1.state = FollowState_Idle
 	}
 	if fm1.state != FollowState_Idle {
 		t.Errorf("expected state %q, got %q", FollowState_Idle, fm1.state)
@@ -153,7 +153,7 @@ func TestFollowMachineProcessTiming(t *testing.T) {
 				Arrives:     new(models.JSONTime).Set(targetArrival),
 			},
 		},
-		dest:       models.LocationID("SOL-3"),
+		dest: models.LocationID("SOL-3"),
 	}
 
 	if fm.state == FollowState_Waiting && fm.target.Travel != nil && fm.target.Travel.Arrives != nil {

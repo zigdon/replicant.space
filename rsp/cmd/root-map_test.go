@@ -129,4 +129,3 @@ func TestTravelMapCmdFlags(t *testing.T) {
 		t.Errorf("mapCmd missing --travel_only flag")
 	}
 }
-

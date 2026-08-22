@@ -121,10 +121,10 @@ var findTagsCmd = &cobra.Command{
 }
 
 var listTagsCmd = &cobra.Command{
-	Use:   "list_tags",
+	Use:     "list_tags",
 	Aliases: []string{"listtags", "taglist", "tags_list"},
-	Short: "List all defined tags",
-	RunE:  listTags,
+	Short:   "List all defined tags",
+	RunE:    listTags,
 }
 
 func listTags(cmd *cobra.Command, args []string) error {

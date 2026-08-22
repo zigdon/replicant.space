@@ -298,4 +298,3 @@ func TestLocationModel(t *testing.T) {
 		t.Errorf("Location.Get() expected Not implemented error, got %v", err)
 	}
 }
-

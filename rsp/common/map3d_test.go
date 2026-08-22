@@ -705,4 +705,3 @@ func TestTravelOverlay(t *testing.T) {
 		t.Errorf("RenderGalaxyMapTview failed with travelling device")
 	}
 }
-

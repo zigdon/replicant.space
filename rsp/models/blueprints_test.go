@@ -10,7 +10,7 @@ func TestBlueprintRawResources(t *testing.T) {
 	bpSimple := &Blueprint{
 		DeviceType: "basic_probe",
 		Resources: map[string]int{
-			"carbon":    50,
+			"carbon":     50,
 			"conductive": 20,
 		},
 	}

@@ -165,11 +165,11 @@ func TestInventory(t *testing.T) {
 func TestDeviceMethods(t *testing.T) {
 	ca := NewCodeAlias("cf-1")
 	dev := &Device{
-		Code:          ca,
-		Type:          "cargo_freighter",
-		CargoCapacity: 0,
+		Code:           ca,
+		Type:           "cargo_freighter",
+		CargoCapacity:  0,
 		AttachCapacity: 0,
-		Features:      []string{"travel", "cargo"},
+		Features:       []string{"travel", "cargo"},
 	}
 
 	// String
@@ -225,9 +225,9 @@ func TestDeviceMethods(t *testing.T) {
 
 func TestDeviceFilters(t *testing.T) {
 	devTagged := &Device{
-		Tags: []string{"auto:mine", "mine-sol-1", "priority"},
-		Type: "mining_drone",
-		Status: "idle",
+		Tags:     []string{"auto:mine", "mine-sol-1", "priority"},
+		Type:     "mining_drone",
+		Status:   "idle",
 		Location: "SOL-1",
 	}
 

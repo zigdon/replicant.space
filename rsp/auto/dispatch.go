@@ -259,7 +259,7 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 				return tasks, fmt.Errorf("Expected %s to be an *int, got %v (%T)", f, qres[n+1], qres[n+1])
 			}
 			res[f] = *i - pending[f]
-			if res[f] <= missing[f] {
+			if res[f] <= min(missing[f], 500) {
 				good = false
 				break
 			}
