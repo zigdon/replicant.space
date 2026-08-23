@@ -1,6 +1,17 @@
 State machines of the future:
 
-- reconcile - compare intent to reality, make them more similar
 - deliver - pickup:<ids and/or type x count>, deliver:<location/id>
 - taskmaster - deploy beacons, build fr routes
 
+- find new delivery tasks
+- see if there is an available spare (within ly range?)
+- if not, print nearby, mark as printing
+- asssign specific device
+- compact if needed
+- see if tx can be grouped
+- identify transport within range, build one if needed
+- send transport, associate with requests
+- pick up, transport
+- deliver, ship back? staging area?
+- execute post commands
+- remove request

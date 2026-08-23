@@ -193,6 +193,12 @@ func (pm *ProspectMachine) UpdateState() error {
 	if err != nil {
 		return err
 	}
+	if pm.dev.Status == "" {
+		dev, err = rest.RefreshDeviceInfo(pm.dev.Code)
+		if err != nil {
+			return err
+		}
+	}
 	pm.dev = dev
 	status := pm.dev.Status
 	pm.tag = getTags(pm.dev)["state"]
@@ -204,11 +210,11 @@ func (pm *ProspectMachine) UpdateState() error {
 	switch {
 	case status == "prospecting":
 		pm.state = ProspectMachine_Prospecting
-	case status == "idle" && pm.tag == "teardown":
+	case status == "idle" && (pm.tag == "teardown" || pm.tag == ""):
 		pm.state = ProspectMachine_Finished
 	case status == "compacting":
 		pm.state = ProspectMachine_Compacting
-	case status == "compacted" && pm.tag == "teardown":
+	case status == "compacted" && (pm.tag == "teardown" || pm.tag == ""):
 		pm.state = ProspectMachine_Leaving
 	case status == "travelling":
 		pm.state = ProspectMachine_Travelling
@@ -242,7 +248,11 @@ func (pm *ProspectMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		nextTag = "teardown"
-		eta = res.Completes.Time()
+		if res.Completes != nil {
+			eta = res.Completes.Time()
+		} else {
+			eta = time.Now().Add(30 * time.Minute)
+		}
 		log("Reading prospecting logs")
 		report, err := rest.ProspectLogs(pm.dev.Code)
 		if err != nil {

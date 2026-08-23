@@ -167,10 +167,10 @@ func (rm *RelayMachine) UpdateState() error {
 	}
 	sysHasSpareFR := len(sysFRs) > 1
 
-	log("State: %s@%s, %s@%s; System FRs: %d, relaying: %v",
+	log("State: %s@%s, %s@%s; Dest: %q (%v), System FRs: %d, relaying: %v",
 		rm.dev.Code.Alias(), rm.dev.Location,
 		rm.supply.Code.Alias(), rm.supply.Location,
-		len(sysFRs), sysFRRelaying)
+		rm.dest, rm.regions, len(sysFRs), sysFRRelaying)
 
 	oldState := rm.state
 	switch {
@@ -500,7 +500,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			  `, rm.dev.Location.Star(), rm.regions)
 				var dist float32
 				if err := row.Scan(&rm.dest, &dist); err != nil {
-					return eta, err
+					return eta, fmt.Errorf("Can't find next OOR device: %v", err)
 				}
 				log("Nearest system with out-of-range devices: %s (%.2f LY)", rm.dest, dist)
 			} else {
@@ -517,11 +517,11 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		// find the nearest relay to the destination
 		next, err := common.NearestRelay(rm.dest.Star())
 		if err != nil {
-			return eta, err
+			return eta, fmt.Errorf("Can't find nearest relay to %s: %v", rm.dest, err)
 		}
 		curDist, err := common.Distance(rm.dev.Location.Star(), rm.dest.Star())
 		if err != nil {
-			return eta, err
+			return eta, fmt.Errorf("Can't get distance between %q and %q: %v", rm.dev.Location, rm.dest, err)
 		}
 		if curDist == 0 {
 			log("At destination, waiting...")
@@ -529,7 +529,8 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 		relayDist, err := common.Distance(next, rm.dest.Star())
 		if err != nil {
-			return eta, err
+			return eta, fmt.Errorf("Can't get distance between the relay at %q and %q: %v",
+				next, rm.dest, err)
 		}
 		log("Nearest relay to %s is %s (%.2f LY away)", rm.dest.Star(), next, relayDist)
 		if next != rm.dev.Location.Star() && relayDist < curDist {

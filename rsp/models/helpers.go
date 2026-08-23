@@ -42,7 +42,10 @@ func fillTime(ts string, dest *time.Time) error {
 	}
 	parsed, err := time.Parse(time.RFC3339, ts)
 	if err != nil {
-		return err
+		parsed, err = time.ParseInLocation("2006-01-02T15:04:05.000000", ts, time.UTC)
+		if err != nil {
+			return err
+		}
 	}
 	*dest = parsed.Truncate(time.Second)
 	return nil

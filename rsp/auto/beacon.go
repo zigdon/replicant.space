@@ -241,6 +241,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		log("System scanned")
 		if scan.AsteroidBelt.Present {
 			log("Asteroid belt detected: %v", scan.AsteroidBelt.Belts)
+
 		}
 		nextState = BeaconStates_Incoming
 	case BeaconStates_Incoming:
@@ -447,10 +448,10 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 	}
 	relay := relayStar.EntryPoint
 
-	switch {
-	case bm.supply.Location == "":
+	switch bm.supply.Location {
+	case "":
 		log("Resupply platform in transit...")
-	case bm.supply.Location == home:
+	case home:
 		slots := bm.supply.AttachCapacity - len(bm.supply.AttachedDevices)
 		devs, err := rest.RefreshDevices(map[string]string{
 			"location":    home,
@@ -495,7 +496,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		} else {
 			log("Supply ship waiting for new beacons")
 		}
-	case bm.supply.Location == relay:
+	case relay:
 		log("Resupply ready at %q", relay)
 	default:
 		log("Restaging to %s", relay)

@@ -7,13 +7,12 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 
 	lg "charm.land/lipgloss/v2"
 )
-
-const home = "MENKUNT-2-L4"
 
 func eventComplete(eid string) error {
 	e, err := rest.CompleteEvent(eid)
@@ -186,13 +185,17 @@ func printEventSummary(es []*models.Event) {
 			devs = append(devs, tx...)
 			for _, d := range devs {
 				switch d.Location {
-				case home:
-					from++
 				case e.Location:
 					to++
 				case "":
 					transit++
 				default:
+					for _, h := range constants.Homes {
+						if string(d.Location) == h {
+							from++
+							break
+						}
+					}
 					log("%s is off-track, currently at %q", d, d.Location)
 				}
 			}
@@ -225,9 +228,13 @@ func printEvent(e *models.Event, style lg.Style) {
 		{style.Render(e.Description + "\n")},
 		{style.Render(e.BroadcastMessage)}})
 	var crit [][]any
-	inv, err := rest.Devices(map[string]string{"location": home})
-	if err != nil {
-		log("Error getting home inventory: %v", err)
+	var inv []*models.Device
+	for _, h := range closestHomes(e.Location) {
+		devs, err := rest.Devices(map[string]string{"location": h})
+		if err != nil {
+			log("Error getting home inventory: %v", err)
+		}
+		inv = append(inv, devs...)
 	}
 	tag := fmt.Sprintf("event:%s", strings.ToLower(e.Designation))
 	tagged, err := rest.Devices(map[string]string{"tag": tag})

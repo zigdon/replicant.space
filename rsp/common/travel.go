@@ -53,7 +53,7 @@ func getCachedTrip(from, to string, via []string) *tce {
 func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.Time, error) {
 	location := models.LocationID(loc)
 	var eta time.Time
-	info, err := rest.RefreshDeviceInfo(id)
+	info, err := rest.CachedDeviceInfo(id, !dryRun)
 	if err != nil {
 		return eta, fmt.Errorf("Can't get %s info: %v", id.Alias(), err)
 	}

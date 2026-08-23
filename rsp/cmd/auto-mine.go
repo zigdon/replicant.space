@@ -39,6 +39,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Can't get the density of %q", locName)
 	}
 	star := loc.Location.Star()
+	var home string
+	if override := getString(cmd, "home"); override != "" {
+		home = override
+	} else {
+		home = closestHomes(loc.Location)[0]
+	}
 	dist, err := common.Distance(star, home)
 	if err != nil {
 		return err
@@ -85,7 +91,6 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get printer locations
-	home := getString(cmd, "home")
 	printerStrs := getStringSlice(cmd, "factory")
 	var printers []*models.CodeAlias
 	if len(printerStrs) == 0 {

@@ -13,7 +13,7 @@ import (
 
 var db *cache.Cache
 
-const cacheTimeout = 5 * time.Minute
+const cacheTimeout = 10 * time.Minute
 
 func ConnectDB(cdb *cache.Cache) {
 	db = cdb
@@ -992,7 +992,7 @@ func ProspectLogs(id *models.CodeAlias) (string, error) {
 				log("**: Can't map: %+v", s)
 				continue
 			}
-			star := &models.Star{Designation: m["designation"].(models.LocationID)}
+			star := &models.Star{Designation: models.LocationID(m["designation"].(string))}
 			coords := m["coordinates"].(map[string]any)
 			star.Position = models.NewPosition(
 				float32(coords["x"].(float64)),

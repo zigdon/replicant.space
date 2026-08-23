@@ -250,7 +250,7 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		if err := rows.Scan(qres...); err != nil {
 			return tasks, fmt.Errorf("Error scanning systems: %v", err)
 		}
-		good := true
+		good := false
 		res := make(map[string]int)
 		pending := dm.pendingPickup(sys)
 		for n, f := range fields {
@@ -259,31 +259,35 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 				return tasks, fmt.Errorf("Expected %s to be an *int, got %v (%T)", f, qres[n+1], qres[n+1])
 			}
 			res[f] = *i - pending[f]
-			if res[f] <= min(missing[f], 500) {
-				good = false
-				break
+			if res[f] <= 0 {
+				delete(res, f)
+				continue
+			}
+			if res[f] >= min(missing[f], 500) {
+				good = true
 			}
 		}
-		if good {
-			task := &pickupTask{
-				pickup:    models.LocationID(sys),
-				dropoff:   loc,
-				resources: make(map[string]int),
+		if !good {
+			continue
+		}
+		task := &pickupTask{
+			pickup:    models.LocationID(sys),
+			dropoff:   loc,
+			resources: make(map[string]int),
+		}
+		space := 500
+		for k, v := range missing {
+			v = min(v, space, res[k])
+			task.resources[k] = v
+			missing[k] -= v
+			space -= v
+			if missing[k] <= 0 {
+				delete(missing, k)
 			}
-			space := 500
-			for k, v := range missing {
-				v = min(v, space, res[k])
-				task.resources[k] = v
-				missing[k] -= v
-				space -= v
-				if missing[k] <= 0 {
-					delete(missing, k)
-				}
-			}
-			tasks = append(tasks, task)
-			if len(missing) == 0 {
-				return tasks, nil
-			}
+		}
+		tasks = append(tasks, task)
+		if len(missing) == 0 {
+			return tasks, nil
 		}
 	}
 	return tasks, fmt.Errorf("Could not find %v", missing)
@@ -320,8 +324,9 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 	// - If the assigned freighter is at the destination, unload and remove the task
 	// - If it's anywhere else, just delete the task, let a new one be minted
 	log("%d tasks pending", len(dm.tasks))
-	for _, t := range dm.tasks {
-		log("Processing delivery of %#v %s->%s", t.resources, t.pickup, t.dropoff)
+	for n, t := range dm.tasks {
+		log("[%d/%d] Processing delivery of %#v %s->%s",
+			n, len(dm.tasks), t.resources, t.pickup, t.dropoff)
 		if t.ship != nil {
 			info, err := rest.DeviceInfo(t.ship.Code)
 			if err != nil {

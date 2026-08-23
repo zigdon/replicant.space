@@ -3,11 +3,14 @@ Signal Beta: coordinates (155, -215, -140)
 Signal Gamma: coordinates (-350, 160, -80)
 
 Centers:
+  home    | MENKUNT-2-L4    | (12.48, -7.56, -35.16)       | sh-1
   solzone | GORUMIUN        | (10.66, -1.68, -7.65)        |
   alpha   | XIKHWAKHUX-5-L4 | (140.45, 68.15, 21.05)       | sh-30
   beta    | CRAWDDYW-1-L4   | (134.93, -186.62, -123.84)   | sh-41
   gamma   | NOOAO-8-L4      | (-319.5, 146.58, -71.25)     | sh-35
   delta   | CAELZAROR-4-L4  | (10260.33, 26913.77, 177.02) |
+
+----------------------------------------------------------------------
 
 signatures:
   6ddbf5331bda69d7
@@ -29,7 +32,7 @@ signatures:
   "status": "retrieved",
   "vessel_device_code": "FA8565D9"
 }
-
+----------------------------------------------------------------------
 closest star in the core to delta:
 
   rsp=# SELECT
@@ -55,3 +58,27 @@ closest star in the core to delta:
   source_star | source_region | delta_star | delta_region | distance
   -------------+---------------+------------+--------------+----------
   VORLITHEUS  | solzone       | ALJORYR    | delta        | 28305.73
+
+  30%:
+  SELECT
+      s1.designation AS from_star,
+      s2.designation AS to_star,
+
+      -- X, Y, Z scalar coordinates
+      ROUND((0.70 * (s1.position->1) + 0.30 * (s2.position->1))::numeric, 2) AS x,
+      ROUND((0.70 * (s1.position->2) + 0.30 * (s2.position->2))::numeric, 2) AS y,
+      ROUND((0.70 * (s1.position->3) + 0.30 * (s2.position->3))::numeric, 2) AS z,
+
+      -- Result as a 3D CUBE point
+      CUBE(ARRAY[
+          0.70 * (s1.position->1) + 0.30 * (s2.position->1),
+          0.70 * (s1.position->2) + 0.30 * (s2.position->2),
+          0.70 * (s1.position->3) + 0.30 * (s2.position->3)
+      ]) AS waypoint_cube
+
+  FROM stars s1, stars s2
+  WHERE s1.designation = 'ORGANAN'
+    AND s2.designation = 'FASARAL';
+    from_star | to_star |    x    |    y    |   z    |                     waypoint_cube
+  -----------+---------+---------+---------+--------+--------------------------------------------------------
+  ORGANAN   | FASARAL | 2988.04 | 8503.91 | -81.72 | (2988.0412767999997, 8503.9131107, -81.72295229999999)

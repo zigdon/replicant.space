@@ -77,7 +77,7 @@ func init() {
 	autoMineCmd.Flags().BoolP("dry_run", "n", false, "Only plan, don't actually queue prints")
 	autoMineCmd.Flags().Bool("no_print", false, "Skip printing missing resources")
 	autoMineCmd.Flags().StringSlice("skip", []string{}, "Remove these devices from the plan")
-	autoMineCmd.Flags().String("home", "MENKUNT-2-L4", "Destination for ferrying")
+	autoMineCmd.Flags().String("home", "", "Destination for ferrying")
 	autoMineCmd.Flags().IntP("scale", "s", 0, "If provided, scale the mining drones by this factor")
 
 	autoCmd.AddCommand(autoFerryCmd)

@@ -723,6 +723,17 @@ func readStream(cmd *cobra.Command, args []string) error {
 				out = append(out, fmt.Sprintf("%d %s", i.Quantity, i.ResourceType[:2]))
 			}
 			log("%s depleted: %s", ev.Site, strings.Join(out, ", "))
+		case "story.awakened":
+			ev, err := models.Parse[models.StreamStoryAwakened](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Replicant %s replicated into %s", ev.NewReplicantName, ev.HostDeviceCode)
+			update(func(d *models.Device) {
+				change(&d.ReplicantCode, ev.NewReplicantCode)
+				change(&d.Type, "replicant_matrix")
+			}, ev.HostDeviceCode)
 		case "system.object_detected":
 			ev, err := models.Parse[models.StreamSystemObjectDetected](payload)
 			if err != nil {

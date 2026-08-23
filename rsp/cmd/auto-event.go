@@ -11,29 +11,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/common"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
-// Look up the requirements for an event
-// If there are multiple options
-//   check that we have all the required blueprints
-//   require the user specify which one to take
-// Check which of the requirements are still missing
-// If there are missing components
-//   check if we already have some available (with either no tag or event:id tag)
-//   if not, check if they're already being printed with an 'event:id' tag
-//   if not, queue them
-//   ship them
-// If there are missing resources
-//   check if there are already any in transit
-//   if not, ship them
-// Once everything is in place
-//   if there's a replicant there, resolve the event
-//   if not, check if there's an ERM, and teleport to it
-//   if not, send the nearest replicant there
-
-///// V2
 // Pick option -> empty event state
 //   See which option is even possible
 //   See the resource cost for each
@@ -281,6 +263,7 @@ type eventState struct {
 	transports  []*models.Device
 	dryRun      bool
 	convoy      *travelCoordinator
+	home        models.LocationID
 
 	required   map[string]int
 	ready      map[string]int
@@ -291,6 +274,7 @@ type eventState struct {
 }
 
 func newEventState(ev *models.Event, tc *travelCoordinator, dryRun bool) *eventState {
+	home := closestHomes(ev.Location)[0]
 	return &eventState{
 		event:       ev,
 		tag:         fmt.Sprintf("event:%s", strings.ToLower(ev.Designation)),
@@ -298,6 +282,7 @@ func newEventState(ev *models.Event, tc *travelCoordinator, dryRun bool) *eventS
 		destination: ev.Location,
 		dryRun:      dryRun,
 		convoy:      tc,
+		home:        models.LocationID(home),
 
 		eta:        make(map[string]time.Time),
 		required:   make(map[string]int),
@@ -407,7 +392,7 @@ func (es *eventState) updateState() error {
 		switch d.Location {
 		case es.event.Location:
 			es.ready[d.Type]++
-		case home:
+		case es.home:
 			es.waiting[d.Type] = append(es.waiting[d.Type], d.Code)
 		case "":
 			es.transitDev[d.Type] = append(es.transitDev[d.Type], d.Code)
@@ -430,7 +415,7 @@ func (es *eventState) updateState() error {
 			for _, c := range d.Cargo {
 				es.ready[c.ResourceType] += c.Quantity
 			}
-		case home:
+		case es.home:
 			log("%q is still loading", d)
 			for _, c := range d.Cargo {
 				es.waiting[c.ResourceType] = append(es.waiting[c.ResourceType], d.Code)
@@ -460,7 +445,8 @@ func (es *eventState) shipRes(res map[string]int) error {
 	}
 
 	// Find free freighters at home
-	cfs, err := rest.Devices(map[string]string{"location": home, "device_type": "cargo_freighter"})
+	cfs, err := rest.Devices(map[string]string{
+		"location": string(es.home), "device_type": "cargo_freighter"})
 	if err != nil {
 		return fmt.Errorf("Error finding freighters: %v", err)
 	}
@@ -542,12 +528,14 @@ func (es *eventState) shipDev(devs []*models.CodeAlias) error {
 		log("Shipping devices: %v", devs)
 
 		// Find free platforms at home. Use smaller ones if we can.
-		mfs, err := rest.Devices(map[string]string{"location": home, "device_type": "mobile_fleet"})
+		mfs, err := rest.Devices(map[string]string{
+			"location": string(es.home), "device_type": "mobile_fleet"})
 		if err != nil {
 			return fmt.Errorf("Error finding fleets: %v", err)
 		}
 		if len(devs) <= 4 {
-			plats, err := rest.Devices(map[string]string{"location": home, "device_type": "surge_platform"})
+			plats, err := rest.Devices(map[string]string{
+				"location": string(es.home), "device_type": "surge_platform"})
 			if err != nil {
 				return fmt.Errorf("Error finding platforms: %v", err)
 			}
@@ -594,7 +582,7 @@ func (es *eventState) shipDev(devs []*models.CodeAlias) error {
 		if sent[p.Alias()] {
 			continue
 		}
-		eta, err := es.convoy.Queue(p, home, string(es.destination))
+		eta, err := es.convoy.Queue(p, string(es.home), string(es.destination))
 		errs = append(errs, err)
 		es.later("devices", eta)
 		sent[p.Alias()] = true
@@ -662,12 +650,21 @@ func (es *eventState) complete() error {
 		if err == nil {
 			tags = hv.Tags
 			if slices.Contains(tags, "auto") {
+				log("%s has automation enabled: %v", hv.Code, tags)
+				continue
+			}
+			if !slices.Contains(hv.Features, "surge") {
+				log("%s cannot surge: %s", hv.Code, hv.Type)
 				continue
 			}
 		} else {
 			log("Can't get vessel info: %v", err)
 		}
 
+		if hv.Location == "" {
+			log("%s is in motion", r.Code)
+			continue
+		}
 		dist, err := common.Distance(r.Code.Alias(), es.destination.Star())
 		if err != nil {
 			log("Can't get distance to %s: %v", r.Code, err)
@@ -789,7 +786,7 @@ func (es *eventState) complete() error {
 				mcLocs[loc] = mcs
 			} else {
 				log("Sending the empty %q back home", mc.AttachedToDeviceCode)
-				if _, err := es.convoy.Queue(mc.AttachedToDeviceCode, loc, home); err != nil {
+				if _, err := es.convoy.Queue(mc.AttachedToDeviceCode, loc, string(es.home)); err != nil {
 					log("Error convoying %s home: %v", mc.AttachedToDeviceCode, err)
 				}
 				continue
@@ -841,7 +838,7 @@ func (es *eventState) actuate() error {
 			errs = append(errs, es.unload(t))
 			// Untag and ship home
 			errs = append(errs, es.unTag(t.Code, es.txTag))
-			_, err := es.convoy.Queue(t.Code, string(t.Location), home)
+			_, err := es.convoy.Queue(t.Code, string(t.Location), string(es.home))
 			errs = append(errs, err)
 		} else if t.Travel != nil {
 			log("checking %s... en-route to %s", t.Code, es.destination)
@@ -852,7 +849,7 @@ func (es *eventState) actuate() error {
 			errs = append(errs, err)
 		} else {
 			log("checking %s... at %s, returning home", t.Code, t.Location)
-			_, err := es.convoy.Queue(t.Code, string(t.Location), home)
+			_, err := es.convoy.Queue(t.Code, string(t.Location), string(es.home))
 			errs = append(errs, err)
 		}
 	}
@@ -890,7 +887,7 @@ func (es *eventState) actuate() error {
 	if len(toPrint) > 0 {
 		// See if we have any spares at home
 		log("Checking for available spares...")
-		devs, err := rest.Devices(map[string]string{"location": home})
+		devs, err := rest.Devices(map[string]string{"location": string(es.home)})
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -948,7 +945,7 @@ func (es *eventState) actuate() error {
 	// If we still need to print devices, check if they're already queued and
 	// if not, print em
 	for k, v := range toPrint {
-		printing, printEta := common.CheckQueue(home, es.tag, k, v)
+		printing, printEta := common.CheckQueue(string(es.home), es.tag, k, v)
 		if v-printing <= 0 {
 			log("%d %s already being printed", v, k)
 			es.later("printing", printEta)
@@ -960,7 +957,7 @@ func (es *eventState) actuate() error {
 		if bp := common.GetBP(k); bp != nil && slices.Contains(bp.Features, "modular") {
 			cfg["flatpack"] = true
 		}
-		plan, err := common.Print(home, k, v, true, es.dryRun, cfg)
+		plan, err := common.Print(string(es.home), k, v, true, es.dryRun, cfg)
 		errs = append(errs, err)
 		es.later("printing", plan.ETA)
 	}
@@ -1091,6 +1088,7 @@ func eventCleanup(convoy *travelCoordinator, currentEvents []*models.Event, dryR
 
 	shipped := make(map[string]bool)
 	goHome := func(from models.LocationID, d *models.CodeAlias) error {
+		home := closestHomes(from)[0]
 		if shipped[d.Alias()] {
 			return nil
 		}
@@ -1114,7 +1112,7 @@ func eventCleanup(convoy *travelCoordinator, currentEvents []*models.Event, dryR
 				log("... %s in transit", d.Code)
 				continue
 			}
-			if string(d.Location) == home {
+			if slices.Contains(constants.Homes, string(d.Location)) {
 				errs = append(errs, untag(d, t))
 			}
 
@@ -1122,7 +1120,7 @@ func eventCleanup(convoy *travelCoordinator, currentEvents []*models.Event, dryR
 				continue
 			}
 
-			if string(d.Location) == home {
+			if slices.Contains(constants.Homes, string(d.Location)) {
 				errs = append(errs, unload(d))
 			} else if d.HasCapability("surge") {
 				errs = append(errs, goHome(d.Location, d.Code))
@@ -1174,16 +1172,6 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	for _, ev := range events {
 		log("**** Processing event %s", ev.Designation)
 
-		// Skip events in DELTA and similar areas unless explicitly requested
-		dist, err := common.Distance(home, string(ev.Location))
-		if err != nil {
-			log("Can't get distance to %s: %v", ev.Location, err)
-			continue
-		}
-		if dist > 1000 {
-			log("Skipping %s, as it is %.2f LY away from home", ev.Designation, dist)
-			continue
-		}
 		es, err := pickCriteria(ev, tc, dryRun)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %v", ev.Designation, err))
@@ -1201,7 +1189,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		if wait > 0 {
 			wait = wait.Truncate(time.Second)
 			data = append(data, []any{
-				ev.Designation, ev.Location, ev.Title,
+				ev.Designation, ev.Location, es.home, ev.Title,
 				fmt.Sprintf("Waiting: %s (%s)",
 					wait.String(), time.Now().Add(wait).Truncate(time.Second).Format(time.Kitchen)),
 			})
@@ -1210,14 +1198,14 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		}
 		if err := es.complete(); err != nil {
 			data = append(data, []any{
-				ev.Designation, ev.Location, ev.Title,
+				ev.Designation, ev.Location, es.home, ev.Title,
 				fmt.Sprintf("Error: %v", err),
 			})
 			errs = append(errs, fmt.Errorf("%s: %v", ev.Designation, err))
 			continue
 		}
 		data = append(data, []any{
-			ev.Designation, ev.Location, ev.Title, "Complete",
+			ev.Designation, ev.Location, es.home, ev.Title, "Complete",
 		})
 	}
 	errs = append(errs, tc.Ship())
@@ -1226,7 +1214,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	if err := errors.Join(errs...); err != nil {
 		log("Execution errors:\n%v\n\n", err)
 	}
-	printTable([]string{"ID", "Location", "Title", "Status"}, data)
+	printTable([]string{"ID", "Location", "Home base", "Title", "Status"}, data)
 
 	if getBool(cmd, "ship_replicants") {
 		log("Auto-shipping enabled...")

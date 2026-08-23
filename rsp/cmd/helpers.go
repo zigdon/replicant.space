@@ -1,12 +1,16 @@
 package cmd
 
 import (
+	"cmp"
+	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/common"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -311,4 +315,45 @@ func getMap(cmd *cobra.Command, name string) map[string]string {
 		res[k] = v
 	}
 	return res
+}
+
+func closestHomes(loc models.LocationID) []string {
+	star, err := models.NewStar(string(loc))
+	if err != nil {
+		log("Error loading %q: %v", loc, err)
+		return constants.Homes
+	}
+	var homes []*models.Star
+	for _, h := range constants.Homes {
+		s, err := models.NewStar(h)
+		if err != nil {
+			log("Error loading %q: %v", h, err)
+			return constants.Homes
+		}
+		homes = append(homes, s)
+	}
+	slices.SortFunc(homes, func(a, b *models.Star) int {
+		return cmp.Compare(
+			star.Position.Distance(a.Position),
+			star.Position.Distance(b.Position))
+	})
+
+	var res []string
+	for _, h := range homes {
+		res = append(res, string(h.Designation))
+	}
+	return res
+}
+
+func homeDevices(loc models.LocationID, filter map[string]string) ([]*models.Device, error) {
+	var errs []error
+	var res []*models.Device
+	for _, h := range closestHomes(loc) {
+		filter["location"] = h
+		devs, err := rest.Devices(filter)
+		errs = append(errs, err)
+		res = append(res, devs...)
+	}
+
+	return res, errors.Join(errs...)
 }
