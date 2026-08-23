@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/lib/pq"
 )
 
 func Encode[T any](in T) JSONB[T] {
@@ -39,10 +41,46 @@ func (j *JSONB[T]) Scan(value any) error {
 }
 
 func (db *Cache) FindNearestStar(x, y, z float32) (string, float32, error) {
-	row := db.DB.QueryRow(
+	if db == nil || db.DB == nil {
+		return "", 0, fmt.Errorf("database cache is not connected")
+	}
+	row := db.QueryRow(
 		`SELECT designation, position <-> $1::cube AS dist
 		FROM stars ORDER BY dist ASC LIMIT 1`,
 		Position{x, y, z},
+	)
+	if row.Err() != nil {
+		return "", 0, row.Err()
+	}
+	var dsg string
+	var dist float32
+	err := row.Scan(
+		&dsg, &dist,
+	)
+	return dsg, dist, err
+}
+
+// FindNearestStarInRange finds the nearest star to the destination coordinates (x, y, z)
+// that is within maxDist of at least one of the stars in the given list.
+func (db *Cache) FindNearestStarInRange(x, y, z float32, stars []string, maxDist float32) (string, float32, error) {
+	if db == nil || db.DB == nil {
+		return "", 0, fmt.Errorf("database cache is not connected")
+	}
+
+	row := db.QueryRow(
+		`SELECT s.designation, s.position <-> $1::cube AS dist
+		FROM stars s
+		WHERE EXISTS (
+			SELECT 1
+			FROM stars ref
+			WHERE ref.designation = ANY($2::text[])
+			  AND s.position <-> ref.position <= $3
+		)
+		ORDER BY dist ASC
+		LIMIT 1`,
+		Position{x, y, z},
+		pq.Array(stars),
+		maxDist,
 	)
 	if row.Err() != nil {
 		return "", 0, row.Err()
