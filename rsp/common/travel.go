@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -86,7 +87,7 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 		info.GetPosition().Distance(star.Position))
 
 	// See if we have this route already cached
-	cachedTrip := getCachedTrip(info.Location.Star(), location.Star(), via)
+	cachedTrip := getCachedTrip(info.Location.Star(), string(location), via)
 	if cachedTrip != nil {
 		Log("Using cached plan from %s (%s)", cachedTrip.ts.Format(time.Kitchen),
 			time.Since(cachedTrip.ts).Truncate(time.Second))
@@ -122,6 +123,9 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 			res, err := rest.DeviceCommand[models.CommandResp](id, "travel", cfg)
 			if err != nil {
 				Log("Auto-route failed: %v", err)
+				if strings.Contains(err.Error(), "Device is out of comms range") {
+					return eta, err
+				}
 			} else {
 				opts["auto"] = opt{
 					t: res.TotalTime.Duration(),

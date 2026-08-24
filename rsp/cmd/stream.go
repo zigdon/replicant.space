@@ -286,6 +286,17 @@ func readStream(cmd *cobra.Command, args []string) error {
 				}
 				change(&d.Owner.Code, ev.ToReplicant)
 			}, env.DeviceCode)
+		case "device.compacted":
+			_, err := models.Parse[models.StreamDeviceCompacted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s compacted", env.DeviceCode)
+			update(func(d *models.Device) {
+				change(&d.Status, "compacted")
+				change(&d.Compact, nil)
+			}, env.DeviceCode)
 		case "device.decommissioned":
 			ev, err := models.Parse[models.StreamDeviceDecommissioned](payload)
 			if err != nil {
@@ -536,7 +547,6 @@ func readStream(cmd *cobra.Command, args []string) error {
 				Resources:             ev.Rewards.Resources,
 				XP:                    ev.Rewards.Xp,
 			}
-
 			if err := db.Update(cache.EventsTable, map[string]any{
 				"designation": ev.Designation,
 				"category":    ev.Category,

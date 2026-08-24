@@ -39,6 +39,7 @@ type travelCoordinator struct {
 	afc    *models.CodeAlias
 	dryRun bool
 	etas   map[string]map[string]time.Time
+	oor    map[string]bool
 }
 
 func newTravelCoordinator(afc *models.CodeAlias, dryRun bool) *travelCoordinator {
@@ -48,11 +49,16 @@ func newTravelCoordinator(afc *models.CodeAlias, dryRun bool) *travelCoordinator
 		added:  make(map[string]bool),
 		queue:  make(map[string]map[string][]*models.CodeAlias),
 		etas:   make(map[string]map[string]time.Time),
+		oor:    make(map[string]bool),
 	}
 }
 
 func (tc *travelCoordinator) Queue(ca *models.CodeAlias, from, to string) (time.Time, error) {
 	if from == to {
+		return time.Time{}, nil
+	}
+	if tc.oor[from] {
+		log("%s is out-of-range", from)
 		return time.Time{}, nil
 	}
 	if _, ok := tc.queue[from]; !ok {
@@ -70,6 +76,9 @@ func (tc *travelCoordinator) Queue(ca *models.CodeAlias, from, to string) (time.
 	if _, ok := tc.etas[from][to]; !ok {
 		eta, err := common.Travel(ca, to, true)
 		if err != nil {
+			if strings.Contains(err.Error(), "Device is out of comms range") {
+				tc.oor[from] = true
+			}
 			return tc.etas[from][to], fmt.Errorf("Error calculating trip to %s: %v", to, err)
 		}
 		tc.etas[from][to] = eta
@@ -665,7 +674,8 @@ func (es *eventState) complete() error {
 			log("%s is in motion", r.Code)
 			continue
 		}
-		dist, err := common.Distance(r.Code.Alias(), es.destination.Star())
+		log("Getting distance from %q to %q", r.CurrentLocation, es.destination.Star())
+		dist, err := common.Distance(r.CurrentLocation.Star(), es.destination.Star())
 		if err != nil {
 			log("Can't get distance to %s: %v", r.Code, err)
 			dist = -1

@@ -24,6 +24,8 @@ import (
 // - On landing, stow/attach as needed, ship to destination
 // - On landing, unload/detach as needed, update table
 
+const distLimit = 200
+
 type pickupTask struct {
 	pickup    models.LocationID
 	dropoff   models.LocationID
@@ -38,6 +40,15 @@ func (pt *pickupTask) String() string {
 		ship = pt.ship.Code.Alias()
 	}
 	return fmt.Sprintf("Task: %s->%s %v %s", pt.pickup, pt.dropoff, pt.resources, ship)
+}
+
+func (pt *pickupTask) Empty() bool {
+	for _, v := range pt.resources {
+		if v > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 type DispatchMachine struct {
@@ -60,6 +71,7 @@ func (dm *DispatchMachine) Start(_ *models.Device, dryRun bool) error {
 	dm.dryRun = dryRun
 	return dm.UpdateState()
 }
+
 func (dm *DispatchMachine) UpdateState() error {
 	// Clear the current intent and inventory
 	clear(dm.demand)
@@ -207,6 +219,9 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 	var total int
 	var params []any
 	for k, v := range missing {
+		if v <= 0 {
+			continue
+		}
 		fields = append(fields, k)
 		total += v
 		if v > 500 {
@@ -277,6 +292,9 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		}
 		space := 500
 		for k, v := range missing {
+			if v <= 0 {
+				continue
+			}
 			v = min(v, space, res[k])
 			task.resources[k] = v
 			missing[k] -= v
@@ -285,7 +303,9 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 				delete(missing, k)
 			}
 		}
-		tasks = append(tasks, task)
+		if !task.Empty() {
+			tasks = append(tasks, task)
+		}
 		if len(missing) == 0 {
 			return tasks, nil
 		}
@@ -334,6 +354,11 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 			} else {
 				t.ship = info
 			}
+		}
+		if t.Empty() {
+			log("Empty task, skipping")
+			t.complete = true
+			continue
 		}
 		switch {
 		case t.ship == nil:
@@ -423,7 +448,11 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 	for _, t := range dm.tasks {
 		if t.complete {
 			log("Marking task complete: %v", t)
-			errs = append(errs, DB.ClearDelivery(dm.dryRun, t.ship.Code.String()))
+			if t.ship != nil {
+				errs = append(errs, DB.ClearDelivery(dm.dryRun, t.ship.Code.String()))
+				_, err := deviceCommand(t.ship.Code, "deposit_resources", nil, dm.dryRun)
+				errs = append(errs, err)
+			}
 		} else {
 			next = append(next, t)
 		}
@@ -461,6 +490,7 @@ func (dm *DispatchMachine) getShip(loc models.LocationID) (*models.Device, error
 			log("Error closing query: %v", err)
 		}
 	}()
+	var skipped int
 	for rows.Next() {
 		var code, location string
 		var dist float32
@@ -476,10 +506,15 @@ func (dm *DispatchMachine) getShip(loc models.LocationID) (*models.Device, error
 		if err := json.Unmarshal(data, &dev); err != nil {
 			return nil, fmt.Errorf("Failed to unmarshal data for %s: %v\n%s", ca, err, data)
 		}
+		if dist > distLimit {
+			skipped++
+			continue
+		}
 		log("Found %s @ %s, %.2f LY away", ca.Alias(), location, dist)
 		return dev, nil
 	}
-	return nil, fmt.Errorf("No freighter found")
+	log("Ignored %d freighters more than %d LY away", skipped, distLimit)
+	return nil, fmt.Errorf("No empty freighters found within %d LY of %q", distLimit, loc)
 }
 
 func (dm *DispatchMachine) pendingPickup(loc string) map[string]int {

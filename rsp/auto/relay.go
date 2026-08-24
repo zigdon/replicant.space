@@ -400,7 +400,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 
 		nextState = RelayMachine_Leaving
 	case RelayMachine_Leaving:
-		if rm.dev.Location.Star() == rm.dest.Star() {
+		if rm.dev.Location.Star() == rm.dest.Star() || rm.dest == "" {
 			if follow := getTags(rm.dev)["follow"]; follow != "" {
 				target, err := rest.DeviceInfo(models.NewCodeAlias(follow))
 				if err != nil {

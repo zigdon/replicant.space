@@ -31,6 +31,24 @@ var plotCmd = &cobra.Command{
 		if trip == nil {
 			return nil
 		}
+		// Get all relaying devices
+		rows, err := db.Query("SELECT type, location FROM json_devices WHERE status = 'relaying'")
+		if err != nil {
+			return err
+		}
+		relays := make(map[string]string)
+		for rows.Next() {
+			var t, l string
+			if err := rows.Scan(&t, &l); err != nil {
+				return err
+			}
+			star, _, _ := strings.Cut(l, "-")
+			relays[star] = t
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+
 		pos := func(s string) *models.Position {
 			st, err := models.NewStar(s)
 			if err != nil {
@@ -49,6 +67,9 @@ var plotCmd = &cobra.Command{
 				dist = fmt.Sprintf("%.2f *", d)
 			} else {
 				dist = fmt.Sprintf("%.2f", d)
+			}
+			if r, ok := relays[l.To]; ok {
+				l.To = fmt.Sprintf("%s (%s)", l.To, r)
 			}
 			data = append(data, []any{
 				l.From, l.To, l.DistFromSrc, dist, l.DistToDest})

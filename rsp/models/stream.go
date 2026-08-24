@@ -211,6 +211,8 @@ type StreamDeviceChangedOwner struct {
 	Direction     string     `json:"direction"`
 }
 
+type StreamDeviceCompacted struct {}
+
 type StreamDeviceDecommissioned struct {
 	ResourcesRecovered  map[string]int `json:"resources_recovered"`
 	BlueprintDiscovered string         `json:"blueprint_discovered"`

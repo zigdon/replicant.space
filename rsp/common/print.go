@@ -148,8 +148,8 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 			Log("... need %d × %s", q*qty, r)
 			printCost[r] += q * qty
 			if inventory[r] < q*qty {
-				return fmt.Errorf("Not enough %s for printing %d %s: have %d, need %d",
-					r, qty, name, inventory[r], q*qty)
+				return fmt.Errorf("Not enough %s for printing %d %s at %s: have %d, need %d",
+					r, qty, name, where, inventory[r], q*qty)
 			}
 			inventory[r] -= q * qty
 		}
@@ -276,7 +276,7 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 				})
 			}
 			if err != nil {
-				return pPlan, err
+				return pPlan, fmt.Errorf("Failed to queue %q at %s: %v", cfg["device_type"], p, err)
 			}
 		}
 	}
