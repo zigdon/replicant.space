@@ -19,20 +19,23 @@ var addTagCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a tag to a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id := getString(cmd, "device")
-		res, err := rest.UpdateTags(models.NewCodeAlias(id), rest.AddTag, args)
+		id := models.NewCodeAlias(getString(cmd, "device"))
+		if err := rest.UpdateTags(id, rest.AddTag, args); err != nil {
+			return err
+		}
+		dev, err := rest.DeviceInfo(id)
 		if err != nil {
 			return err
 		}
 		if raw := getBool(cmd, "raw"); raw {
-			prettyPrint(res)
+			prettyPrint(dev.Tags)
 			return nil
 		}
-		tags := res.Tags
+		tags := dev.Tags
 		if len(tags) == 0 {
 			tags = []string{"N/A"}
 		}
-		printTable([]string{"Device", "Tags"}, [][]any{{res, list(tags)}})
+		printTable([]string{"Device", "Tags"}, [][]any{{dev, list(tags)}})
 		return nil
 	},
 }
@@ -41,20 +44,23 @@ var setTagCmd = &cobra.Command{
 	Use:   "set",
 	Short: "Set the tags on a device to exactly this list",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id := getString(cmd, "device")
-		res, err := rest.UpdateTags(models.NewCodeAlias(id), rest.SetTags, args)
+		id := models.NewCodeAlias(getString(cmd, "device"))
+		if err := rest.UpdateTags(id, rest.SetTags, args); err != nil {
+			return err
+		}
+		dev, err := rest.DeviceInfo(id)
 		if err != nil {
 			return err
 		}
 		if raw := getBool(cmd, "raw"); raw {
-			prettyPrint(res)
+			prettyPrint(dev)
 			return nil
 		}
-		tags := res.Tags
+		tags := dev.Tags
 		if len(tags) == 0 {
 			tags = []string{"N/A"}
 		}
-		printTable([]string{"Device", "Tags"}, [][]any{{res, list(tags)}})
+		printTable([]string{"Device", "Tags"}, [][]any{{dev, list(tags)}})
 		return nil
 	},
 }
@@ -65,20 +71,24 @@ var delTagCmd = &cobra.Command{
 	ValidArgsFunction: completeDeviceTags,
 	Short:             "Remove a tag from a device",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id := getString(cmd, "device")
-		res, err := rest.UpdateTags(models.NewCodeAlias(id), rest.DelTag, args)
+		id := models.NewCodeAlias(getString(cmd, "device"))
+		err := rest.UpdateTags(id, rest.DelTag, args)
+		if err != nil {
+			return err
+		}
+		dev, err := rest.DeviceInfo(id)
 		if err != nil {
 			return err
 		}
 		if raw := getBool(cmd, "raw"); raw {
-			prettyPrint(res)
+			prettyPrint(dev)
 			return nil
 		}
-		tags := res.Tags
+		tags := dev.Tags
 		if len(tags) == 0 {
 			tags = []string{"N/A"}
 		}
-		printTable([]string{"Device", "Tags"}, [][]any{{res, list(tags)}})
+		printTable([]string{"Device", "Tags"}, [][]any{{dev, list(tags)}})
 		return nil
 	},
 }

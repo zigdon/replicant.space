@@ -200,6 +200,7 @@ func (j *Journey) Get() error {
 		return err
 	}
 	var legs []*JourneyLeg
+	defer rows.Close()
 	for rows.Next() {
 		jl := &JourneyLeg{JourneyID: j.ID}
 		rows.Scan(&jl.From, &jl.To, &jl.DistFromSrc, &jl.DistToDest, &jl.Step)

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"cmp"
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -323,37 +322,28 @@ func closestHomes(loc models.LocationID) []string {
 		log("Error loading %q: %v", loc, err)
 		return constants.Homes
 	}
-	var homes []*models.Star
+	type homeStar struct{
+		star *models.Star
+		home string
+	}
+	var homes []homeStar
 	for _, h := range constants.Homes {
 		s, err := models.NewStar(h)
 		if err != nil {
 			log("Error loading %q: %v", h, err)
 			return constants.Homes
 		}
-		homes = append(homes, s)
+		homes = append(homes, homeStar{s, h})
 	}
-	slices.SortFunc(homes, func(a, b *models.Star) int {
+	slices.SortFunc(homes, func(a, b homeStar) int {
 		return cmp.Compare(
-			star.Position.Distance(a.Position),
-			star.Position.Distance(b.Position))
+			star.Position.Distance(a.star.Position),
+			star.Position.Distance(b.star.Position))
 	})
 
 	var res []string
 	for _, h := range homes {
-		res = append(res, string(h.Designation))
+		res = append(res, string(h.home))
 	}
 	return res
-}
-
-func homeDevices(loc models.LocationID, filter map[string]string) ([]*models.Device, error) {
-	var errs []error
-	var res []*models.Device
-	for _, h := range closestHomes(loc) {
-		filter["location"] = h
-		devs, err := rest.Devices(filter)
-		errs = append(errs, err)
-		res = append(res, devs...)
-	}
-
-	return res, errors.Join(errs...)
 }

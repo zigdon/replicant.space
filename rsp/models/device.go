@@ -327,21 +327,16 @@ func (d *Device) GetPosition() *Position {
 }
 
 func (d *Device) Cache() error {
-	data, err := json.Marshal(d)
-	if err != nil {
-		return err
-	}
 	d.fetchedAt.update = time.Now()
-	err = db.Update(cache.JSONDevices, map[string]any{
+	return db.Update(cache.JSONDevices, map[string]any{
 		"code":       d.Code.String(),
 		"fetched_ts": d.Fetched(),
 		"updated_ts": d.Updated(),
 		"location":   d.Location,
 		"type":       d.Type,
 		"status":     d.Status,
-		"data":       data,
+		"data":       cache.Encode(d),
 	})
-	return err
 }
 
 func (d *Device) Get() error {
@@ -382,6 +377,24 @@ func (d *Device) HasCapability(c string) bool {
 		}
 	}
 	return slices.Contains(d.Features, c)
+}
+
+type DeviceTags struct {
+	DeviceCode *CodeAlias `json:"device_code"`
+	Tags []string `json:"tags"`
+}
+
+func (d *DeviceTags) Cache() error {
+	_, err := db.Exec(`
+		UPDATE json_devices 
+		SET data = JSONB_SET(data, '{tags}', $1::jsonb)
+		WHERE code = $2
+	`, cache.Encode(d.Tags), d.DeviceCode.String())
+	return err
+}
+
+func (d *DeviceTags) Get() error {
+	return fmt.Errorf("Not implemented")
 }
 
 type ControllerStatus struct {

@@ -24,7 +24,7 @@ import (
 // - On landing, stow/attach as needed, ship to destination
 // - On landing, unload/detach as needed, update table
 
-const distLimit = 200
+const distLimit = 300
 
 type pickupTask struct {
 	pickup    models.LocationID
@@ -84,6 +84,7 @@ func (dm *DispatchMachine) UpdateState() error {
 	if err != nil {
 		return fmt.Errorf("Can't get intent: %v", err)
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var loc string
 		var dem []byte
@@ -96,9 +97,6 @@ func (dm *DispatchMachine) UpdateState() error {
 		}
 		dm.demand[loc] = demand
 	}
-	if err := rows.Close(); err != nil {
-		return err
-	}
 	// Load the updated inventory
 	rows, err = DB.Query(`
 	    SELECT designation, carbon, conductive, rares, silicates, structural, volatiles
@@ -107,6 +105,7 @@ func (dm *DispatchMachine) UpdateState() error {
 	if err != nil {
 		return fmt.Errorf("Can't get inventory: %v", err)
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var loc string
 		var ca, co, ra, si, st, vo int
@@ -123,9 +122,6 @@ func (dm *DispatchMachine) UpdateState() error {
 		}
 		dm.supply[loc] = supply
 	}
-	if err := rows.Close(); err != nil {
-		return err
-	}
 	// Load deliveris in flight
 	rows, err = DB.Query(`
 	    SELECT origin, destination, ship, cargo, data
@@ -134,6 +130,7 @@ func (dm *DispatchMachine) UpdateState() error {
 	if err != nil {
 		return fmt.Errorf("Can't get deliveries: %v", err)
 	}
+	defer rows.Close()
 	dm.tasks = dm.tasks[:0]
 	for rows.Next() {
 		var from, to, ship string
@@ -156,9 +153,6 @@ func (dm *DispatchMachine) UpdateState() error {
 			ship:      device,
 			resources: cargo,
 		})
-	}
-	if err := rows.Close(); err != nil {
-		return err
 	}
 
 	return nil
@@ -415,8 +409,8 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 				}, dm.dryRun)
 				if err != nil {
 					errs = append(errs,
-						fmt.Errorf("Can't %s can't collect %v at %s: %v",
-							t.ship.Code, t.resources, t.pickup, err))
+						fmt.Errorf("%s can't collect %v at %s: %v",
+							t.ship.Code.Alias(), t.resources, t.pickup, err))
 					// Refresh the inventory, reset the delivery task
 					rest.Location(string(t.pickup))
 					t.complete = true

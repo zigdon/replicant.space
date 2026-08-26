@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -31,7 +30,6 @@ type ProspectMachine struct {
 	tag    string
 	dest   *models.Position
 	plat   *models.Device
-	db     *cache.Cache
 	dryRun bool
 	status string
 }
@@ -89,18 +87,11 @@ func (pm *ProspectMachine) platform(cmd string, arg string) (*models.CommandResp
 }
 
 func (pm *ProspectMachine) nextDest() (string, error) {
-	if pm.db == nil {
-		db, err := cache.Connect()
-		if err != nil {
-			return "", err
-		}
-		pm.db = db
-	}
 	if out, err := rest.ReloadStars(); err != nil {
 		log(out)
 		return "", err
 	}
-	nearest, dist, err := pm.db.FindNearestStar(pm.dest.X, pm.dest.Y, pm.dest.Z)
+	nearest, dist, err := DB.FindNearestStar(pm.dest.X, pm.dest.Y, pm.dest.Z)
 	if err != nil {
 		return "", err
 	}
@@ -144,7 +135,7 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 		// If not there, pick a star in the same sector
 		origin := models.NewPosition(0, 0, 0)
 		nPos := stars[next].Position
-		sector, err := pm.db.GetSector(nPos.X, nPos.Y, nPos.Z, 10, 5)
+		sector, err := DB.GetSector(nPos.X, nPos.Y, nPos.Z, 10, 5)
 		if err != nil {
 			return "", err
 		}
@@ -362,14 +353,14 @@ func (pm *ProspectMachine) SaveState(state string) error {
 	}
 	log("Updating tags on %q: -%s +%s", pm.dev.Code.Alias(), pm.tag, state)
 	if pm.tag != "" {
-		_, err := rest.UpdateTags(pm.dev.Code, rest.DelTag, []string{fmt.Sprintf("state:%s", pm.tag)})
+		err := rest.UpdateTags(pm.dev.Code, rest.DelTag, []string{fmt.Sprintf("state:%s", pm.tag)})
 		if err != nil {
 			return err
 		}
 	}
 
 	if state != "" {
-		_, err := rest.UpdateTags(pm.dev.Code, rest.AddTag, []string{fmt.Sprintf("state:%s", state)})
+		err := rest.UpdateTags(pm.dev.Code, rest.AddTag, []string{fmt.Sprintf("state:%s", state)})
 		if err != nil {
 			return err
 		}

@@ -228,7 +228,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		log("*******************************************")
 		log("* RELAY COMPLETE: reached %s", rm.dest)
 		log("*******************************************")
-		_, err := rest.UpdateTags(rm.dev.Code, rest.DelTag, []string{"relay:" + string(rm.dest)})
+		err := rest.UpdateTags(rm.dev.Code, rest.DelTag, []string{"relay:" + string(rm.dest)})
 		if err != nil {
 			log("Failed to remove tags: %v", err)
 		}
@@ -304,7 +304,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				return eta, err
 			}
 			// Tag
-			_, err = rest.UpdateTags(fr, rest.AddTag, []string{"infrastructure"})
+			err = rest.UpdateTags(fr, rest.AddTag, []string{"infrastructure"})
 			if err != nil {
 				return eta, fmt.Errorf("Can't update tags on %q: %v", fr.Alias(), err)
 			}
@@ -497,7 +497,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				    )
 				  ORDER BY dist
 				  LIMIT 1;
-			  `, rm.dev.Location.Star(), rm.regions)
+				`, rm.dev.Location.Star(), rm.regions)
 				var dist float32
 				if err := row.Scan(&rm.dest, &dist); err != nil {
 					return eta, fmt.Errorf("Can't find next OOR device: %v", err)
@@ -505,7 +505,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				log("Nearest system with out-of-range devices: %s (%.2f LY)", rm.dest, dist)
 			} else {
 				rm.state = RelayMachine_Done
-				_, err := rest.UpdateTags(rm.dev.Code, rest.DelTag, []string{"auto"})
+				err := rest.UpdateTags(rm.dev.Code, rest.DelTag, []string{"auto"})
 				if err != nil {
 					log("Error removing the 'auto' tag from %q: %v", rm.dev, err)
 				}

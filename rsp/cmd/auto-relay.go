@@ -71,7 +71,7 @@ func autoFR(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	log("Activated %s", fr.Code.Alias())
-	if _, err = rest.UpdateTags(fr.Code, rest.AddTag, []string{"infrastructure"}); err != nil {
+	if err = rest.UpdateTags(fr.Code, rest.AddTag, []string{"infrastructure"}); err != nil {
 		return err
 	}
 	log("Tagged %s", fr.Code.Alias())
@@ -116,7 +116,7 @@ func autoFB(cmd *cobra.Command, _ []string) error {
 			return err
 		}
 		log("Deployed %s to %s", fb.Code.Alias(), planet)
-		if _, err = rest.UpdateTags(fb.Code, rest.AddTag, []string{"infrastructure"}); err != nil {
+		if err = rest.UpdateTags(fb.Code, rest.AddTag, []string{"infrastructure"}); err != nil {
 			return err
 		}
 		log("Tagged %s", fb.Code.Alias())

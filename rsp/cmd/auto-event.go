@@ -605,8 +605,7 @@ func (es *eventState) unTag(id *models.CodeAlias, tag string) error {
 		log("[DRYRUN] Removing %q from %s", tag, id)
 		return nil
 	}
-	_, err := rest.UpdateTags(id, rest.DelTag, []string{tag})
-	return err
+	return rest.UpdateTags(id, rest.DelTag, []string{tag})
 }
 
 func (es *eventState) addTag(id *models.CodeAlias, tag string) error {
@@ -614,8 +613,7 @@ func (es *eventState) addTag(id *models.CodeAlias, tag string) error {
 		log("[DRYRUN] Tagging %s with %q", id, tag)
 		return nil
 	}
-	_, err := rest.UpdateTags(id, rest.AddTag, []string{tag})
-	return err
+	return rest.UpdateTags(id, rest.AddTag, []string{tag})
 }
 
 // Complete
@@ -1092,8 +1090,7 @@ func eventCleanup(convoy *travelCoordinator, currentEvents []*models.Event, dryR
 			return nil
 		}
 		log("... untagging %q %s", t, d.Code)
-		_, err := rest.UpdateTags(d.Code, rest.DelTag, []string{t})
-		return err
+		return rest.UpdateTags(d.Code, rest.DelTag, []string{t})
 	}
 
 	shipped := make(map[string]bool)

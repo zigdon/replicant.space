@@ -342,11 +342,12 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 	if db == nil || db.DB == nil {
 		return RefreshDevices(filters)
 	}
-	cached, err := db.DB.Query(q, vals...)
+	cached, err := db.Query(q, vals...)
 	if err != nil {
 		log("** err: %v", err)
 		return RefreshDevices(filters)
 	}
+	defer cached.Close()
 	var devs []*models.Device
 	valid := true
 	for cached.Next() {
@@ -503,6 +504,7 @@ func DeviceLogs(id *models.CodeAlias, limit int) (*models.DeviceLogs, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	ret := new(models.DeviceLogs)
 	for rows.Next() {
 		e := &models.DeviceEvent{
@@ -520,7 +522,7 @@ func DeviceLogs(id *models.CodeAlias, limit int) (*models.DeviceLogs, error) {
 		ret.Events = append(ret.Events, e)
 	}
 	slices.Reverse(ret.Events)
-	return ret, rows.Close()
+	return ret, nil
 }
 
 func RefreshDeviceInfo(id *models.CodeAlias) (*models.Device, error) {
@@ -615,7 +617,7 @@ func GetType(code string) (string, error) {
 	return dev.Type, nil
 }
 
-func Configure(id *models.CodeAlias, cfg map[string]any) (*models.Device, error) {
+func Configure(id *models.CodeAlias, cfg map[string]any) (*models.DeviceTags, error) {
 	data, err := json.Marshal(map[string]any{
 		"configuration": cfg,
 	})
@@ -627,7 +629,7 @@ func Configure(id *models.CodeAlias, cfg map[string]any) (*models.Device, error)
 		return nil, err
 	}
 
-	return models.Parse[models.Device](res)
+	return models.Parse[models.DeviceTags](res)
 }
 
 type TagOp string
@@ -638,51 +640,21 @@ const (
 	DelTag  TagOp = "remove_tags"
 )
 
-func UpdateTags(id *models.CodeAlias, operation TagOp, tags []string) (*models.Device, error) {
+func UpdateTags(id *models.CodeAlias, operation TagOp, tags []string) error {
 	dev, err := Configure(id, map[string]any{
 		string(operation): tags,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var mutate func(*models.Device)
-	switch operation {
-	case AddTag:
-		mutate = func(d *models.Device) {
-			newTags := make(map[string]bool)
-			for _, t := range d.Tags {
-				newTags[t] = true
-			}
-			for _, t := range tags {
-				newTags[t] = true
-			}
-			d.Tags = d.Tags[:0]
-			for k := range newTags {
-				d.Tags = append(d.Tags, k)
-			}
-			slices.Sort(d.Tags)
-		}
-	case DelTag:
-		mutate = func(d *models.Device) {
-			var newTags []string
-			for _, t := range d.Tags {
-				if !slices.Contains(tags, t) {
-					newTags = append(newTags, t)
-				}
-			}
-			d.Tags = newTags
-			slices.Sort(d.Tags)
-		}
-	case SetTags:
-		mutate = func(d *models.Device) {
-			d.Tags = tags
-			slices.Sort(d.Tags)
-		}
-	}
-
-	mutate(dev)
-	return dev, dev.Cache()
+	tags = dev.Tags
+	_, err = db.Exec(`
+		UPDATE json_devices 
+		SET data = JSONB_SET(data, '{tags}', $1::jsonb)
+		WHERE code = $2
+	`, cache.Encode(tags), id.String())
+	return err
 }
 
 func GetTagged(tag string) (*models.TaggedDevices, error) {
@@ -813,6 +785,7 @@ func ReloadStars() (string, error) {
 	if err != nil {
 		return res(), err
 	}
+	defer rows.Close()
 	old := 0
 	for rows.Next() {
 		old++

@@ -127,13 +127,14 @@ type Cache struct {
 	DB *sql.DB
 }
 
-func Connect() (*Cache, error) {
+func Connect(appName string) (*Cache, error) {
 	cfg, err := cfg.ReadCfg()
 	if err != nil {
 		return nil, err
 	}
 	pdb, err := sql.Open("postgres",
-		fmt.Sprintf("host=%s dbname=%s connect_timeout=5 sslmode=prefer", cfg.DBHost, cfg.DBName))
+		fmt.Sprintf("host=%s dbname=%s connect_timeout=5 sslmode=prefer application_name=%s",
+			cfg.DBHost, cfg.DBName, appName))
 
 	db := &Cache{pdb}
 
@@ -143,6 +144,7 @@ func Connect() (*Cache, error) {
 		log("Couldn't preload aliases: %v", err)
 		return db, nil
 	}
+	defer rows.Close()
 	prefixes = make(map[string]string)
 	for rows.Next() {
 		var k, v string

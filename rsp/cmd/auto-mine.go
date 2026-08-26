@@ -171,7 +171,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			stats[t].extra += 1
 			log("Found a spare tagged %s: %s", t, d.Code.Alias())
 			if !dryRun {
-				if _, err := rest.UpdateTags(d.Code, rest.DelTag, []string{tag}); err != nil {
+				if err := rest.UpdateTags(d.Code, rest.DelTag, []string{tag}); err != nil {
 					log("Error removing tag: %v")
 				} else {
 					log("Removed tag from %s", d.Code)
@@ -230,8 +230,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			fleet[t] = append(fleet[t], d)
 			if !dryRun {
 				log("Tagging idle %s (%s)", t, d.Code.String())
-				_, err := rest.UpdateTags(d.Code, rest.AddTag, []string{tag})
-				if err != nil {
+				if err := rest.UpdateTags(d.Code, rest.AddTag, []string{tag}); err != nil {
 					return err
 				}
 			}

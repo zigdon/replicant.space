@@ -306,7 +306,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		if _, err := deviceCommand(fb, "deploy", nil, bm.dryRun); err != nil {
 			return eta, err
 		}
-		if _, err := rest.UpdateTags(fb, rest.AddTag, []string{"infrastructure"}); err != nil {
+		if err := rest.UpdateTags(fb, rest.AddTag, []string{"infrastructure"}); err != nil {
 			return eta, err
 		}
 		delete(bm.missingFB, string(bm.dev.Location))
@@ -395,7 +395,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 
 		log("Finding nearest systems with life...")
 		pos := bm.dev.GetPosition()
-		rows, err := DB.DB.Query(`
+		rows, err := DB.Query(`
 		  SELECT * FROM (
 			SELECT p.designation as designation, position<->$1::cube AS dist
 			FROM planets p JOIN stars s ON p.star = s.designation
@@ -406,6 +406,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		if err != nil {
 			return eta, err
 		}
+		defer rows.Close()
 		var next string
 		var dist float32
 		for rows.Next() {
