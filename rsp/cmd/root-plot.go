@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 )
 
@@ -32,7 +33,10 @@ var plotCmd = &cobra.Command{
 			return nil
 		}
 		// Get all relaying devices
-		rows, err := db.Query("SELECT type, location FROM json_devices WHERE status = 'relaying'")
+		rows, err := db.Query(`
+			SELECT type, location
+			FROM json_devices
+			WHERE status = 'relaying'`)
 		if err != nil {
 			return err
 		}
@@ -43,6 +47,11 @@ var plotCmd = &cobra.Command{
 				return err
 			}
 			star, _, _ := strings.Cut(l, "-")
+			if r, ok := relays[star]; ok {
+				if constants.RelayDistance[r] > constants.RelayDistance[t] {
+					continue
+				}
+			}
 			relays[star] = t
 		}
 		if err := rows.Close(); err != nil {

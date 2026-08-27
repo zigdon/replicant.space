@@ -143,6 +143,9 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 		}
 		toPrint = append(toPrint, batch{name: name, qty: qty})
 		bp := GetBP(name)
+		if bp == nil {
+			return fmt.Errorf("Blueprint not available for %q", name)
+		}
 		Log("Simulating printing of %d %s", qty, name)
 		for r, q := range bp.Resources {
 			Log("... need %d × %s", q*qty, r)
