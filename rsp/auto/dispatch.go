@@ -312,6 +312,46 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 	if err := dm.UpdateState(); err != nil {
 		return eta, err
 	}
+	// Find "lost" freighters -- ones that are idle, with cargo, and no known purpose.
+	rows, err := DB.Query(`
+		SELECT code, location
+		FROM json_devices LEFT JOIN deliveries ON code = ship
+		WHERE id IS NULL
+		  AND type = 'cargo_freighter'
+		  AND status = 'idle'
+		  AND data->'tags' = '[]'
+		  AND data->>'cargo' IS NOT NULL
+		  AND data->'cargo' != '[]'
+	`)
+	if err != nil {
+		return eta, err
+	}
+	defer rows.Close()
+	lost := make(map[string][]string)
+	for rows.Next() {
+		var c, l string
+		if err := rows.Scan(&c, &l); err != nil {
+			return eta, err
+		}
+		ca := models.NewCodeAlias(c)
+		if _, err := deviceCommand(ca, "deposit_resources", nil, dm.dryRun); err != nil {
+			log("Error droping inventory from %s: %v", ca.Alias(), err)
+		}
+		lost[l] = append(lost[l], ca.Alias())
+	}
+	if len(lost) > 0 {
+		var data [][]any
+		for loc, cas := range lost {
+			slices.Sort(cas)
+			data = append(data, []any{loc, strings.Join(cas, ", ")})
+		}
+		slices.SortFunc(data, func(a, b []any) int {
+			return cmp.Compare(a[0].(string), b[0].(string))
+		})
+		log("Emptied %d lost ships:", len(data))
+		common.PrintTable([]string{"Ship", "Location"}, data)
+	}
+
 	toDeliver := dm.balanceBooks()
 	var errs []error
 	var newTasks []*pickupTask
