@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
@@ -24,7 +26,7 @@ import (
 // - On landing, stow/attach as needed, ship to destination
 // - On landing, unload/detach as needed, update table
 
-const distLimit = 300
+const distLimit = 200
 
 type pickupTask struct {
 	pickup    models.LocationID
@@ -176,7 +178,24 @@ func (dm *DispatchMachine) balanceBooks() map[string]map[string]int {
 	toDeliver := make(map[string]map[string]int)
 
 	var data [][]any
-	for loc, vs := range dm.demand {
+	demand := make(map[string]map[string]int)
+	maps.Copy(demand, dm.demand)
+	upkeep, err := common.GetUpkeep()
+	if err != nil {
+		log("Error getting upkeep: %v", err)
+	} else {
+		for loc, vs := range upkeep {
+			if _, ok := demand[loc]; !ok {
+				demand[loc] = vs
+				continue
+			}
+			for k, v := range vs {
+				demand[loc][k] += v
+			}
+		}
+	}
+
+	for loc, vs := range demand {
 		sent := dm.getSent(loc)
 		inv, ok := dm.supply[loc]
 		if !ok {
@@ -307,11 +326,7 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 	return tasks, fmt.Errorf("Could not find %v", missing)
 }
 
-func (dm *DispatchMachine) Process() (time.Time, error) {
-	eta := time.Now()
-	if err := dm.UpdateState(); err != nil {
-		return eta, err
-	}
+func (dm *DispatchMachine) releaseLostCargo() error {
 	// Find "lost" freighters -- ones that are idle, with cargo, and no known purpose.
 	rows, err := DB.Query(`
 		SELECT code, location
@@ -324,14 +339,14 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 		  AND data->'cargo' != '[]'
 	`)
 	if err != nil {
-		return eta, err
+		return err
 	}
 	defer rows.Close()
 	lost := make(map[string][]string)
 	for rows.Next() {
 		var c, l string
 		if err := rows.Scan(&c, &l); err != nil {
-			return eta, err
+			return err
 		}
 		ca := models.NewCodeAlias(c)
 		if _, err := deviceCommand(ca, "deposit_resources", nil, dm.dryRun); err != nil {
@@ -350,6 +365,17 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 		})
 		log("Emptied %d lost ships:", len(data))
 		common.PrintTable([]string{"Ship", "Location"}, data)
+	}
+	return nil
+}
+
+func (dm *DispatchMachine) Process() (time.Time, error) {
+	eta := time.Now()
+	if err := dm.UpdateState(); err != nil {
+		return eta, err
+	}
+	if err := dm.releaseLostCargo(); err != nil {
+		return eta, err
 	}
 
 	toDeliver := dm.balanceBooks()
@@ -513,7 +539,9 @@ func (dm *DispatchMachine) getShip(loc models.LocationID) (*models.Device, error
 	rows, err := DB.Query(`
 	  SELECT code, location, position<->(SELECT position FROM stars WHERE designation=$1) AS dist, data
 	  FROM json_devices JOIN stars ON SPLIT_PART(location, '-', 1) = designation
-	  WHERE type = 'cargo_freighter' AND status = 'idle' AND data->'cargo' = '[]'::jsonb
+	  WHERE type = 'cargo_freighter'
+	    AND status = 'idle'
+		AND (data->'cargo' = '[]'::jsonb OR data->>'cargo' IS NULL)
 	  ORDER BY dist
   `, loc.Star())
 	if err != nil {
@@ -524,31 +552,27 @@ func (dm *DispatchMachine) getShip(loc models.LocationID) (*models.Device, error
 			log("Error closing query: %v", err)
 		}
 	}()
-	var skipped int
+	stats := make(map[string]int)
 	for rows.Next() {
 		var code, location string
 		var dist float32
-		var data []byte
-		if err := rows.Scan(&code, &location, &dist, &data); err != nil {
+		var dev cache.JSONB[*models.Device]
+		if err := rows.Scan(&code, &location, &dist, &dev); err != nil {
 			return nil, fmt.Errorf("Error scanning: %v", err)
 		}
 		if _, ok := dm.manifest[code]; ok {
+			stats["in manifest"]++
 			continue
 		}
 		ca := models.NewCodeAlias(code)
-		var dev *models.Device
-		if err := json.Unmarshal(data, &dev); err != nil {
-			return nil, fmt.Errorf("Failed to unmarshal data for %s: %v\n%s", ca, err, data)
-		}
 		if dist > distLimit {
-			skipped++
+			stats["too far"]++
 			continue
 		}
 		log("Found %s @ %s, %.2f LY away", ca.Alias(), location, dist)
-		return dev, nil
+		return dev.Data, nil
 	}
-	log("Ignored %d freighters more than %d LY away", skipped, distLimit)
-	return nil, fmt.Errorf("No empty freighters found within %d LY of %q", distLimit, loc)
+	return nil, fmt.Errorf("No empty freighters found within %d LY of %q: %v", distLimit, loc, stats)
 }
 
 func (dm *DispatchMachine) pendingPickup(loc string) map[string]int {

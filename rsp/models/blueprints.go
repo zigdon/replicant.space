@@ -62,7 +62,7 @@ func (b *Blueprint) Get() error {
 	if err != nil {
 		return err
 	}
-	d, err := psqlDuration(pt)
+	d, err := cache.PsqlDuration(pt)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (bs *Blueprints) Get() error {
 			); err != nil {
 				return err
 			}
-			d, err := psqlDuration(pt)
+			d, err := cache.PsqlDuration(pt)
 			if err != nil {
 				return err
 			}

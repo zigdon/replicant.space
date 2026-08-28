@@ -48,6 +48,7 @@ const (
 	BlueprintResTable      Tables = "blueprint_resources"
 	BlueprintsTable        Tables = "blueprints"
 	DeviceLogsTable        Tables = "device_logs"
+	ETACacheTable          Tables = "eta_cache"
 	EventsStreamTable      Tables = "event_stream"
 	EventsTable            Tables = "events"
 	InventoryTable         Tables = "inventory"
@@ -82,6 +83,8 @@ var cols = map[Tables][]string{
 		"ingredients"},
 	DeviceLogsTable: {
 		"id", "created", "device", "type", "message", "payload"},
+	ETACacheTable: {
+		"id", "hub_checksum", "vessel", "origin", "designation", "eta", "via"},
 	MsgTable: {
 		"id", "body", "created", "read", "type", "title"},
 	JourneyTable: {
@@ -109,6 +112,7 @@ var constraints = map[Tables]string{
 	BlueprintResTable:      "blueprint_type, type",
 	BlueprintsTable:        "type",
 	DeviceLogsTable:        "id, device",
+	ETACacheTable:          "vessel, origin, destination",
 	EventsStreamTable:      "id",
 	EventsTable:            "designation",
 	InventoryTable:         "designation",

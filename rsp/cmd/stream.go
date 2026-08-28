@@ -297,6 +297,21 @@ func readStream(cmd *cobra.Command, args []string) error {
 				change(&d.Status, "compacted")
 				change(&d.Compact, nil)
 			}, env.DeviceCode)
+		case "device.compacting":
+			ev, err := models.Parse[models.StreamDeviceCompacting](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("%s compacting, eta %s", env.DeviceCode, ev.Completes)
+			update(func(d *models.Device) {
+				change(&d.Status, "compacting")
+				change(&d.Compact, &models.Compact{
+					Started:   env.Created,
+					Completes: ev.Completes,
+					Eta:       models.NewJsonTimeDelta(ev.Completes.Time().Sub(env.Created.Time())),
+				})
+			}, env.DeviceCode)
 		case "device.decommissioned":
 			ev, err := models.Parse[models.StreamDeviceDecommissioned](payload)
 			if err != nil {

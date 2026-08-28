@@ -99,6 +99,17 @@ CREATE TABLE IF NOT EXISTS cached_journey(
   UNIQUE (origin, dest, max_hop)
 );
 
+CREATE TABLE IF NOT EXISTS eta_cache(
+  id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  hub_checksum TEXT NOT NULL,
+  vessel TEXT NOT NULL,
+  origin TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  eta INTERVAL NOT NULL,
+  via TEXT[],
+  UNIQUE (vessel, origin, destination)
+);
+
 CREATE TABLE IF NOT EXISTS cached_journey_steps(
   journey_id INTEGER REFERENCES cached_routes(id),
   src TEXT NOT NULL,

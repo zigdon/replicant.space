@@ -211,7 +211,11 @@ type StreamDeviceChangedOwner struct {
 	Direction     string     `json:"direction"`
 }
 
-type StreamDeviceCompacted struct {}
+type StreamDeviceCompacted struct{}
+
+type StreamDeviceCompacting struct {
+	Completes *JSONTime `json:"completes_at"`
+}
 
 type StreamDeviceDecommissioned struct {
 	ResourcesRecovered  map[string]int `json:"resources_recovered"`

@@ -1,11 +1,14 @@
 package cache
 
 import (
+	"crypto/md5"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/lib/pq"
 )
@@ -38,6 +41,13 @@ func (j *JSONB[T]) Scan(value any) error {
 		return fmt.Errorf("cannot scan %T into JSONB", value)
 	}
 	return json.Unmarshal(bytes, &j.Data)
+}
+
+func PsqlDuration(in string) (time.Duration, error) {
+	in = strings.Replace(in, ":", "h", 1)
+	in = strings.Replace(in, ":", "m", 1)
+	in += "s"
+	return time.ParseDuration(in)
 }
 
 func (db *Cache) FindNearestStar(x, y, z float32) (string, float32, error) {
@@ -363,4 +373,27 @@ func (db *Cache) QueryRelayingNetworkDevices() ([]*NetworkDeviceRecord, error) {
 		devs = append(devs, d)
 	}
 	return devs, rows.Err()
+}
+
+func (db *Cache) ChecksumHubs() (string, error) {
+	rows, err := db.Query(`
+	  SELECT DISTINCT(location)
+	  FROM json_devices
+	  WHERE type='system_hub'
+	    AND status='relaying'`)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	cksum := md5.New()
+	for rows.Next() {
+		var l []byte
+		if err := rows.Scan(&l); err != nil {
+			return "", err
+		}
+		if _, err := cksum.Write(l); err != nil {
+			return "", err
+		}
+	}
+	return base64.StdEncoding.EncodeToString(cksum.Sum(nil)), nil
 }

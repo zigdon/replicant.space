@@ -1,6 +1,7 @@
 package auto
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -401,109 +402,11 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		nextState = RelayMachine_Leaving
 	case RelayMachine_Leaving:
 		if rm.dev.Location.Star() == rm.dest.Star() || rm.dest == "" {
-			if follow := getTags(rm.dev)["follow"]; follow != "" {
-				target, err := rest.DeviceInfo(models.NewCodeAlias(follow))
-				if err != nil {
-					return eta, fmt.Errorf("Can't follow %q: %v", follow, err)
-				}
-				if target.Location != "" {
-					rm.dest = target.Location
-				} else if target.Travel != nil {
-					rm.dest = target.Travel.Destination
-				} else {
-					return eta, fmt.Errorf("Can't figure out how to follow %q", follow)
-				}
-				if rm.dest == rm.dev.Location {
-					log("Waiting for %s to leave %s", follow, rm.dest)
-					return eta, rm.resupply()
-				}
-				log("Following %s to %s", follow, rm.dest)
-			} else if fill := getTags(rm.dev)["fill"]; fill == "beacons" {
-				// find the closest system that has an ftl beacons but is not networked
-				net, err := rest.DeviceNetwork(models.NewCodeAlias("sh-1"))
-				if err != nil {
-					return eta, fmt.Errorf("Can't get ftl network: %v", err)
-				}
-				inNet := make(map[string]bool)
-				inNet["MENKUNT"] = true
-				for _, c := range net.Connections {
-					inNet[c.Star] = true
-				}
-				log("%d systems in network", len(inNet))
-				fbs, err := rest.Devices(map[string]string{"device_type": "ftl_beacon"})
-				if err != nil {
-					return eta, fmt.Errorf("Can't get beacons: %v", err)
-				}
-				shs, err := rest.Devices(map[string]string{"device_type": "system_hub"})
-				if err != nil {
-					return eta, fmt.Errorf("Can't get hubs: %v", err)
-				}
-				fbs = append(fbs, shs...)
-				var nearest float32
-				var dest string
-				curStar, err := models.NewStar(rm.dev.Location.Star())
-				if err != nil {
-					return eta, fmt.Errorf("Can't get current star %q: %v", rm.dev.Location, err)
-				}
-
-				var devType string
-				var todo int
-				for _, fb := range fbs {
-					if fb.Status != "monitoring" && fb.Type == "ftl_beacon" {
-						continue
-					}
-					if fb.Status != "relaying" && fb.Type == "system_hub" {
-						continue
-					}
-					if fb.Location == "" {
-						continue
-					}
-					if inNet[fb.Location.Star()] {
-						continue
-					}
-					star, err := models.NewStar(fb.Location.Star())
-					if err != nil {
-						return eta, fmt.Errorf("Can't get star %q for %s: %v",
-							fb.Location, fb.Code.Alias(), err)
-					}
-					todo++
-					if dist := star.Position.Distance(curStar.Position); nearest == 0 || dist < nearest {
-						nearest = dist
-						dest = star.Designation.Star()
-						devType = fb.Type
-					}
-				}
-				log("%d beacons out of network", todo)
-				if todo == 0 {
-					return time.Now().Add(5 * time.Minute), nil
-				}
-				log("Next %s: %s (%.2f LY away)", devType, dest, nearest)
-				rm.dest = models.LocationID(dest)
-			} else if fill := getTags(rm.dev)["fill"]; fill == "oor" {
-				// find the closest system that has devices that report being out-of-range
-				row := DB.QueryRow(`
-				  SELECT DISTINCT(location), position<->(
-					  SELECT position FROM stars WHERE designation=$1
-				  ) AS dist
-				  FROM json_devices JOIN stars ON location = designation
-				  WHERE status = 'out_of_range'
-				    AND region = ANY($2)
-				    AND location NOT IN (
-				      SELECT split_part(data->'travel'->>'destination', '-', 1)
-				      FROM json_devices
-				      WHERE status = 'travelling'
-				        AND data->'tags' @> '"auto:relay"'
-				        AND data->'travel'->>'destination' IS NOT NULL
-				    )
-				  ORDER BY dist
-				  LIMIT 1;
-				`, rm.dev.Location.Star(), rm.regions)
-				var dist float32
-				if err := row.Scan(&rm.dest, &dist); err != nil {
-					return eta, fmt.Errorf("Can't find next OOR device: %v", err)
-				}
-				log("Nearest system with out-of-range devices: %s (%.2f LY)", rm.dest, dist)
-			} else {
+			next, err := rm.getNext()
+			if err != nil {
+				return eta, err
+			}
+			if len(next) == 0 {
 				rm.state = RelayMachine_Done
 				err := rest.UpdateTags(rm.dev.Code, rest.DelTag, []string{"auto"})
 				if err != nil {
@@ -511,6 +414,40 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				}
 				return eta, MachineDoneErr(
 					fmt.Sprintf("Relay destination reached: %s", rm.dev.Location))
+			}
+
+			// Sort the list of possible next destinations by distance
+			dists := make(map[string]float32)
+			for _, n := range next {
+				d, err := common.Distance(rm.dev.Location.Star(), n.Star())
+				if err != nil {
+					return eta, err
+				}
+				dists[n.Star()] = d
+			}
+			slices.SortFunc(next, func(a, b models.LocationID) int {
+				return cmp.Compare(dists[a.Star()], dists[b.Star()])
+			})
+
+			// Make sure we have a path to the next location
+			var found bool
+			for _, n := range next {
+				path, err := common.PlotTrip(rm.dev.Location.Star(), n.Star(), nil)
+				if err != nil {
+					log("Can't plot path %s->%s: %v", rm.dev.Location.Star(), n.Star(), err)
+					continue
+				}
+				log("Next destination: %s (%.2f LY away):", n, dists[n.Star()])
+				for _, l := range path.Legs {
+					log("  %s -> %s ", l.From, l.To)
+				}
+				rm.dest = n
+				found = true
+				break
+			}
+
+			if !found {
+				return eta, fmt.Errorf("Can't find an routable destination")
 			}
 		}
 
@@ -685,4 +622,103 @@ func (rm *RelayMachine) Status() string {
 
 func (rm *RelayMachine) Name() string {
 	return "Relay Machine"
+}
+
+func (rm *RelayMachine) getNext() ([]models.LocationID, error) {
+	if follow := getTags(rm.dev)["follow"]; follow != "" {
+		next, err := rm.getNextFollow(follow)
+		log("Following %s to %s", follow, next)
+		return []models.LocationID{next}, err
+	}
+	fill := getTags(rm.dev)["fill"]
+	switch fill {
+	case "beacons":
+		return rm.getNextBeacons()
+	case "oor":
+		return rm.getNextStranded()
+	default:
+		return nil, fmt.Errorf("Unknown fill mode %q", fill)
+	}
+}
+
+func (rm *RelayMachine) getNextBeacons() ([]models.LocationID, error) {
+	// find the closest system that has an ftl beacons but is not networked
+	net, err := rest.DeviceNetwork(models.NewCodeAlias("sh-1"))
+	if err != nil {
+		return nil, fmt.Errorf("Can't get ftl network: %v", err)
+	}
+	inNet := make(map[string]bool)
+	inNet["MENKUNT"] = true
+	for _, c := range net.Connections {
+		inNet[c.Star] = true
+	}
+	log("%d systems in network", len(inNet))
+	fbs, err := rest.Devices(map[string]string{"device_type": "ftl_beacon"})
+	if err != nil {
+		return nil, fmt.Errorf("Can't get beacons: %v", err)
+	}
+	shs, err := rest.Devices(map[string]string{"device_type": "system_hub"})
+	if err != nil {
+		return nil, fmt.Errorf("Can't get hubs: %v", err)
+	}
+	fbs = append(fbs, shs...)
+
+	var res []models.LocationID
+	for _, fb := range fbs {
+		if fb.Location == "" {
+			continue
+		}
+		if inNet[fb.Location.Star()] {
+			continue
+		}
+		res = append(res, fb.Location)
+	}
+	log("%d beacons out of network", len(res))
+	return res, nil
+}
+
+func (rm *RelayMachine) getNextStranded() ([]models.LocationID, error) {
+	// find systems that has devices that report being out-of-range
+	// that doesn't already have an auto:relay devices heading there
+	rows, err := DB.Query(`
+	  SELECT DISTINCT(location)
+	  FROM json_devices JOIN stars ON location = designation
+	  WHERE status = 'out_of_range'
+		AND region = ANY($1)
+		AND location NOT IN (
+		  SELECT split_part(data->'travel'->>'destination', '-', 1)
+		  FROM json_devices
+		  WHERE status = 'travelling'
+			AND data->'tags' @> '"auto:relay"'
+			AND data->'travel'->>'destination' IS NOT NULL
+		)
+	`, rm.regions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var res []models.LocationID
+	for rows.Next() {
+		var loc string
+		if err := rows.Scan(&loc); err != nil {
+			return nil, fmt.Errorf("Can't find next OOR device: %v", err)
+		}
+		res = append(res, models.LocationID(loc))
+	}
+	log("%d systems with out-of-network devices", len(res))
+	return res, nil
+}
+
+func (rm *RelayMachine) getNextFollow(target string) (models.LocationID, error) {
+	info, err := rest.DeviceInfo(models.NewCodeAlias(target))
+	if err != nil {
+		return "", fmt.Errorf("Can't follow %q: %v", target, err)
+	}
+	if info.Location != "" {
+		return info.Location, nil
+	} else if info.Travel != nil {
+		return info.Travel.Destination, nil
+	} else {
+		return "", fmt.Errorf("Can't figure out how to follow %q", target)
+	}
 }

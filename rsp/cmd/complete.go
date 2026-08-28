@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -226,19 +227,10 @@ func completeDeviceTags(cmd *cobra.Command, args []string, toComplete string) ([
 	return res, cobra.ShellCompDirectiveNoFileComp
 }
 
-var StandardResources = []string{
-	"carbon",
-	"conductive",
-	"rares",
-	"silicates",
-	"structural",
-	"volatiles",
-}
-
 func completeResources(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	var res []string
 	toComplete = strings.ToLower(toComplete)
-	for _, r := range append(StandardResources, "all") {
+	for _, r := range append(constants.Resources, "all") {
 		if strings.HasPrefix(r, toComplete) {
 			res = append(res, r)
 		}

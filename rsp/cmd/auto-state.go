@@ -25,6 +25,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 	var runStep func(d *models.CodeAlias, m auto.Machine) error
 	findSMs := func() error {
 		var errs []error
+		seen := make(map[string]bool)
 		if len(args) == 0 {
 			var err error
 			res, err := rest.GetTagged("auto")
@@ -37,6 +38,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 					return err
 				}
 				devs[i.Code.Alias()] = i
+				seen[i.Code.Alias()] = true
 			}
 		} else {
 			for _, d := range args {
@@ -50,7 +52,6 @@ func autoState(cmd *cobra.Command, args []string) error {
 		if len(devs) == 0 {
 			return fmt.Errorf("No devices tagged 'auto' found.")
 		}
-		seen := make(map[string]bool)
 
 		for n, d := range devs {
 			if dev, err := rest.DeviceInfo(d.Code); err == nil {
@@ -61,7 +62,6 @@ func autoState(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			alias := d.Code.Alias()
-			seen[alias] = true
 			if _, ok := sms[alias]; ok {
 				continue
 			}

@@ -1,14 +1,18 @@
 package cmd
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/lib/pq"
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/common"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -157,6 +161,60 @@ var intentListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		upkeep, err := common.GetUpkeep()
+		if err != nil {
+			return err
+		}
+		for _, r := range records {
+			up, ok := upkeep[r.Location]
+			if !ok {
+				continue
+			}
+			for k, v := range up {
+				r.Demand[k] += v
+			}
+			delete(upkeep, r.Location)
+		}
+		var locs []string
+		for l := range upkeep {
+			locs = append(locs, l)
+		}
+		rows, err := db.Query(`
+			SELECT designation, carbon, conductive, rares, silicates, structural, volatiles
+			FROM inventory
+			WHERE designation = ANY($1)
+			ORDER BY designation
+		`, pq.Array(locs))
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var loc string
+			var ca, co, ra, si, st, vo int
+			if err := rows.Scan(&loc, &ca, &co, &ra, &si, &st, &vo); err != nil {
+				return err
+			}
+			records = append(records, &cache.IntentRecord{
+				Location: loc,
+				Demand:   upkeep[loc],
+				Inventory: map[string]int{
+					"carbon":     ca,
+					"conductive": co,
+					"rares":      ra,
+					"silicates":  si,
+					"structural": st,
+					"volatiles":  vo,
+				},
+			})
+			delete(upkeep, loc)
+		}
+		for loc, vs := range upkeep {
+			records = append(records, &cache.IntentRecord{
+				Location: loc,
+				Demand:   vs,
+			})
+		}
 		if raw := getBool(cmd, "raw"); raw {
 			prettyPrint(records)
 			return nil
@@ -172,48 +230,18 @@ var intentListCmd = &cobra.Command{
 
 		showInv := getBool(cmd, "inventory")
 
-		// Collect all resource types across records, keeping StandardResources order
-		allRes := slices.Clone(StandardResources)
-		for _, r := range records {
-			for k := range r.Demand {
-				if !slices.Contains(allRes, k) {
-					allRes = append(allRes, k)
-				}
-			}
-			if showInv {
-				for k := range r.Inventory {
-					if !slices.Contains(allRes, k) {
-						allRes = append(allRes, k)
-					}
-				}
-			}
-		}
-
-		var activeRes []string
-		for _, res := range allRes {
-			for _, r := range records {
-				if r.Demand[res] > 0 || (showInv && r.Inventory[res] > 0) {
-					activeRes = append(activeRes, res)
-					break
-				}
-			}
-		}
-		if len(activeRes) == 0 {
-			activeRes = slices.Clone(StandardResources)
-		}
-
 		headers := []string{"Location"}
 		if showInv {
-			for _, res := range activeRes {
+			for _, res := range constants.Resources {
 				title := strings.ToUpper(res[:1]) + res[1:]
 				headers = append(headers, title+" (Int)")
 			}
-			for _, res := range activeRes {
+			for _, res := range constants.Resources {
 				title := strings.ToUpper(res[:1]) + res[1:]
 				headers = append(headers, title+" (Inv)")
 			}
 		} else {
-			for _, res := range activeRes {
+			for _, res := range constants.Resources {
 				title := strings.ToUpper(res[:1]) + res[1:]
 				headers = append(headers, title)
 			}
@@ -222,13 +250,13 @@ var intentListCmd = &cobra.Command{
 		var data [][]any
 		for _, r := range records {
 			row := []any{r.Location}
-			for _, res := range activeRes {
+			for _, res := range constants.Resources {
 				intentQty := r.Demand[res]
 				invQty := r.Inventory[res]
 				row = append(row, formatIntentCell(intentQty, invQty))
 			}
 			if showInv {
-				for _, res := range activeRes {
+				for _, res := range constants.Resources {
 					intentQty := r.Demand[res]
 					invQty := r.Inventory[res]
 					row = append(row, formatInventoryCell(intentQty, invQty))
@@ -236,6 +264,9 @@ var intentListCmd = &cobra.Command{
 			}
 			data = append(data, row)
 		}
+		slices.SortFunc(data, func(a, b []any) int {
+			return cmp.Compare(a[0].(string), b[0].(string))
+		})
 		printTable(headers, data)
 		return nil
 	},
@@ -419,7 +450,7 @@ func parseResourceArgs(demand *map[string]int, r string) error {
 	}
 	qty *= mag
 	if k == "all" {
-		for _, r := range StandardResources {
+		for _, r := range constants.Resources {
 			(*demand)[r] += qty
 		}
 		return nil
