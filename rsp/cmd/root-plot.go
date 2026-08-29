@@ -115,6 +115,13 @@ var nearestRelayCmd = &cobra.Command{
 	RunE:              nearestRelay,
 }
 
+var nearestHomeCmd = &cobra.Command{
+	Use:               "home",
+	Short:             "Find the nearest base to the specified location",
+	ValidArgsFunction: completeStars,
+	RunE:              nearestHome,
+}
+
 var neighboursCmd = &cobra.Command{
 	Use:               "neighbours",
 	Short:             "List the nearest stars in a radius",
@@ -169,6 +176,7 @@ func init() {
 	plotCmd.AddCommand(nearestCmd)
 	plotCmd.AddCommand(nearestHubCmd)
 	plotCmd.AddCommand(nearestRelayCmd)
+	plotCmd.AddCommand(nearestHomeCmd)
 	plotCmd.AddCommand(plotDistanceCmd)
 
 	plotCmd.AddCommand(neighboursCmd)
@@ -278,6 +286,18 @@ func nearestRelay(cmd *cobra.Command, args []string) error {
 	src, _ := models.NewStar(args[0])
 	dst, _ := models.NewStar(star)
 	log("Nearest system with relay: %s (%.2fly away)", star, src.Position.Distance(dst.Position))
+	return nil
+}
+
+func nearestHome(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Missing required args: plot home STAR")
+	}
+
+	star := common.ClosestHomes(models.LocationID(args[0]))[0]
+	src, _ := models.NewStar(args[0])
+	dst, _ := models.NewStar(star)
+	log("Nearest home base: %s (%.2fly away)", star, src.Position.Distance(dst.Position))
 	return nil
 }
 

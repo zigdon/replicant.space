@@ -457,7 +457,7 @@ func TripStepCandidate(start string, src, dst *models.Position, min_radius, max_
 	if db == nil || db.DB == nil {
 		return nil, fmt.Errorf("Not connected to cache")
 	}
-	rows, err := db.DB.Query(`
+	rows, err := db.Query(`
 		SELECT designation, position, from_src, from_dst
 		FROM (
 			SELECT designation, position,
@@ -523,7 +523,7 @@ func GetPartialJourney(j *models.Journey) (*models.Journey, error) {
 	}
 	src := j.Source
 	dst := j.Dest
-	row := db.DB.QueryRow(`
+	row := db.QueryRow(`
 			SELECT cached_journey_steps.journey_id FROM cached_journey_steps
 			JOIN cached_journey ON cached_journey.id = cached_journey_steps.journey_id
 			WHERE (src = $1 OR dest = $1)
@@ -543,7 +543,7 @@ func GetPartialJourney(j *models.Journey) (*models.Journey, error) {
 		return j, nil
 	}
 	Log("Fount partial route from %s to %s in JID %d", src, dst, jid)
-	rows, err := db.DB.Query(`
+	rows, err := db.Query(`
 			SELECT src, dest, dist_src, dist_dest, step
 			FROM cached_journey_steps
 			WHERE journey_id = $1
