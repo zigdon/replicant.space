@@ -17,6 +17,7 @@ type PlotCfg struct {
 	Debug       bool
 	Hop         float32
 	UseStation  bool
+	UseHub      bool
 	Recalculate bool
 	Partial     bool
 }
@@ -80,9 +81,11 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	}
 	Log("Total distance: %.2fly", origDist)
 	j := &models.Journey{
-		Source: src,
-		Dest:   dst,
-		MaxHop: cfg.Hop,
+		Source:     src,
+		Dest:       dst,
+		MaxHop:     cfg.Hop,
+		UseStation: cfg.UseStation,
+		UseHub:     cfg.UseHub,
 	}
 	if err := j.Get(); !cfg.Recalculate && err == nil {
 		Log("Loading cached route from %s:", j.Calculated.Format(time.Stamp))
@@ -137,20 +140,33 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 			}
 
 			debug("=== %s", s)
-			// Get possible next steps
-			qStar, err := models.NewStar(s)
-			if err != nil {
-				return nil, fmt.Errorf("Can't get star %q: %v", s, err)
+			// Get possible next steps using cached waypoint position if available
+			sPos := waypoints[s].ToPosition
+			if sPos == nil {
+				qStar, err := models.NewStar(s)
+				if err != nil {
+					return nil, fmt.Errorf("Can't get star %q: %v", s, err)
+				}
+				sPos = qStar.Position
+				waypoints[s].ToPosition = sPos
 			}
 
-			stars, err := TripStepCandidate(s, qStar.Position, dPos, 0, cfg.Hop)
+			stars, err := TripStepCandidate(s, sPos, dPos, 0, cfg.Hop)
 			if err != nil {
 				return nil, fmt.Errorf("No candidates found from %v to %v: %v", s, dst, err)
 			}
 			if cfg.UseStation {
-				extra, err := TripStepCandidate(s, qStar.Position, dPos, cfg.Hop, 10)
+				extra, err := TripStepCandidate(s, sPos, dPos, cfg.Hop, 10)
 				if err != nil {
-					Log("No additional candidates found from %v to %v: %v", s, dst, err)
+					Log("No additional station candidates found from %v to %v: %v", s, dst, err)
+				} else {
+					stars = append(stars, extra...)
+				}
+			}
+			if cfg.UseHub {
+				extra, err := TripStepCandidate(s, sPos, dPos, cfg.Hop, 15)
+				if err != nil {
+					Log("No additional hub candidates found from %v to %v: %v", s, dst, err)
 				} else {
 					stars = append(stars, extra...)
 				}
@@ -161,6 +177,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 					best = next
 				}
 				debug("  - %v", next)
+				hopDist := next.DistFromSrc
 				next.DistFromSrc += waypoints[s].DistFromSrc
 				next.Step = waypoints[s].Step + 1
 				debug("      total distance from src: %.2f", next.DistFromSrc)
@@ -169,14 +186,14 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 					// New waypoint, add it to the queue and move on
 					waypoints[next.To] = next
 					// If it's an extended hop, add it to the less-preferred queue
-					if next.DistFromSrc > cfg.Hop {
+					if hopDist > cfg.Hop {
 						nextStationQueue = append(nextStationQueue, next.To)
-						debug("      New extended waypoint: %s -> %s (behind: %.2f, ahead: %.2f)",
-							next.From, next.To, next.DistFromSrc, next.DistToDest)
+						debug("      New extended waypoint: %s -> %s (hop: %.2f, behind: %.2f, ahead: %.2f)",
+							next.From, next.To, hopDist, next.DistFromSrc, next.DistToDest)
 					} else {
 						nextQueue = append(nextQueue, next.To)
-						debug("      New waypoint: %s -> %s (behind: %.2f, ahead: %.2f)",
-							next.From, next.To, next.DistFromSrc, next.DistToDest)
+						debug("      New waypoint: %s -> %s (hop: %.2f, behind: %.2f, ahead: %.2f)",
+							next.From, next.To, hopDist, next.DistFromSrc, next.DistToDest)
 					}
 					continue
 				}
@@ -213,8 +230,8 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 				}
 				cur = waypoints[cur].From
 			}
-			err := j.Cache()
 			slices.Reverse(j.Legs)
+			err := j.Cache()
 
 			return j, err
 		}
@@ -318,11 +335,19 @@ func GetPartialJourney(j *models.Journey) (*models.Journey, error) {
 	src := j.Source
 	dst := j.Dest
 	row := db.DB.QueryRow(`
-			SELECT journey_id FROM cached_journey_steps
-			WHERE src = $1 OR dest = $1
+			SELECT cached_journey_steps.journey_id FROM cached_journey_steps
+			JOIN cached_journey ON cached_journey.id = cached_journey_steps.journey_id
+			WHERE (src = $1 OR dest = $1)
+			  AND max_hop <= $3
+			  AND ($4 OR use_station = false)
+			  AND ($5 OR use_hub = false)
 			INTERSECT
-			SELECT journey_id FROM cached_journey_steps
-			WHERE src = $2 OR dest = $2`, src, dst)
+			SELECT cached_journey_steps.journey_id FROM cached_journey_steps
+			JOIN cached_journey ON cached_journey.id = cached_journey_steps.journey_id
+			WHERE (src = $2 OR dest = $2)
+			  AND max_hop <= $3
+			  AND ($4 OR use_station = false)
+			  AND ($5 OR use_hub = false)`, src, dst, j.MaxHop, j.UseStation, j.UseHub)
 	var jid int
 	if err := row.Scan(&jid); err != nil {
 		Log("Can't find a partial journey (%s-%s): %v", src, dst, err)
@@ -330,17 +355,18 @@ func GetPartialJourney(j *models.Journey) (*models.Journey, error) {
 	}
 	Log("Fount partial route from %s to %s in JID %d", src, dst, jid)
 	rows, err := db.DB.Query(`
-			SELECT src, dest, step
+			SELECT src, dest, dist_src, dist_dest, step
 			FROM cached_journey_steps
 			WHERE journey_id = $1
 			ORDER BY step`, jid)
 	if err != nil {
 		return j, fmt.Errorf("Can't get partial journey: %v", err)
 	}
+	defer rows.Close()
 	var started bool
 	for rows.Next() {
 		l := new(models.JourneyLeg)
-		if err := rows.Scan(&l.From, &l.To, &l.Step); err != nil {
+		if err := rows.Scan(&l.From, &l.To, &l.DistFromSrc, &l.DistToDest, &l.Step); err != nil {
 			return j, fmt.Errorf("Can't load step: %v", err)
 		}
 		if l.From == src || l.From == dst {
@@ -364,7 +390,11 @@ func GetPartialJourney(j *models.Journey) (*models.Journey, error) {
 		slices.Reverse(j.Legs)
 		for i := range j.Legs {
 			j.Legs[i].From, j.Legs[i].To = j.Legs[i].To, j.Legs[i].From
+			j.Legs[i].DistFromSrc, j.Legs[i].DistToDest = j.Legs[i].DistToDest, j.Legs[i].DistFromSrc
 		}
+	}
+	for i := range j.Legs {
+		j.Legs[i].Step = i + 1
 	}
 	Log("Using route extracted from JID: %d", jid)
 	return j, nil

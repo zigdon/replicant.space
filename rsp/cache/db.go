@@ -88,9 +88,9 @@ var cols = map[Tables][]string{
 	MsgTable: {
 		"id", "body", "created", "read", "type", "title"},
 	JourneyTable: {
-		"id", "origin", "dest", "max_hop", "calculated"},
+		"id", "origin", "dest", "max_hop", "calculated", "use_station", "use_hub"},
 	JourneyStepsTable: {
-		"journey_id", "src", "dest", "dist_src", "dist_dest"},
+		"journey_id", "src", "dest", "dist_src", "dist_dest", "step"},
 	JSONDevices: {
 		"code", "updated_ts", "location", "data"},
 	EventsStreamTable: {

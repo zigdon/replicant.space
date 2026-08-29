@@ -83,6 +83,7 @@ func init() {
 	plotCmd.AddCommand(plotMapCmd)
 	plotMapCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allowed hop, in ly")
 	plotMapCmd.Flags().BoolP("use_station", "u", false, "Allow using deep space relay stations")
+	plotMapCmd.Flags().BoolP("use_hub", "H", false, "Allow using system hubs to bridge gaps (15ly)")
 	plotMapCmd.Flags().BoolP("static", "s", false, "Render static ASCII snapshot to stdout")
 	plotMapCmd.Flags().StringSliceP("devices", "d", nil, "List of device types to overlay (comma-separated, e.g. autofactory,mining_drone)")
 	plotMapCmd.Flags().BoolP("network", "N", false, "Overlay FTL relay network connections")
@@ -489,11 +490,13 @@ func runPlotMapCmd(cmd *cobra.Command, args []string) error {
 		hop = 7.5
 	}
 	useStation := getBool(cmd, "use_station")
+	useHub := getBool(cmd, "use_hub")
 	staticMode := getBool(cmd, "static")
 
 	pCfg := &common.PlotCfg{
 		Hop:        hop,
 		UseStation: useStation,
+		UseHub:     useHub,
 		Partial:    true,
 	}
 

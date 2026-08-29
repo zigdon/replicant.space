@@ -23,6 +23,7 @@ var plotCmd = &cobra.Command{
 			Debug:       getBool(cmd, "debug"),
 			Hop:         getFloat32(cmd, "max_hop"),
 			UseStation:  getBool(cmd, "use_station"),
+			UseHub:      getBool(cmd, "use_hub"),
 			Recalculate: getBool(cmd, "recalculate"),
 		}
 		trip, err := common.PlotTrip(args[0], args[1], cfg)
@@ -149,6 +150,7 @@ func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
 	plotCmd.Flags().BoolP("use_station", "s", false, "Allow using deep space relay stations to bridge gaps")
+	plotCmd.Flags().BoolP("use_hub", "H", false, "Allow using system hubs to bridge gaps (15ly)")
 	plotCmd.Flags().BoolP("recalculate", "c", false, "Ignore any cached routes")
 	plotCmd.Flags().Bool("partial", true, "Allow extracting a partial route from a longer one")
 	plotCmd.PersistentFlags().Bool("debug", false, "Output additional debugging data")

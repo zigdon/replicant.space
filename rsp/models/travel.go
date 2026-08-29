@@ -109,6 +109,7 @@ type Journey struct {
 	MaxHop         float32
 	Calculated     time.Time
 	UseStation     bool
+	UseHub         bool
 }
 
 func (j *Journey) ClearCache() error {
@@ -123,7 +124,7 @@ func (j *Journey) ClearCache() error {
 
 func (j *Journey) Cache() error {
 	// See if we already have an id for this journey
-	row := db.DB.QueryRow(`SELECT id FROM cached_journey WHERE origin = $1 AND dest = $2`, j.Source, j.Dest)
+	row := db.DB.QueryRow(`SELECT id FROM cached_journey WHERE origin = $1 AND dest = $2 AND max_hop = $3 AND use_station = $4 AND use_hub = $5`, j.Source, j.Dest, j.MaxHop, j.UseStation, j.UseHub)
 	if row.Err() == nil {
 		if err := row.Scan(&j.ID); err == nil {
 		} else {
@@ -153,6 +154,7 @@ func (j *Journey) Cache() error {
 		"max_hop":     j.MaxHop,
 		"calculated":  j.Calculated,
 		"use_station": j.UseStation,
+		"use_hub":     j.UseHub,
 	}); err != nil {
 		return fmt.Errorf("Error caching journey: %v", err)
 	}
@@ -180,14 +182,14 @@ func (j *Journey) Get() error {
 	}
 
 	row := db.DB.QueryRow(`
-		SELECT id, origin, dest, max_hop, use_station, calculated
+		SELECT id, origin, dest, max_hop, use_station, use_hub, calculated
 		FROM cached_journey
-		WHERE origin = $1 AND dest = $2
-	`, j.Source, j.Dest)
+		WHERE origin = $1 AND dest = $2 AND max_hop = $3 AND use_station = $4 AND use_hub = $5
+	`, j.Source, j.Dest, j.MaxHop, j.UseStation, j.UseHub)
 	if err := row.Err(); err != nil {
 		return err
 	}
-	if err := row.Scan(&j.ID, &j.Source, &j.Dest, &j.MaxHop, &j.UseStation, &j.Calculated); err != nil {
+	if err := row.Scan(&j.ID, &j.Source, &j.Dest, &j.MaxHop, &j.UseStation, &j.UseHub, &j.Calculated); err != nil {
 		return err
 	}
 
