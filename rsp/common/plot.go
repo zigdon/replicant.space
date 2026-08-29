@@ -526,23 +526,23 @@ func GetPartialJourney(j *models.Journey) (*models.Journey, error) {
 	row := db.QueryRow(`
 			SELECT cached_journey_steps.journey_id FROM cached_journey_steps
 			JOIN cached_journey ON cached_journey.id = cached_journey_steps.journey_id
-			WHERE (src = $1 OR dest = $1)
-			  AND max_hop <= $3
-			  AND ($4 OR use_station = false)
-			  AND ($5 OR use_hub = false)
+			WHERE (cached_journey_steps.src = $1 OR cached_journey_steps.dest = $1)
+			  AND cached_journey.max_hop <= $3
+			  AND ($4 OR cached_journey.use_station = false)
+			  AND ($5 OR cached_journey.use_hub = false)
 			INTERSECT
 			SELECT cached_journey_steps.journey_id FROM cached_journey_steps
 			JOIN cached_journey ON cached_journey.id = cached_journey_steps.journey_id
-			WHERE (src = $2 OR dest = $2)
-			  AND max_hop <= $3
-			  AND ($4 OR use_station = false)
-			  AND ($5 OR use_hub = false)`, src, dst, j.MaxHop, j.UseStation, j.UseHub)
+			WHERE (cached_journey_steps.src = $2 OR cached_journey_steps.dest = $2)
+			  AND cached_journey.max_hop <= $3
+			  AND ($4 OR cached_journey.use_station = false)
+			  AND ($5 OR cached_journey.use_hub = false)`, src, dst, j.MaxHop, j.UseStation, j.UseHub)
 	var jid int
 	if err := row.Scan(&jid); err != nil {
 		Log("Can't find a partial journey (%s-%s): %v", src, dst, err)
 		return j, nil
 	}
-	Log("Fount partial route from %s to %s in JID %d", src, dst, jid)
+	Log("Found partial route from %s to %s in JID %d", src, dst, jid)
 	rows, err := db.Query(`
 			SELECT src, dest, dist_src, dist_dest, step
 			FROM cached_journey_steps
