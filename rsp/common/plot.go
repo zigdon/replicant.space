@@ -1,9 +1,10 @@
 package common
 
 import (
-	"cmp"
+	"container/heap"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -22,17 +23,152 @@ type PlotCfg struct {
 	Partial     bool
 }
 
-func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
-	// Pathfinding:
-	// Keep a list of waypoints
-	//   - previous hop to get there
-	//   - distance travelled from origin to get there
-	//   - remaining distance to destination (as-crow-spaceflies)
-	// Loop over waypoints, sorted by lowest travelled + remaining distance
-	// For each waypoint, get the possible next steps
-	// Ignore repeats (unless this is a shorter way to get to them)
-	// Repeat until destination is found
+// StarSpatialNode represents a star within the in-memory 3D spatial index.
+type StarSpatialNode struct {
+	Designation string
+	Position    *models.Position
+}
 
+type voxelKey struct {
+	X, Y, Z int
+}
+
+// SpatialStarGrid provides fast O(1) 3D spatial lookups for candidate neighbors.
+type SpatialStarGrid struct {
+	CellSize float32
+	grid     map[voxelKey][]*StarSpatialNode
+	stars    map[string]*StarSpatialNode
+}
+
+func NewSpatialStarGrid(cellSize float32) *SpatialStarGrid {
+	if cellSize <= 0 {
+		cellSize = 7.5
+	}
+	return &SpatialStarGrid{
+		CellSize: cellSize,
+		grid:     make(map[voxelKey][]*StarSpatialNode),
+		stars:    make(map[string]*StarSpatialNode),
+	}
+}
+
+func (sg *SpatialStarGrid) keyFor(pos *models.Position) voxelKey {
+	if pos == nil {
+		return voxelKey{}
+	}
+	return voxelKey{
+		X: int(math.Floor(float64(pos.X / sg.CellSize))),
+		Y: int(math.Floor(float64(pos.Y / sg.CellSize))),
+		Z: int(math.Floor(float64(pos.Z / sg.CellSize))),
+	}
+}
+
+func (sg *SpatialStarGrid) Insert(desg string, pos *models.Position) {
+	if pos == nil || desg == "" {
+		return
+	}
+	if _, ok := sg.stars[desg]; ok {
+		return
+	}
+	node := &StarSpatialNode{
+		Designation: desg,
+		Position:    pos,
+	}
+	sg.stars[desg] = node
+	k := sg.keyFor(pos)
+	sg.grid[k] = append(sg.grid[k], node)
+}
+
+func (sg *SpatialStarGrid) Get(desg string) *StarSpatialNode {
+	return sg.stars[desg]
+}
+
+func (sg *SpatialStarGrid) Count() int {
+	return len(sg.stars)
+}
+
+func (sg *SpatialStarGrid) FindNeighbors(pos *models.Position, minRadius, maxRadius float32) []*StarSpatialNode {
+	if pos == nil || maxRadius <= 0 {
+		return nil
+	}
+	cellRadius := int(math.Ceil(float64(maxRadius / sg.CellSize)))
+	baseKey := sg.keyFor(pos)
+
+	minR2 := minRadius * minRadius
+	maxR2 := maxRadius * maxRadius
+
+	var res []*StarSpatialNode
+	for dx := -cellRadius; dx <= cellRadius; dx++ {
+		for dy := -cellRadius; dy <= cellRadius; dy++ {
+			for dz := -cellRadius; dz <= cellRadius; dz++ {
+				k := voxelKey{
+					X: baseKey.X + dx,
+					Y: baseKey.Y + dy,
+					Z: baseKey.Z + dz,
+				}
+				nodes, ok := sg.grid[k]
+				if !ok {
+					continue
+				}
+				for _, n := range nodes {
+					dxPos := pos.X - n.Position.X
+					dyPos := pos.Y - n.Position.Y
+					dzPos := pos.Z - n.Position.Z
+					dist2 := dxPos*dxPos + dyPos*dyPos + dzPos*dzPos
+					if dist2 <= maxR2 && dist2 > minR2+0.0001 {
+						res = append(res, n)
+					}
+				}
+			}
+		}
+	}
+	return res
+}
+
+// aStarItem represents a search node in the priority queue.
+type aStarItem struct {
+	Star        string
+	Position    *models.Position
+	DistFromSrc float32 // g(n): cost from source
+	DistToDest  float32 // h(n): heuristic to destination
+	Priority    float32 // f(n) = g(n) + h(n) with tie-breaker
+	From        string
+	FromPos     *models.Position
+	HopDist     float32
+	Step        int // 1-based hop count from origin along this path
+	Index       int // Internal index in the container/heap priority queue
+}
+
+type aStarPriorityQueue []*aStarItem
+
+func (pq aStarPriorityQueue) Len() int { return len(pq) }
+func (pq aStarPriorityQueue) Less(i, j int) bool {
+	if pq[i].Priority == pq[j].Priority {
+		return pq[i].DistToDest < pq[j].DistToDest
+	}
+	return pq[i].Priority < pq[j].Priority
+}
+func (pq aStarPriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].Index = i
+	pq[j].Index = j
+}
+func (pq *aStarPriorityQueue) Push(x any) {
+	n := len(*pq)
+	item := x.(*aStarItem)
+	item.Index = n
+	*pq = append(*pq, item)
+}
+func (pq *aStarPriorityQueue) Pop() any {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil
+	item.Index = -1
+	*pq = old[0 : n-1]
+	return item
+}
+
+func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	if cfg == nil {
 		cfg = &PlotCfg{Hop: 7.5, Partial: true}
 	}
@@ -104,150 +240,181 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	// We're going to recalculate the legs, nuke what we already had.
 	j.Legs = j.Legs[:0]
 
-	waypoints := map[string]*models.JourneyLeg{
-		src: {
-			To:         src,
-			ToPosition: sPos,
-			DistToDest: origDist,
-		},
-	}
-
-	queue := []string{src}
 	debug := func(tmpl string, args ...any) {
 		if !cfg.Debug {
 			return
 		}
 		Log(tmpl, args...)
 	}
-	var best *models.JourneyLeg
+
+	// Determine max jump radius across standard, station, and hub jumps
+	maxHop := cfg.Hop
+	if cfg.UseStation && 10.0 > maxHop {
+		maxHop = 10.0
+	}
+	if cfg.UseHub && 15.0 > maxHop {
+		maxHop = 15.0
+	}
+
+	// Pre-fetch sector stars into spatial grid
+	padding := float32(15.0)
+	minX := float32(math.Min(float64(sPos.X), float64(dPos.X))) - padding
+	maxX := float32(math.Max(float64(sPos.X), float64(dPos.X))) + padding
+	minY := float32(math.Min(float64(sPos.Y), float64(dPos.Y))) - padding
+	maxY := float32(math.Max(float64(sPos.Y), float64(dPos.Y))) + padding
+	minZ := float32(math.Min(float64(sPos.Z), float64(dPos.Z))) - padding
+	maxZ := float32(math.Max(float64(sPos.Z), float64(dPos.Z))) + padding
+
+	sg := NewSpatialStarGrid(maxHop)
+	if db != nil && db.DB != nil {
+		records, err := db.QueryStarsInBox(minX, minY, minZ, maxX, maxY, maxZ, 0)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to query corridor stars: %v", err)
+		}
+		for _, r := range records {
+			pos := models.ParseCube(r.Position)
+			sg.Insert(r.Designation, pos)
+		}
+	}
+	sg.Insert(src, sPos)
+	sg.Insert(dst, dPos)
+
+	debug("Loaded %d stars into in-memory spatial index", sg.Count())
+
+	// A* Priority Queue setup
+	openSet := &aStarPriorityQueue{}
+	heap.Init(openSet)
+
+	gScore := make(map[string]float32)
+	gScore[src] = 0
+
+	cameFrom := make(map[string]*models.JourneyLeg)
+	closedSet := make(map[string]bool)
+
+	const eps float32 = 1e-4 // Tie-breaking factor towards destination
+
+	heap.Push(openSet, &aStarItem{
+		Star:        src,
+		Position:    sPos,
+		DistFromSrc: 0,
+		DistToDest:  origDist,
+		Priority:    origDist,
+		Step:        0,
+	})
+
+	var bestItem *aStarItem
 	ts := time.Now()
 	var cnt int
-	for {
-		// Sort by distance travelled + left to go
-		slices.SortFunc(queue, func(a, b string) int {
-			return cmp.Compare(
-				waypoints[a].DistFromSrc+waypoints[a].DistToDest,
-				waypoints[b].DistFromSrc+waypoints[b].DistToDest)
-		})
-		debug("starting iteration over queue: %v", queue)
-		var nextQueue []string
-		var nextStationQueue []string
-		for _, s := range queue {
-			cnt++
-			if time.Since(ts) > time.Second {
-				Log("... Examined %d stars, %d in the queue, current best %v", cnt, len(queue), best)
-				ts = time.Now()
-			}
 
-			debug("=== %s", s)
-			// Get possible next steps using cached waypoint position if available
-			sPos := waypoints[s].ToPosition
-			if sPos == nil {
-				qStar, err := models.NewStar(s)
-				if err != nil {
-					return nil, fmt.Errorf("Can't get star %q: %v", s, err)
-				}
-				sPos = qStar.Position
-				waypoints[s].ToPosition = sPos
-			}
+	for openSet.Len() > 0 {
+		curr := heap.Pop(openSet).(*aStarItem)
+		cnt++
 
-			stars, err := TripStepCandidate(s, sPos, dPos, 0, cfg.Hop)
-			if err != nil {
-				return nil, fmt.Errorf("No candidates found from %v to %v: %v", s, dst, err)
-			}
-			if cfg.UseStation {
-				extra, err := TripStepCandidate(s, sPos, dPos, cfg.Hop, 10)
-				if err != nil {
-					Log("No additional station candidates found from %v to %v: %v", s, dst, err)
-				} else {
-					stars = append(stars, extra...)
-				}
-			}
-			if cfg.UseHub {
-				extra, err := TripStepCandidate(s, sPos, dPos, cfg.Hop, 15)
-				if err != nil {
-					Log("No additional hub candidates found from %v to %v: %v", s, dst, err)
-				} else {
-					stars = append(stars, extra...)
-				}
-			}
-			debug("%d candidates found", len(stars))
-			for _, next := range stars {
-				if best == nil || next.DistToDest < best.DistToDest {
-					best = next
-				}
-				debug("  - %v", next)
-				hopDist := next.DistFromSrc
-				next.DistFromSrc += waypoints[s].DistFromSrc
-				next.Step = waypoints[s].Step + 1
-				debug("      total distance from src: %.2f", next.DistFromSrc)
-				ex, ok := waypoints[next.To]
-				if !ok {
-					// New waypoint, add it to the queue and move on
-					waypoints[next.To] = next
-					// If it's an extended hop, add it to the less-preferred queue
-					if hopDist > cfg.Hop {
-						nextStationQueue = append(nextStationQueue, next.To)
-						debug("      New extended waypoint: %s -> %s (hop: %.2f, behind: %.2f, ahead: %.2f)",
-							next.From, next.To, hopDist, next.DistFromSrc, next.DistToDest)
-					} else {
-						nextQueue = append(nextQueue, next.To)
-						debug("      New waypoint: %s -> %s (hop: %.2f, behind: %.2f, ahead: %.2f)",
-							next.From, next.To, hopDist, next.DistFromSrc, next.DistToDest)
-					}
-					continue
-				}
-				// Existing waypoint, if it's a shorter path to get there, update it.
-				if ex.DistFromSrc > next.DistFromSrc {
-					debug("      Shorter path to %q, from %q (%.2f) rather than %q (%.2f)",
-						next.To, next.From, next.DistFromSrc, ex.From, ex.DistFromSrc)
-					ex.DistFromSrc = next.DistFromSrc
-					ex.From = next.From
-					ex.FromPosition = next.FromPosition
-					ex.Step = next.Step
-					waypoints[next.To] = ex
-					continue
-				}
-				debug("      Discarding longer leg")
-			}
+		if closedSet[curr.Star] {
+			continue
+		}
+		closedSet[curr.Star] = true
+
+		if bestItem == nil || curr.DistToDest < bestItem.DistToDest {
+			bestItem = curr
 		}
 
-		// Find the current best route
-		cur := src
-		closest := waypoints[src].DistToDest
-		for k, v := range waypoints {
-			if v.DistToDest < closest {
-				cur = k
-				closest = v.DistToDest
-			}
+		if time.Since(ts) > time.Second {
+			Log("... Examined %d stars, %d in queue, current best %s (%.2fly left)", cnt, openSet.Len(), curr.Star, curr.DistToDest)
+			ts = time.Now()
 		}
 
-		if waypoints[cur].To == dst {
+		debug("=== %s (g: %.2f, h: %.2f, priority: %.2f)", curr.Star, curr.DistFromSrc, curr.DistToDest, curr.Priority)
+
+		if curr.Star == dst {
+			curStar := dst
 			for {
-				j.Legs = append(j.Legs, waypoints[cur])
-				if waypoints[cur].From == src {
+				leg, ok := cameFrom[curStar]
+				if !ok {
 					break
 				}
-				cur = waypoints[cur].From
+				j.Legs = append(j.Legs, leg)
+				if leg.From == src {
+					break
+				}
+				curStar = leg.From
 			}
 			slices.Reverse(j.Legs)
+			for i := range j.Legs {
+				j.Legs[i].Step = i + 1
+			}
 			err := j.Cache()
-
 			return j, err
 		}
 
-		if len(nextQueue) == 0 {
-			if len(nextStationQueue) == 0 {
-				break
-			}
-			queue = nextStationQueue
-			continue
+		// Find candidate neighbors from spatial index
+		neighbors := sg.FindNeighbors(curr.Position, 0, cfg.Hop)
+		if cfg.UseStation && 10.0 > cfg.Hop {
+			stationNeighbors := sg.FindNeighbors(curr.Position, cfg.Hop, 10.0)
+			neighbors = append(neighbors, stationNeighbors...)
 		}
-		queue = nextQueue
-	}
-	Log("Failed to find route, closest is %v", best)
+		if cfg.UseHub && 15.0 > cfg.Hop {
+			minR := cfg.Hop
+			if cfg.UseStation && 10.0 > minR {
+				minR = 10.0
+			}
+			hubNeighbors := sg.FindNeighbors(curr.Position, minR, 15.0)
+			neighbors = append(neighbors, hubNeighbors...)
+		}
 
-	return j, fmt.Errorf("Failed to find route, closest is %v", best)
+		debug("  %d candidate neighbors found", len(neighbors))
+
+		for _, nbr := range neighbors {
+			if closedSet[nbr.Designation] {
+				continue
+			}
+
+			hopDist := curr.Position.Distance(nbr.Position)
+			tentativeG := curr.DistFromSrc + hopDist
+
+			currentG, visited := gScore[nbr.Designation]
+			if !visited || tentativeG < currentG {
+				gScore[nbr.Designation] = tentativeG
+				h := nbr.Position.Distance(dPos)
+				f := tentativeG + h
+				priority := f*(1.0+eps) - h*eps
+
+				cameFrom[nbr.Designation] = &models.JourneyLeg{
+					From:         curr.Star,
+					FromPosition: curr.Position,
+					To:           nbr.Designation,
+					ToPosition:   nbr.Position,
+					DistFromSrc:  tentativeG,
+					DistToDest:   h,
+					Step:         curr.Step + 1,
+				}
+
+				heap.Push(openSet, &aStarItem{
+					Star:        nbr.Designation,
+					Position:    nbr.Position,
+					DistFromSrc: tentativeG,
+					DistToDest:  h,
+					Priority:    priority,
+					From:        curr.Star,
+					FromPos:     curr.Position,
+					HopDist:     hopDist,
+					Step:        curr.Step + 1,
+				})
+
+				debug("  - Queued %s -> %s (hop: %.2f, g: %.2f, h: %.2f)", curr.Star, nbr.Designation, hopDist, tentativeG, h)
+			}
+		}
+	}
+
+	var closestDesc string
+	if bestItem != nil {
+		closestDesc = fmt.Sprintf("%s (%.2fly from src, %.2fly to dest)", bestItem.Star, bestItem.DistFromSrc, bestItem.DistToDest)
+	} else {
+		closestDesc = "none"
+	}
+	Log("Failed to find route, closest is %s", closestDesc)
+
+	return j, fmt.Errorf("Failed to find route, closest is %s", closestDesc)
 }
 
 func TripStepCandidate(start string, src, dst *models.Position, min_radius, max_radius float32) ([]*models.JourneyLeg, error) {
