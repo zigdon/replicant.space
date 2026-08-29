@@ -24,6 +24,12 @@ func TestGetRocksCached(t *testing.T) {
 	rocks = mockRocks
 
 	got, err := GetRocks()
+	if db == nil {
+		if err == nil {
+			t.Errorf("GetRocks with nil DB expected error, got %v", got)
+		}
+		return
+	}
 	if err != nil {
 		t.Fatalf("GetRocks cached returned error: %v", err)
 	}

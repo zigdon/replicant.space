@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/zigdon/rsp/constants"
 )
 
 func TestStandardResourcesCompletion(t *testing.T) {
@@ -17,8 +19,8 @@ func TestStandardResourcesCompletion(t *testing.T) {
 	}
 
 	for _, exp := range expected {
-		if !slices.Contains(StandardResources, exp) {
-			t.Errorf("StandardResources missing %q", exp)
+		if !slices.Contains(constants.Resources, exp) {
+			t.Errorf("constants.Resources missing %q", exp)
 		}
 	}
 

@@ -834,6 +834,7 @@ type StarMapPoint struct {
 	IsMyHub     bool
 	HasLife     bool
 	IsRoute     bool
+	IsIsland    bool
 	RouteStep   int
 	Devices     []*DeviceLocationInfo
 	NetworkNode *NetworkNode
@@ -849,10 +850,12 @@ type MapLayerOptions struct {
 	FilterDevicesOnly    bool
 	FilterNetworkOnly    bool
 	FilterTravelOnly     bool
+	FilterIslandOnly     bool
 	ShowRegions          bool
 	ShowDevices          bool
 	ShowNetwork          bool
 	ShowTravel           bool
+	ShowIsland           bool
 	ShowLabels           bool
 	ShowGrid             bool
 	ShowAxes             bool
@@ -867,6 +870,10 @@ type MapLayerOptions struct {
 	TravellingDevices    []*TravellingDevice
 	TravelFilter         *TravelFilterOptions
 	MappedTravelling     []*TravellingDeviceMapPoint
+	IslandStars          map[string]bool
+	IslandHop            float32
+	IslandLimit          int
+	IslandInfo           *IslandInfo
 }
 
 func DefaultMapLayerOptions() *MapLayerOptions {
@@ -878,14 +885,18 @@ func DefaultMapLayerOptions() *MapLayerOptions {
 		FilterDevicesOnly:  false,
 		FilterNetworkOnly:  false,
 		FilterTravelOnly:   false,
+		FilterIslandOnly:   false,
 		ShowRegions:        false,
 		ShowDevices:        false,
 		ShowNetwork:        false,
 		ShowTravel:         false,
+		ShowIsland:         false,
 		ShowLabels:         true,
 		ShowGrid:           true,
 		ShowAxes:           true,
 		ShowRoute:          true,
+		IslandHop:          7.5,
+		IslandLimit:        100,
 	}
 }
 
@@ -954,6 +965,25 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			}
 		}
 	}
+	if opts.ShowIsland && len(opts.IslandStars) > 0 {
+		var islandPositions []Vec3
+		for _, st := range stars {
+			if st != nil && st.Position != nil && opts.IslandStars[string(st.Designation)] {
+				islandPositions = append(islandPositions, Vec3{X: st.Position.X, Y: st.Position.Y, Z: st.Position.Z})
+			}
+		}
+		hop := opts.IslandHop
+		if hop <= 0 {
+			hop = 7.5
+		}
+		for i := 0; i < len(islandPositions); i++ {
+			for j := i + 1; j < len(islandPositions); j++ {
+				if islandPositions[i].Distance(islandPositions[j]) <= hop {
+					canvas.DrawLine3D(cam, islandPositions[i], islandPositions[j])
+				}
+			}
+		}
+	}
 
 	// Index travelling devices by star for StarMapPoint
 	var starTravelling map[string][]*TravellingDevice
@@ -990,6 +1020,8 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			netNode = opts.Network.Nodes[string(st.Designation)]
 		}
 
+		isIsland := opts.ShowIsland && opts.IslandStars != nil && opts.IslandStars[string(st.Designation)]
+
 		if opts.FilterExploredOnly && !st.Explored {
 			continue
 		}
@@ -1009,6 +1041,9 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			continue
 		}
 		if opts.FilterTravelOnly && travelStars != nil && !travelStars[string(st.Designation)] {
+			continue
+		}
+		if opts.FilterIslandOnly && !isIsland {
 			continue
 		}
 		if st.Position == nil {
@@ -1036,7 +1071,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		}
 		starCol := baseCol.Dim(dimFactor)
 
-		// Choose glyph based on attributes, network, devices, and depth
+		// Choose glyph based on attributes, network, devices, island, and depth
 		var glyph rune
 		if st.HasMyHub {
 			glyph = '◆'
@@ -1051,6 +1086,9 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			glyph = '◉'
 			starCol = RGB{R: 255, G: 230, B: 100}
 			_ = step
+		} else if isIsland {
+			glyph = '◎'                         // Concentric ring glyph for island system
+			starCol = RGB{R: 255, G: 110, B: 180} // Bright Coral-Pink
 		} else if opts.ShowNetwork && netNode != nil {
 			glyph = '◈'                         // Diamond glyph for active relay network node
 			starCol = RGB{R: 0, G: 229, B: 255} // Neon Cyan
@@ -1087,6 +1125,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			IsMyHub:     st.HasMyHub,
 			HasLife:     st.HasLife,
 			IsRoute:     isRoute,
+			IsIsland:    isIsland,
 			RouteStep:   step,
 			Devices:     starDevs,
 			NetworkNode: netNode,
@@ -1150,7 +1189,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 				Rune:     mp.Glyph,
 				FgColor:  mp.Color,
 				HasColor: true,
-				IsBold:   mp.IsMyHub || mp.HasLife || mp.IsRoute || (opts.ShowDevices && hasDevices) || inNet,
+				IsBold:   mp.IsMyHub || mp.HasLife || mp.IsRoute || mp.IsIsland || (opts.ShowDevices && hasDevices) || inNet,
 				DepthZ:   mp.CamPos.Z,
 				Star:     mp,
 			}
@@ -1179,10 +1218,11 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		for _, mp := range mappedStars {
 			hasDevices := len(mp.Devices) > 0
 			inNet := opts.ShowNetwork && mp.NetworkNode != nil
-			// Show names for prominent stars (Hubs, Life, Route, Device Hosts, Network Nodes, Selected, or closest stars)
+			// Show names for prominent stars (Hubs, Life, Route, Island, Device Hosts, Network Nodes, Selected, or closest stars)
 			isProminent := mp.IsMyHub || mp.HasLife || mp.IsRoute ||
 				(opts.ShowDevices && hasDevices) ||
 				inNet ||
+				mp.IsIsland ||
 				string(mp.Star.Designation) == opts.SelectedStar ||
 				string(mp.Star.Designation) == opts.HighlightStar ||
 				mp.CamPos.Z < -cam.Radius*0.2
@@ -1480,6 +1520,9 @@ func FormatMapLegend(opts *MapLayerOptions) string {
 	}
 	if opts != nil && (opts.ShowTravel || len(opts.TravellingDevices) > 0) {
 		parts = append(parts, "\x1b[1;33m▲\x1b[0m Travelling")
+	}
+	if opts != nil && (opts.ShowIsland || len(opts.IslandStars) > 0) {
+		parts = append(parts, "\x1b[38;2;255;110;180m◎\x1b[0m Island")
 	}
 	base := "\x1b[90mLegend: \x1b[0m" + strings.Join(parts, "  ")
 	if opts != nil && opts.ShowRegions {

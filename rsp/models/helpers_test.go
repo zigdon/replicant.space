@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zigdon/rsp/cache"
 )
 
 func TestJSONTime(t *testing.T) {
@@ -106,12 +108,12 @@ func TestPsqlDuration(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got, err := psqlDuration(tt.input)
+		got, err := cache.PsqlDuration(tt.input)
 		if err != nil {
-			t.Errorf("psqlDuration(%q) unexpected error: %v", tt.input, err)
+			t.Errorf("cache.PsqlDuration(%q) unexpected error: %v", tt.input, err)
 		}
 		if got != tt.expected {
-			t.Errorf("psqlDuration(%q) = %v, expected %v", tt.input, got, tt.expected)
+			t.Errorf("cache.PsqlDuration(%q) = %v, expected %v", tt.input, got, tt.expected)
 		}
 	}
 }

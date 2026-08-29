@@ -14,6 +14,9 @@ var rockTS time.Time
 var rocks []*models.Object
 
 func GetRocks() ([]*models.Object, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database not connected")
+	}
 	rows, err := db.GetAll(cache.ObjectsTable)
 	if err != nil {
 		return nil, err

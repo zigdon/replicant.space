@@ -705,3 +705,83 @@ func TestTravelOverlay(t *testing.T) {
 		t.Errorf("RenderGalaxyMapTview failed with travelling device")
 	}
 }
+
+func TestIslandOverlay(t *testing.T) {
+	cam := NewCamera3D(60, 25)
+	cam.Center = NewVec3(0, 0, 0)
+	cam.Radius = 15.0
+
+	stars := []*models.Star{
+		{
+			Designation: "ISLAND_A",
+			Name:        "Island Alpha",
+			Position:    models.NewPosition(0, 0, 0),
+		},
+		{
+			Designation: "ISLAND_B",
+			Name:        "Island Beta",
+			Position:    models.NewPosition(4, 2, 0), // 4.47ly away, within 7.5ly hop
+		},
+		{
+			Designation: "OUTSIDE",
+			Name:        "Outside System",
+			Position:    models.NewPosition(10, 10, 0),
+		},
+	}
+
+	islandSet := map[string]bool{
+		"ISLAND_A": true,
+		"ISLAND_B": true,
+	}
+
+	opts := DefaultMapLayerOptions()
+	opts.ShowIsland = true
+	opts.IslandStars = islandSet
+	opts.IslandHop = 7.5
+
+	output, mapped := RenderGalaxyMap(cam, stars, opts)
+	if len(mapped) != 3 {
+		t.Fatalf("Expected 3 mapped stars, got %d", len(mapped))
+	}
+
+	var islandCount int
+	for _, mp := range mapped {
+		if mp.IsIsland {
+			islandCount++
+			if mp.Glyph != '◎' {
+				t.Errorf("Expected island glyph '◎', got %c for %s", mp.Glyph, mp.Star.Designation)
+			}
+			if mp.Color.R != 255 || mp.Color.G != 110 || mp.Color.B != 180 {
+				t.Errorf("Expected island color [255, 110, 180], got %v for %s", mp.Color, mp.Star.Designation)
+			}
+		}
+	}
+	if islandCount != 2 {
+		t.Errorf("Expected 2 island stars mapped, got %d", islandCount)
+	}
+
+	// Check Legend
+	leg := FormatMapLegend(opts)
+	if !strings.Contains(leg, "Island") {
+		t.Errorf("FormatMapLegend should contain 'Island', got: %s", leg)
+	}
+
+	// Test FilterIslandOnly
+	optsFilter := DefaultMapLayerOptions()
+	optsFilter.ShowIsland = true
+	optsFilter.FilterIslandOnly = true
+	optsFilter.IslandStars = islandSet
+	_, mappedOnly := RenderGalaxyMap(cam, stars, optsFilter)
+	if len(mappedOnly) != 2 {
+		t.Errorf("FilterIslandOnly expected 2 stars, got %d", len(mappedOnly))
+	}
+
+	// Test RenderGalaxyMapTview
+	tviewOut, tviewMapped := RenderGalaxyMapTview(cam, stars, opts)
+	if len(tviewOut) == 0 || len(tviewMapped) != 3 {
+		t.Errorf("RenderGalaxyMapTview with island failed")
+	}
+
+	_ = output
+}
+

@@ -52,6 +52,10 @@ func init() {
 	mapCmd.Flags().Bool("device_only", false, "Filter map to only show stars with matching devices")
 	mapCmd.Flags().BoolP("network", "N", false, "Overlay FTL relay network connections")
 	mapCmd.Flags().Bool("network_only", false, "Filter map to only show stars with active relay network devices")
+	mapCmd.Flags().BoolP("island", "I", false, "Overlay relay island for center/selected system")
+	mapCmd.Flags().Int("island_limit", 100, "Max systems to include in island calculation (default 100)")
+	mapCmd.Flags().Float32("island_hop", 7.5, "Maximum hop distance for island inclusion, in ly")
+	mapCmd.Flags().Bool("island_only", false, "Filter map to only show stars in the island")
 	mapCmd.Flags().BoolP("travel", "t", false, "Overlay routes and estimated markers of travelling devices")
 	mapCmd.Flags().Bool("travel_only", false, "Filter map to only show stars with travelling devices")
 	mapCmd.Flags().StringSlice("travel_devices", nil, "Filter travelling devices by code or alias")
@@ -82,6 +86,10 @@ func init() {
 	plotMapCmd.Flags().BoolP("static", "s", false, "Render static ASCII snapshot to stdout")
 	plotMapCmd.Flags().StringSliceP("devices", "d", nil, "List of device types to overlay (comma-separated, e.g. autofactory,mining_drone)")
 	plotMapCmd.Flags().BoolP("network", "N", false, "Overlay FTL relay network connections")
+	plotMapCmd.Flags().BoolP("island", "I", false, "Overlay relay island for source system")
+	plotMapCmd.Flags().Int("island_limit", 100, "Max systems to include in island calculation (default 100)")
+	plotMapCmd.Flags().Float32("island_hop", 7.5, "Maximum hop distance for island inclusion, in ly")
+	plotMapCmd.Flags().Bool("island_only", false, "Filter map to only show stars in the island")
 	plotCmd.AddCommand(travelMapCmd)
 }
 
@@ -554,6 +562,28 @@ func runPlotMapCmd(cmd *cobra.Command, args []string) error {
 		opts.ShowNetwork = true
 	}
 
+	pIslandHop := getFloat32(cmd, "island_hop")
+	if pIslandHop <= 0 {
+		pIslandHop = 7.5
+	}
+	pIslandLimit := getInt(cmd, "island_limit")
+	if pIslandLimit <= 0 {
+		pIslandLimit = 100
+	}
+	opts.IslandHop = pIslandHop
+	opts.IslandLimit = pIslandLimit
+	if getBool(cmd, "island") || getBool(cmd, "island_only") {
+		opts.ShowIsland = true
+		if getBool(cmd, "island_only") {
+			opts.FilterIslandOnly = true
+		}
+		info, err := common.GetOrCalculateIsland(src, pIslandHop, pIslandLimit)
+		if err == nil && info != nil && len(info.Stars) > 0 {
+			opts.IslandStars = info.StarMap
+			opts.IslandInfo = info
+		}
+	}
+
 	if staticMode {
 		cam := common.NewCamera3D(100, 35)
 		cam.Center = center
@@ -622,6 +652,27 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 	if getBool(cmd, "network_only") {
 		opts.ShowNetwork = true
 		opts.FilterNetworkOnly = true
+	}
+	islandHop := getFloat32(cmd, "island_hop")
+	if islandHop <= 0 {
+		islandHop = 7.5
+	}
+	islandLimit := getInt(cmd, "island_limit")
+	if islandLimit <= 0 {
+		islandLimit = 100
+	}
+	opts.IslandHop = islandHop
+	opts.IslandLimit = islandLimit
+	if getBool(cmd, "island") || getBool(cmd, "island_only") {
+		opts.ShowIsland = true
+		if getBool(cmd, "island_only") {
+			opts.FilterIslandOnly = true
+		}
+		info, err := common.GetOrCalculateIsland(centerName, islandHop, islandLimit)
+		if err == nil && info != nil && len(info.Stars) > 0 {
+			opts.IslandStars = info.StarMap
+			opts.IslandInfo = info
+		}
 	}
 	if getBool(cmd, "travel") || getBool(cmd, "travel_only") ||
 		len(getStringSlice(cmd, "travel_devices")) > 0 ||
@@ -711,6 +762,20 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 					starNames = append(starNames[:8], fmt.Sprintf("... +%d more", len(starNames)-8))
 				}
 				fmt.Printf("  \x1b[1;33mSubnet #%d\x1b[0m (%d stars): %s\n", id, len(nodes), strings.Join(starNames, ", "))
+			}
+		}
+
+		if opts.ShowIsland && opts.IslandInfo != nil && len(opts.IslandInfo.Stars) > 0 {
+			fmt.Printf("\n\x1b[1;35m=== RELAY ISLAND (%d systems) ===\x1b[0m\n", len(opts.IslandInfo.Stars))
+			islandList := make([]string, len(opts.IslandInfo.Stars))
+			copy(islandList, opts.IslandInfo.Stars)
+			slices.Sort(islandList)
+			for i, s := range islandList {
+				if i >= 20 {
+					fmt.Printf("  \x1b[90m... and %d more systems\x1b[0m\n", len(islandList)-20)
+					break
+				}
+				fmt.Printf("  \x1b[38;2;255;110;180m◎ %s\x1b[0m\n", s)
 			}
 		}
 
@@ -853,6 +918,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 	var currentMapped []*common.StarMapPoint
 	var isSearching bool
 	var searchStatusMsg string
+	var isCalculatingIsland bool
 
 	mapView := tview.NewTextView().
 		SetDynamicColors(true).
@@ -871,13 +937,95 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		SetDynamicColors(true).
 		SetWrap(false)
 
-	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD/EC[-] Pan (X/Y/Z)  [yellow]/[-] Search  [yellow]Click[-] Select  [yellow]Tab[-] Target  [yellow]1-9[-] Filters  [yellow]r[-] Reset  [yellow]q[-] Quit")
+	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD/EC[-] Pan (X/Y/Z)  [yellow]/[-] Search  [yellow]Click[-] Select  [yellow]Tab[-] Target  [yellow]0-9/i[-] Filters  [yellow]^L[-] Refresh  [yellow]r[-] Reset  [yellow]q[-] Quit")
 
 	searchInput := tview.NewInputField().
 		SetLabel(" [yellow::b]Search (System / Device / Alias):[-::-] ").
 		SetFieldWidth(40).
 		SetFieldBackgroundColor(tcell.ColorDarkSlateGray).
 		SetFieldTextColor(tcell.ColorWhite)
+
+	var redraw func()
+
+	requestIslandUpdate := func(targetStar string) {
+		if !opts.ShowIsland || targetStar == "" {
+			return
+		}
+		targetStar = strings.ToUpper(strings.TrimSpace(targetStar))
+		hop := opts.IslandHop
+		if hop <= 0 {
+			hop = 7.5
+		}
+		limit := opts.IslandLimit
+		if limit <= 0 {
+			limit = 100
+		}
+
+		// 1. Check cache first
+		if cached, ok := common.GetCachedIsland(targetStar, hop, limit); ok && cached != nil {
+			opts.IslandInfo = cached
+			if cached.Err == nil && len(cached.Stars) > 0 {
+				opts.IslandStars = cached.StarMap
+				searchStatusMsg = fmt.Sprintf("[#ff6eb4::b]✓ Island: %d systems connected (hop %.1fly, limit %d)[-::-]",
+					len(cached.Stars), hop, limit)
+			} else {
+				opts.IslandStars = nil
+				if cached.IsNetwork {
+					searchStatusMsg = fmt.Sprintf("[cyan]%s is connected to relay network (not isolated)[-]", targetStar)
+				} else if cached.LimitExceeded {
+					searchStatusMsg = fmt.Sprintf("[yellow]%s island exceeds %d system limit[-]", targetStar, limit)
+				} else if cached.Err != nil {
+					firstLine := strings.Split(cached.Err.Error(), "\n")[0]
+					if len(firstLine) > 60 {
+						firstLine = firstLine[:57] + "..."
+					}
+					searchStatusMsg = fmt.Sprintf("[yellow]%s[-]", firstLine)
+				}
+			}
+			if redraw != nil {
+				redraw()
+			}
+			return
+		}
+
+		// 2. Launch async background calculation
+		searchStatusMsg = fmt.Sprintf("[cyan]Calculating island for %s (limit %d, hop %.1fly)...[-]", targetStar, limit, hop)
+		isCalculatingIsland = true
+		if redraw != nil {
+			redraw()
+		}
+
+		go func(star string, h float32, lim int) {
+			info, err := common.GetOrCalculateIsland(star, h, lim)
+			app.QueueUpdateDraw(func() {
+				isCalculatingIsland = false
+				if opts.ShowIsland && (opts.SelectedStar == star || (info != nil && info.Contains(opts.SelectedStar))) {
+					opts.IslandInfo = info
+					if err == nil && info != nil && len(info.Stars) > 0 {
+						opts.IslandStars = info.StarMap
+						searchStatusMsg = fmt.Sprintf("[#ff6eb4::b]✓ Island identified: %d systems (hop %.1fly, limit %d)[-::-]",
+							len(info.Stars), h, lim)
+					} else {
+						opts.IslandStars = nil
+						if info != nil && info.IsNetwork {
+							searchStatusMsg = fmt.Sprintf("[cyan]%s is connected to relay network (not isolated)[-]", star)
+						} else if info != nil && info.LimitExceeded {
+							searchStatusMsg = fmt.Sprintf("[yellow]%s island exceeds %d system limit[-]", star, lim)
+						} else if err != nil {
+							firstLine := strings.Split(err.Error(), "\n")[0]
+							if len(firstLine) > 60 {
+								firstLine = firstLine[:57] + "..."
+							}
+							searchStatusMsg = fmt.Sprintf("[yellow]%s[-]", firstLine)
+						}
+					}
+					if redraw != nil {
+						redraw()
+					}
+				}
+			})
+		}(targetStar, hop, limit)
+	}
 
 	updateSidebar := func(target *common.StarMapPoint) {
 		sidebar.Clear()
@@ -1044,10 +1192,41 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 		}
 
+		if target.IsIsland || (opts.ShowIsland && opts.IslandStars != nil && opts.IslandStars[string(st.Designation)]) {
+			sb.WriteString(fmt.Sprintf("\n[#ff6eb4::b]=== RELAY ISLAND (%d systems) ===[-::-]\n", len(opts.IslandStars)))
+			sb.WriteString("[white]Status:[-] [#ff6eb4]Isolated Cluster[-]\n")
+			sb.WriteString(fmt.Sprintf("[white]Max Hop:[-] [yellow]%.1fly[-] | [white]Limit:[-] [yellow]%d[-]\n", opts.IslandHop, opts.IslandLimit))
+			if opts.IslandInfo != nil && len(opts.IslandInfo.Stars) > 0 {
+				sb.WriteString("[gray]Connected Systems:[-]\n")
+				for i, s := range opts.IslandInfo.Stars {
+					if i >= 6 {
+						sb.WriteString(fmt.Sprintf("  [gray]... and %d more[-]\n", len(opts.IslandInfo.Stars)-6))
+						break
+					}
+					marker := "•"
+					if s == string(st.Designation) {
+						marker = "★"
+					}
+					sb.WriteString(fmt.Sprintf("  %s [yellow]%s[-]\n", marker, s))
+				}
+			}
+		}
+
+		if opts.ShowIsland && opts.IslandInfo != nil && opts.IslandInfo.IsNetwork && opts.IslandInfo.TargetStar == string(st.Designation) {
+			sb.WriteString("\n[cyan::b]=== RELAY NETWORK CONNECTED ===[-::-]\n")
+			sb.WriteString("[white]Status:[-] [green]Connected to Relay Network[-]\n")
+			if opts.IslandInfo.Err != nil {
+				lines := strings.Split(opts.IslandInfo.Err.Error(), "\n")
+				if len(lines) > 1 && strings.TrimSpace(lines[1]) != "" {
+					sb.WriteString(fmt.Sprintf("[white]Path to Network:[-]\n[yellow]%s[-]\n", strings.TrimSpace(lines[1])))
+				}
+			}
+		}
+
 		sidebar.SetText(sb.String())
 	}
 
-	redraw := func() {
+	redraw = func() {
 		_, _, w, h := mapView.GetInnerRect()
 		if w <= 10 || h <= 5 {
 			w, h = 80, 24
@@ -1122,6 +1301,11 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		} else {
 			filterBadges = append(filterBadges, "[gray][9:Travel][-]")
 		}
+		if opts.ShowIsland {
+			filterBadges = append(filterBadges, "[#ff6eb4::b][0/i:Island:ON][-::-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][0/i:Island][-]")
+		}
 
 		var devSummary string
 		if opts.StarDevices != nil && len(opts.StarDevices) > 0 {
@@ -1142,9 +1326,20 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			travelSummary = fmt.Sprintf(" | In Transit: [yellow]%d dev[-]", len(opts.TravellingDevices))
 		}
 
+		var islandSummary string
+		if opts.ShowIsland {
+			if opts.IslandInfo != nil && len(opts.IslandInfo.Stars) > 0 {
+				islandSummary = fmt.Sprintf(" | Island: [#ff6eb4::b]%d sys[-::-]", len(opts.IslandInfo.Stars))
+			} else if isCalculatingIsland {
+				islandSummary = " | Island: [cyan]calculating...[-]"
+			} else if opts.IslandInfo != nil && opts.IslandInfo.IsNetwork {
+				islandSummary = " | Island: [yellow]in network[-]"
+			}
+		}
+
 		var hudSb strings.Builder
-		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total%s%s%s\n",
-			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars), devSummary, netSummary, travelSummary))
+		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total%s%s%s%s\n",
+			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars), devSummary, netSummary, travelSummary, islandSummary))
 
 		if opts.SelectedTravelDevice != "" {
 			var selTD *common.TravellingDevice
@@ -1185,6 +1380,9 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			if len(selectedPoint.Travelling) > 0 {
 				devInfoStr += fmt.Sprintf(" | [yellow]Transit: %d[-]", len(selectedPoint.Travelling))
 			}
+			if selectedPoint.IsIsland {
+				devInfoStr += " | [#ff6eb4::b]Island Member[-::-]"
+			}
 
 			hudSb.WriteString(fmt.Sprintf("[white::b]Target:[-] [yellow::b]%s[-] ([white]%s[-]) | Class: [cyan]%s[-] | Planets: [white]%d[-] | Life: %s | Hub: %s%s | Pos: %s\n",
 				st.Designation, name, st.SpectralType, st.EstimatedPlanets, lifeStr, hubStr, devInfoStr, st.Position.String()))
@@ -1193,7 +1391,11 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		}
 
 		if searchStatusMsg != "" {
-			hudSb.WriteString(fmt.Sprintf("%s\n", searchStatusMsg))
+			cleanMsg := strings.ReplaceAll(searchStatusMsg, "\r", "")
+			lines := strings.Split(cleanMsg, "\n")
+			if len(lines) > 0 && lines[0] != "" {
+				hudSb.WriteString(fmt.Sprintf("%s\n", lines[0]))
+			}
 		}
 		hudSb.WriteString(fmt.Sprintf("Filters: %s", strings.Join(filterBadges, " ")))
 
@@ -1297,6 +1499,9 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 					opts.SelectedStar = string(bestStar.Star.Designation)
 					opts.SelectedTravelDevice = ""
 					searchStatusMsg = fmt.Sprintf("[green]Selected: %s (%s)[-]", bestStar.Star.Designation, bestStar.Star.Name)
+					if opts.ShowIsland {
+						requestIslandUpdate(opts.SelectedStar)
+					}
 					redraw()
 					return action, nil
 				}
@@ -1329,7 +1534,11 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 				if !foundTravel {
 					matched, info, err := searchMapTarget(query, stars)
 					if err != nil {
-						searchStatusMsg = fmt.Sprintf("[red::b]✗ %v[-::-]", err)
+						firstLine := strings.Split(err.Error(), "\n")[0]
+						if len(firstLine) > 60 {
+							firstLine = firstLine[:57] + "..."
+						}
+						searchStatusMsg = fmt.Sprintf("[red::b]✗ %s[-::-]", firstLine)
 					} else if matched != nil {
 						foundInSlice := false
 						for _, s := range stars {
@@ -1349,6 +1558,9 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 						opts.SelectedTravelDevice = ""
 						initialTarget = string(matched.Designation)
 						searchStatusMsg = fmt.Sprintf("[green::b]✓ %s[-::-]", info)
+						if opts.ShowIsland {
+							requestIslandUpdate(opts.SelectedStar)
+						}
 					}
 				}
 			}
@@ -1374,12 +1586,23 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 				redraw()
 				return nil
 			}
+			if key == tcell.KeyCtrlL {
+				app.Sync()
+				redraw()
+				return nil
+			}
 			return event
 		}
 
 		switch {
 		case key == tcell.KeyEscape || r == 'q' || r == 'Q':
 			app.Stop()
+			return nil
+
+		// Refresh Screen
+		case key == tcell.KeyCtrlL || r == 12:
+			app.Sync()
+			redraw()
 			return nil
 
 		// Search Hotkey
@@ -1473,6 +1696,9 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 				selectedIndex = (selectedIndex + 1) % len(currentMapped)
 				opts.SelectedStar = string(currentMapped[selectedIndex].Star.Designation)
 				opts.SelectedTravelDevice = ""
+				if opts.ShowIsland {
+					requestIslandUpdate(opts.SelectedStar)
+				}
 				redraw()
 			}
 			return nil
@@ -1481,11 +1707,14 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 				selectedIndex = (selectedIndex - 1 + len(currentMapped)) % len(currentMapped)
 				opts.SelectedStar = string(currentMapped[selectedIndex].Star.Designation)
 				opts.SelectedTravelDevice = ""
+				if opts.ShowIsland {
+					requestIslandUpdate(opts.SelectedStar)
+				}
 				redraw()
 			}
 			return nil
 
-		// Layer toggles: 1=Life, 2=Hubs, 3=Explored, 4=Grid, 5=Labels, 6=Regions, 7=Devices, 8=Network, 9=Travel
+		// Layer toggles: 1=Life, 2=Hubs, 3=Explored, 4=Grid, 5=Labels, 6=Regions, 7=Devices, 8=Network, 9=Travel, 0/i=Island
 		case r == '1':
 			opts.FilterLifeOnly = !opts.FilterLifeOnly
 			selectedIndex = 0
@@ -1531,6 +1760,20 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 			redraw()
 			return nil
+		case r == '0' || r == 'i' || r == 'I':
+			opts.ShowIsland = !opts.ShowIsland
+			if opts.ShowIsland {
+				target := opts.SelectedStar
+				if target == "" {
+					target = initialTarget
+				}
+				requestIslandUpdate(target)
+			} else {
+				opts.IslandStars = nil
+				opts.IslandInfo = nil
+			}
+			redraw()
+			return nil
 
 		// Reset View
 		case r == 'r' || r == 'R':
@@ -1546,16 +1789,21 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.FilterDevicesOnly = false
 			opts.FilterNetworkOnly = false
 			opts.FilterTravelOnly = false
+			opts.FilterIslandOnly = false
 			opts.ShowRegions = false
 			opts.ShowDevices = (len(opts.DeviceTypes) > 0)
 			opts.ShowNetwork = (opts.Network != nil && len(opts.Network.Nodes) > 0)
 			opts.ShowTravel = (len(opts.TravellingDevices) > 0)
+			opts.ShowIsland = false
+			opts.IslandStars = nil
+			opts.IslandInfo = nil
 			opts.ShowGrid = true
 			opts.ShowLabels = true
 			opts.SelectedStar = initialTarget
 			opts.SelectedTravelDevice = ""
 			searchStatusMsg = ""
 			selectedIndex = 0
+			app.Sync()
 			redraw()
 			return nil
 		}
@@ -1567,6 +1815,14 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		redraw()
 		return x, y, width, height
 	})
+
+	if opts.ShowIsland {
+		target := opts.SelectedStar
+		if target == "" {
+			target = initialTarget
+		}
+		requestIslandUpdate(target)
+	}
 
 	if err := app.SetRoot(mainFlex, true).Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error running 3D Map viewer: %v\n", err)

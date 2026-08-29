@@ -17,6 +17,9 @@ type etaCache struct {
 }
 
 func getCachedTrip(vessel, from, to string) *etaCache {
+	if db == nil {
+		return nil
+	}
 	// Make sure the state of the galaxy hasn't invalidated our cache.
 	cksum, err := db.ChecksumHubs()
 	if err != nil {

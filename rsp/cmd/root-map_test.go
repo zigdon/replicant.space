@@ -129,3 +129,66 @@ func TestTravelMapCmdFlags(t *testing.T) {
 		t.Errorf("mapCmd missing --travel_only flag")
 	}
 }
+
+func TestMapIslandFlags(t *testing.T) {
+	// Verify mapCmd has island flags
+	if mapCmd.Flags().Lookup("island") == nil {
+		t.Errorf("mapCmd missing --island flag")
+	}
+	if mapCmd.Flags().Lookup("island_limit") == nil {
+		t.Errorf("mapCmd missing --island_limit flag")
+	}
+	if mapCmd.Flags().Lookup("island_hop") == nil {
+		t.Errorf("mapCmd missing --island_hop flag")
+	}
+	if mapCmd.Flags().Lookup("island_only") == nil {
+		t.Errorf("mapCmd missing --island_only flag")
+	}
+
+	// Verify default island_limit is 100
+	limitFlag := mapCmd.Flags().Lookup("island_limit")
+	if limitFlag.DefValue != "100" {
+		t.Errorf("Expected default island_limit to be 100, got %s", limitFlag.DefValue)
+	}
+
+	// Verify default island_hop is 7.5
+	hopFlag := mapCmd.Flags().Lookup("island_hop")
+	if hopFlag.DefValue != "7.5" {
+		t.Errorf("Expected default island_hop to be 7.5, got %s", hopFlag.DefValue)
+	}
+
+	// Verify plotMapCmd has island flags
+	if plotMapCmd.Flags().Lookup("island") == nil {
+		t.Errorf("plotMapCmd missing --island flag")
+	}
+	if plotMapCmd.Flags().Lookup("island_limit") == nil {
+		t.Errorf("plotMapCmd missing --island_limit flag")
+	}
+	if plotMapCmd.Flags().Lookup("island_hop") == nil {
+		t.Errorf("plotMapCmd missing --island_hop flag")
+	}
+	if plotMapCmd.Flags().Lookup("island_only") == nil {
+		t.Errorf("plotMapCmd missing --island_only flag")
+	}
+}
+
+func TestStatusSanitization(t *testing.T) {
+	// Simulate multi-line error from RelayIsland
+	multilineErr := "\"GORUMIUN\" is reachable from the relay network:\nGORUMIUN -> STAR1 -> STAR2 -> BETILGEUSE -> SOL"
+	
+	firstLine := strings.Split(multilineErr, "\n")[0]
+	if strings.Contains(firstLine, "\n") {
+		t.Errorf("Expected first line to have no newlines, got: %q", firstLine)
+	}
+	if firstLine != "\"GORUMIUN\" is reachable from the relay network:" {
+		t.Errorf("Unexpected first line: %q", firstLine)
+	}
+
+	cleanMsg := strings.ReplaceAll(multilineErr, "\r", "")
+	lines := strings.Split(cleanMsg, "\n")
+	if len(lines) != 2 {
+		t.Errorf("Expected 2 lines, got %d", len(lines))
+	}
+}
+
+
