@@ -249,9 +249,9 @@ func stringify(in any) string {
 	case *models.Position:
 		out = a.String()
 	case *models.JSONTime:
-		out = a.String()
+		out = T(a.Time())
 	case *models.JSONTimeDelta:
-		out = a.String()
+		out = Dt(a.Duration())
 	case models.LocationID:
 		out = string(a)
 	default:

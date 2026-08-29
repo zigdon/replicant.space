@@ -151,6 +151,42 @@ func readStream(cmd *cobra.Command, args []string) error {
 					})
 				}, ids...)
 			}
+		case "ami.fleet_travel_complete":
+			ev, err := models.Parse[models.StreamAmiTravelComplete](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			rep := func(ds []*models.StreamAmiDeviceDetail) string {
+				var res []string
+				details := make(map[string]int)
+				for _, d := range ds {
+					var t string
+					switch {
+					case d.Error != "":
+						t = d.Error
+					case d.Reason != "":
+						t = d.Reason
+					default:
+						continue
+					}
+					details[t]++
+				}
+				for k, v := range details {
+					res = append(res, fmt.Sprintf("  %s: %d", k, v))
+				}
+				slices.Sort(res)
+
+				return strings.Join(res, "\n")
+			}
+			log("%s ami travel initiated: %d relayed, %d skipped, %d errors:",
+				env.DeviceCode, len(ev.Relayed), len(ev.Skipped), len(ev.Errors))
+			if len(ev.Skipped) > 0 {
+				log("  Skipped:\n%s", rep(ev.Skipped))
+			}
+			if len(ev.Errors) > 0 {
+				log("  Errors:\n%s", rep(ev.Errors))
+			}
 		case "ami.launched":
 			ev, err := models.Parse[models.StreamAmiLaunched](payload)
 			if err != nil {

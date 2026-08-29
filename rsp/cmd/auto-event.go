@@ -828,7 +828,7 @@ func (es *eventState) complete() error {
 		return cmp.Compare(da, db)
 	})
 	printTable([]string{"Replicant", "Location", "Distance LY", "Tags"}, data)
-	return fmt.Errorf("Manual travel required: %s is nearest (%.2f LY from %s)",
+	return fmt.Errorf("Need travel: %s nearest (%.2f LY from %s)",
 		name, nearest, es.destination)
 }
 

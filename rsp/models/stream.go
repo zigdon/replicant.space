@@ -177,6 +177,19 @@ type StreamAmiReleased struct {
 	Devices []*DevicePointer `json:"devices"`
 }
 
+type StreamAmiDeviceDetail struct {
+	DeviceCode *CodeAlias `json:"device_code"`
+	Error      string     `json:"error"`
+	Reason     string     `json:"reason"`
+}
+
+type StreamAmiTravelComplete struct {
+	Destination string                   `json:"destination"`
+	Errors      []*StreamAmiDeviceDetail `json:"errors"`
+	Relayed     []*CodeAlias             `json:"relayed"`
+	Skipped     []*StreamAmiDeviceDetail `json:"skipped"`
+}
+
 type StreamAmiWithdrawn struct {
 	DirectivePaused bool `json:"directive_paused"`
 	DevicesRecalled int  `json:"devices_recalled"`
