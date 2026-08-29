@@ -124,13 +124,20 @@ func (sg *SpatialStarGrid) FindNeighbors(pos *models.Position, minRadius, maxRad
 	return res
 }
 
+// Hop penalty constants for hierarchical routing (Relay -> Station -> Hub).
+const (
+	stationHopPenalty float32 = 1000.0
+	hubHopPenalty     float32 = 100000.0
+)
+
 // aStarItem represents a search node in the priority queue.
 type aStarItem struct {
 	Star        string
 	Position    *models.Position
-	DistFromSrc float32 // g(n): cost from source
+	CostFromSrc float32 // g(n): penalized search cost from source
+	DistFromSrc float32 // Actual physical light-years traveled from source
 	DistToDest  float32 // h(n): heuristic to destination
-	Priority    float32 // f(n) = g(n) + h(n) with tie-breaker
+	Priority    float32 // f(n) = CostFromSrc + DistToDest with tie-breaker
 	From        string
 	FromPos     *models.Position
 	HopDist     float32
@@ -296,6 +303,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	heap.Push(openSet, &aStarItem{
 		Star:        src,
 		Position:    sPos,
+		CostFromSrc: 0,
 		DistFromSrc: 0,
 		DistToDest:  origDist,
 		Priority:    origDist,
@@ -328,10 +336,18 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 
 		if curr.Star == dst {
 			curStar := dst
+			var usedStation, usedHub bool
 			for {
 				leg, ok := cameFrom[curStar]
 				if !ok {
 					break
+				}
+				hopDist := leg.FromPosition.Distance(leg.ToPosition)
+				if hopDist > 10.0 {
+					usedHub = true
+					usedStation = true
+				} else if hopDist > cfg.Hop {
+					usedStation = true
 				}
 				j.Legs = append(j.Legs, leg)
 				if leg.From == src {
@@ -340,9 +356,16 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 				curStar = leg.From
 			}
 			slices.Reverse(j.Legs)
+			var totDist float32
 			for i := range j.Legs {
+				hopDist := j.Legs[i].FromPosition.Distance(j.Legs[i].ToPosition)
+				totDist += hopDist
+				j.Legs[i].DistFromSrc = totDist
+				j.Legs[i].DistToDest = j.Legs[i].ToPosition.Distance(dPos)
 				j.Legs[i].Step = i + 1
 			}
+			j.UseStation = usedStation
+			j.UseHub = usedHub
 			err := j.Cache()
 			return j, err
 		}
@@ -370,13 +393,25 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 			}
 
 			hopDist := curr.Position.Distance(nbr.Position)
-			tentativeG := curr.DistFromSrc + hopDist
+			hopCost := hopDist
+			if hopDist > 10.0 {
+				hopCost += hubHopPenalty
+			} else if hopDist > cfg.Hop {
+				if cfg.UseStation {
+					hopCost += stationHopPenalty
+				} else {
+					hopCost += hubHopPenalty
+				}
+			}
 
-			currentG, visited := gScore[nbr.Designation]
-			if !visited || tentativeG < currentG {
-				gScore[nbr.Designation] = tentativeG
+			tentativeCost := curr.CostFromSrc + hopCost
+			tentativeDist := curr.DistFromSrc + hopDist
+
+			currentCost, visited := gScore[nbr.Designation]
+			if !visited || tentativeCost < currentCost {
+				gScore[nbr.Designation] = tentativeCost
 				h := nbr.Position.Distance(dPos)
-				f := tentativeG + h
+				f := tentativeCost + h
 				priority := f*(1.0+eps) - h*eps
 
 				cameFrom[nbr.Designation] = &models.JourneyLeg{
@@ -384,7 +419,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 					FromPosition: curr.Position,
 					To:           nbr.Designation,
 					ToPosition:   nbr.Position,
-					DistFromSrc:  tentativeG,
+					DistFromSrc:  tentativeDist,
 					DistToDest:   h,
 					Step:         curr.Step + 1,
 				}
@@ -392,7 +427,8 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 				heap.Push(openSet, &aStarItem{
 					Star:        nbr.Designation,
 					Position:    nbr.Position,
-					DistFromSrc: tentativeG,
+					CostFromSrc: tentativeCost,
+					DistFromSrc: tentativeDist,
 					DistToDest:  h,
 					Priority:    priority,
 					From:        curr.Star,
@@ -401,7 +437,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 					Step:        curr.Step + 1,
 				})
 
-				debug("  - Queued %s -> %s (hop: %.2f, g: %.2f, h: %.2f)", curr.Star, nbr.Designation, hopDist, tentativeG, h)
+				debug("  - Queued %s -> %s (hop: %.2f, cost: %.2f, dist: %.2f, h: %.2f)", curr.Star, nbr.Designation, hopDist, tentativeCost, tentativeDist, h)
 			}
 		}
 	}

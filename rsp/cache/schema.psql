@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS cached_journey(
   use_station BOOL NOT NULL DEFAULT false,
   use_hub BOOL NOT NULL DEFAULT false,
   calculated TIMESTAMPTZ NOT NULL,
-  UNIQUE (origin, dest, max_hop)
+  UNIQUE (origin, dest, max_hop, use_station, use_hub)
 );
 
 CREATE TABLE IF NOT EXISTS eta_cache(

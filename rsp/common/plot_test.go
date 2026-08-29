@@ -225,6 +225,7 @@ func TestAStarGridPathfinding(t *testing.T) {
 	heap.Push(openSet, &aStarItem{
 		Star:        "START",
 		Position:    sPos,
+		CostFromSrc: 0,
 		DistFromSrc: 0,
 		DistToDest:  origDist,
 		Priority:    origDist,
@@ -250,12 +251,13 @@ func TestAStarGridPathfinding(t *testing.T) {
 				continue
 			}
 			hopDist := curr.Position.Distance(nbr.Position)
-			tentativeG := curr.DistFromSrc + hopDist
-			currentG, visited := gScore[nbr.Designation]
-			if !visited || tentativeG < currentG {
-				gScore[nbr.Designation] = tentativeG
+			tentativeCost := curr.CostFromSrc + hopDist
+			tentativeDist := curr.DistFromSrc + hopDist
+			currentCost, visited := gScore[nbr.Designation]
+			if !visited || tentativeCost < currentCost {
+				gScore[nbr.Designation] = tentativeCost
 				h := nbr.Position.Distance(dPos)
-				f := tentativeG + h
+				f := tentativeCost + h
 				priority := f*(1.0+eps) - h*eps
 
 				cameFrom[nbr.Designation] = &models.JourneyLeg{
@@ -263,7 +265,7 @@ func TestAStarGridPathfinding(t *testing.T) {
 					FromPosition: curr.Position,
 					To:           nbr.Designation,
 					ToPosition:   nbr.Position,
-					DistFromSrc:  tentativeG,
+					DistFromSrc:  tentativeDist,
 					DistToDest:   h,
 					Step:         curr.Step + 1,
 				}
@@ -271,7 +273,8 @@ func TestAStarGridPathfinding(t *testing.T) {
 				heap.Push(openSet, &aStarItem{
 					Star:        nbr.Designation,
 					Position:    nbr.Position,
-					DistFromSrc: tentativeG,
+					CostFromSrc: tentativeCost,
+					DistFromSrc: tentativeDist,
 					DistToDest:  h,
 					Priority:    priority,
 					From:        curr.Star,
@@ -305,5 +308,131 @@ func TestAStarGridPathfinding(t *testing.T) {
 
 	if len(path) != 3 || path[0] != "START" || path[1] != "MID" || path[2] != "END" {
 		t.Errorf("Expected optimal path [START, MID, END], got %v", path)
+	}
+}
+
+func TestHierarchicalHopPenalties(t *testing.T) {
+	// Scenario 1: Standard hops (<=7.5) vs Station jump (9.0).
+	// START (0,0,0) -> END (9,0,0) has:
+	// Path A: Direct station jump of 9.0 ly (cost = 9.0 + 1000 = 1009.0)
+	// Path B: 2 standard hops via MID (4.5,0,0) (cost = 4.5 + 4.5 = 9.0)
+	// The pathfinder must pick Path B (pure relay hops).
+	sg := NewSpatialStarGrid(15.0)
+	sg.Insert("START", models.NewPosition(0, 0, 0))
+	sg.Insert("MID", models.NewPosition(4.5, 0, 0))
+	sg.Insert("END", models.NewPosition(9.0, 0, 0))
+
+	sPos := sg.Get("START").Position
+	dPos := sg.Get("END").Position
+	origDist := sPos.Distance(dPos)
+
+	runSearch := func(hop float32, useStation, useHub bool) []string {
+		openSet := &aStarPriorityQueue{}
+		heap.Init(openSet)
+		gScore := make(map[string]float32)
+		gScore["START"] = 0
+		cameFrom := make(map[string]*models.JourneyLeg)
+		closedSet := make(map[string]bool)
+		const eps float32 = 1e-4
+
+		heap.Push(openSet, &aStarItem{
+			Star:        "START",
+			Position:    sPos,
+			CostFromSrc: 0,
+			DistFromSrc: 0,
+			DistToDest:  origDist,
+			Priority:    origDist,
+		})
+
+		for openSet.Len() > 0 {
+			curr := heap.Pop(openSet).(*aStarItem)
+			if closedSet[curr.Star] {
+				continue
+			}
+			closedSet[curr.Star] = true
+			if curr.Star == "END" {
+				var p []string
+				c := "END"
+				for {
+					l, ok := cameFrom[c]
+					if !ok {
+						break
+					}
+					p = append([]string{l.To}, p...)
+					if l.From == "START" {
+						p = append([]string{l.From}, p...)
+						break
+					}
+					c = l.From
+				}
+				return p
+			}
+
+			neighbors := sg.FindNeighbors(curr.Position, 0, hop)
+			if useStation && 10.0 > hop {
+				neighbors = append(neighbors, sg.FindNeighbors(curr.Position, hop, 10.0)...)
+			}
+			if useHub && 15.0 > hop {
+				minR := hop
+				if useStation && 10.0 > minR {
+					minR = 10.0
+				}
+				neighbors = append(neighbors, sg.FindNeighbors(curr.Position, minR, 15.0)...)
+			}
+
+			for _, nbr := range neighbors {
+				if closedSet[nbr.Designation] {
+					continue
+				}
+				hopDist := curr.Position.Distance(nbr.Position)
+				hopCost := hopDist
+				if hopDist > 10.0 {
+					hopCost += hubHopPenalty
+				} else if hopDist > hop {
+					if useStation {
+						hopCost += stationHopPenalty
+					} else {
+						hopCost += hubHopPenalty
+					}
+				}
+
+				tentativeCost := curr.CostFromSrc + hopCost
+				tentativeDist := curr.DistFromSrc + hopDist
+				currentCost, visited := gScore[nbr.Designation]
+				if !visited || tentativeCost < currentCost {
+					gScore[nbr.Designation] = tentativeCost
+					h := nbr.Position.Distance(dPos)
+					f := tentativeCost + h
+					priority := f*(1.0+eps) - h*eps
+
+					cameFrom[nbr.Designation] = &models.JourneyLeg{
+						From:         curr.Star,
+						FromPosition: curr.Position,
+						To:           nbr.Designation,
+						ToPosition:   nbr.Position,
+						DistFromSrc:  tentativeDist,
+						DistToDest:   h,
+					}
+
+					heap.Push(openSet, &aStarItem{
+						Star:        nbr.Designation,
+						Position:    nbr.Position,
+						CostFromSrc: tentativeCost,
+						DistFromSrc: tentativeDist,
+						DistToDest:  h,
+						Priority:    priority,
+						From:        curr.Star,
+						FromPos:     curr.Position,
+						HopDist:     hopDist,
+					})
+				}
+			}
+		}
+		return nil
+	}
+
+	path := runSearch(7.5, true, true)
+	if len(path) != 3 || path[0] != "START" || path[1] != "MID" || path[2] != "END" {
+		t.Errorf("Hierarchical penalty failed: expected standard hop path [START, MID, END], got %v", path)
 	}
 }
