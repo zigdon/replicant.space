@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/zigdon/rsp/common"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -189,7 +190,7 @@ func (bm *BeaconMachine) UpdateState() error {
 	case bm.dev.Location == "" || status != "idle":
 		log("In transit")
 		bm.state = BeaconStates_Transit
-	case bm.dev.Location == home:
+	case slices.Contains(constants.Homes, string(bm.dev.Location)):
 		log("Leaving home")
 		bm.state = BeaconStates_Leaving
 	case bm.state == "" && status == "idle":
@@ -341,18 +342,20 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 				stowed++
 			}
 			log("Picked up %d BRs, shipping resupply back home", stowed)
-			_, err := common.Travel(bm.supply.Code, home, bm.dryRun)
+			resupplyBase := common.ClosestHomes(bm.supply.Location)[0]
+			_, err := common.Travel(bm.supply.Code, resupplyBase, bm.dryRun)
 			if err != nil {
 				return eta, err
 			}
-			homeFBs, err := rest.Devices(map[string]string{"location": home, "device_type": "ftl_beacon"})
+			homeFBs, err := rest.Devices(map[string]string{
+				"location": resupplyBase, "device_type": "ftl_beacon"})
 			if err != nil {
 				return eta, err
 			}
 			log("Found %d beacons at home", len(homeFBs))
 			if len(homeFBs) < bm.supply.AttachCapacity {
 				need := bm.supply.AttachCapacity - len(homeFBs)
-				pPlan, err := common.Print(home, "ftl_beacon", need, true, bm.dryRun, nil)
+				pPlan, err := common.Print(resupplyBase, "ftl_beacon", need, true, bm.dryRun, nil)
 				if err != nil {
 					log("Error printing beacons: %v", err)
 				} else {
@@ -418,9 +421,10 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 			}
 		}
 		if beacons[next] {
-			st, _ := models.NewStar(home)
+			nearestHome := common.ClosestHomes(bm.supply.Location)[0]
+			st, _ := models.NewStar(nearestHome)
 			log("All beaconed up, heading home")
-			next = home
+			next = nearestHome
 			dist = bm.dev.GetPosition().Distance(st.Position)
 		} else {
 			log("Next stop, %s, %.2f LY away", next, dist)
@@ -449,17 +453,17 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 	}
 	relay := relayStar.EntryPoint
 
-	switch bm.supply.Location {
-	case "":
+	switch {
+	case bm.supply.Location == "":
 		log("Resupply platform in transit...")
-	case home:
+	case slices.Contains(constants.Homes, string(bm.supply.Location)):
 		slots := bm.supply.AttachCapacity - len(bm.supply.AttachedDevices)
 		devs, err := rest.RefreshDevices(map[string]string{
-			"location":    home,
+			"location":    string(bm.supply.Location),
 			"device_type": "ftl_beacon",
 		})
 		if err != nil {
-			return eta, fmt.Errorf("Can't find ftl beacons at %q: %v", home, err)
+			return eta, fmt.Errorf("Can't find ftl beacons at %q: %v", bm.supply.Location, err)
 		}
 		var homeFBs []*models.Device
 		for _, d := range devs {
@@ -497,7 +501,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		} else {
 			log("Supply ship waiting for new beacons")
 		}
-	case relay:
+	case bm.supply.Location == relay:
 		log("Resupply ready at %q", relay)
 	default:
 		log("Restaging to %s", relay)

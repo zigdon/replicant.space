@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
@@ -229,7 +230,7 @@ func printEvent(e *models.Event, style lg.Style) {
 		{style.Render(e.BroadcastMessage)}})
 	var crit [][]any
 	var inv []*models.Device
-	for _, h := range closestHomes(e.Location) {
+	for _, h := range common.ClosestHomes(e.Location) {
 		devs, err := rest.Devices(map[string]string{"location": h})
 		if err != nil {
 			log("Error getting home inventory: %v", err)

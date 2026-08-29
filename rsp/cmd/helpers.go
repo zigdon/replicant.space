@@ -1,15 +1,12 @@
 package cmd
 
 import (
-	"cmp"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/common"
-	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -312,38 +309,6 @@ func getMap(cmd *cobra.Command, name string) map[string]string {
 			panic(fmt.Sprintf("Invalid map flag %q for --%q", f, name))
 		}
 		res[k] = v
-	}
-	return res
-}
-
-func closestHomes(loc models.LocationID) []string {
-	star, err := models.NewStar(string(loc))
-	if err != nil {
-		log("Error loading %q: %v", loc, err)
-		return constants.Homes
-	}
-	type homeStar struct{
-		star *models.Star
-		home string
-	}
-	var homes []homeStar
-	for _, h := range constants.Homes {
-		s, err := models.NewStar(h)
-		if err != nil {
-			log("Error loading %q: %v", h, err)
-			return constants.Homes
-		}
-		homes = append(homes, homeStar{s, h})
-	}
-	slices.SortFunc(homes, func(a, b homeStar) int {
-		return cmp.Compare(
-			star.Position.Distance(a.star.Position),
-			star.Position.Distance(b.star.Position))
-	})
-
-	var res []string
-	for _, h := range homes {
-		res = append(res, string(h.home))
 	}
 	return res
 }

@@ -1,12 +1,15 @@
 package common
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/lib/pq"
 	"github.com/zigdon/rsp/cache"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -241,4 +244,36 @@ func getBestRoute(info *models.Device, to models.LocationID, via []string) (map[
 	}
 
 	return cfg, nil
+}
+
+func ClosestHomes(loc models.LocationID) []string {
+	star, err := models.NewStar(string(loc))
+	if err != nil {
+		Log("Error loading %q: %v", loc, err)
+		return constants.Homes
+	}
+	type homeStar struct {
+		star *models.Star
+		home string
+	}
+	var homes []homeStar
+	for _, h := range constants.Homes {
+		s, err := models.NewStar(h)
+		if err != nil {
+			Log("Error loading %q: %v", h, err)
+			return constants.Homes
+		}
+		homes = append(homes, homeStar{s, h})
+	}
+	slices.SortFunc(homes, func(a, b homeStar) int {
+		return cmp.Compare(
+			star.Position.Distance(a.star.Position),
+			star.Position.Distance(b.star.Position))
+	})
+
+	var res []string
+	for _, h := range homes {
+		res = append(res, string(h.home))
+	}
+	return res
 }

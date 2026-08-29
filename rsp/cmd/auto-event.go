@@ -283,7 +283,7 @@ type eventState struct {
 }
 
 func newEventState(ev *models.Event, tc *travelCoordinator, dryRun bool) *eventState {
-	home := closestHomes(ev.Location)[0]
+	home := common.ClosestHomes(ev.Location)[0]
 	return &eventState{
 		event:       ev,
 		tag:         fmt.Sprintf("event:%s", strings.ToLower(ev.Designation)),
@@ -828,7 +828,7 @@ func (es *eventState) complete() error {
 		return cmp.Compare(da, db)
 	})
 	printTable([]string{"Replicant", "Location", "Distance LY", "Tags"}, data)
-	return fmt.Errorf("Need travel: %s nearest (%.2f LY from %s)",
+	return fmt.Errorf("%s nearest (%.2f LY from %s)",
 		name, nearest, es.destination)
 }
 
@@ -1096,7 +1096,7 @@ func eventCleanup(convoy *travelCoordinator, currentEvents []*models.Event, dryR
 
 	shipped := make(map[string]bool)
 	goHome := func(from models.LocationID, d *models.CodeAlias) error {
-		home := closestHomes(from)[0]
+		home := common.ClosestHomes(from)[0]
 		if shipped[d.Alias()] {
 			return nil
 		}

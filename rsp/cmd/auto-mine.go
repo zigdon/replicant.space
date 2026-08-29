@@ -43,7 +43,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if override := getString(cmd, "home"); override != "" {
 		home = override
 	} else {
-		home = closestHomes(loc.Location)[0]
+		home = common.ClosestHomes(loc.Location)[0]
 	}
 	dist, err := common.Distance(star, home)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zigdon/rsp/common"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -31,8 +32,6 @@ import (
 //   empty: head home, queue FRs
 //   resupplying: attach until full capacity
 //   full: follow cv
-
-const home = "MENKUNT-2-L4"
 
 type RelayMachine_State string
 
@@ -179,7 +178,7 @@ func (rm *RelayMachine) UpdateState() error {
 		log("In transit")
 		rm.state = RelayMachine_Transit
 		rm.status = "relocating"
-	case rm.dev.Location == home:
+	case slices.Contains(constants.Homes, string(rm.dev.Location)):
 		log("Leaving home")
 		rm.state = RelayMachine_Leaving
 	case rm.state == "" && status == "idle":
@@ -387,11 +386,12 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 		log("Picked up %d FRs, shipping resupply back home", stowed)
 		var err error
-		eta, err = common.Travel(rm.supply.Code, home, rm.dryRun)
+		resupplyHome := common.ClosestHomes(rm.supply.Location)[0]
+		eta, err = common.Travel(rm.supply.Code, resupplyHome, rm.dryRun)
 		if err != nil {
 			return eta, err
 		}
-		pPlan, err := common.Print(home, "ftl_relay", rm.supply.AttachCapacity, true, rm.dryRun, nil)
+		pPlan, err := common.Print(resupplyHome, "ftl_relay", rm.supply.AttachCapacity, true, rm.dryRun, nil)
 		if err != nil {
 			log("Error printing relays: %v", err)
 		} else {
@@ -563,19 +563,19 @@ func (rm *RelayMachine) resupply() error {
 	}
 
 	// Handle supply vessal
-	switch rm.supply.Location {
-	case "":
+	switch {
+	case rm.supply.Location == "":
 		supplyETA := rm.supply.Travel.Arrives.Time().Truncate(time.Second)
 		log("Resupply platform %s in transit... ETA: %s (%s)",
 			rm.supply, supplyETA, time.Until(supplyETA).Truncate(time.Second))
-	case home:
+	case slices.Contains(constants.Homes, string(rm.supply.Location)):
 		slots := rm.supply.AttachCapacity - len(rm.supply.AttachedDevices)
 		devs, err := rest.RefreshDevices(map[string]string{
-			"location":    home,
+			"location":    string(rm.supply.Location),
 			"device_type": "ftl_relay",
 		})
 		if err != nil {
-			return fmt.Errorf("Can't find ftl relays at %q: %v", home, err)
+			return fmt.Errorf("Can't find ftl relays at %q: %v", rm.supply.Location, err)
 		}
 		var homeFRs []*models.Device
 		for _, d := range devs {
@@ -613,7 +613,7 @@ func (rm *RelayMachine) resupply() error {
 		} else {
 			log("Supply ship waiting for new relays -- consider printing some")
 		}
-	case rm.dev.Location:
+	case rm.supply.Location == rm.dev.Location:
 		log("Waiting for resupply at %q", rm.dev.Location)
 	default:
 		if dest != "" {
