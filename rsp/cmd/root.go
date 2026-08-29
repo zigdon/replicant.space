@@ -95,15 +95,18 @@ func Execute() {
 		ns, err = models.PendingNotifications(false)
 		if len(ns) > 0 {
 			var silent int
+			var cf int
 			for _, n := range ns {
-				if n.Device != "" {
+				if strings.HasPrefix(alias(n.Device), "cf-") {
+					cf++
+				} else if n.Device != "" {
 					log("%s: %s -- %s", n.End, alias(n.Device), n.Text)
 				} else {
 					silent++
 				}
 			}
 			if silent > 0 {
-				log("%d silent notifications suppressed", silent)
+				log("%d freighter, %d silent notifications suppressed", cf, silent)
 			}
 		}
 	}

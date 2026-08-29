@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -9,6 +10,7 @@ import (
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
+	"github.com/zigdon/rsp/rest"
 )
 
 var plotCmd = &cobra.Command{
@@ -146,11 +148,17 @@ var plotIslandCmd = &cobra.Command{
 	},
 }
 
+var plotBridgeCmd = &cobra.Command{
+	Use:   "bridge",
+	Short: "Find the best system of an island to bridge to the main network",
+	RunE:  plotBridge,
+}
+
 func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
 	plotCmd.Flags().BoolP("use_station", "s", false, "Allow using deep space relay stations to bridge gaps")
-	plotCmd.Flags().BoolP("use_hub", "H", false, "Allow using system hubs to bridge gaps (15ly)")
+	plotCmd.Flags().BoolP("use_hub", "H", false, "Allow using system hubs to bridge gaps")
 	plotCmd.Flags().BoolP("recalculate", "c", false, "Ignore any cached routes")
 	plotCmd.Flags().Bool("partial", true, "Allow extracting a partial route from a longer one")
 	plotCmd.PersistentFlags().Bool("debug", false, "Output additional debugging data")
@@ -166,6 +174,10 @@ func init() {
 	plotCmd.AddCommand(plotIslandCmd)
 	plotIslandCmd.Flags().Float32P("max_hop", "r", 7.5, "Radius for inclusion in the island")
 	plotIslandCmd.Flags().IntP("limit", "l", 100, "Max systems in the island")
+
+	plotCmd.AddCommand(plotBridgeCmd)
+	plotBridgeCmd.Flags().Float32P("max_hop", "r", 7.5, "Radius for inclusion in the island")
+	plotBridgeCmd.Flags().IntP("limit", "l", 100, "Max systems in the island")
 }
 
 func plotDistance(cmd *cobra.Command, args []string) error {
@@ -179,18 +191,6 @@ func plotDistance(cmd *cobra.Command, args []string) error {
 	}
 	log("Distance between %s and %s: %.2fly", src, dst, dist)
 	return nil
-}
-
-func getPosFromString(dst string) (*models.Position, error) {
-	if strings.Contains(dst, ",") || strings.Contains(dst, ":") {
-		return models.ParsePosition(dst)
-	} else {
-		starDst, err := models.NewStar(dst)
-		if err != nil {
-			return nil, err
-		}
-		return starDst.Position, nil
-	}
 }
 
 func neighbourStars(cmd *cobra.Command, args []string) error {
@@ -266,5 +266,87 @@ func nearestRelay(cmd *cobra.Command, args []string) error {
 	src, _ := models.NewStar(args[0])
 	dst, _ := models.NewStar(star)
 	log("Nearest system with relay: %s (%.2fly away)", star, src.Position.Distance(dst.Position))
+	return nil
+}
+
+func plotBridge(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("A system on the island is required")
+	}
+
+	// Load the systems in the island
+	stars, err := common.RelayIsland(args[0], getFloat32(cmd, "max_hop"), getInt(cmd, "limit"))
+	if err != nil {
+		return err
+	}
+
+	// Load the relay network
+	network := make(map[string]bool)
+	net, err := rest.DeviceNetwork(models.NewCodeAlias("sh-1"))
+	if err != nil {
+		return err
+	}
+	for _, c := range net.Connections {
+		network[c.Star] = true
+	}
+
+	type bridge struct {
+		start    string
+		end      string
+		hops     []string
+		stations int
+		hubs     int
+	}
+
+	options := make(map[string]*bridge)
+	cfg := &common.PlotCfg{
+		Hop:         7.5,
+		Recalculate: true,
+		UseHub:      true,
+		UseStation:  true,
+	}
+
+	slices.Sort(stars)
+	log("Island stars: %s", strings.Join(stars, ", "))
+	// Find the nearest relay for each star on the island
+	for _, s := range stars {
+		b := &bridge{
+			start: s,
+			hops:  []string{s},
+		}
+		relay, err := common.NearestRelay(s)
+		if err != nil {
+			return fmt.Errorf("Error finding relay from %q: %v", s, err)
+		}
+		b.end = relay
+		path, err := common.PlotTrip(s, relay, cfg)
+		if err != nil {
+			return fmt.Errorf("No path possible from %q to %q: %v", s, relay, err)
+		}
+		for _, p := range path.Legs {
+			if slices.Contains(stars, p.To) {
+				b.hops = append(b.hops, fmt.Sprintf("(%s)", p.To))
+			} else {
+				b.hops = append(b.hops, p.To)
+			}
+			if p.DistFromSrc > 10 {
+				b.hubs++
+			} else if p.DistFromSrc > 7.5 {
+				b.stations++
+			}
+			if network[p.To] {
+				break
+			}
+		}
+		options[s] = b
+	}
+
+	var data [][]any
+	for k, v := range options {
+		data = append(data, []any{
+			k, v.end, v.stations, v.hubs, strings.Join(v.hops, "->"),
+		})
+	}
+	printTable([]string{"Island", "Network", "# DSRS", "# Hubs", "Path"}, data)
 	return nil
 }

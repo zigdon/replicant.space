@@ -92,7 +92,7 @@ func getTeleportDests(loc string) ([]*models.Device, error) {
 		if loc != "" {
 			cfg["location"] = loc
 		}
-		devs, err := rest.RefreshDevices(cfg)
+		devs, err := rest.Devices(cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +107,7 @@ func getTeleportDests(loc string) ([]*models.Device, error) {
 	// Now check each cradle, and see which have an empty matrix
 	var res []*models.Device
 	for _, c := range cradles {
-		c, err := rest.RefreshDeviceInfo(c.Code)
+		c, err := rest.DeviceInfo(c.Code)
 		if err != nil {
 			return nil, err
 		}
