@@ -1052,6 +1052,7 @@ func eventCleanup(convoy *travelCoordinator, currentEvents []*models.Event, dryR
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	var cleanup []string
 	for rows.Next() {
 		var t string

@@ -130,7 +130,7 @@ func (e *Event) Get() error {
 	var crit cache.JSONB[[]*EventCriteria]
 	var reward cache.JSONB[*EventReward]
 	if err := scan(&e.Designation, &e.Category, &e.Description, &e.Type, &e.Location,
-		&e.Title, &e.Tier, crit, reward); err != nil {
+		&e.Title, &e.Tier, &crit, &reward); err != nil {
 		return err
 	}
 	e.Criteria = crit.Data

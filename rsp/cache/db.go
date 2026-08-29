@@ -288,6 +288,7 @@ func (db *Cache) ListIDs(table Tables) ([]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var res []any
 	for rows.Next() {
 		var id any

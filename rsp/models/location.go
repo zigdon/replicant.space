@@ -330,7 +330,7 @@ func (p *Planet) Get() error {
 		return fmt.Errorf("Error querying cache: %v", err)
 	}
 	return scan(&p.Designation, &p.Star, &p.Name, &p.LifeStage, &p.MoonCount,
-		&p.Rings, &p.Scanned)
+		&p.Rings, &p.Scanned, &p.Type)
 }
 
 type Moon struct {

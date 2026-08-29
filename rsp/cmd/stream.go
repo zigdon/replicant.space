@@ -47,6 +47,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("Can't get relay network: %v", err)
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var loc string
 		if err := rows.Scan(&loc); err != nil {

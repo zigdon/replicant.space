@@ -21,6 +21,7 @@ func GetRocks() ([]*models.Object, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var objs []*models.Object
 	stat := make(map[string]int)
 	for rows.Next() {
@@ -35,9 +36,6 @@ func GetRocks() ([]*models.Object, error) {
 		o.ImpactEta = models.NewJsonTime(t)
 		stat[o.Status]++
 		objs = append(objs, o)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	fmt.Printf(" %d rocks: %v\n", len(objs), stat)
 

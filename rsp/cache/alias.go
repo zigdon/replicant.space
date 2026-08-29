@@ -138,6 +138,7 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 	if err != nil {
 		return prefix, fmt.Errorf("Error getting existing aliases for %q: %v", deviceType, err)
 	}
+	defer rows.Close()
 	var last int
 	for rows.Next() {
 		var a string
@@ -158,9 +159,6 @@ func (db *Cache) Alias(designation, deviceType string) (string, error) {
 		if n > last {
 			last = n
 		}
-	}
-	if err := rows.Close(); err != nil {
-		return "", fmt.Errorf("Error closing query: %v", err)
 	}
 
 	// Save the new prefix
