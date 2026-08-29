@@ -249,11 +249,20 @@ func nearestHub(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Missing required args: plot hub STAR")
 	}
 
-	code, star, dist, err := common.NearestHub(args[0])
+	star, dist, err := common.NearestHub(false, args[0])
 	if err != nil {
 		return err
 	}
-	log("Nearest hub: %s at %s (%.2fly away)", code, star, dist)
+	ownedStar, ownedDist, err := common.NearestHub(true, args[0])
+	if err != nil {
+		return err
+	}
+	if star == ownedStar {
+		log("Nearest hub: %s (%.2fly away)", star, dist)
+	} else {
+		log("Nearest hub: %s (%.2fly away); Nearest owned hub: %s (%.2fly away)",
+			star, dist, ownedStar, ownedDist)
+	}
 	return nil
 }
 

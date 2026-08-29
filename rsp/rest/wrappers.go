@@ -888,23 +888,6 @@ func ReloadStars() (string, error) {
 		return res(), fmt.Errorf("Error counting stars with life: %v", err)
 	}
 
-	// Update has_my_hub based on, well, where the hubs are
-	updt, err = db.DB.Exec(`
-		UPDATE stars
-		SET has_my_hub=true
-		WHERE designation IN (
-		  SELECT DISTINCT split_part(location, '-', 1)
-		  FROM json_devices
-		  WHERE type = 'system_hub' AND status = 'relaying'
-		)`)
-	if err != nil {
-		return res(), fmt.Errorf("Error updating hubs: %v", err)
-	}
-	hubCnt, err := updt.RowsAffected()
-	if err != nil {
-		return res(), fmt.Errorf("Error counting hubs: %v", err)
-	}
-
 	// Set a star to be explored if any of its planets have been scanned
 	updt, err = db.DB.Exec(`
 		UPDATE stars
@@ -922,7 +905,7 @@ func ReloadStars() (string, error) {
 		return res(), fmt.Errorf("Error counting hubs: %v", err)
 	}
 
-	log("Manual system update: %d systems with life, %d with my hubs, %d explored", lifeCnt, hubCnt, expCnt)
+	log("Manual system update: %d systems with life, %d explored", lifeCnt, expCnt)
 
 	log("Updated done.")
 	return res(), nil

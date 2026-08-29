@@ -201,7 +201,6 @@ func loadStarsFromDB(center common.Vec3, radius float32) ([]*models.Star, error)
 			HasLife:          r.HasLife,
 			Position:         models.ParseCube(r.Position),
 			HasHub:           r.HasHub,
-			HasMyHub:         r.HasMyHub,
 			Region:           r.Region,
 		})
 	}
@@ -263,7 +262,6 @@ func loadNeighboursForStar(star *models.Star, maxDist float32, allLoadedStars []
 					HasLife:          r.HasLife,
 					Position:         models.ParseCube(r.Position),
 					HasHub:           r.HasHub,
-					HasMyHub:         r.HasMyHub,
 					Region:           r.Region,
 				}
 				d := r.Distance
@@ -274,10 +272,8 @@ func loadNeighboursForStar(star *models.Star, maxDist float32, allLoadedStars []
 					continue
 				}
 				relayDev := relayMap[string(st.Designation)]
-				if relayDev == "" {
-					if st.HasMyHub || st.HasHub {
-						relayDev = "system_hub"
-					}
+				if relayDev == "" && st.HasHub {
+					relayDev = "system_hub"
 				}
 				results = append(results, &common.NeighbourInfo{
 					Star:        st,
@@ -297,10 +293,8 @@ func loadNeighboursForStar(star *models.Star, maxDist float32, allLoadedStars []
 		if d > 0.001 && d <= maxDist {
 			seen[string(s.Designation)] = true
 			relayDev := relayMap[string(s.Designation)]
-			if relayDev == "" {
-				if s.HasMyHub || s.HasHub {
-					relayDev = "system_hub"
-				}
+			if relayDev == "" && s.HasHub {
+				relayDev = "system_hub"
 			}
 			results = append(results, &common.NeighbourInfo{
 				Star:        s,
@@ -1313,9 +1307,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		sb.WriteString(fmt.Sprintf("[white]Life:[-] %s\n", lifeStr))
 
 		hubStr := "[gray]None[-]"
-		if st.HasMyHub {
-			hubStr = "[magenta::b]PLAYER HUB[-::-]"
-		} else if st.HasHub {
+		if st.HasHub {
 			hubStr = "[cyan::b]System Hub[-::-]"
 		}
 		sb.WriteString(fmt.Sprintf("[white]Hub Status:[-] %s\n", hubStr))
@@ -1682,9 +1674,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 				lifeStr = "[green::b]YES (Intelligent)[-::-]"
 			}
 			hubStr := "[gray]None[-]"
-			if st.HasMyHub {
-				hubStr = "[magenta::b]PLAYER HUB[-::-]"
-			} else if st.HasHub {
+			if st.HasHub {
 				hubStr = "[cyan::b]System Hub[-::-]"
 			}
 

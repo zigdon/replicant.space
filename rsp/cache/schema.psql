@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS stars (
   has_life BOOLEAN,
   position CUBE NOT NULL,
   has_hub BOOLEAN,
-  has_my_hub BOOLEAN NOT NULL DEFAULT false,
   region TEXT NOT NULL
 );
 

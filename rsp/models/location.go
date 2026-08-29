@@ -128,8 +128,7 @@ type Star struct {
 		InnerAu float32 `json:"inner_au"`
 		OuterAu float32 `json:"outer_au"`
 	} `json:"habitable_zone"`
-	HasHub          bool `json:"has_hub"`
-	HasMyHub        bool
+	HasHub          bool      `json:"has_hub"`
 	HasLife         bool      `json:"has_life"`
 	LuminositySolar float32   `json:"luminositysolar"`
 	MassSolar       float32   `json:"mass_solar"`
@@ -195,7 +194,7 @@ func (s *Star) Get() error {
 	var pos cache.Position
 	if err := scan(&s.Designation, &s.Name, &s.EntryPoint, &s.EstimatedPlanets,
 		&s.SpectralType, &s.Explored, &s.HasLife, &pos, &s.HasHub,
-		&s.HasMyHub, &s.Region); err != nil {
+		&s.Region); err != nil {
 		return err
 	}
 	s.Position = ParseCube(pos)

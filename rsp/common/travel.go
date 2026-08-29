@@ -148,8 +148,8 @@ func getBestRoute(info *models.Device, to models.LocationID, via []string) (map[
 	opts := make(map[string]opt)
 	Log("Auto-calculating route")
 
-	// Find the nearest hub
-	_, star, dist, err := NearestHub(to.Star())
+	// Find the nearest hub (owned by anyone)
+	star, dist, err := NearestHub(false, to.Star())
 	if err != nil {
 		return nil, fmt.Errorf("Can't find nearest hub to %q: %v", to.Star(), err)
 	}

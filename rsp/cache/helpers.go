@@ -107,10 +107,28 @@ func (db *Cache) FindNearestHub(x, y, z float32) (string, float32, error) {
 	row := db.DB.QueryRow(
 		`SELECT designation, position <-> $1::cube AS dist
 		FROM stars
-		WHERE has_my_hub
+		WHERE has_hub
 		ORDER BY dist ASC LIMIT 1`,
 		Position{x, y, z},
 	)
+	if row.Err() != nil {
+		return "", 0, row.Err()
+	}
+	var dsg string
+	var dist float32
+	err := row.Scan(
+		&dsg, &dist,
+	)
+	return dsg, dist, err
+}
+
+func (db *Cache) FindNearestOwnedHub(x, y, z float32) (string, float32, error) {
+	row := db.DB.QueryRow(`
+		SELECT designation, position <-> $1::cube AS dist
+		FROM json_devices JOIN stars ON split_part(location, '-', 1) = designation
+		WHERE type = 'system_hub'
+		ORDER BY dist ASC
+		LIMIT 1`, Position{x, y, z})
 	if row.Err() != nil {
 		return "", 0, row.Err()
 	}
@@ -152,7 +170,6 @@ type StarRecord struct {
 	HasLife      bool
 	Position     Position
 	HasHub       bool
-	HasMyHub     bool
 	Region       string
 	Distance     float32
 }
@@ -161,7 +178,7 @@ func (db *Cache) QueryStarsInRadius(x, y, z, radius float32, limit int) ([]*Star
 	q := `
 		SELECT designation, COALESCE(name, ''), entry_point, est_planets,
 		       spectral_type, COALESCE(explored, false), COALESCE(has_life, false),
-		       position, COALESCE(has_hub, false), COALESCE(has_my_hub, false),
+		       position, COALESCE(has_hub, false),
 		       region, position <-> $1::cube AS dist
 		FROM stars
 		WHERE position <-> $1::cube <= $2
@@ -182,7 +199,7 @@ func (db *Cache) QueryStarsInRadius(x, y, z, radius float32, limit int) ([]*Star
 		if err := rows.Scan(
 			&s.Designation, &s.Name, &s.EntryPoint, &s.EstPlanets,
 			&s.SpectralType, &s.Explored, &s.HasLife,
-			&s.Position, &s.HasHub, &s.HasMyHub,
+			&s.Position, &s.HasHub,
 			&s.Region, &s.Distance,
 		); err != nil {
 			return nil, err
@@ -196,7 +213,7 @@ func (db *Cache) QueryStarsInBox(minX, minY, minZ, maxX, maxY, maxZ float32, lim
 	q := `
 		SELECT designation, COALESCE(name, ''), entry_point, est_planets,
 		       spectral_type, COALESCE(explored, false), COALESCE(has_life, false),
-		       position, COALESCE(has_hub, false), COALESCE(has_my_hub, false),
+		       position, COALESCE(has_hub, false),
 		       region, 0.0 AS dist
 		FROM stars
 		WHERE (position->1 BETWEEN $1 AND $4)
@@ -218,7 +235,7 @@ func (db *Cache) QueryStarsInBox(minX, minY, minZ, maxX, maxY, maxZ float32, lim
 		if err := rows.Scan(
 			&s.Designation, &s.Name, &s.EntryPoint, &s.EstPlanets,
 			&s.SpectralType, &s.Explored, &s.HasLife,
-			&s.Position, &s.HasHub, &s.HasMyHub,
+			&s.Position, &s.HasHub,
 			&s.Region, &s.Distance,
 		); err != nil {
 			return nil, err
@@ -232,7 +249,7 @@ func (db *Cache) QueryAllStars(limit int) ([]*StarRecord, error) {
 	q := `
 		SELECT designation, COALESCE(name, ''), entry_point, est_planets,
 		       spectral_type, COALESCE(explored, false), COALESCE(has_life, false),
-		       position, COALESCE(has_hub, false), COALESCE(has_my_hub, false),
+		       position, COALESCE(has_hub, false),
 		       region, 0.0 AS dist
 		FROM stars`
 	if limit > 0 {
@@ -251,7 +268,7 @@ func (db *Cache) QueryAllStars(limit int) ([]*StarRecord, error) {
 		if err := rows.Scan(
 			&s.Designation, &s.Name, &s.EntryPoint, &s.EstPlanets,
 			&s.SpectralType, &s.Explored, &s.HasLife,
-			&s.Position, &s.HasHub, &s.HasMyHub,
+			&s.Position, &s.HasHub,
 			&s.Region, &s.Distance,
 		); err != nil {
 			return nil, err
@@ -377,10 +394,9 @@ func (db *Cache) QueryRelayingNetworkDevices() ([]*NetworkDeviceRecord, error) {
 
 func (db *Cache) ChecksumHubs() (string, error) {
 	rows, err := db.Query(`
-	  SELECT DISTINCT(location)
-	  FROM json_devices
-	  WHERE type='system_hub'
-	    AND status='relaying'`)
+	  SELECT designation
+	  FROM stars
+	  WHERE has_hub`)
 	if err != nil {
 		return "", err
 	}

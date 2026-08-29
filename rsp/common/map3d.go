@@ -1060,7 +1060,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		if opts.FilterLifeOnly && !st.HasLife {
 			continue
 		}
-		if opts.FilterHubsOnly && (!st.HasHub && !st.HasMyHub) {
+		if opts.FilterHubsOnly && !st.HasHub {
 			continue
 		}
 		if opts.FilterRegion != "" && !strings.EqualFold(st.Region, opts.FilterRegion) {
@@ -1105,10 +1105,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 
 		// Choose glyph based on attributes, network, devices, island, and depth
 		var glyph rune
-		if st.HasMyHub {
-			glyph = '◆'
-			starCol = RGB{R: 255, G: 85, B: 255} // Bright Magenta
-		} else if st.HasLife {
+		if st.HasLife {
 			glyph = '✦'
 			starCol = RGB{R: 85, G: 255, B: 85} // Bright Green
 		} else if st.HasHub {
@@ -1119,7 +1116,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			starCol = RGB{R: 255, G: 230, B: 100}
 			_ = step
 		} else if isIsland {
-			glyph = '◎'                         // Concentric ring glyph for island system
+			glyph = '◎'                           // Concentric ring glyph for island system
 			starCol = RGB{R: 255, G: 110, B: 180} // Bright Coral-Pink
 		} else if opts.ShowNetwork && netNode != nil {
 			glyph = '◈'                         // Diamond glyph for active relay network node
@@ -1154,7 +1151,6 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			Glyph:       glyph,
 			Color:       starCol,
 			IsHub:       st.HasHub,
-			IsMyHub:     st.HasMyHub,
 			HasLife:     st.HasLife,
 			IsRoute:     isRoute,
 			IsIsland:    isIsland,
@@ -1566,9 +1562,7 @@ func FormatMapHeader(cam *Camera3D, totalStars, visibleCount int, selectedStar *
 			lifeStr = "\x1b[1;32mYES\x1b[0m"
 		}
 		hubStr := "No"
-		if st.HasMyHub {
-			hubStr = "\x1b[1;35mMY HUB\x1b[0m"
-		} else if st.HasHub {
+		if st.HasHub {
 			hubStr = "\x1b[1;36mSystem Hub\x1b[0m"
 		}
 
