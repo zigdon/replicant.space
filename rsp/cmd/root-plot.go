@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
@@ -75,8 +76,10 @@ var plotCmd = &cobra.Command{
 			l.ToPosition = pos(l.To)
 			d := l.FromPosition.Distance(l.ToPosition)
 			var dist string
-			if d > cfg.Hop {
-				dist = fmt.Sprintf("%.2f *", d)
+			if d > 10 {
+				dist = fmt.Sprintf("%.2f H", d)
+			} else if d > 7.5 {
+				dist = fmt.Sprintf("%.2f S", d)
 			} else {
 				dist = fmt.Sprintf("%.2f", d)
 			}
@@ -308,38 +311,46 @@ func plotBridge(cmd *cobra.Command, args []string) error {
 
 	slices.Sort(stars)
 	log("Island stars: %s", strings.Join(stars, ", "))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 	// Find the nearest relay for each star on the island
 	for _, s := range stars {
-		b := &bridge{
-			start: s,
-			hops:  []string{s},
-		}
-		relay, err := common.NearestRelay(s)
-		if err != nil {
-			return fmt.Errorf("Error finding relay from %q: %v", s, err)
-		}
-		b.end = relay
-		path, err := common.PlotTrip(s, relay, cfg)
-		if err != nil {
-			return fmt.Errorf("No path possible from %q to %q: %v", s, relay, err)
-		}
-		for _, p := range path.Legs {
-			if slices.Contains(stars, p.To) {
-				b.hops = append(b.hops, fmt.Sprintf("(%s)", p.To))
-			} else {
+		wg.Go(func() {
+			b := &bridge{
+				start: s,
+				hops:  []string{s},
+			}
+			relay, err := common.NearestRelay(s)
+			if err != nil {
+				log("Error finding relay from %q: %v", s, err)
+				return
+			}
+			b.end = relay
+			path, err := common.PlotTrip(s, relay, cfg)
+			if err != nil {
+				log("No path possible from %q to %q: %v", s, relay, err)
+				return
+			}
+			for _, p := range path.Legs {
+				if slices.Contains(stars, p.To) {
+					return
+				}
 				b.hops = append(b.hops, p.To)
+				if p.FromPosition.Distance(p.ToPosition) > 10 {
+					b.hubs++
+				} else if p.FromPosition.Distance(p.ToPosition) > 7.5 {
+					b.stations++
+				}
+				if network[p.To] {
+					break
+				}
 			}
-			if p.DistFromSrc > 10 {
-				b.hubs++
-			} else if p.DistFromSrc > 7.5 {
-				b.stations++
-			}
-			if network[p.To] {
-				break
-			}
-		}
-		options[s] = b
+			mu.Lock()
+			defer mu.Unlock()
+			options[s] = b
+		})
 	}
+	wg.Wait()
 
 	var data [][]any
 	for k, v := range options {
