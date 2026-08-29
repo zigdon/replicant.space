@@ -432,11 +432,30 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			// Make sure we have a path to the next location
 			var found bool
 			for _, n := range next {
-				path, err := common.PlotTrip(rm.dev.Location.Star(), n.Star(), nil)
+				// Start from the nearest edge of the relay network
+				edge, err := common.NearestRelay(n.Star())
 				if err != nil {
-					log("Can't plot path %s->%s: %v", rm.dev.Location.Star(), n.Star(), err)
+					log("Can't find nearest relay to %s: %v", rm.dest, err)
 					continue
 				}
+				path, err := common.PlotTrip(edge, n.Star(), nil)
+				if err != nil {
+					log("Can't plot path %s->%s: %v", edge, n.Star(), err)
+					continue
+				}
+				// Make sure no other fill:oor ship is heading there already
+				row := DB.QueryRow(`
+					SELECT code
+					FROM json_devices
+					WHERE data->'tags' @> '"fill:oor"'
+					  AND data->'travel'->>'destination'=$1
+					LIMIT 1`, edge)
+				var other string
+				if err := row.Scan(&other); err == nil {
+					log("%s is already travelling to %s", models.NewCodeAlias(other), edge)
+					continue
+				}
+
 				log("Next destination: %s (%.2f LY away):", n, dists[n.Star()])
 				for _, l := range path.Legs {
 					log("  %s -> %s ", l.From, l.To)

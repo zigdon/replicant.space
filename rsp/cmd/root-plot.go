@@ -123,6 +123,28 @@ var plotDistanceCmd = &cobra.Command{
 	RunE:              plotDistance,
 }
 
+var plotIslandCmd = &cobra.Command{
+	Use:   "island",
+	Short: "Identify clusters of stars that are isolated",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("Island starting point is required")
+		}
+		hop := getFloat32(cmd, "max_hop")
+		limit := getInt(cmd, "limit")
+		island, err := common.RelayIsland(args[0], hop, limit)
+		if err != nil {
+			return err
+		}
+		log("Island identified:")
+		for _, i := range island {
+			log("  %s", i)
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
@@ -138,6 +160,10 @@ func init() {
 
 	plotCmd.AddCommand(neighboursCmd)
 	neighboursCmd.Flags().Float32P("radius", "r", 7.5, "Radius for search")
+
+	plotCmd.AddCommand(plotIslandCmd)
+	plotIslandCmd.Flags().Float32P("max_hop", "r", 7.5, "Radius for inclusion in the island")
+	plotIslandCmd.Flags().IntP("limit", "l", 100, "Max systems in the island")
 }
 
 func plotDistance(cmd *cobra.Command, args []string) error {

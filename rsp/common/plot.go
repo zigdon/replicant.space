@@ -439,3 +439,81 @@ func NearestRelay(dest string) (string, error) {
 	}
 	return relay, nil
 }
+
+func RelayIsland(loc string, hop float32, limit int) ([]string, error) {
+	// Load the main relay network, so we know when we're connected
+	// Check if the starting point is in the network
+	// Check if all the neighbours within a hop are in the network
+	// Repeat
+	// Once identified, return the island if it's not connected, an error if it is
+
+	net, err := rest.DeviceNetwork(models.NewCodeAlias("sh-1"))
+	if err != nil {
+		return nil, err
+	}
+	inNet := make(map[string]bool)
+	inNet["MENKUNT"] = true
+	for _, c := range net.Connections {
+		inNet[c.Star] = true
+	}
+
+	if inNet[loc] {
+		return nil, fmt.Errorf("%q is already in the relay network", loc)
+	}
+
+	island := map[string]string{loc: "-"}
+	getPath := func(s string) ([]string, error) {
+		path := []string{s}
+		for {
+			r, ok := island[s]
+			if !ok {
+				break
+			}
+			if r == "-" {
+				return path, nil
+			}
+			path = append([]string{r}, path...)
+			s = r
+		}
+		return path, fmt.Errorf("%q isn't on the island: %v", s, path)
+	}
+	var queue []string
+	for {
+		s, err := models.NewStar(loc)
+		if err != nil {
+			return nil, err
+		}
+		next, err := db.QueryStarsInRadius(s.Position.X, s.Position.Y, s.Position.Z, hop, 0)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range next {
+			nd := n.Designation
+			if _, ok := island[nd]; ok {
+				continue
+			}
+			island[nd] = loc
+			if inNet[nd] {
+				Log("Found path via %q", nd)
+				path, err := getPath(nd)
+				if err != nil {
+					return nil, err
+				}
+				return nil, fmt.Errorf("%q is reachable from the relay network:\n%s", path[0], strings.Join(path, " -> "))
+			}
+			queue = append(queue, nd)
+		}
+		if len(queue) == 0 {
+			break
+		}
+		if limit > 0 && len(island) > limit {
+			return nil, fmt.Errorf("Island exceeds %d limit", limit)
+		}
+		loc, queue = queue[0], queue[1:]
+	}
+	var res []string
+	for k := range island {
+		res = append(res, k)
+	}
+	return res, nil
+}
