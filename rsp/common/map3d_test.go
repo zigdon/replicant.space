@@ -785,3 +785,70 @@ func TestIslandOverlay(t *testing.T) {
 	_ = output
 }
 
+func TestNeighboursOverlay(t *testing.T) {
+	cam := NewCamera3D(60, 25)
+	cam.Center = NewVec3(0, 0, 0)
+	cam.Radius = 20.0
+
+	stars := []*models.Star{
+		{
+			Designation: "SOL",
+			Name:        "Sol",
+			Position:    models.NewPosition(0, 0, 0),
+		},
+		{
+			Designation: "ALPHA",
+			Name:        "Alpha Centauri",
+			Position:    models.NewPosition(4.3, 0, 0),
+		},
+		{
+			Designation: "BARNARD",
+			Name:        "Barnard's Star",
+			Position:    models.NewPosition(0, 5.9, 0),
+		},
+		{
+			Designation: "FAR_STAR",
+			Name:        "Far Star",
+			Position:    models.NewPosition(50, 50, 50),
+		},
+	}
+
+	neighbours := []*NeighbourInfo{
+		{Star: stars[1], Distance: 4.3, RelayDevice: "ftl_relay"},
+		{Star: stars[2], Distance: 5.9, RelayDevice: "deep_space_relay_station"},
+	}
+
+	neighbourDistances := map[string]float32{
+		"ALPHA":   4.3,
+		"BARNARD": 5.9,
+	}
+
+	opts := DefaultMapLayerOptions()
+	opts.SelectedStar = "SOL"
+	opts.ShowNeighbours = true
+	opts.NeighbourMaxDist = 15.0
+	opts.Neighbours = neighbours
+	opts.NeighbourDistances = neighbourDistances
+
+	output, mapped := RenderGalaxyMap(cam, stars, opts)
+	if len(mapped) != 3 { // SOL, ALPHA, BARNARD within radius; FAR_STAR outside
+		t.Errorf("Expected 3 mapped stars, got %d", len(mapped))
+	}
+
+	plainOutput := StripANSI(output)
+	if !strings.Contains(plainOutput, "4.3ly") || !strings.Contains(plainOutput, "5.9ly") {
+		t.Errorf("Expected neighbour distance annotations in map output, got:\n%s", plainOutput)
+	}
+
+	leg := FormatMapLegend(opts)
+	if !strings.Contains(leg, "Neighbours") {
+		t.Errorf("FormatMapLegend should contain 'Neighbours', got: %s", leg)
+	}
+
+	tviewOut, tviewMapped := RenderGalaxyMapTview(cam, stars, opts)
+	if len(tviewOut) == 0 || len(tviewMapped) != 3 {
+		t.Errorf("RenderGalaxyMapTview with neighbours failed")
+	}
+}
+
+

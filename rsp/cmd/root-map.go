@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"slices"
@@ -10,9 +11,12 @@ import (
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/common"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
+
+const pNeighbourDist float32 = 15.0
 
 var mapCmd = &cobra.Command{
 	Use:               "map [center_star_or_coords]",
@@ -39,7 +43,7 @@ var travelMapCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(mapCmd)
 	mapCmd.Flags().Float32P("radius", "r", 500.0, "Viewing radius in light-years")
-	mapCmd.Flags().StringP("center", "c", "GORUMIUN", "Center star or coordinates (X,Y,Z)")
+	mapCmd.Flags().StringP("center", "c", "SOL", "Center star or coordinates (X,Y,Z)")
 	mapCmd.Flags().StringP("plane", "p", "3d", "Projection plane: 3d, xy, xz, yz")
 	mapCmd.Flags().BoolP("static", "s", false, "Render static ASCII snapshot to stdout")
 	mapCmd.Flags().Bool("life", false, "Filter stars with intelligent life")
@@ -56,6 +60,7 @@ func init() {
 	mapCmd.Flags().Int("island_limit", 100, "Max systems to include in island calculation (default 100)")
 	mapCmd.Flags().Float32("island_hop", 7.5, "Maximum hop distance for island inclusion, in ly")
 	mapCmd.Flags().Bool("island_only", false, "Filter map to only show stars in the island")
+	mapCmd.Flags().BoolP("distances", "D", false, "Overlay distances and links to immediate neighbours (<=15ly)")
 	mapCmd.Flags().BoolP("travel", "t", false, "Overlay routes and estimated markers of travelling devices")
 	mapCmd.Flags().Bool("travel_only", false, "Filter map to only show stars with travelling devices")
 	mapCmd.Flags().StringSlice("travel_devices", nil, "Filter travelling devices by code or alias")
@@ -91,12 +96,13 @@ func init() {
 	plotMapCmd.Flags().Int("island_limit", 100, "Max systems to include in island calculation (default 100)")
 	plotMapCmd.Flags().Float32("island_hop", 7.5, "Maximum hop distance for island inclusion, in ly")
 	plotMapCmd.Flags().Bool("island_only", false, "Filter map to only show stars in the island")
+	plotMapCmd.Flags().BoolP("distances", "D", false, "Overlay distances and links to immediate neighbours (<=15ly)")
 	plotCmd.AddCommand(travelMapCmd)
 }
 
 func parseCenterPosition(input string) (common.Vec3, string, error) {
 	if input == "" {
-		input = "GORUMIUN"
+		input = "SOL"
 	}
 
 	if strings.Contains(input, ",") || strings.Contains(input, ":") {
@@ -200,6 +206,116 @@ func loadStarsFromDB(center common.Vec3, radius float32) ([]*models.Star, error)
 		})
 	}
 	return stars, nil
+}
+
+func loadNeighboursForStar(star *models.Star, maxDist float32, allLoadedStars []*models.Star) []*common.NeighbourInfo {
+	if star == nil || star.Position == nil {
+		return nil
+	}
+	if maxDist <= 0 || maxDist > 15.0 {
+		maxDist = 15.0
+	}
+
+	relayMap := make(map[string]string)
+	if db != nil && db.DB != nil {
+		rows, err := db.DB.Query(`
+			SELECT type, location 
+			FROM json_devices 
+			WHERE status = 'relaying' AND location IS NOT NULL AND location != ''`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var dType, loc string
+				if err := rows.Scan(&dType, &loc); err == nil {
+					starName := strings.ToUpper(strings.TrimSpace(models.LocationID(loc).Star()))
+					dTypeLower := strings.ToLower(strings.TrimSpace(dType))
+					if cur, exists := relayMap[starName]; exists {
+						if constants.RelayDistance[cur] >= constants.RelayDistance[dTypeLower] {
+							continue
+						}
+					}
+					relayMap[starName] = dTypeLower
+				}
+			}
+		}
+	}
+
+	var results []*common.NeighbourInfo
+	seen := make(map[string]bool)
+	seen[string(star.Designation)] = true
+
+	// 1. Query database using existing QueryStarsInRadius
+	if db != nil && db.DB != nil {
+		records, err := db.QueryStarsInRadius(star.Position.X, star.Position.Y, star.Position.Z, maxDist, 0)
+		if err == nil {
+			for _, r := range records {
+				if r == nil || r.Designation == string(star.Designation) || seen[r.Designation] {
+					continue
+				}
+				seen[r.Designation] = true
+				st := &models.Star{
+					Designation:      models.LocationID(r.Designation),
+					Name:             r.Name,
+					EntryPoint:       models.LocationID(r.EntryPoint),
+					EstimatedPlanets: r.EstPlanets,
+					SpectralType:     r.SpectralType,
+					Explored:         r.Explored,
+					HasLife:          r.HasLife,
+					Position:         models.ParseCube(r.Position),
+					HasHub:           r.HasHub,
+					HasMyHub:         r.HasMyHub,
+					Region:           r.Region,
+				}
+				d := r.Distance
+				if d == 0 && st.Position != nil {
+					d = star.Position.Distance(st.Position)
+				}
+				if d > maxDist || d <= 0.001 {
+					continue
+				}
+				relayDev := relayMap[string(st.Designation)]
+				if relayDev == "" {
+					if st.HasMyHub || st.HasHub {
+						relayDev = "system_hub"
+					}
+				}
+				results = append(results, &common.NeighbourInfo{
+					Star:        st,
+					Distance:    d,
+					RelayDevice: relayDev,
+				})
+			}
+		}
+	}
+
+	// 2. Supplementary / in-memory check across allLoadedStars
+	for _, s := range allLoadedStars {
+		if s == nil || s.Position == nil || seen[string(s.Designation)] {
+			continue
+		}
+		d := star.Position.Distance(s.Position)
+		if d > 0.001 && d <= maxDist {
+			seen[string(s.Designation)] = true
+			relayDev := relayMap[string(s.Designation)]
+			if relayDev == "" {
+				if s.HasMyHub || s.HasHub {
+					relayDev = "system_hub"
+				}
+			}
+			results = append(results, &common.NeighbourInfo{
+				Star:        s,
+				Distance:    d,
+				RelayDevice: relayDev,
+			})
+		}
+	}
+
+	// Sort results by distance ascending
+	slices.SortFunc(results, func(a, b *common.NeighbourInfo) int {
+		return cmp.Compare(a.Distance, b.Distance)
+	})
+
+	return results
 }
 
 func loadTravellingDevices(filter *common.TravelFilterOptions, stars []*models.Star) ([]*common.TravellingDevice, error) {
@@ -378,7 +494,7 @@ func runTravelMapCmd(cmd *cobra.Command, args []string) error {
 		}
 		centerName = center.String()
 	} else {
-		center, centerName, _ = parseCenterPosition("GORUMIUN")
+		center, centerName, _ = parseCenterPosition("SOL")
 	}
 
 	if radius <= 0 {
@@ -587,6 +703,16 @@ func runPlotMapCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	opts.NeighbourMaxDist = pNeighbourDist
+	if getBool(cmd, "distances") {
+		opts.ShowNeighbours = true
+		opts.Neighbours = loadNeighboursForStar(srcStar, pNeighbourDist, stars)
+		opts.NeighbourDistances = make(map[string]float32)
+		for _, n := range opts.Neighbours {
+			opts.NeighbourDistances[string(n.Star.Designation)] = n.Distance
+		}
+	}
+
 	if staticMode {
 		cam := common.NewCamera3D(100, 35)
 		cam.Center = center
@@ -597,6 +723,34 @@ func runPlotMapCmd(cmd *cobra.Command, args []string) error {
 		fmt.Println(common.FormatMapLegend(opts))
 		fmt.Printf("\x1b[1;33mRoute:\x1b[0m %s -> %s (Total Distance: %.2fly, %d hops)\n",
 			src, dst, routeDist, len(trip.Legs))
+
+		if opts.ShowNeighbours && len(opts.Neighbours) > 0 {
+			fmt.Printf("\n\x1b[1;36m=== IMMEDIATE NEIGHBOURS (%s, <= %.1fly, %d found) ===\x1b[0m\n",
+				src, opts.NeighbourMaxDist, len(opts.Neighbours))
+			for i, n := range opts.Neighbours {
+				relayTag := ""
+				if n.RelayDevice != "" {
+					relayColor := "\x1b[32m" // green for ftl_relay
+					switch n.RelayDevice {
+					case "system_hub":
+						relayColor = "\x1b[35m" // magenta for system_hub
+					case "deep_space_relay_station":
+						relayColor = "\x1b[36m" // cyan for station
+					}
+					relayTag = fmt.Sprintf(" %s[%s]\x1b[0m", relayColor, n.RelayDevice)
+				}
+				nameStr := n.Star.Name
+				if nameStr != "" {
+					nameStr = fmt.Sprintf("(%s)", nameStr)
+				}
+				extraTags := ""
+				if n.Star.HasLife {
+					extraTags += " \x1b[1;32m[LIFE]\x1b[0m"
+				}
+				fmt.Printf("  %2d. \x1b[1;33m%-14s\x1b[0m \x1b[90m%-20s\x1b[0m \x1b[1;37m%5.2fly\x1b[0m%-30s  Class: \x1b[36m%-4s\x1b[0m%s\n",
+					i+1, n.Star.Designation, nameStr, n.Distance, relayTag, n.Star.SpectralType, extraTags)
+			}
+		}
 		return nil
 	}
 
@@ -698,6 +852,37 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
+	opts.NeighbourMaxDist = pNeighbourDist
+	if getBool(cmd, "distances") {
+		opts.ShowNeighbours = true
+		var centerStarObj *models.Star
+		for _, s := range stars {
+			if s != nil && string(s.Designation) == centerName {
+				centerStarObj = s
+				break
+			}
+		}
+		if centerStarObj == nil && centerName != "" {
+			centerStarObj, _ = models.NewStar(centerName)
+		}
+		if centerStarObj != nil {
+			opts.Neighbours = loadNeighboursForStar(centerStarObj, pNeighbourDist, stars)
+			opts.NeighbourDistances = make(map[string]float32)
+			for _, n := range opts.Neighbours {
+				opts.NeighbourDistances[string(n.Star.Designation)] = n.Distance
+				found := false
+				for _, s := range stars {
+					if s != nil && s.Designation == n.Star.Designation {
+						found = true
+						break
+					}
+				}
+				if !found {
+					stars = append(stars, n.Star)
+				}
+			}
+		}
+	}
 	opts.SelectedStar = centerName
 
 	staticMode := getBool(cmd, "static")
@@ -779,6 +964,34 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 					break
 				}
 				fmt.Printf("  \x1b[38;2;255;110;180m◎ %s\x1b[0m\n", s)
+			}
+		}
+
+		if opts.ShowNeighbours && len(opts.Neighbours) > 0 {
+			fmt.Printf("\n\x1b[1;36m=== IMMEDIATE NEIGHBOURS (%s, <= %.1fly, %d found) ===\x1b[0m\n",
+				centerName, opts.NeighbourMaxDist, len(opts.Neighbours))
+			for i, n := range opts.Neighbours {
+				relayTag := ""
+				if n.RelayDevice != "" {
+					relayColor := "\x1b[32m" // green for ftl_relay
+					switch n.RelayDevice {
+					case "system_hub":
+						relayColor = "\x1b[35m" // magenta for system_hub
+					case "deep_space_relay_station":
+						relayColor = "\x1b[36m" // cyan for station
+					}
+					relayTag = fmt.Sprintf(" %s[%s]\x1b[0m", relayColor, n.RelayDevice)
+				}
+				nameStr := n.Star.Name
+				if nameStr != "" {
+					nameStr = fmt.Sprintf("(%s)", nameStr)
+				}
+				extraTags := ""
+				if n.Star.HasLife {
+					extraTags += " \x1b[1;32m[LIFE]\x1b[0m"
+				}
+				fmt.Printf("  %2d. \x1b[1;33m%-14s\x1b[0m \x1b[90m%-20s\x1b[0m \x1b[1;37m%5.2fly\x1b[0m%-30s  Class: \x1b[36m%-4s\x1b[0m%s\n",
+					i+1, n.Star.Designation, nameStr, n.Distance, relayTag, n.Star.SpectralType, extraTags)
 			}
 		}
 
@@ -940,7 +1153,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		SetDynamicColors(true).
 		SetWrap(false)
 
-	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD/EC[-] Pan (X/Y/Z)  [yellow]/[-] Search  [yellow]Click[-] Select  [yellow]Tab[-] Target  [yellow]0-9/i[-] Filters  [yellow]^L[-] Refresh  [yellow]r[-] Reset  [yellow]q[-] Quit")
+	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD/EC[-] Pan (X/Y/Z)  [yellow]/[-] Search  [yellow]Click[-] Select  [yellow]Tab[-] Target  [yellow]0-9/i[-] Filters  [yellow]n[-] Neighbours  [yellow]^L[-] Refresh  [yellow]r[-] Reset  [yellow]q[-] Quit")
 
 	searchInput := tview.NewInputField().
 		SetLabel(" [yellow::b]Search (System / Device / Alias):[-::-] ").
@@ -1226,6 +1439,43 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 		}
 
+		// Immediate Neighbours (<= 15ly)
+		neighbours := loadNeighboursForStar(st, pNeighbourDist, stars)
+		if len(neighbours) > 0 {
+			sb.WriteString(fmt.Sprintf("\n[yellow::b]=== IMMEDIATE NEIGHBOURS (<=15ly) (%d) ===[-::-]\n", len(neighbours)))
+			for i, n := range neighbours {
+				if i >= 10 {
+					sb.WriteString(fmt.Sprintf("  [gray]... and %d more neighbours[-]\n", len(neighbours)-10))
+					break
+				}
+				relayTag := ""
+				if n.RelayDevice != "" {
+					relayColor := "green"
+					switch n.RelayDevice {
+					case "system_hub":
+						relayColor = "magenta"
+					case "deep_space_relay_station":
+						relayColor = "cyan"
+					case "ftl_relay":
+						relayColor = "green"
+					}
+					relayTag = fmt.Sprintf(" [%s]%s[-]", relayColor, n.RelayDevice)
+				}
+				extraTags := ""
+				if n.Star.HasLife {
+					extraTags += " [green][LIFE][-]"
+				}
+				nameStr := n.Star.Name
+				if nameStr != "" {
+					nameStr = fmt.Sprintf(" (%s)", nameStr)
+				}
+				sb.WriteString(fmt.Sprintf("  • [yellow]%s[-][gray]%s[-]: [#ffffff::b]%.2fly[-]%s%s\n",
+					n.Star.Designation, nameStr, n.Distance, relayTag, extraTags))
+			}
+		} else {
+			sb.WriteString("\n[yellow::b]=== IMMEDIATE NEIGHBOURS (<=15ly) ===[-::-]\n[gray]No neighbours within 15.0ly[-]\n")
+		}
+
 		sidebar.SetText(sb.String())
 	}
 
@@ -1237,20 +1487,75 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		cam.Width = w
 		cam.Height = h
 
+		// 1. Resolve currently selected star struct if any
+		var curStar *models.Star
+		if opts.SelectedStar != "" {
+			for _, s := range stars {
+				if s != nil && string(s.Designation) == opts.SelectedStar {
+					curStar = s
+					break
+				}
+			}
+			if curStar == nil {
+				curStar, _ = models.NewStar(opts.SelectedStar)
+			}
+		}
+
+		// 2. Load neighbours for selected star if ShowNeighbours is enabled
+		if opts.ShowNeighbours && curStar != nil {
+			maxD := opts.NeighbourMaxDist
+			if maxD <= 0 {
+				maxD = 15.0
+			}
+			opts.Neighbours = loadNeighboursForStar(curStar, maxD, stars)
+			opts.NeighbourDistances = make(map[string]float32)
+			for _, n := range opts.Neighbours {
+				opts.NeighbourDistances[string(n.Star.Designation)] = n.Distance
+				found := false
+				for _, s := range stars {
+					if s != nil && s.Designation == n.Star.Designation {
+						found = true
+						break
+					}
+				}
+				if !found {
+					stars = append(stars, n.Star)
+				}
+			}
+		} else if !opts.ShowNeighbours {
+			opts.Neighbours = nil
+			opts.NeighbourDistances = nil
+		}
+
 		output, mapped := common.RenderGalaxyMapTview(cam, stars, opts)
 		currentMapped = mapped
 
+		// 3. Keep selected star if it is still inside the viewport
 		var selectedPoint *common.StarMapPoint
 		if len(currentMapped) > 0 {
-			if selectedIndex >= len(currentMapped) {
-				selectedIndex = len(currentMapped) - 1
+			foundIndex := -1
+			if opts.SelectedStar != "" {
+				for i, mp := range currentMapped {
+					if mp != nil && mp.Star != nil && string(mp.Star.Designation) == opts.SelectedStar {
+						foundIndex = i
+						break
+					}
+				}
 			}
-			if selectedIndex < 0 {
-				selectedIndex = 0
-			}
-			selectedPoint = currentMapped[selectedIndex]
-			if opts.SelectedTravelDevice == "" {
-				opts.SelectedStar = string(selectedPoint.Star.Designation)
+			if foundIndex >= 0 {
+				selectedIndex = foundIndex
+				selectedPoint = currentMapped[selectedIndex]
+			} else {
+				if selectedIndex >= len(currentMapped) {
+					selectedIndex = len(currentMapped) - 1
+				}
+				if selectedIndex < 0 {
+					selectedIndex = 0
+				}
+				selectedPoint = currentMapped[selectedIndex]
+				if opts.SelectedTravelDevice == "" {
+					opts.SelectedStar = string(selectedPoint.Star.Designation)
+				}
 			}
 		} else {
 			if opts.SelectedTravelDevice == "" {
@@ -1309,6 +1614,11 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		} else {
 			filterBadges = append(filterBadges, "[gray][0/i:Island][-]")
 		}
+		if opts.ShowNeighbours {
+			filterBadges = append(filterBadges, "[#78c8ff::b][n:Neighbours:ON][-::-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][n:Neighbours][-]")
+		}
 
 		var devSummary string
 		if opts.StarDevices != nil && len(opts.StarDevices) > 0 {
@@ -1340,9 +1650,14 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 		}
 
+		var neighbourSummary string
+		if opts.ShowNeighbours && len(opts.Neighbours) > 0 {
+			neighbourSummary = fmt.Sprintf(" | Neighbours: [#78c8ff::b]%d (<=%.1fly)[-::-]", len(opts.Neighbours), opts.NeighbourMaxDist)
+		}
+
 		var hudSb strings.Builder
-		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total%s%s%s%s\n",
-			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars), devSummary, netSummary, travelSummary, islandSummary))
+		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total%s%s%s%s%s\n",
+			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars), devSummary, netSummary, travelSummary, islandSummary, neighbourSummary))
 
 		if opts.SelectedTravelDevice != "" {
 			var selTD *common.TravellingDevice
@@ -1696,7 +2011,16 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		// Cycle Selected Target Star
 		case key == tcell.KeyTab:
 			if len(currentMapped) > 0 {
-				selectedIndex = (selectedIndex + 1) % len(currentMapped)
+				curIdx := selectedIndex
+				if opts.SelectedStar != "" {
+					for i, mp := range currentMapped {
+						if mp != nil && mp.Star != nil && string(mp.Star.Designation) == opts.SelectedStar {
+							curIdx = i
+							break
+						}
+					}
+				}
+				selectedIndex = (curIdx + 1) % len(currentMapped)
 				opts.SelectedStar = string(currentMapped[selectedIndex].Star.Designation)
 				opts.SelectedTravelDevice = ""
 				if opts.ShowIsland {
@@ -1707,7 +2031,16 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			return nil
 		case key == tcell.KeyBacktab:
 			if len(currentMapped) > 0 {
-				selectedIndex = (selectedIndex - 1 + len(currentMapped)) % len(currentMapped)
+				curIdx := selectedIndex
+				if opts.SelectedStar != "" {
+					for i, mp := range currentMapped {
+						if mp != nil && mp.Star != nil && string(mp.Star.Designation) == opts.SelectedStar {
+							curIdx = i
+							break
+						}
+					}
+				}
+				selectedIndex = (curIdx - 1 + len(currentMapped)) % len(currentMapped)
 				opts.SelectedStar = string(currentMapped[selectedIndex].Star.Designation)
 				opts.SelectedTravelDevice = ""
 				if opts.ShowIsland {
@@ -1749,7 +2082,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.ShowDevices = !opts.ShowDevices
 			redraw()
 			return nil
-		case r == '8' || r == 'n' || r == 'N':
+		case r == '8':
 			opts.ShowNetwork = !opts.ShowNetwork
 			redraw()
 			return nil
@@ -1777,6 +2110,15 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 			redraw()
 			return nil
+		case r == 'n' || r == 'N':
+			opts.ShowNeighbours = !opts.ShowNeighbours
+			if opts.ShowNeighbours {
+				searchStatusMsg = "[green::b]✓ Immediate neighbours overlay enabled (max 15.0ly)[-::-]"
+			} else {
+				searchStatusMsg = "[gray]Immediate neighbours overlay disabled[-]"
+			}
+			redraw()
+			return nil
 
 		// Reset View
 		case r == 'r' || r == 'R':
@@ -1800,6 +2142,10 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.ShowIsland = false
 			opts.IslandStars = nil
 			opts.IslandInfo = nil
+			opts.ShowNeighbours = false
+			opts.Neighbours = nil
+			opts.NeighbourDistances = nil
+			opts.NeighbourMaxDist = pNeighbourDist
 			opts.ShowGrid = true
 			opts.ShowLabels = true
 			opts.SelectedStar = initialTarget

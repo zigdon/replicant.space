@@ -841,6 +841,13 @@ type StarMapPoint struct {
 	Travelling  []*TravellingDevice
 }
 
+// NeighbourInfo represents an immediate neighbouring star system and its distance.
+type NeighbourInfo struct {
+	Star        *models.Star
+	Distance    float32
+	RelayDevice string // e.g. "system_hub", "deep_space_relay_station", "ftl_relay", or ""
+}
+
 // MapLayerOptions configures visual layers in the renderer.
 type MapLayerOptions struct {
 	FilterLifeOnly       bool
@@ -856,10 +863,14 @@ type MapLayerOptions struct {
 	ShowNetwork          bool
 	ShowTravel           bool
 	ShowIsland           bool
+	ShowNeighbours       bool
 	ShowLabels           bool
 	ShowGrid             bool
 	ShowAxes             bool
 	ShowRoute            bool
+	NeighbourMaxDist     float32
+	Neighbours           []*NeighbourInfo
+	NeighbourDistances   map[string]float32
 	HighlightStar        string
 	SelectedStar         string
 	SelectedTravelDevice string
@@ -891,6 +902,8 @@ func DefaultMapLayerOptions() *MapLayerOptions {
 		ShowNetwork:        false,
 		ShowTravel:         false,
 		ShowIsland:         false,
+		ShowNeighbours:     false,
+		NeighbourMaxDist:   15.0,
 		ShowLabels:         true,
 		ShowGrid:           true,
 		ShowAxes:           true,
@@ -980,6 +993,25 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			for j := i + 1; j < len(islandPositions); j++ {
 				if islandPositions[i].Distance(islandPositions[j]) <= hop {
 					canvas.DrawLine3D(cam, islandPositions[i], islandPositions[j])
+				}
+			}
+		}
+	}
+	var distanceCanvas *BrailleCanvas
+	if opts.ShowNeighbours && len(opts.Neighbours) > 0 {
+		distanceCanvas = NewBrailleCanvas(w, h)
+		var selPos *Vec3
+		for _, st := range stars {
+			if st != nil && st.Position != nil && string(st.Designation) == opts.SelectedStar {
+				selPos = &Vec3{X: st.Position.X, Y: st.Position.Y, Z: st.Position.Z}
+				break
+			}
+		}
+		if selPos != nil {
+			for _, n := range opts.Neighbours {
+				if n != nil && n.Star != nil && n.Star.Position != nil {
+					pNeighbour := Vec3{X: n.Star.Position.X, Y: n.Star.Position.Y, Z: n.Star.Position.Z}
+					distanceCanvas.DrawLine3D(cam, *selPos, pNeighbour)
 				}
 			}
 		}
@@ -1176,6 +1208,24 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 					DepthZ:   50000,
 				}
 			}
+			if distanceCanvas != nil {
+				dr := distanceCanvas.RuneAt(x, y)
+				if dr != ' ' {
+					combinedRune := dr
+					if r != ' ' {
+						mask1 := uint32(r - 0x2800)
+						mask2 := uint32(dr - 0x2800)
+						combinedRune = rune(0x2800 + (mask1 | mask2))
+					}
+					cells[y][x] = CellLayer{
+						Rune:     combinedRune,
+						FgColor:  RGB{R: 255, G: 255, B: 255}, // White for distance lines
+						HasColor: true,
+						IsBold:   true,
+						DepthZ:   49000,
+					}
+				}
+			}
 		}
 	}
 
@@ -1218,32 +1268,46 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		for _, mp := range mappedStars {
 			hasDevices := len(mp.Devices) > 0
 			inNet := opts.ShowNetwork && mp.NetworkNode != nil
-			// Show names for prominent stars (Hubs, Life, Route, Island, Device Hosts, Network Nodes, Selected, or closest stars)
+			dist, isNeighbour := float32(0), false
+			if opts.ShowNeighbours && opts.NeighbourDistances != nil {
+				dist, isNeighbour = opts.NeighbourDistances[string(mp.Star.Designation)]
+			}
+			// Show names for prominent stars (Hubs, Life, Route, Island, Device Hosts, Network Nodes, Neighbours, Selected, or closest stars)
 			isProminent := mp.IsMyHub || mp.HasLife || mp.IsRoute ||
 				(opts.ShowDevices && hasDevices) ||
 				inNet ||
 				mp.IsIsland ||
+				isNeighbour ||
 				string(mp.Star.Designation) == opts.SelectedStar ||
 				string(mp.Star.Designation) == opts.HighlightStar ||
 				mp.CamPos.Z < -cam.Radius*0.2
 
 			if isProminent {
-				displayName := mp.Star.Name
-				if displayName == "" {
-					displayName = string(mp.Star.Designation)
+				baseName := mp.Star.Name
+				if baseName == "" {
+					baseName = string(mp.Star.Designation)
 				}
 				if opts.ShowRegions && mp.Star.Region != "" {
-					displayName = fmt.Sprintf("%s (%s)", displayName, mp.Star.Region)
+					baseName = fmt.Sprintf("%s (%s)", baseName, mp.Star.Region)
 				}
 				if opts.ShowDevices && hasDevices {
-					displayName = fmt.Sprintf("%s [%d dev]", displayName, len(mp.Devices))
+					baseName = fmt.Sprintf("%s [%d dev]", baseName, len(mp.Devices))
 				}
 				if inNet {
-					displayName = fmt.Sprintf("%s [Net#%d]", displayName, mp.NetworkNode.SubnetID)
+					baseName = fmt.Sprintf("%s [Net#%d]", baseName, mp.NetworkNode.SubnetID)
 				}
-				if len(displayName) > 18 {
-					displayName = displayName[:18]
+
+				distStr := ""
+				if isNeighbour {
+					distStr = fmt.Sprintf(" [%.1fly]", dist)
 				}
+
+				displayName := baseName + distStr
+				if len(displayName) > 24 {
+					displayName = displayName[:24]
+				}
+
+				distStartIdx := len(displayName) - len(distStr)
 
 				labelStartX := mp.ScreenX + 2
 				labelY := mp.ScreenY
@@ -1254,10 +1318,16 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 							// Don't overwrite another star glyph or travel marker
 							if cells[labelY][lx].Star == nil && cells[labelY][lx].Travel == nil {
 								labelCol := mp.Color.Dim(0.85)
+								isBold := false
+								if isNeighbour && i >= distStartIdx {
+									labelCol = RGB{R: 255, G: 255, B: 255} // White for distance label
+									isBold = true
+								}
 								cells[labelY][lx] = CellLayer{
 									Rune:     ch,
 									FgColor:  labelCol,
 									HasColor: true,
+									IsBold:   isBold,
 									DepthZ:   mp.CamPos.Z,
 								}
 							}
@@ -1523,6 +1593,9 @@ func FormatMapLegend(opts *MapLayerOptions) string {
 	}
 	if opts != nil && (opts.ShowIsland || len(opts.IslandStars) > 0) {
 		parts = append(parts, "\x1b[38;2;255;110;180m◎\x1b[0m Island")
+	}
+	if opts != nil && (opts.ShowNeighbours || len(opts.Neighbours) > 0) {
+		parts = append(parts, "\x1b[1;37m╌\x1b[0m Neighbours")
 	}
 	base := "\x1b[90mLegend: \x1b[0m" + strings.Join(parts, "  ")
 	if opts != nil && opts.ShowRegions {

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 )
 
@@ -190,5 +191,166 @@ func TestStatusSanitization(t *testing.T) {
 		t.Errorf("Expected 2 lines, got %d", len(lines))
 	}
 }
+
+func TestNeighbourFlags(t *testing.T) {
+	// Verify mapCmd neighbour flags
+	if mapCmd.Flags().Lookup("distances") == nil {
+		t.Errorf("mapCmd missing --distances flag")
+	}
+	if mapCmd.Flags().ShorthandLookup("D") == nil {
+		t.Errorf("mapCmd missing -D shorthand flag")
+	}
+
+	// Verify plotMapCmd neighbour flags
+	if plotMapCmd.Flags().Lookup("distances") == nil {
+		t.Errorf("plotMapCmd missing --distances flag")
+	}
+	if plotMapCmd.Flags().ShorthandLookup("D") == nil {
+		t.Errorf("plotMapCmd missing -D shorthand flag")
+	}
+}
+
+func TestLoadNeighboursForStar(t *testing.T) {
+	center := &models.Star{
+		Designation: "SOL",
+		Name:        "Sol",
+		Position:    models.NewPosition(0, 0, 0),
+	}
+
+	allStars := []*models.Star{
+		center,
+		{
+			Designation:  "ALPHA",
+			Name:         "Alpha Centauri",
+			Position:     models.NewPosition(4.3, 0, 0),
+			SpectralType: "K1V",
+			HasLife:      true,
+		},
+		{
+			Designation:  "BARNARD",
+			Name:         "Barnard's Star",
+			Position:     models.NewPosition(0, 8.5, 0),
+			SpectralType: "M4V",
+		},
+		{
+			Designation:  "SIRIUS",
+			Name:         "Sirius",
+			Position:     models.NewPosition(0, 0, 12.5),
+			SpectralType: "A1V",
+			HasHub:       true, // HasHub -> RelayDevice = "system_hub"
+		},
+		{
+			Designation: "FAR_STAR",
+			Name:        "Far Star",
+			Position:    models.NewPosition(20.0, 0, 0), // 20.0ly -> exceeds 15ly cap
+		},
+	}
+
+	// 1. Default max distance (capped at 15ly)
+	neighbours := loadNeighboursForStar(center, 15.0, allStars)
+	if len(neighbours) != 3 {
+		t.Fatalf("Expected 3 neighbours within 15ly, got %d", len(neighbours))
+	}
+
+	// Verify sorting (closest first) and relay devices
+	if neighbours[0].Star.Designation != "ALPHA" || neighbours[0].Distance != 4.3 || neighbours[0].RelayDevice != "" {
+		t.Errorf("Neighbour #1 mismatch: got %+v", neighbours[0])
+	}
+	if neighbours[1].Star.Designation != "BARNARD" || neighbours[1].Distance != 8.5 || neighbours[1].RelayDevice != "" {
+		t.Errorf("Neighbour #2 mismatch: got %+v", neighbours[1])
+	}
+	if neighbours[2].Star.Designation != "SIRIUS" || neighbours[2].Distance != 12.5 || neighbours[2].RelayDevice != "system_hub" {
+		t.Errorf("Neighbour #3 mismatch (expected system_hub): got %+v", neighbours[2])
+	}
+
+	// 2. Custom smaller max distance (e.g. 7.5ly)
+	closeNeighbours := loadNeighboursForStar(center, 7.5, allStars)
+	if len(closeNeighbours) != 1 || closeNeighbours[0].Star.Designation != "ALPHA" {
+		t.Errorf("Expected 1 close neighbour <= 7.5ly (ALPHA), got %d", len(closeNeighbours))
+	}
+
+	// 3. Attempting max distance > 15ly should be capped at 15ly
+	cappedNeighbours := loadNeighboursForStar(center, 100.0, allStars)
+	if len(cappedNeighbours) != 3 {
+		t.Errorf("Expected max_dist to be capped at 15ly (3 neighbours), got %d", len(cappedNeighbours))
+	}
+
+	// 4. Center with nil position
+	if nils := loadNeighboursForStar(&models.Star{}, 15.0, allStars); nils != nil {
+		t.Errorf("Expected nil for star with nil position, got %+v", nils)
+	}
+}
+
+func TestSelectionPersistenceInViewport(t *testing.T) {
+	cam := common.NewCamera3D(80, 24)
+	cam.Center = common.Vec3{X: 0, Y: 0, Z: 0}
+	cam.Radius = 50.0
+
+	stars := []*models.Star{
+		{
+			Designation: "SOL",
+			Position:    models.NewPosition(0, 0, 0),
+		},
+		{
+			Designation: "ALPHA",
+			Position:    models.NewPosition(4.3, 0, 0),
+		},
+		{
+			Designation: "SIRIUS",
+			Position:    models.NewPosition(0, 0, 8.6),
+		},
+	}
+
+	opts := common.DefaultMapLayerOptions()
+	opts.SelectedStar = "ALPHA"
+
+	// 1. Initial render
+	_, mapped := common.RenderGalaxyMap(cam, stars, opts)
+	if len(mapped) != 3 {
+		t.Fatalf("Expected 3 mapped stars, got %d", len(mapped))
+	}
+
+	// Check that ALPHA is in mapped
+	foundIndex := -1
+	for i, mp := range mapped {
+		if mp.Star != nil && string(mp.Star.Designation) == opts.SelectedStar {
+			foundIndex = i
+			break
+		}
+	}
+	if foundIndex < 0 {
+		t.Errorf("Expected ALPHA to be found in mapped stars")
+	}
+
+	// 2. Pan camera slightly (ALPHA still within viewport)
+	cam.Center.X += 5.0
+	_, mappedPan := common.RenderGalaxyMap(cam, stars, opts)
+	foundPanIndex := -1
+	for i, mp := range mappedPan {
+		if mp.Star != nil && string(mp.Star.Designation) == opts.SelectedStar {
+			foundPanIndex = i
+			break
+		}
+	}
+	if foundPanIndex < 0 {
+		t.Errorf("Expected ALPHA to remain mapped after camera pan")
+	}
+
+	// 3. Zoom camera in (ALPHA still within viewport radius 10)
+	cam.Center = common.Vec3{X: 0, Y: 0, Z: 0}
+	cam.Radius = 10.0
+	_, mappedZoom := common.RenderGalaxyMap(cam, stars, opts)
+	foundZoomIndex := -1
+	for i, mp := range mappedZoom {
+		if mp.Star != nil && string(mp.Star.Designation) == opts.SelectedStar {
+			foundZoomIndex = i
+			break
+		}
+	}
+	if foundZoomIndex < 0 {
+		t.Errorf("Expected ALPHA to remain mapped after camera zoom")
+	}
+}
+
 
 
