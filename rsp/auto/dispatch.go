@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -249,11 +251,12 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		return tasks, fmt.Errorf("Nothing is missing at %s", loc)
 	}
 
-	params = append(params, loc, loc.Star())
+	avoid := append(constants.Homes, string(loc))
+	params = append(params, pq.Array(avoid), loc.Star())
 	rows, err := DB.Query(fmt.Sprintf(`
 		SELECT i.designation, %s
 		FROM inventory i JOIN stars s ON i.star = s.designation
-		WHERE i.designation != $%d AND (%s)
+		WHERE i.designation = ANY($%d::TEXT[]) AND (%s)
 		ORDER BY s.position <=> (
 		  SELECT position
 		  FROM stars
@@ -268,7 +271,9 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		}
 	}()
 
+	log("Searching for %v", missing)
 	for rows.Next() {
+		// Figure out how many resources in the system are accounted for
 		var qres []any
 		var sys string
 		qres = append(qres, &sys)
@@ -288,42 +293,54 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 			}
 			res[f] = *i - pending[f]
 			if res[f] <= 0 {
+				log("already picking up %d x %s", pending[f], f)
 				delete(res, f)
 				continue
 			}
 			if res[f] >= min(missing[f], 500) {
+				log("will pick up %s", f)
 				good = true
 			}
 		}
+		log("  %v", res)
 		if !good {
 			continue
 		}
-		task := &pickupTask{
-			pickup:    models.LocationID(sys),
-			dropoff:   loc,
-			resources: make(map[string]int),
-		}
-		space := 500
-		for k, v := range missing {
-			if v <= 0 {
-				continue
+
+		// Now create tasks for picking up as much as we need, or until the system runs out
+		for {
+			task := &pickupTask{
+				pickup:    models.LocationID(sys),
+				dropoff:   loc,
+				resources: make(map[string]int),
 			}
-			v = min(v, space, res[k])
-			task.resources[k] = v
-			missing[k] -= v
-			space -= v
-			if missing[k] <= 0 {
-				delete(missing, k)
+			space := 500
+			for k, v := range missing {
+				v = min(v, space, res[k])
+				if v <= 0 {
+					continue
+				}
+				task.resources[k] = v
+				missing[k] -= v
+				space -= v
+				res[k] -= v
+				if missing[k] <= 0 {
+					delete(missing, k)
+				}
+				if res[k] <= 0 {
+					delete(res, k)
+				}
 			}
-		}
-		if !task.Empty() {
+			if task.Empty() {
+				break
+			}
 			tasks = append(tasks, task)
 		}
 		if len(missing) == 0 {
 			return tasks, nil
 		}
 	}
-	return tasks, fmt.Errorf("Could not find %v", missing)
+	return tasks, fmt.Errorf("%s: Could not find %v", loc, missing)
 }
 
 func (dm *DispatchMachine) releaseLostCargo() error {
@@ -391,7 +408,7 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 	}
 
 	if len(newTasks) > 0 {
-		log("New pickup tasks:")
+		log("%d new pickup tasks:", len(newTasks))
 		for _, t := range newTasks {
 			log("  %s->%s: %v", t.pickup, t.dropoff, t.resources)
 		}
@@ -454,7 +471,6 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 					continue
 				}
 			}
-			delete(dm.manifest, t.ship.Code.String())
 			t.complete = true
 		case t.ship.Location == t.pickup:
 			log("%s ready for pick up at %s->%s", t.ship, t.ship.Location, t.dropoff)
@@ -499,7 +515,6 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 					continue
 				}
 			}
-			delete(dm.manifest, t.ship.Code.String())
 			t.complete = true
 		}
 	}
@@ -508,6 +523,7 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 	for _, t := range dm.tasks {
 		if t.complete {
 			log("Marking task complete: %v", t)
+			delete(dm.manifest, t.ship.Code.String())
 			if t.ship != nil {
 				errs = append(errs, DB.ClearDelivery(dm.dryRun, t.ship.Code.String()))
 				_, err := deviceCommand(t.ship.Code, "deposit_resources", nil, dm.dryRun)
