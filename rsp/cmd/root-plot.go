@@ -6,12 +6,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/lib/pq"
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
+	"golang.org/x/sync/errgroup"
 )
 
 var plotCmd = &cobra.Command{
@@ -341,28 +343,28 @@ func plotBridge(cmd *cobra.Command, args []string) error {
 	slices.Sort(stars)
 	log("Island stars: %s", strings.Join(stars, ", "))
 	var mu sync.Mutex
-	var wg sync.WaitGroup
+	var eg errgroup.Group
+	eg.SetLimit(20)
 	// Find the nearest relay for each star on the island
-	for _, s := range stars {
-		wg.Go(func() {
+	for n, s := range stars {
+		eg.Go(func() error {
+			log("%d/%d: %s...", n, len(stars), s)
 			b := &bridge{
 				start: s,
 				hops:  []string{s},
 			}
 			relay, err := common.NearestRelay(s)
 			if err != nil {
-				log("Error finding relay from %q: %v", s, err)
-				return
+				return fmt.Errorf("Error finding relay from %q: %v", s, err)
 			}
 			b.end = relay
 			path, err := common.PlotTrip(s, relay, cfg)
 			if err != nil {
-				log("No path possible from %q to %q: %v", s, relay, err)
-				return
+				return fmt.Errorf("No path possible from %q to %q: %v", s, relay, err)
 			}
 			for _, p := range path.Legs {
 				if slices.Contains(stars, p.To) {
-					return
+					return nil
 				}
 				b.hops = append(b.hops, p.To)
 				if p.FromPosition.Distance(p.ToPosition) > 10 {
@@ -377,9 +379,10 @@ func plotBridge(cmd *cobra.Command, args []string) error {
 			mu.Lock()
 			defer mu.Unlock()
 			options[s] = b
+			return nil
 		})
 	}
-	wg.Wait()
+	eg.Wait()
 
 	var data [][]any
 	for k, v := range options {
@@ -388,5 +391,36 @@ func plotBridge(cmd *cobra.Command, args []string) error {
 		})
 	}
 	printTable([]string{"Island", "Network", "# DSRS", "# Hubs", "Path"}, data)
+
+	// If there isn't a possible bridge, identify the star nearest to the island.
+	if len(options) == 0 {
+		row := db.QueryRow(`
+		  WITH star_list AS (
+			  SELECT designation, position
+			  FROM stars
+			  WHERE designation = ANY($1::TEXT[])
+		  )
+		  SELECT n.designation AS nearest_star,
+				 l.designation AS closest_to_list_star,
+				 n.dist AS distance
+		  FROM star_list l
+		  CROSS JOIN LATERAL (
+			  SELECT s.designation, s.position <-> l.position AS dist
+			  FROM stars s
+			  WHERE s.designation NOT IN (SELECT designation FROM star_list)
+			  ORDER BY s.position <-> l.position ASC
+			  LIMIT 1
+		  ) n
+		  ORDER BY n.dist ASC
+		  LIMIT 1`, pq.Array(stars))
+		var offshore, island string
+		var dist float32
+		if err := row.Scan(&offshore, &island, &dist); err != nil {
+			return fmt.Errorf("Can't find nearest off-shore star: %v", err)
+		}
+		log("No bridge options available. Nearest offshore star is %s, %.2f LY from %s",
+			offshore, dist, island)
+	}
+
 	return nil
 }

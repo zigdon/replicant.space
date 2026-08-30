@@ -135,8 +135,12 @@ func CompleteEvent(eid string) (*models.Event, error) {
 	}
 
 	ev, err := models.Parse[models.Event](res)
-	if err == nil && ev.Error != "" {
-		err = fmt.Errorf("Event error: %v", ev.Error)
+	if err == nil {
+		if ev.Error != "" {
+			err = fmt.Errorf("Event error: %v", ev.Error)
+		} else {
+			db.Exec("DELETE FROM events WHERE designation = $1", eid)
+		}
 	}
 	return ev, err
 }

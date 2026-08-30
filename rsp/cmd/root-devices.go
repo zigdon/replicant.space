@@ -102,7 +102,7 @@ var deviceListCmd = &cobra.Command{
 			}
 			return nil
 		}
-		merge := getBool(cmd, "merge")
+		merge := getBool(cmd, "merge") && !getBool(cmd, "nomerge")
 		printDeviceList(devs, origin, merge)
 		var stats []string
 		for k, v := range skipped {
@@ -217,6 +217,7 @@ func init() {
 	deviceListCmd.Flags().StringSliceP("only_tags", "t", []string{}, "Show only results with these tags")
 	deviceListCmd.Flags().StringP("distance", "d", "", "Show distance from this object's star")
 	deviceListCmd.Flags().Bool("merge", true, "If set, group duplicate devices")
+	deviceListCmd.Flags().Bool("nomerge", false, "If set, don't group duplicate devices")
 	deviceListCmd.Flags().Bool("ids", false, "If set, only output matching device IDs")
 
 	rootCmd.AddCommand(networkCmd)

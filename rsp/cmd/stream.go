@@ -310,6 +310,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 			update(func(d *models.Device) {
 				change(&d.AttachedToDeviceCode, env.DeviceCode)
 			}, ev.TargetCode)
+			log("%s attached to %s", ev.TargetCode, env.DeviceCode)
 		case "device.changed_owner":
 			ev, err := models.Parse[models.StreamDeviceChangedOwner](payload)
 			if err != nil {
@@ -932,6 +933,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 				})
 				orig = l.To
 			}
+			allDevs := append(ev.AttachedDevices, env.DeviceCode)
 			update(func(d *models.Device) {
 				change(&d.Travel, &models.Trip{
 					Arrives:     ev.ArrivesAt,
@@ -949,7 +951,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 				}
 			}, env.DeviceCode)
 			log("Departed to %s from %s: %s", ev.Destination, ev.Origin,
-				strings.Join(codeList(append(ev.AttachedDevices, env.DeviceCode)), ", "))
+				strings.Join(codeList(allDevs), ", "))
 
 		// Next case here
 

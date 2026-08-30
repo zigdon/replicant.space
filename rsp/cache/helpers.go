@@ -396,7 +396,8 @@ func (db *Cache) ChecksumHubs() (string, error) {
 	rows, err := db.Query(`
 	  SELECT designation
 	  FROM stars
-	  WHERE has_hub`)
+	  WHERE has_hub
+	  ORDER BY designation`)
 	if err != nil {
 		return "", err
 	}
