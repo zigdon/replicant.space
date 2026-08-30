@@ -53,7 +53,9 @@ func Execute() {
 	if err != nil {
 		die(err.Error())
 	}
-	if msg := getBool(rootCmd, "msg"); db != nil && !slices.Contains(os.Args, "__complete") && msg {
+	msg := getBool(rootCmd, "msg")
+	raw := getBool(rootCmd, "raw")
+	if db != nil && !slices.Contains(os.Args, "__complete") && msg && !raw {
 		if rest.UnreadMessages > 0 {
 			msgs, err := rest.Messages(0, rest.UnreadMessages, true, true)
 			if err != nil {

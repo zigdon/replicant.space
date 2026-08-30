@@ -17,32 +17,36 @@ import (
 // if there are not enough relays to fill a ship, print more
 // if there are spare relays in the system, pick them up
 // if we're in a system, and it doesn't have exactly one relay, go to l4
+// - check distance to nearest relay. If it's >7.5 <=10, deploy dsrs
+//   - detach/unfurl/wait/activate/tag
 // - then deploy/activate/tag
 // - pick up and de-tag spares
 // if there is a relay, check our tags for dest, plot the course from the nearest relay on the home network
+// - if no course is available, try again with dsrs support
 // States:
 // cargo vessel:
 //   transit: wait
 //   incoming: scan, check frs, {go to L4 point / or skip to leaving}
 //   deploying: deploy, activate, tag
 //   cleanup: stow/detag spares
-//   empty: move FRs from mf
+//   empty: move FRs and DSRSs from mf
 //   leaving: find the next system, head there
 // mobile fleet:
-//   empty: head home, queue FRs
-//   resupplying: attach until full capacity
+//   empty: head home, queue FRs, DSRSs as needed
+//   resupplying: attach 3 DSRS, FRs until full capacity
 //   full: follow cv
 
 type RelayMachine_State string
 
 const (
-	RelayMachine_Done      = "done"
-	RelayMachine_Transit   = "transit"
-	RelayMachine_Incoming  = "incoming"
-	RelayMachine_Deploying = "deploying"
-	RelayMachine_Cleanup   = "cleanup"
-	RelayMachine_Empty     = "empty"
-	RelayMachine_Leaving   = "leaving"
+	RelayMachine_Done             = "done"
+	RelayMachine_Transit          = "transit"
+	RelayMachine_Incoming         = "incoming"
+	RelayMachine_DeployingRelay   = "deploying relay"
+	RelayMachine_DeployingStation = "deploying dsrs"
+	RelayMachine_Cleanup          = "cleanup"
+	RelayMachine_Empty            = "empty"
+	RelayMachine_Leaving          = "leaving"
 )
 
 type RelayMachine struct {
@@ -167,6 +171,12 @@ func (rm *RelayMachine) UpdateState() error {
 	}
 	sysHasSpareFR := len(sysFRs) > 1
 
+	// Check the distance from the nearest relay
+	dist, err := rm.findNetworkDist()
+	if err != nil {
+		return fmt.Errorf("Can't find distance from network: %v", err)
+	}
+
 	log("State: %s@%s, %s@%s; Dest: %q (%v), System FRs: %d, relaying: %v",
 		rm.dev.Code.Alias(), rm.dev.Location,
 		rm.supply.Code.Alias(), rm.supply.Location,
@@ -203,21 +213,25 @@ func (rm *RelayMachine) UpdateState() error {
 		log("System relayed, no cleanup")
 		rm.state = RelayMachine_Leaving
 		rm.status = "departing"
-	case inL4 && !sysFRRelaying:
-		log("At L4, ready to deploy")
-		rm.state = RelayMachine_Deploying
-		rm.status = "deploying"
+	case inL4 && !sysFRRelaying && dist <= 7.5:
+		log("At L4, ready to deploy relay")
+		rm.state = RelayMachine_DeployingRelay
+		rm.status = "deploying relay"
+	case inL4 && !sysFRRelaying && dist <= 10 && rm.dev.AttachCapacity > 0:
+		log("At L4, ready to deploy station")
+		rm.state = RelayMachine_DeployingStation
+		rm.status = "deploying dsrs"
 	default:
 		return fmt.Errorf(
-			"Unknown state (%s): state: %q, FRs: ship %v, sys %d (relaying: %v)",
-			rm.dev.Code.Alias(), rm.state, frInv, len(sysFRs), sysFRRelaying)
+			"Unknown state (%s): state: %q, FRs: ship %v, sys %d (relaying: %v, edge dist: %.2fly)",
+			rm.dev.Code.Alias(), rm.state, frInv, len(sysFRs), sysFRRelaying, dist)
 	}
 	log("Update state: %s -> %s", oldState, rm.state)
 	return nil
 }
 
 func (rm *RelayMachine) Process() (time.Time, error) {
-	eta := time.Now().Add(30 * time.Second)
+	eta := time.Now().Add(5 * time.Minute)
 	if err := rm.UpdateState(); err != nil {
 		return eta, err
 	}
@@ -271,9 +285,19 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			}
 		} else {
 			log("at %s entry point: %s", rm.dev.Location.Star(), scan.EntryPoint)
-			nextState = RelayMachine_Deploying
+			dist, err := rm.findNetworkDist()
+			if err != nil {
+				return eta, err
+			}
+			if dist <= 7.5 {
+				nextState = RelayMachine_DeployingRelay
+			} else if dist <= 10 && rm.dev.AttachCapacity > 0 {
+				nextState = RelayMachine_DeployingStation
+			} else {
+				return eta, fmt.Errorf("Too far from network to deploy: %.2fly", dist)
+			}
 		}
-	case RelayMachine_Deploying:
+	case RelayMachine_DeployingRelay:
 		// Find an FR in our hold
 		var fr *models.CodeAlias
 		for _, d := range rm.dev.StowedDevices.Devices {
@@ -313,6 +337,87 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			if _, err = rest.RefreshDevices(map[string]string{"location": rm.dev.Location.Star()}); err != nil {
 				log("Error refreshing system: %v", err)
 			}
+			nextState = RelayMachine_Cleanup
+		}
+	case RelayMachine_DeployingStation:
+		// See if we already have a dsrs here, and we're just waiting for it to unful
+		devs, err := rest.Devices(map[string]string{
+			"location":    string(rm.dev.Location),
+			"device_type": "deep_space_relay_station"})
+		if err != nil {
+			return eta, err
+		}
+		if len(devs) > 0 {
+			// We already are in the process of deploying one.
+			dsrs := devs[0]
+			// Check if it's compacted
+			switch dsrs.Status {
+			case "compacted":
+				res, err := deviceCommand(dsrs.Code, "unfurl", nil, rm.dryRun)
+				if err != nil {
+					return eta, err
+				}
+				eta = res.Completes.Time()
+			case "idle":
+				// Activate
+				_, err = deviceCommand(dsrs.Code, "activate", nil, rm.dryRun)
+				if err != nil {
+					return eta, err
+				}
+				// Tag
+				err = rest.UpdateTags(dsrs.Code, rest.AddTag, []string{"infrastructure"})
+				if err != nil {
+					return eta, fmt.Errorf("Can't update tags on %q: %v", dsrs.Code.Alias(), err)
+				}
+				log("Station deployed at %s", rm.dev.Location)
+				// Refresh the location, so newly in-network devices will notice
+				if _, err = rest.RefreshDevices(map[string]string{"location": rm.dev.Location.Star()}); err != nil {
+					log("Error refreshing system: %v", err)
+				}
+				nextState = RelayMachine_Cleanup
+			default:
+				log("Found %s is %s, nothing to do", dsrs.Code, dsrs.Status)
+				nextState = RelayMachine_Cleanup
+			}
+		} else if rm.dev.AttachCapacity > 0 {
+			// None deployed, find a dsrs
+			var dsrs *models.CodeAlias
+			for _, d := range rm.dev.AttachedDevices {
+				if d.Type != "deep_space_relay_station" {
+					continue
+				}
+				dsrs = d.Code
+				break
+			}
+			if dsrs == nil {
+				log("Out of stations")
+				nextState = RelayMachine_Empty
+			} else {
+				// Change owner before we attempt to deploy
+				_, err := deviceCommand(dsrs, "change_owner",
+					map[string]any{"target": rm.replicant.String()}, rm.dryRun)
+				if err != nil {
+					log("Ignoring owner change error: %v", err)
+				}
+				// Detach
+				_, err = deviceCommand(rm.dev.Code, "detach", map[string]any{"target": dsrs}, rm.dryRun)
+				if err != nil {
+					return eta, err
+				}
+				// Unfurl
+				res, err := deviceCommand(dsrs, "unfurl", nil, rm.dryRun)
+				if err != nil {
+					return eta, err
+				}
+				eta = res.Completes.Time()
+
+				// Refresh the location, to make sure we'll remember it's already here
+				if _, err = rest.RefreshDevices(map[string]string{"location": rm.dev.Location.Star()}); err != nil {
+					log("Error refreshing system: %v", err)
+				}
+			}
+		} else {
+			log("%s can't deploy DSRS", rm.dev.Code)
 			nextState = RelayMachine_Cleanup
 		}
 	case RelayMachine_Cleanup:
@@ -366,37 +471,57 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			return eta, fmt.Errorf("Resupply vessage %q unexpectedly empty at %q",
 				rm.supply.Code.Alias(), rm.dev.Location)
 		}
-		cap := rm.dev.StowCapacity - len(rm.dev.StowedDevices.Devices)
-		var stowed = 0
+		stowCap := rm.dev.StowCapacity - len(rm.dev.StowedDevices.Devices)
+		atCap := rm.dev.AttachCapacity - len(rm.dev.AttachedDevices)
+		var stowed, attached int
 		for _, d := range rm.supply.AttachedDevices {
-			_, err := deviceCommand(rm.supply.Code, "detach",
-				map[string]any{"target": d.Code.Alias()}, rm.dryRun)
-			if err != nil {
-				return eta, err
-			}
-			_, err = deviceCommand(d.Code, "stow",
-				map[string]any{"target": rm.dev.Code}, rm.dryRun)
-			if err != nil {
-				return eta, err
-			}
-			stowed++
-			if stowed > cap {
-				break
+			if d.Type == "ftl_relay" && stowed < stowCap {
+				_, err := deviceCommand(rm.supply.Code, "detach",
+					map[string]any{"target": d.Code.Alias()}, rm.dryRun)
+				if err != nil {
+					return eta, err
+				}
+				_, err = deviceCommand(d.Code, "stow",
+					map[string]any{"target": rm.dev.Code}, rm.dryRun)
+				if err != nil {
+					return eta, err
+				}
+				stowed++
+			} else if d.Type == "deep_space_relay_station" && attached < atCap {
+				_, err := deviceCommand(rm.supply.Code, "detach",
+					map[string]any{"target": d.Code.Alias()}, rm.dryRun)
+				if err != nil {
+					return eta, err
+				}
+				_, err = deviceCommand(d.Code, "attach",
+					map[string]any{"target": rm.dev.Code}, rm.dryRun)
+				if err != nil {
+					return eta, err
+				}
+				attached++
+			} else {
+				log("Ignoring %s attached to %s", d.Code, rm.supply.Code)
 			}
 		}
-		log("Picked up %d FRs, shipping resupply back home", stowed)
+		log("Picked up %d FRs, %d DSRSs, shipping resupply back home", stowed, attached)
 		var err error
 		resupplyHome := common.ClosestHomes(rm.supply.Location)[0]
 		eta, err = common.Travel(rm.supply.Code, resupplyHome, rm.dryRun)
 		if err != nil {
 			return eta, err
 		}
-		pPlan, err := common.Print(resupplyHome, "ftl_relay", rm.supply.AttachCapacity, true, rm.dryRun, nil)
+		frCount := rm.supply.AttachCapacity - rm.dev.AttachCapacity
+		pPlan, err := common.Print(resupplyHome, "ftl_relay", frCount, true, rm.dryRun, nil)
 		if err != nil {
 			log("Error printing relays: %v", err)
 		} else {
-			log("Queued %d ftl_relays: ETA %s (%s)",
-				rm.supply.AttachCapacity, pPlan.ETA, time.Until(pPlan.ETA))
+			log("Queued %d ftl_relays: ETA %s (%s)", frCount, pPlan.ETA, time.Until(pPlan.ETA))
+		}
+		pPlan, err = common.Print(resupplyHome, "deep_space_relay_station", rm.dev.AttachCapacity, true, rm.dryRun, nil)
+		if err != nil {
+			log("Error printing DSRS: %v", err)
+		} else {
+			log("Queued %d DSRS: ETA %s (%s)", rm.dev.AttachCapacity, pPlan.ETA, time.Until(pPlan.ETA))
 		}
 
 		nextState = RelayMachine_Leaving
@@ -438,28 +563,18 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 					log("Can't find nearest relay to %s: %v", rm.dest, err)
 					continue
 				}
-				path, err := common.PlotTrip(edge, n.Star(), nil)
-				if err != nil {
-					log("Can't plot path %s->%s: %v", edge, n.Star(), err)
-					continue
-				}
-				// Make sure no other fill:oor ship is heading there already
-				row := DB.QueryRow(`
-					SELECT code
-					FROM json_devices
-					WHERE data->'tags' @> '"fill:oor"'
-					  AND data->'travel'->>'destination'=$1
-					LIMIT 1`, edge)
-				var other string
-				if err := row.Scan(&other); err == nil {
-					log("%s is already travelling to %s", models.NewCodeAlias(other), edge)
-					continue
+				log("Next destination: %s (%.2f LY away):", n, dists[n.Star()])
+				if edge != n.Star() {
+					path, err := common.PlotTrip(edge, n.Star(), nil)
+					if err != nil {
+						log("Can't plot path %s->%s: %v", edge, n.Star(), err)
+						continue
+					}
+					for _, l := range path.Legs {
+						log("  %s -> %s ", l.From, l.To)
+					}
 				}
 
-				log("Next destination: %s (%.2f LY away):", n, dists[n.Star()])
-				for _, l := range path.Legs {
-					log("  %s -> %s ", l.From, l.To)
-				}
 				rm.dest = n
 				found = true
 				break
@@ -569,7 +684,49 @@ func (rm *RelayMachine) resupply() error {
 		log("Resupply platform %s in transit... ETA: %s (%s)",
 			rm.supply, supplyETA, time.Until(supplyETA).Truncate(time.Second))
 	case slices.Contains(constants.Homes, string(rm.supply.Location)):
+		// Count how many DSRS we have attached, we want 3.
+		var dsrsCount int
+		for _, d := range rm.supply.AttachedDevices {
+			if d.Type == "deep_space_relay_station" {
+				dsrsCount++
+			}
+		}
 		slots := rm.supply.AttachCapacity - len(rm.supply.AttachedDevices)
+		if dsrsCount < 3 {
+			// Make sure we have 3 open slots
+			devs := rm.supply.AttachedDevices
+			for slots < 3 {
+				_, err := deviceCommand(rm.supply.Code, "detach", map[string]any{
+					"targets": devs[:3-slots],
+				}, rm.dryRun)
+				if err != nil {
+					return fmt.Errorf("Can't free slots on %s: %v", rm.supply.Code, err)
+				}
+			}
+			devs, err := rest.RefreshDevices(map[string]string{
+				"location":    string(rm.supply.Location),
+				"device_type": "deep_space_relay_station",
+			})
+			if err != nil {
+				return fmt.Errorf("Can't find stations at %q: %v", rm.supply.Location, err)
+			}
+			if len(devs) < 3-dsrsCount {
+				return fmt.Errorf("Not enough stations at %q: need %d, found %d",
+					rm.supply.Location, 3-dsrsCount, len(devs))
+			}
+			// Attach the missing stations
+			var ids []*models.CodeAlias
+			for _, d := range devs[:3-dsrsCount] {
+				ids = append(ids, d.Code)
+			}
+			_, err = deviceCommand(rm.supply.Code, "attach", map[string]any{"targets": ids}, rm.dryRun)
+			if err != nil {
+				return fmt.Errorf("Error attaching stations %v to %s: %v", ids, rm.supply.Code, err)
+			}
+			slots -= len(ids)
+		}
+
+		// Now pick up remaining FRs
 		devs, err := rest.RefreshDevices(map[string]string{
 			"location":    string(rm.supply.Location),
 			"device_type": "ftl_relay",
@@ -716,15 +873,38 @@ func (rm *RelayMachine) getNextStranded() ([]models.LocationID, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var res []models.LocationID
+	var oors []models.LocationID
 	for rows.Next() {
 		var loc string
 		if err := rows.Scan(&loc); err != nil {
 			return nil, fmt.Errorf("Can't find next OOR device: %v", err)
 		}
-		res = append(res, models.LocationID(loc))
+		oors = append(oors, models.LocationID(loc))
 	}
-	log("%d systems with out-of-network devices", len(res))
+	log("%d systems with out-of-network devices", len(oors))
+
+	var res []models.LocationID
+	for _, n := range oors {
+		edge, err := common.NearestRelay(n.Star())
+		if err != nil {
+			log("Can't find nearest relay to %s: %v", rm.dest, err)
+			continue
+		}
+		// Make sure no other fill:oor ship is heading there already
+		row := DB.QueryRow(`
+					SELECT code
+					FROM json_devices
+					WHERE data->'tags' @> '"fill:oor"'
+					  AND data->'travel'->>'destination'=$1
+					LIMIT 1`, edge)
+		var other string
+		if err := row.Scan(&other); err == nil {
+			log("%s is already travelling to %s", models.NewCodeAlias(other), edge)
+			continue
+		}
+		res = append(res, n)
+	}
+	log("%d unassigned systems with out-of-network devices", len(res))
 	return res, nil
 }
 
@@ -734,10 +914,24 @@ func (rm *RelayMachine) getNextFollow(target string) (models.LocationID, error) 
 		return "", fmt.Errorf("Can't follow %q: %v", target, err)
 	}
 	if info.Location != "" {
+		log("%s is stationary at %s", target, info.Location)
 		return info.Location, nil
 	} else if info.Travel != nil {
+		log("%s is travelling to %s", target, info.Travel.Destination)
 		return info.Travel.Destination, nil
 	} else {
 		return "", fmt.Errorf("Can't figure out how to follow %q", target)
 	}
+}
+
+func (rm *RelayMachine) findNetworkDist() (float32, error) {
+	edge, err := common.NearestRelay(string(rm.dev.Location))
+	if err != nil {
+		return 0, fmt.Errorf("Can't find network edge: %v", err)
+	}
+	dist, err := common.Distance(edge, string(rm.dev.Location))
+	if err != nil {
+		return 0, fmt.Errorf("Can't find distance to network edge %q: %v", edge, err)
+	}
+	return dist, nil
 }
