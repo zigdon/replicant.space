@@ -949,7 +949,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 				} else {
 					change(&d.Status, "travelling")
 				}
-			}, env.DeviceCode)
+			}, allDevs...)
 			log("Departed to %s from %s: %s", ev.Destination, ev.Origin,
 				strings.Join(codeList(allDevs), ", "))
 

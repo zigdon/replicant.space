@@ -65,6 +65,9 @@ type DispatchMachine struct {
 
 	// planned pickup tasks
 	tasks []*pickupTask
+
+	// print timer - only trigger prints once every 30m
+	lastPrint time.Time
 }
 
 func (dm *DispatchMachine) Start(_ *models.Device, dryRun bool) error {
@@ -73,6 +76,7 @@ func (dm *DispatchMachine) Start(_ *models.Device, dryRun bool) error {
 	dm.demand = make(map[string]map[string]int)
 	dm.manifest = make(map[string]map[string]int)
 	dm.dryRun = dryRun
+	dm.lastPrint = time.Now()
 	return dm.UpdateState()
 }
 
@@ -293,16 +297,13 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 			}
 			res[f] = *i - pending[f]
 			if res[f] <= 0 {
-				log("already picking up %d x %s", pending[f], f)
 				delete(res, f)
 				continue
 			}
 			if res[f] >= min(missing[f], 500) {
-				log("will pick up %s", f)
 				good = true
 			}
 		}
-		log("  %v", res)
 		if !good {
 			continue
 		}
@@ -421,6 +422,7 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 	// - If the assigned freighter is at the destination, unload and remove the task
 	// - If it's anywhere else, just delete the task, let a new one be minted
 	log("%d tasks pending", len(dm.tasks))
+	noShips := make(map[string]int)
 	for n, t := range dm.tasks {
 		log("[%d/%d] Processing delivery of %#v %s->%s",
 			n, len(dm.tasks), t.resources, t.pickup, t.dropoff)
@@ -439,9 +441,14 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 		}
 		switch {
 		case t.ship == nil:
+			if noShips[string(t.pickup)] > 0 {
+				log("... already know there are no available ships near %s", t.pickup)
+				continue
+			}
 			log("... finding a ship near %s", t.pickup)
 			ship, err := dm.getShip(t.pickup)
 			if err != nil {
+				noShips[string(t.pickup)]++
 				errs = append(errs, err)
 				continue
 			}
@@ -534,6 +541,28 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 		}
 	}
 	dm.tasks = next
+
+	// If we're really missing a bunch of capacity in an area, queue up some
+	capGap := make(map[string]int)
+	for k, v := range noShips {
+		base := common.ClosestHomes(models.LocationID(k))[0]
+		capGap[base] += v
+	}
+	nextPrint := dm.lastPrint.Add(30 * time.Minute)
+	log("Missing capacity, next print: %s (%s)", nextPrint, time.Until(nextPrint))
+	for k, v := range capGap {
+		log("  %s: %d", k, v)
+	}
+
+	if time.Now().After(nextPrint) {
+		for k, v := range capGap {
+			if v < 50 {
+				continue
+			}
+			common.Print(k, "cargo_freighter", int(v/10), true, dm.dryRun, nil)
+			dm.lastPrint = time.Now()
+		}
+	}
 
 	return eta, errors.Join(errs...)
 }
