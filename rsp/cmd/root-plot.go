@@ -191,6 +191,7 @@ func init() {
 	plotCmd.AddCommand(plotBridgeCmd)
 	plotBridgeCmd.Flags().Float32P("max_hop", "r", 7.5, "Radius for inclusion in the island")
 	plotBridgeCmd.Flags().IntP("limit", "l", 100, "Max systems in the island")
+	plotBridgeCmd.Flags().Bool("only_landing", false, "Skip finding the path, only find the origin")
 }
 
 func plotDistance(cmd *cobra.Command, args []string) error {
@@ -342,55 +343,57 @@ func plotBridge(cmd *cobra.Command, args []string) error {
 
 	slices.Sort(stars)
 	log("Island stars: %s", strings.Join(stars, ", "))
-	var mu sync.Mutex
-	var eg errgroup.Group
-	eg.SetLimit(20)
-	// Find the nearest relay for each star on the island
-	for n, s := range stars {
-		eg.Go(func() error {
-			log("%d/%d: %s...", n, len(stars), s)
-			b := &bridge{
-				start: s,
-				hops:  []string{s},
-			}
-			relay, err := common.NearestRelay(s)
-			if err != nil {
-				return fmt.Errorf("Error finding relay from %q: %v", s, err)
-			}
-			b.end = relay
-			path, err := common.PlotTrip(s, relay, cfg)
-			if err != nil {
-				return fmt.Errorf("No path possible from %q to %q: %v", s, relay, err)
-			}
-			for _, p := range path.Legs {
-				if slices.Contains(stars, p.To) {
-					return nil
+	if !getBool(cmd, "only_landing") {
+		var mu sync.Mutex
+		var eg errgroup.Group
+		eg.SetLimit(20)
+		// Find the nearest relay for each star on the island
+		for n, s := range stars {
+			eg.Go(func() error {
+				log("%d/%d: %s...", n, len(stars), s)
+				b := &bridge{
+					start: s,
+					hops:  []string{s},
 				}
-				b.hops = append(b.hops, p.To)
-				if p.FromPosition.Distance(p.ToPosition) > 10 {
-					b.hubs++
-				} else if p.FromPosition.Distance(p.ToPosition) > 7.5 {
-					b.stations++
+				relay, err := common.NearestRelay(s)
+				if err != nil {
+					return fmt.Errorf("Error finding relay from %q: %v", s, err)
 				}
-				if network[p.To] {
-					break
+				b.end = relay
+				path, err := common.PlotTrip(s, relay, cfg)
+				if err != nil {
+					return fmt.Errorf("No path possible from %q to %q: %v", s, relay, err)
 				}
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			options[s] = b
-			return nil
-		})
-	}
-	eg.Wait()
+				for _, p := range path.Legs {
+					if slices.Contains(stars, p.To) {
+						return nil
+					}
+					b.hops = append(b.hops, p.To)
+					if p.FromPosition.Distance(p.ToPosition) > 10 {
+						b.hubs++
+					} else if p.FromPosition.Distance(p.ToPosition) > 7.5 {
+						b.stations++
+					}
+					if network[p.To] {
+						break
+					}
+				}
+				mu.Lock()
+				defer mu.Unlock()
+				options[s] = b
+				return nil
+			})
+		}
+		eg.Wait()
 
-	var data [][]any
-	for k, v := range options {
-		data = append(data, []any{
-			k, v.end, v.stations, v.hubs, strings.Join(v.hops, "->"),
-		})
+		var data [][]any
+		for k, v := range options {
+			data = append(data, []any{
+				k, v.end, v.stations, v.hubs, strings.Join(v.hops, "->"),
+			})
+		}
+		printTable([]string{"Island", "Network", "# DSRS", "# Hubs", "Path"}, data)
 	}
-	printTable([]string{"Island", "Network", "# DSRS", "# Hubs", "Path"}, data)
 
 	// If there isn't a possible bridge, identify the star nearest to the island.
 	if len(options) == 0 {

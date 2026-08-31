@@ -263,7 +263,7 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 		getNext := func(noGang bool) (*models.Object, error) {
 			var next *models.Object
 			for _, r := range rocks {
-				if r.Status != "active" {
+				if r.Status != "active" || r.ImpactEta.Time().Before(time.Now()) {
 					continue
 				}
 				if mf, ok := taken[r.Designation.Star()]; ok {

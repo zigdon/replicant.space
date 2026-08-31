@@ -617,7 +617,12 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			// plot the next hop
 			route, err := common.PlotTrip(string(rm.dev.Location), rm.dest.Star(), nil)
 			if err != nil {
-				return eta, err
+				route, err = common.PlotTrip(
+					string(rm.dev.Location), rm.dest.Star(),
+					&common.PlotCfg{Partial: true, UseStation: true})
+				if err != nil {
+					return eta, err
+				}
 			}
 			var lost = true
 			devs, err := rest.Devices(map[string]string{"device_type": "ftl_relay"})
@@ -695,9 +700,13 @@ func (rm *RelayMachine) resupply() error {
 		if dsrsCount < 3 {
 			// Make sure we have 3 open slots
 			devs := rm.supply.AttachedDevices
-			for slots < 3 {
+			if slots < 3 {
+				var ids []*models.CodeAlias
+				for _, d := range devs[:3-slots] {
+					ids = append(ids, d.Code)
+				}
 				_, err := deviceCommand(rm.supply.Code, "detach", map[string]any{
-					"targets": devs[:3-slots],
+					"targets": ids,
 				}, rm.dryRun)
 				if err != nil {
 					return fmt.Errorf("Can't free slots on %s: %v", rm.supply.Code, err)
@@ -805,6 +814,9 @@ func (rm *RelayMachine) getNext() ([]models.LocationID, error) {
 		next, err := rm.getNextFollow(follow)
 		log("Following %s to %s", follow, next)
 		return []models.LocationID{next}, err
+	}
+	if dest := getTags(rm.dev)["relay"]; dest != "" {
+		return []models.LocationID{models.LocationID(strings.ToUpper(dest))}, nil
 	}
 	fill := getTags(rm.dev)["fill"]
 	switch fill {

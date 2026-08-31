@@ -68,19 +68,44 @@ type DispatchMachine struct {
 
 	// print timer - only trigger prints once every 30m
 	lastPrint time.Time
+
+	// ftl network
+	inRange map[string]bool
+
+	convoy *common.TravelCoordinator
 }
 
-func (dm *DispatchMachine) Start(_ *models.Device, dryRun bool) error {
-	// Nothing much to do here.
+func (dm *DispatchMachine) Start(dev *models.Device, dryRun bool) error {
+	// Initialize vars
 	dm.supply = make(map[string]map[string]int)
 	dm.demand = make(map[string]map[string]int)
 	dm.manifest = make(map[string]map[string]int)
+	dm.inRange = make(map[string]bool)
 	dm.dryRun = dryRun
 	dm.lastPrint = time.Now()
+
+	// Find our AFC
+	afc := getTags(dev)["convoy"]
+	if afc == "" {
+		return fmt.Errorf("No AFC defined, add convoy:code tag to %s", dev.Code.Alias())
+	}
+	dm.convoy = common.NewTravelCoordinator(models.NewCodeAlias(afc), dryRun)
 	return dm.UpdateState()
 }
 
 func (dm *DispatchMachine) UpdateState() error {
+	// Refresh the current FTL network
+	net, err := common.FullNetwork()
+	if err != nil {
+		return fmt.Errorf("Error getting ftl network: %v", err)
+	}
+	clear(dm.inRange)
+	// The device location is not listed as a connection, add it manually
+	dm.inRange["MENKUNT"] = true
+	for _, c := range net {
+		dm.inRange[c] = true
+	}
+
 	// Clear the current intent and inventory
 	clear(dm.demand)
 	clear(dm.supply)
@@ -230,6 +255,9 @@ func (dm *DispatchMachine) balanceBooks() map[string]map[string]int {
 }
 
 func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int) ([]*pickupTask, error) {
+	if !dm.inRange[loc.Star()] {
+		return nil, fmt.Errorf("%s is not in FTL network", loc)
+	}
 	var tasks []*pickupTask
 	// find nearby stars that have the required materials
 	var fields []string
@@ -255,17 +283,18 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		return tasks, fmt.Errorf("Nothing is missing at %s", loc)
 	}
 
-	avoid := append(constants.Homes, string(loc))
+	avoid := append([]string{string(loc)}, constants.Homes...)
 	params = append(params, pq.Array(avoid), loc.Star())
-	rows, err := DB.Query(fmt.Sprintf(`
+	q := fmt.Sprintf(`
 		SELECT i.designation, %s
 		FROM inventory i JOIN stars s ON i.star = s.designation
-		WHERE i.designation = ANY($%d::TEXT[]) AND (%s)
+		WHERE i.designation != ALL($%d::TEXT[]) AND (%s)
 		ORDER BY s.position <=> (
 		  SELECT position
 		  FROM stars
 		  WHERE designation = $%d
-		)`, strings.Join(fields, ", "), n, strings.Join(wheres, " OR "), n+1), params...)
+		)`, strings.Join(fields, ", "), n, strings.Join(wheres, " OR "), n+1)
+	rows, err := DB.Query(q, params...)
 	if err != nil {
 		return tasks, fmt.Errorf("Error finding potential systems: %v ", err)
 	}
@@ -275,7 +304,6 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		}
 	}()
 
-	log("Searching for %v", missing)
 	for rows.Next() {
 		// Figure out how many resources in the system are accounted for
 		var qres []any
@@ -286,6 +314,9 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		}
 		if err := rows.Scan(qres...); err != nil {
 			return tasks, fmt.Errorf("Error scanning systems: %v", err)
+		}
+		if !dm.inRange[models.LocationID(sys).Star()] {
+			continue
 		}
 		good := false
 		res := make(map[string]int)
@@ -442,7 +473,6 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 		switch {
 		case t.ship == nil:
 			if noShips[string(t.pickup)] > 0 {
-				log("... already know there are no available ships near %s", t.pickup)
 				continue
 			}
 			log("... finding a ship near %s", t.pickup)
@@ -453,7 +483,7 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 				continue
 			}
 			dm.manifest[ship.Code.String()] = t.resources
-			shipEta, err := common.Travel(ship.Code, string(t.pickup), dm.dryRun)
+			shipEta, err := dm.convoy.Queue(ship.Code, string(ship.Location), string(t.pickup))
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -506,7 +536,7 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 					continue
 				}
 			}
-			shipEta, err := common.Travel(t.ship.Code, string(t.dropoff), dm.dryRun)
+			shipEta, err := dm.convoy.Queue(t.ship.Code, string(t.ship.Location), string(t.dropoff))
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -525,6 +555,8 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 			t.complete = true
 		}
 	}
+
+	errs = append(errs, dm.convoy.Ship())
 
 	var next []*pickupTask
 	for _, t := range dm.tasks {
@@ -556,7 +588,7 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 
 	if time.Now().After(nextPrint) {
 		for k, v := range capGap {
-			if v < 50 {
+			if v < 10 {
 				continue
 			}
 			common.Print(k, "cargo_freighter", int(v/10), true, dm.dryRun, nil)

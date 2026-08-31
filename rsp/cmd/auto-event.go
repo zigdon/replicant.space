@@ -33,225 +33,6 @@ import (
 //   Reposition replicant
 //   Complete event
 
-type travelCoordinator struct {
-	queue  map[string]map[string][]*models.CodeAlias
-	added  map[string]bool
-	afc    *models.CodeAlias
-	dryRun bool
-	etas   map[string]map[string]time.Time
-	oor    map[string]bool
-}
-
-func newTravelCoordinator(afc *models.CodeAlias, dryRun bool) *travelCoordinator {
-	return &travelCoordinator{
-		afc:    afc,
-		dryRun: dryRun,
-		added:  make(map[string]bool),
-		queue:  make(map[string]map[string][]*models.CodeAlias),
-		etas:   make(map[string]map[string]time.Time),
-		oor:    make(map[string]bool),
-	}
-}
-
-func (tc *travelCoordinator) Queue(ca *models.CodeAlias, from, to string) (time.Time, error) {
-	if from == to {
-		return time.Time{}, nil
-	}
-	if tc.oor[from] {
-		log("%s is out-of-range", from)
-		return time.Time{}, nil
-	}
-	if _, ok := tc.queue[from]; !ok {
-		tc.queue[from] = make(map[string][]*models.CodeAlias)
-	}
-	if _, ok := tc.etas[from]; !ok {
-		tc.etas[from] = make(map[string]time.Time)
-	}
-	if tc.added[ca.String()] {
-		log("%s already has been queued to ship", ca.Alias())
-		return tc.etas[from][to], nil
-	}
-
-	// Get the ETA for the trip
-	if _, ok := tc.etas[from][to]; !ok {
-		eta, err := common.Travel(ca, to, true)
-		if err != nil {
-			if strings.Contains(err.Error(), "Device is out of comms range") {
-				tc.oor[from] = true
-			}
-			return tc.etas[from][to], fmt.Errorf("Error calculating trip to %s: %v", to, err)
-		}
-		tc.etas[from][to] = eta
-	}
-	log("Adding %s to a %s->%s convoy", ca, from, to)
-	tc.added[ca.String()] = true
-	tc.queue[from][to] = append(tc.queue[from][to], ca)
-
-	return tc.etas[from][to], nil
-}
-
-func (tc *travelCoordinator) Ship() error {
-	if tc.afc == nil {
-		return fmt.Errorf("Can't ship without an AFC")
-	}
-
-	log("Shipping manifest:")
-	for from, v := range tc.queue {
-		for to, ds := range v {
-			log("... %s -> %s: %d devices", from, to, len(ds))
-		}
-	}
-
-	adopt := func(ids []*models.CodeAlias) error {
-		var n int
-		for len(ids) > 0 {
-			n = min(len(ids), 100)
-			_, err := _dc(tc.afc, "adopt", map[string]any{"devices": ids[:n]}, tc.dryRun)
-			if err != nil {
-				log("Failed to adopt %s: %v", ids, err)
-			}
-			ids = ids[n:]
-		}
-		return nil
-	}
-
-	release := func(ids []*models.CodeAlias) error {
-		var n int
-		for len(ids) > 0 {
-			n = min(len(ids), 100)
-			_, err := _dc(tc.afc, "release", map[string]any{"devices": ids[:n]}, tc.dryRun)
-			if err != nil {
-				log("Failed to release %s: %v", ids, err)
-			}
-			ids = ids[n:]
-		}
-		return nil
-	}
-
-	manual := func(ids []*models.CodeAlias, dest string) error {
-		var errs []error
-		log("%d devices do not a convoy to %s make: %s", len(ids), dest, ids)
-		for _, id := range ids {
-			_, err := common.Travel(id, dest, tc.dryRun)
-			errs = append(errs, err)
-		}
-		return errors.Join(errs...)
-	}
-
-	// Make sure we're stationary before starting anything
-	afc, err := rest.RefreshDeviceInfo(tc.afc)
-	if err != nil {
-		return err
-	}
-	if afc.Location == "" {
-		return fmt.Errorf("AFC in motion")
-	}
-
-	// Loop over the from/to pairs
-	for from, dests := range tc.queue {
-		for to, passengers := range dests {
-			if len(passengers) == 0 {
-				continue
-			}
-
-			afc, err := rest.DeviceInfo(tc.afc)
-			if err != nil {
-				return err
-			}
-
-			// Make sure there aren't any adopted devices
-			if devs := afc.ControlledDevices; len(devs) > 0 {
-				var ids []*models.CodeAlias
-				for _, d := range devs {
-					ids = append(ids, d.Code)
-				}
-				if err := release(ids); err != nil {
-					return err
-				}
-			}
-
-			// If there are 5 or fewer devices to ship, just ship them normally, done.
-			if len(passengers) <= 5 {
-				if err := manual(passengers, to); err != nil {
-					return err
-				}
-				continue
-			}
-			log("Shipping %d devices from %s to %s...", len(passengers), from, to)
-			// Adopt all the devices that need to be shipped, batch 100 at a time
-			for n := 0; n < len(passengers); n += 100 {
-				// Make sure the AFC is settled before we start
-				for {
-					afc, err = rest.RefreshDeviceInfo(afc.Code)
-					if err != nil {
-						return err
-					}
-					if afc.Location != "" {
-						break
-					}
-					time.Sleep(time.Second)
-				}
-				var ids []*models.CodeAlias
-				if n+100 < len(passengers) {
-					ids = passengers[n : n+100]
-				} else {
-					ids = passengers[n:]
-				}
-				if err := adopt(ids); err != nil {
-					return err
-				}
-				// Send travel command to the afc
-				log("Launching convoy %s->%s: %s", from, to, ids)
-				if string(afc.Location) != to {
-					if _, err := common.Travel(afc.Code, to, tc.dryRun); err != nil {
-						return fmt.Errorf("Failed to send AFC: %v", err)
-					}
-				} else {
-					if _, err := _dc(afc.Code, "assemble", nil, tc.dryRun); err != nil {
-						return fmt.Errorf("Failed to assemble fleet to AFC: %v", err)
-					}
-				}
-				// Punt all the devices
-				var errs []error
-				errs = append(errs, release(ids))
-				// Even if there's an error, abort the AFC's travel
-				if string(afc.Location) != to {
-					_, err = _dc(afc.Code, "deactivate", nil, tc.dryRun)
-					errs = append(errs, err)
-				}
-				if err := errors.Join(errs...); err != nil {
-					return fmt.Errorf("Failed to punt %d devices to %s: %v", len(ids), to, err)
-				}
-			}
-			delete(tc.queue[from], to)
-
-			// Wait until the AFC is stationary again, only poll the DB, it should be
-			// updated by the return event.
-			log("Waiting for %s to return", afc.Code)
-			check := time.Now()
-			var fn func(*models.CodeAlias) (*models.Device, error)
-			for {
-				if time.Since(check) > 5*time.Second {
-					fn = rest.RefreshDeviceInfo
-					check = time.Now()
-				} else {
-					fn = rest.DeviceInfo
-				}
-				afc, err := fn(tc.afc)
-				if err != nil {
-					log("Error getting AFC info: %v", err)
-				}
-				if afc != nil && afc.Location != "" {
-					log("AFC is stationary at %s", afc.Location)
-					break
-				}
-				time.Sleep(200 * time.Millisecond)
-			}
-		}
-	}
-	return nil
-}
-
 type replicantTask struct {
 	vessel *models.CodeAlias
 	rep    *models.CodeAlias
@@ -271,7 +52,7 @@ type eventState struct {
 	eta         map[string]time.Time
 	transports  []*models.Device
 	dryRun      bool
-	convoy      *travelCoordinator
+	convoy      *common.TravelCoordinator
 	home        models.LocationID
 
 	required   map[string]int
@@ -282,7 +63,7 @@ type eventState struct {
 	transitRes map[string]int
 }
 
-func newEventState(ev *models.Event, tc *travelCoordinator, dryRun bool) *eventState {
+func newEventState(ev *models.Event, tc *common.TravelCoordinator, dryRun bool) *eventState {
 	home := common.ClosestHomes(ev.Location)[0]
 	return &eventState{
 		event:       ev,
@@ -983,7 +764,7 @@ func (es *eventState) actuate() error {
 //	See which option is even possible
 //	See the resource cost for each
 //	Pick the cheapest
-func pickCriteria(ev *models.Event, tc *travelCoordinator, dryRun bool) (*eventState, error) {
+func pickCriteria(ev *models.Event, tc *common.TravelCoordinator, dryRun bool) (*eventState, error) {
 	opts := ev.Criteria
 	es := newEventState(ev, tc, dryRun)
 
@@ -1035,7 +816,7 @@ func pickCriteria(ev *models.Event, tc *travelCoordinator, dryRun bool) (*eventS
 	return es, fmt.Errorf("No valid option found")
 }
 
-func eventCleanup(convoy *travelCoordinator, currentEvents []*models.Event, dryRun bool) error {
+func eventCleanup(convoy *common.TravelCoordinator, currentEvents []*models.Event, dryRun bool) error {
 	evTags := make(map[string]bool)
 	for _, e := range currentEvents {
 		evTags[fmt.Sprintf("event:%s", strings.ToLower(e.Designation))] = true
@@ -1154,7 +935,7 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 
 	afc := models.NewCodeAlias(getString(cmd, "afc"))
 
-	tc := newTravelCoordinator(afc, dryRun)
+	tc := common.NewTravelCoordinator(afc, dryRun)
 	if err := eventCleanup(tc, events, dryRun); err != nil {
 		log("**** Error cleaning up obsolete tags: %v", err)
 	}

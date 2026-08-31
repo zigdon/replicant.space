@@ -2,6 +2,7 @@ package models
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -62,7 +63,11 @@ func (a *Account) Fill() error {
 	slices.SortFunc(a.ReplicantList, func(a, b *Replicant) int {
 		return cmp.Compare(a.Name, b.Name)
 	})
-	return nil
+	var errs []error
+	for _, r := range a.ReplicantList {
+		errs = append(errs, r.Fill())
+	}
+	return errors.Join(errs...)
 }
 
 type Message struct {

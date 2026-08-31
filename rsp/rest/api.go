@@ -86,7 +86,7 @@ func do(method, path string, data []byte, args ...any) ([]byte, error) {
 			return nil, err
 		}
 		if resp.StatusCode == 404 {
-			panic("404")
+			panic(fmt.Sprintf("%s -> 404", url))
 		}
 		if resp.StatusCode == 429 {
 			log("Too many requests, backing off for %s", backoff)

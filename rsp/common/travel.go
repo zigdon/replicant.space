@@ -48,6 +48,8 @@ func getCachedTrip(vessel, from, to string) *etaCache {
 	if err := row.Scan(&eta, &via); err != nil {
 		if !strings.Contains(err.Error(), "no rows in result set") {
 			Log("Error scanning result: %v", err)
+		} else {
+			Log("No cached plan")
 		}
 		return nil
 	}
