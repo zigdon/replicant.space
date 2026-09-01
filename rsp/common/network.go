@@ -3,13 +3,21 @@ package common
 import (
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
+var _networkCache []string
+var _networkCacheTS time.Time
+
 // Get all the systems currently in range
 func FullNetwork() ([]string, error) {
+	if _networkCache != nil && time.Since(_networkCacheTS) < 10*time.Minute {
+		return _networkCache, nil
+	}
+
 	// Loop over all the replicants
 	// In each stationary one, add that system
 	// Find relay devices in the system, add their connections
@@ -60,5 +68,7 @@ func FullNetwork() ([]string, error) {
 	}
 	slices.Sort(res)
 
+	_networkCacheTS = time.Now()
+	_networkCache = res
 	return res, err
 }

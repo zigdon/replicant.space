@@ -632,7 +632,7 @@ func Distance(src, dst string) (float32, error) {
 
 func NearestRelay(dest string) (string, error) {
 	// Get the home relay network
-	net, err := rest.DeviceNetwork(models.NewCodeAlias("sh-1"))
+	net, err := FullNetwork()
 	if err != nil {
 		return "", err
 	}
@@ -642,8 +642,8 @@ func NearestRelay(dest string) (string, error) {
 	}
 	var closest float32
 	var relay string
-	for _, r := range net.Connections {
-		rStar, err := models.NewStar(r.Star)
+	for _, r := range net {
+		rStar, err := models.NewStar(r)
 		if err != nil {
 			return "", err
 		}

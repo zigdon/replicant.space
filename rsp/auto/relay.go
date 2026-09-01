@@ -831,14 +831,13 @@ func (rm *RelayMachine) getNext() ([]models.LocationID, error) {
 
 func (rm *RelayMachine) getNextBeacons() ([]models.LocationID, error) {
 	// find the closest system that has an ftl beacons but is not networked
-	net, err := rest.DeviceNetwork(models.NewCodeAlias("sh-1"))
+	net, err := common.FullNetwork()
 	if err != nil {
 		return nil, fmt.Errorf("Can't get ftl network: %v", err)
 	}
 	inNet := make(map[string]bool)
-	inNet["MENKUNT"] = true
-	for _, c := range net.Connections {
-		inNet[c.Star] = true
+	for _, c := range net {
+		inNet[c] = true
 	}
 	log("%d systems in network", len(inNet))
 	fbs, err := rest.Devices(map[string]string{"device_type": "ftl_beacon"})

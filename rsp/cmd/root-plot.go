@@ -12,7 +12,6 @@ import (
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
-	"github.com/zigdon/rsp/rest"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -317,12 +316,12 @@ func plotBridge(cmd *cobra.Command, args []string) error {
 
 	// Load the relay network
 	network := make(map[string]bool)
-	net, err := rest.DeviceNetwork(models.NewCodeAlias("sh-1"))
+	net, err := common.FullNetwork()
 	if err != nil {
 		return err
 	}
-	for _, c := range net.Connections {
-		network[c.Star] = true
+	for _, c := range net {
+		network[c] = true
 	}
 
 	type bridge struct {

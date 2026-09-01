@@ -88,7 +88,7 @@ func (t *Travel) Notification() *Notification {
 }
 
 type Replicant struct {
-	AttachedDevices     []string                     `json:"attached_devices"`
+	AttachedDevices     []*DevicePointer             `json:"attached_devices"`
 	Cargo               []*Inventory                 `json:"cargo"`
 	Code                *CodeAlias                   `json:"replicant_code"`
 	Created             *JSONTime                    `json:"created_at"`
@@ -150,7 +150,12 @@ func (r *Replicant) Fill() error {
 			cmp.Compare(a.Code.Alias(), b.Code.Alias()),
 		)
 	})
-	slices.Sort(r.AttachedDevices)
+	slices.SortFunc(r.AttachedDevices, func(a, b *DevicePointer) int {
+		return cmp.Or(
+			cmp.Compare(a.Code.Type(), b.Code.Type()),
+			cmp.Compare(a.Code.Num(), b.Code.Num()),
+		)
+	})
 	if r.CurrentStar == "" && r.CurrentLocation != "" {
 		r.CurrentStar = r.CurrentLocation.Star()
 	}
@@ -178,7 +183,7 @@ func (r *Replicant) Details() []*tview.TreeNode {
 	if len(r.AttachedDevices) > 0 {
 		ad := TreeNodeGen("Attached Devices", func() (res []string) {
 			for _, d := range r.AttachedDevices {
-				res = append(res, d)
+				res = append(res, d.Code.Alias())
 			}
 			return
 		})

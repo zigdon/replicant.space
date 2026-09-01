@@ -186,8 +186,18 @@ type StreamAmiDeviceDetail struct {
 type StreamAmiTravelComplete struct {
 	Destination string                   `json:"destination"`
 	Errors      []*StreamAmiDeviceDetail `json:"errors"`
-	Relayed     []*CodeAlias             `json:"relayed"`
-	Skipped     []*StreamAmiDeviceDetail `json:"skipped"`
+	Relayed     []*CodeAlias
+	RawRelayed  []struct {
+		DeviceCode *CodeAlias `json:"device_code"`
+	} `json:"relayed"`
+	Skipped []*StreamAmiDeviceDetail `json:"skipped"`
+}
+
+func (satc *StreamAmiTravelComplete) Fill() error {
+	for _, r := range satc.RawRelayed {
+		satc.Relayed = append(satc.Relayed, r.DeviceCode)
+	}
+	return nil
 }
 
 type StreamAmiWithdrawn struct {
