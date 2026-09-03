@@ -30,6 +30,11 @@ import (
 
 const distLimit = 200
 
+type totals struct {
+	collected float32
+	delivered float32
+}
+
 type pickupTask struct {
 	pickup    models.LocationID
 	dropoff   models.LocationID
@@ -71,6 +76,9 @@ type DispatchMachine struct {
 
 	// ftl network
 	inRange map[string]bool
+
+	// totals of a single pass
+	stats map[string]*totals
 
 	convoy *common.TravelCoordinator
 }
@@ -398,8 +406,15 @@ func (dm *DispatchMachine) releaseLostCargo() error {
 			return err
 		}
 		ca := models.NewCodeAlias(c)
-		if _, err := deviceCommand(ca, "deposit_resources", nil, dm.dryRun); err != nil {
+		if res, err := deviceCommand(ca, "deposit_resources", nil, dm.dryRun); err != nil {
 			log("Error droping inventory from %s: %v", ca.Alias(), err)
+		} else {
+			if dm.stats[l] == nil {
+				dm.stats[l] = new(totals)
+			}
+			for _, v := range res.Deposited {
+				dm.stats[l].delivered += v
+			}
 		}
 		lost[l] = append(lost[l], ca.Alias())
 	}
@@ -419,6 +434,7 @@ func (dm *DispatchMachine) releaseLostCargo() error {
 }
 
 func (dm *DispatchMachine) Process() (time.Time, error) {
+	dm.stats = make(map[string]*totals)
 	eta := time.Now()
 	if err := dm.UpdateState(); err != nil {
 		return eta, err
@@ -457,21 +473,7 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 	for n, t := range dm.tasks {
 		log("[%d/%d] Processing delivery of %#v %s->%s",
 			n, len(dm.tasks), t.resources, t.pickup, t.dropoff)
-		if t.ship != nil {
-			info, err := rest.DeviceInfo(t.ship.Code)
-			if err != nil {
-				log("Error updating ship info %s: %v", t.ship.Code, err)
-			} else {
-				t.ship = info
-			}
-		}
-		if t.Empty() {
-			log("Empty task, skipping")
-			t.complete = true
-			continue
-		}
-		switch {
-		case t.ship == nil:
+		if t.ship == nil {
 			if noShips[string(t.pickup)] > 0 {
 				continue
 			}
@@ -493,23 +495,46 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 				DB.AddDelivery(
 					dm.dryRun, string(t.pickup), string(t.dropoff), ship.Code.String(), t.resources))
 			t.ship = ship
-		case t.ship.Location == "":
+			if !shipEta.IsZero() {
+				continue
+			}
+		} else {
+			info, err := rest.DeviceInfo(t.ship.Code)
+			if err != nil {
+				log("Error updating ship info %s: %v", t.ship.Code, err)
+			} else {
+				t.ship = info
+			}
+		}
+		if t.Empty() {
+			log("Empty task, skipping")
+			t.complete = true
+			continue
+		}
+		switch t.ship.Location {
+		case "":
 			tripEta := t.ship.Travel.Arrives.Time().Truncate(time.Second)
 			log("%s is in transit to %s: %s (%s)",
 				t.ship, t.ship.Travel.Destination, tripEta, time.Until(tripEta).Truncate(time.Second))
 			eta = sooner(eta, tripEta)
-		case t.ship.Location == t.dropoff:
+		case t.dropoff:
 			if len(t.ship.Cargo) > 0 {
 				log("%s ready for drop-off at %s", t.ship, t.ship.Location)
-				_, err := deviceCommand(t.ship.Code, "deposit_resources", nil, dm.dryRun)
+				res, err := deviceCommand(t.ship.Code, "deposit_resources", nil, dm.dryRun)
 				if err != nil {
 					errs = append(errs,
 						fmt.Errorf("%s can't deposit at %s: %v", t.ship.Code, t.pickup, err))
 					continue
 				}
+				if dm.stats[string(t.dropoff)] == nil {
+					dm.stats[string(t.dropoff)] = new(totals)
+				}
+				for _, v := range res.Deposited {
+					dm.stats[string(t.dropoff)].delivered += v
+				}
 			}
 			t.complete = true
-		case t.ship.Location == t.pickup:
+		case t.pickup:
 			log("%s ready for pick up at %s->%s", t.ship, t.ship.Location, t.dropoff)
 			res := t.resources
 			if len(t.ship.Cargo) > 0 {
@@ -523,7 +548,7 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 				}
 			}
 			if len(res) > 0 {
-				_, err := deviceCommand(t.ship.Code, "collect_resources", map[string]any{
+				res, err := deviceCommand(t.ship.Code, "collect_resources", map[string]any{
 					"resources": res,
 				}, dm.dryRun)
 				if err != nil {
@@ -534,6 +559,12 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 					rest.Location(string(t.pickup))
 					t.complete = true
 					continue
+				}
+				if dm.stats[string(t.ship.Location)] == nil {
+					dm.stats[string(t.ship.Location)] = new(totals)
+				}
+				for _, v := range res.Collected {
+					dm.stats[string(t.ship.Location)].collected += v
 				}
 			}
 			shipEta, err := dm.convoy.Queue(t.ship.Code, string(t.ship.Location), string(t.dropoff))
@@ -565,8 +596,17 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 			delete(dm.manifest, t.ship.Code.String())
 			if t.ship != nil {
 				errs = append(errs, DB.ClearDelivery(dm.dryRun, t.ship.Code.String()))
-				_, err := deviceCommand(t.ship.Code, "deposit_resources", nil, dm.dryRun)
-				errs = append(errs, err)
+				res, err := deviceCommand(t.ship.Code, "deposit_resources", nil, dm.dryRun)
+				if err != nil {
+					errs = append(errs, err)
+				} else {
+					if dm.stats[string(t.ship.Location)] == nil {
+						dm.stats[string(t.ship.Location)] = new(totals)
+					}
+					for _, v := range res.Deposited {
+						dm.stats[string(t.ship.Location)].delivered += v
+					}
+				}
 			}
 		} else {
 			next = append(next, t)
@@ -595,6 +635,15 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 			dm.lastPrint = time.Now()
 		}
 	}
+
+	var data [][]any
+	for k, t := range dm.stats {
+		data = append(data, []any{k, t.collected, t.delivered})
+	}
+	slices.SortFunc(data, func(a, b []any) int {
+		return cmp.Compare(a[0].(string), b[0].(string))
+	})
+	common.PrintTable([]string{"Location", "Pickup", "Dropoff"}, data)
 
 	return eta, errors.Join(errs...)
 }

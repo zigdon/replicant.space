@@ -137,7 +137,7 @@ type Star struct {
 	Position        *Position `json:"position"`
 	SpectralType    string    `json:"spectral_type"`
 	StellarClass    string    `json:"stellar_class"`
-	TemperatureK    int       `json:"temperature_k"`
+	TemperatureK    float32   `json:"temperature_k"`
 	Region          string    `json:"region"`
 }
 
@@ -295,8 +295,8 @@ type Planet struct {
 	Salvage             []*Salvage   `json:"salvage"`
 	Scanned             bool         `json:"scanned"`
 	SurfaceGravity      float32      `json:"surface_gravity"`
-	SurfaceTempC        int          `json:"surface_temp_c"`
-	SurfaceTempK        int          `json:"surface_temp_k"`
+	SurfaceTempC        float32      `json:"surface_temp_c"`
+	SurfaceTempK        float32      `json:"surface_temp_k"`
 	Tags                []string     `json:"tags"`
 	Type                string       `json:"type"`
 	Star                LocationID

@@ -94,10 +94,14 @@ func (db *Cache) AddIntent(location string, resources map[string]int) error {
 	// Fetch existing demand if any
 	row := db.DB.QueryRow("SELECT demand FROM intent WHERE location = $1", location)
 	var demandBytes JSONB[map[string]int]
-	if err := row.Scan(&demandBytes); err != nil {
+	if err := row.Scan(&demandBytes); err != nil &&
+		!strings.Contains(err.Error(), "no rows in result set") {
 		return err
 	}
-	existingDemand := demandBytes.Data
+	existingDemand := make(map[string]int)
+	if demandBytes.Data != nil {
+		existingDemand = demandBytes.Data
+	}
 
 	for k, v := range resources {
 		cleanK := strings.ToLower(strings.TrimSpace(k))

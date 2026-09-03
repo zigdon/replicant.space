@@ -30,6 +30,12 @@ func NewTravelCoordinator(afc *models.CodeAlias, dryRun bool) *TravelCoordinator
 	}
 }
 
+func (tc *TravelCoordinator) Reset() {
+	clear(tc.queue)
+	clear(tc.oor)
+	clear(tc.added)
+}
+
 func (tc *TravelCoordinator) Queue(ca *models.CodeAlias, from, to string) (time.Time, error) {
 	if from == to {
 		return time.Time{}, nil
@@ -125,6 +131,7 @@ func (tc *TravelCoordinator) Ship() error {
 	}
 
 	// Loop over the from/to pairs
+	var errs []error
 	for from, dests := range tc.queue {
 		for to, passengers := range dests {
 			if len(passengers) == 0 {
@@ -133,7 +140,8 @@ func (tc *TravelCoordinator) Ship() error {
 
 			afc, err := rest.DeviceInfo(tc.afc)
 			if err != nil {
-				return err
+				errs = append(errs, fmt.Errorf("AFC error, can't get info for %q: %v", tc.afc.Alias(), err))
+				break
 			}
 
 			// Make sure there aren't any adopted devices
@@ -143,30 +151,38 @@ func (tc *TravelCoordinator) Ship() error {
 					ids = append(ids, d.Code)
 				}
 				if err := release(ids); err != nil {
-					return err
+					errs = append(errs, fmt.Errorf("AFC error, can't release devices: %v", err))
+					break
 				}
 			}
 
 			// If there are 5 or fewer devices to ship, just ship them normally, done.
 			if len(passengers) <= 5 {
-				if err := manual(passengers, to); err != nil {
-					return err
-				}
+				errs = append(errs, manual(passengers, to))
 				continue
 			}
 			Log("Shipping %d devices from %s to %s...", len(passengers), from, to)
 			// Adopt all the devices that need to be shipped, batch 100 at a time
 			for n := 0; n < len(passengers); n += 100 {
 				// Make sure the AFC is settled before we start
-				for {
+				waitStart := time.Now()
+				var returned bool
+				for time.Since(waitStart) < 5*time.Minute {
 					afc, err = rest.RefreshDeviceInfo(afc.Code)
 					if err != nil {
-						return err
+						errs = append(errs, fmt.Errorf("Can't refresh afc info: %v", err))
+						time.Sleep(time.Second)
+						continue
 					}
 					if afc.Location != "" {
+						returned = true
 						break
 					}
 					time.Sleep(time.Second)
+				}
+				if !returned {
+					errs = append(errs, fmt.Errorf("AFC never resettled after 5 minutes"))
+					break
 				}
 				var ids []*models.CodeAlias
 				if n+100 < len(passengers) {
@@ -175,32 +191,48 @@ func (tc *TravelCoordinator) Ship() error {
 					ids = passengers[n:]
 				}
 				if err := adopt(ids); err != nil {
-					return err
+					errs = append(errs, fmt.Errorf("AFC failed to adopt %v: %v", ids, err))
+					continue
 				}
 				// Send travel command to the afc
-				Log("Launching convoy %s->%s: %s", from, to, ids)
+				Log("Launching convoy %s->%s? %s", from, to, ids)
 				if string(afc.Location) != to {
 					if _, err := Travel(afc.Code, to, tc.dryRun); err != nil {
-						return fmt.Errorf("Failed to send AFC: %v", err)
+						errs = append(errs, fmt.Errorf("Failed to send AFC to %q: %v", to, err))
+						continue
 					}
 				} else {
 					if _, err := tc.dc(afc.Code, "assemble", nil); err != nil {
-						return fmt.Errorf("Failed to assemble fleet to AFC: %v", err)
+						errs = append(errs,
+							fmt.Errorf("Failed to assemble fleet to AFC at %q: %v", to, err))
+						continue
 					}
 				}
+				// Wait until we see an event for one of the fleet members actually moving
+				// But only 10 seconds, then give up
+				waitStart = time.Now()
+				Log("Waiting for movement in %s", ids[0])
+				for {
+					time.Sleep(100 * time.Millisecond)
+					mem, err := rest.DeviceInfo(ids[0])
+					if err == nil && mem.Status != "idle" {
+						Log("%s is moving: %s", mem.Code, mem.Status)
+						break
+					}
+					if time.Since(waitStart) > 10*time.Second {
+						Log("Timeout waiting for movement, giving up on waiting")
+						break
+					}
+				}
+
 				// Punt all the devices
-				var errs []error
 				errs = append(errs, release(ids))
 				// Even if there's an error, abort the AFC's travel
 				if string(afc.Location) != to {
 					_, err = tc.dc(afc.Code, "deactivate", nil)
 					errs = append(errs, err)
 				}
-				if err := errors.Join(errs...); err != nil {
-					return fmt.Errorf("Failed to punt %d devices to %s: %v", len(ids), to, err)
-				}
 			}
-			delete(tc.queue[from], to)
 
 			// Wait until the AFC is stationary again, only poll the DB, it should be
 			// updated by the return event.
@@ -226,7 +258,11 @@ func (tc *TravelCoordinator) Ship() error {
 			}
 		}
 	}
-	return nil
+
+	// We've handled everything we can, clear the queue
+	tc.Reset()
+
+	return errors.Join(errs...)
 }
 
 func (tc *TravelCoordinator) dc(id *models.CodeAlias, cmd string, cfg map[string]any) (*models.CommandResp, error) {

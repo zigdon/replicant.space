@@ -381,7 +381,7 @@ func (d *Device) HasCapability(c string) bool {
 
 type DeviceTags struct {
 	DeviceCode *CodeAlias `json:"device_code"`
-	Tags []string `json:"tags"`
+	Tags       []string   `json:"tags"`
 }
 
 func (d *DeviceTags) Cache() error {
@@ -454,11 +454,14 @@ type CommandResp struct {
 	AvailableSites       []*AvailableSite    `json:"available_sites"`
 	Belt                 string              `json:"belt"`
 	BlueprintDiscovered  string              `json:"blueprint_discovered"`
+	CargoUsed            int                 `json:"cargo_used"`
 	CarrierCode          *CodeAlias          `json:"carrier_code"`
+	Collected            map[string]float32  `json:"collected"`
 	Completes            *JSONTime           `json:"completes_at"`
 	Controller           *ControllerStatus   `json:"controller"`
 	ControllerCode       *CodeAlias          `json:"controller_code"`
 	Departed             *JSONTime           `json:"departed_at"`
+	Deposited            map[string]float32  `json:"deposited"`
 	Destination          string              `json:"destination"`
 	DestinationName      string              `json:"destination_name"`
 	DestinationType      string              `json:"destination_type"`

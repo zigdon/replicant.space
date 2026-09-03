@@ -108,7 +108,11 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 		rm.dest = dest.Location
 	case getTags(rm.dev)["fill"] != "":
 		// Just say our current location is the destination, we'll figure it out later
-		rm.dest = rm.dev.Location
+		if rm.dev.Location != "" {
+			rm.dest = rm.dev.Location
+		} else {
+			rm.dest = rm.dev.Travel.Destination
+		}
 	default:
 		return fmt.Errorf("Can't figure relay destination")
 	}
@@ -121,6 +125,8 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 		return fmt.Errorf("Can't find exactly one device tagged supply:%s, found %d", d.Code.Alias(), len(p.Devices))
 	}
 	rm.supply = p.Devices[0]
+
+	log("RelayMachine init done")
 
 	return rm.UpdateState()
 }
@@ -719,6 +725,9 @@ func (rm *RelayMachine) resupply() error {
 			if err != nil {
 				return fmt.Errorf("Can't find stations at %q: %v", rm.supply.Location, err)
 			}
+			devs = slices.DeleteFunc(devs, func(d *models.Device) bool {
+				return d.AttachedToDeviceCode != nil
+			})
 			if len(devs) < 3-dsrsCount {
 				return fmt.Errorf("Not enough stations at %q: need %d, found %d",
 					rm.supply.Location, 3-dsrsCount, len(devs))
@@ -938,7 +947,7 @@ func (rm *RelayMachine) getNextFollow(target string) (models.LocationID, error) 
 func (rm *RelayMachine) findNetworkDist() (float32, error) {
 	edge, err := common.NearestRelay(string(rm.dev.Location))
 	if err != nil {
-		return 0, fmt.Errorf("Can't find network edge: %v", err)
+		return 0, fmt.Errorf("Can't find network edge from %q: %v", rm.dev.Location, err)
 	}
 	dist, err := common.Distance(edge, string(rm.dev.Location))
 	if err != nil {

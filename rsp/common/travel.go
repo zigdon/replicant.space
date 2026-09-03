@@ -133,8 +133,12 @@ func getBestRoute(info *models.Device, to models.LocationID, via []string) (map[
 		"destination": to,
 		"dry_run":     true,
 	}
-	// Allow forcing direct travel, if we need that for some reason
-	if len(via) == 1 && via[0] == "-" {
+	// Allow forcing direct travel, for now AFC should use this, because waypoints are broken.
+	if info.Type == "ami_fleet_controller" {
+		Log("Forcing AFC to use 'auto' travel")
+		cfg["via"] = "auto"
+		return cfg, nil
+	} else if len(via) == 1 && via[0] == "-" {
 		Log("Direct travel requested, not applying auto-route")
 		cfg["via"] = "direct"
 		return cfg, nil

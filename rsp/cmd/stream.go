@@ -857,6 +857,14 @@ func readStream(cmd *cobra.Command, args []string) error {
 				for _, i := range inv {
 					i.Quantity += ev.Resources[i.ResourceType]
 				}
+				for k, v := range ev.Resources {
+					if slices.ContainsFunc(inv, func(i *models.Inventory) bool {
+						return i.ResourceType == k
+					}) {
+						continue
+					}
+					inv = append(inv, &models.Inventory{Quantity: v, ResourceType: k})
+				}
 				change(&d.Cargo, inv)
 			}, env.DeviceCode)
 			for k := range ev.Resources {
@@ -896,7 +904,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 			devs = append(devs, ev.AttachedDevices...)
 			log("Arrived at %s from %s: %s", ev.Destination, ev.Origin, strings.Join(codeList(devs), ", "))
 			update(func(d *models.Device) {
-				change(&d.Location, ev.Destination)
+				change(&d.Location, env.Location)
 				change(&d.Travel, nil)
 				change(&d.InControlRange, relayNetwork[ev.Destination.Star()])
 				change(&d.Status, "idle")
