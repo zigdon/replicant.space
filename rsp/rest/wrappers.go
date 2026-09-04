@@ -832,10 +832,14 @@ func ReloadStars() (string, error) {
 			return true
 		}
 		if a.SpectralType != b.SpectralType {
-			log("%q: spectral type updated: %q -> %q", a.Designation, a.SpectralType, b.SpectralType)
+			// log("%q: spectral type updated: %q -> %q", a.Designation, a.SpectralType, b.SpectralType)
 			return true
 		}
 		if a.Region != b.Region {
+			return true
+		}
+		if a.HasHub != b.HasHub {
+			// log("%q: has hub updated: %v -> %v", a.Designation, a.HasHub, b.HasHub)
 			return true
 		}
 		return false
@@ -876,7 +880,7 @@ func ReloadStars() (string, error) {
 	}
 
 	// Update has_life based on the exploration we've already done
-	updt, err := db.DB.Exec(`
+	updt, err := db.Exec(`
 		UPDATE stars
 		SET has_life=true
 		WHERE designation IN (
@@ -893,7 +897,7 @@ func ReloadStars() (string, error) {
 	}
 
 	// Set a star to be explored if any of its planets have been scanned
-	updt, err = db.DB.Exec(`
+	updt, err = db.Exec(`
 		UPDATE stars
 		SET explored=true
 		WHERE designation IN (
@@ -902,11 +906,11 @@ func ReloadStars() (string, error) {
 		  WHERE scanned
 		)`)
 	if err != nil {
-		return res(), fmt.Errorf("Error updating hubs: %v", err)
+		return res(), fmt.Errorf("Error updating explored: %v", err)
 	}
 	expCnt, err := updt.RowsAffected()
 	if err != nil {
-		return res(), fmt.Errorf("Error counting hubs: %v", err)
+		return res(), fmt.Errorf("Error counting explored: %v", err)
 	}
 
 	log("Manual system update: %d systems with life, %d explored", lifeCnt, expCnt)

@@ -741,7 +741,6 @@ func readStream(cmd *cobra.Command, args []string) error {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-			// ev.DeviceType
 			update(func(d *models.Device) {
 				change(&d.Status, "printing")
 				change(&d.Printing, &models.DevicePrint{
@@ -751,6 +750,15 @@ func readStream(cmd *cobra.Command, args []string) error {
 				})
 			}, env.DeviceCode)
 			log("Printing %s at %s: ETA %s", ev.DeviceType, env.DeviceCode, ev.Completes)
+			// Update the location inventory
+			bp := common.GetBP(ev.DeviceType)
+			if bp != nil {
+				if err := db.UpdateInventory(false, string(env.Location), bp.Resources); err != nil {
+					log("Error updated inventory at %q: %v", env.Location, err)
+				} else {
+					log("Consumed inventory at %s: %v", env.Location, bp.Resources)
+				}
+			}
 		case "relay.activated":
 			_, err := models.Parse[models.StreamRelayActivated](payload)
 			if err != nil {

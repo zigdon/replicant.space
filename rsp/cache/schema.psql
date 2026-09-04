@@ -159,6 +159,7 @@ CREATE TABLE IF NOT EXISTS device_logs(
 CREATE TABLE IF NOT EXISTS tasks(
   id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   added TIMESTAMPTZ,
+  started TIMESTAMPTZ,
   completed TIMESTAMPTZ,
   type TEXT,
   title TEXT,
@@ -187,7 +188,15 @@ CREATE TABLE IF NOT EXISTS inventory(
   rares INT NOT NULL DEFAULT 0,
   silicates INT NOT NULL DEFAULT 0,
   structural INT NOT NULL DEFAULT 0,
-  volatiles INT NOT NULL DEFAULT 0
+  volatiles INT NOT NULL DEFAULT 0,
+  CONSTRAINT check_resources_non_negative CHECK (
+    carbon >= 0 AND
+    conductive >= 0 AND
+    rares >= 0 AND
+    silicates >= 0 AND
+    structural >= 0 AND
+    volatiles >= 0
+  )
 );
 
 CREATE TABLE IF NOT EXISTS events(

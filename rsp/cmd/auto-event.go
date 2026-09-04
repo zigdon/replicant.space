@@ -292,7 +292,7 @@ func (es *eventState) shipRes(res map[string]int) error {
 		}
 	}
 	if len(res) > 0 {
-		errs = append(errs, fmt.Errorf("Not enough freighters available: %v remain", res))
+		errs = append(errs, fmt.Errorf("Not enough freighters available at %s: %v remain", es.home, res))
 	}
 
 	return errors.Join(errs...)
@@ -363,7 +363,7 @@ func (es *eventState) shipDev(devs []*models.CodeAlias) error {
 		}
 		if len(devs) > 0 {
 			errs = append(errs,
-				fmt.Errorf("Not enough platforms available: %d (%v) remain", len(devs), devs))
+				fmt.Errorf("Not enough platforms available at %s: %d (%v) remain", es.home, len(devs), devs))
 		}
 	}
 

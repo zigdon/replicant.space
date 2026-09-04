@@ -277,6 +277,10 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 				if err != nil {
 					return nil, err
 				}
+				if dist > 500 {
+					log("Ignoring %s, %.2f is too far)", r.Description, dist)
+					continue
+				}
 				if closest == 0 || dist < closest {
 					closest = dist
 					next = r

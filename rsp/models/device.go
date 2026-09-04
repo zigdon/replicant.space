@@ -481,7 +481,7 @@ type CommandResp struct {
 	ResourcesRecovered   map[string]int      `json:"resources_recovered"`
 	Route                []*TripLeg          `json:"route"`
 	Scanned              bool                `json:"scanned"`
-	Star                 string              `json:"star"`
+	Star                 *Star               `json:"star"`
 	Started              *JSONTime           `json:"started_at"`
 	Status               string              `json:"status"`
 	TotalDistanceLy      float32             `json:"total_distance_ly"`

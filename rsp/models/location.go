@@ -141,6 +141,25 @@ type Star struct {
 	Region          string    `json:"region"`
 }
 
+func (s *Star) UnmarshalJSON(data []byte) error {
+	if s == nil {
+		s = new(Star)
+	}
+	// Try parsing as a string first
+	var name string
+	if err := json.Unmarshal(data, &name); err == nil {
+		(*s).Designation = LocationID(name)
+		return nil
+	}
+
+	// Then try parsing as a struct, using an alias to avoid recusion
+	type alias Star
+	if err := json.Unmarshal(data, (*alias)(s)); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Star) Fill() error {
 	if s.DistanceFromSol == 0 {
 		s.DistanceFromSol = float32(math.Sqrt(

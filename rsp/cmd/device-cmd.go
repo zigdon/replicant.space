@@ -137,7 +137,7 @@ func init() {
 		}}, "",
 	)
 	mkDeviceCommand[models.CommandResp](
-		"scan", "Initiate a scan of the current location", "scan", nil, "",
+		"scan", "Initiate a scan of the current location", "system_scan", nil, "",
 	)
 	mkDeviceCommand[models.CommandResp](
 		"search", "Initiate a search", "search", nil, "",
@@ -162,7 +162,6 @@ func init() {
 			resp.DeviceCode, resp.Status, resp.StowedIn,
 		}}
 	}
-
 	outputTable["device-adopt"] = func(data any) ([]string, [][]any) {
 		resp, ok := data.(*models.CommandResp)
 		if !ok {
@@ -204,7 +203,6 @@ func init() {
 		return []string{"Controller", "Status", "Attached", "Detached"}, [][]any{{
 			resp.ControllerCode, resp.Status, list(as), list(rs),
 		}}
-
 	}
 	outputTable["device-decommission"] = func(data any) ([]string, [][]any) {
 		resp, ok := data.(*models.CommandResp)

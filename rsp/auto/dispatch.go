@@ -270,9 +270,9 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 	// find nearby stars that have the required materials
 	var fields []string
 	var wheres []string
-	var n = 1
+	var n = 4
 	var total int
-	var params []any
+	var vals []any
 	for k, v := range missing {
 		if v <= 0 {
 			continue
@@ -283,7 +283,7 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 			wheres = append(wheres, fmt.Sprintf("%s >= 500", k))
 		} else {
 			wheres = append(wheres, fmt.Sprintf("%s >= $%d", k, n))
-			params = append(params, v)
+			vals = append(vals, v)
 			n++
 		}
 	}
@@ -292,19 +292,24 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 	}
 
 	avoid := append([]string{string(loc)}, constants.Homes...)
-	params = append(params, pq.Array(avoid), loc.Star())
+	params := []any{loc.Star(), pq.Array(avoid), distLimit}
+	params = append(params, vals...)
 	q := fmt.Sprintf(`
-		SELECT i.designation, %s
-		FROM inventory i JOIN stars s ON i.star = s.designation
-		WHERE i.designation != ALL($%d::TEXT[]) AND (%s)
-		ORDER BY s.position <=> (
-		  SELECT position
-		  FROM stars
-		  WHERE designation = $%d
-		)`, strings.Join(fields, ", "), n, strings.Join(wheres, " OR "), n+1)
+		WITH invs AS (
+		  SELECT position <-> (
+			SELECT position FROM stars WHERE designation = $1
+		  ) AS dist, i.*
+		  FROM inventory i JOIN stars s ON i.star = s.designation
+		)
+		SELECT designation, %s 
+		FROM invs
+		WHERE designation != ALL($2::TEXT[])
+		  AND dist < $3
+		  AND (%s)
+		ORDER BY dist`, strings.Join(fields, ", "), strings.Join(wheres, " OR "))
 	rows, err := DB.Query(q, params...)
 	if err != nil {
-		return tasks, fmt.Errorf("Error finding potential systems: %v ", err)
+		return tasks, fmt.Errorf("Error finding potential systems: %v\n%s\n%#v\n%v", err, q, params, avoid)
 	}
 	defer func() {
 		if err := rows.Close(); err != nil {
@@ -621,9 +626,11 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 		capGap[base] += v
 	}
 	nextPrint := dm.lastPrint.Add(30 * time.Minute)
-	log("Missing capacity, next print: %s (%s)", nextPrint, time.Until(nextPrint))
-	for k, v := range capGap {
-		log("  %s: %d", k, v)
+	if len(capGap) > 0 {
+		log("Missing capacity, next print: %s (%s)", nextPrint, time.Until(nextPrint))
+		for k, v := range capGap {
+			log("  %s: %d", k, v)
+		}
 	}
 
 	if time.Now().After(nextPrint) {
