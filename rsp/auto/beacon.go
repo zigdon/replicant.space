@@ -451,7 +451,11 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 	if err != nil {
 		return eta, err
 	}
+	log("Nearest relay: %s", relayName)
 	relay := relayStar.EntryPoint
+	if relay == "" {
+		relay = models.LocationID(relayName)
+	}
 
 	switch {
 	case bm.supply.Location == "":

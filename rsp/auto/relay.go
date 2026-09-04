@@ -523,7 +523,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		} else {
 			log("Queued %d ftl_relays: ETA %s (%s)", frCount, pPlan.ETA, time.Until(pPlan.ETA))
 		}
-		pPlan, err = common.Print(resupplyHome, "deep_space_relay_station", rm.dev.AttachCapacity, true, rm.dryRun, nil)
+		pPlan, err = common.Print(resupplyHome, "deep_space_relay_station", rm.dev.AttachCapacity, true, rm.dryRun, map[string]any{"compacted": true})
 		if err != nil {
 			log("Error printing DSRS: %v", err)
 		} else {

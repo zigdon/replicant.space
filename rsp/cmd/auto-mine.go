@@ -414,7 +414,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 			freeCarriers = append(freeCarriers, mf)
 		}
 		if len(freeCarriers) == 0 {
-			return fmt.Errorf("No available fleets found")
+			return fmt.Errorf("No available fleets found at %s", home)
 		}
 		if !dryRun {
 			for _, carrier := range freeCarriers {

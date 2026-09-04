@@ -95,9 +95,11 @@ func Travel(id *models.CodeAlias, loc string, dryRun bool, via ...string) (time.
 	cfg := map[string]any{
 		"destination": location,
 	}
-	Log("Plotting travel: %s -> %s (%.2fly)",
-		info.Location.Star(), location.Star(),
-		info.GetPosition().Distance(star.Position))
+	dist := info.GetPosition().Distance(star.Position)
+	if dist > 500 {
+		return eta, fmt.Errorf("Refusing to plot a %.2f LY trip", dist)
+	}
+	Log("Plotting travel: %s -> %s (%.2fly)", info.Location.Star(), location.Star(), dist)
 
 	cachedTrip := getCachedTrip(info.Type, info.Location.Star(), string(location))
 	if len(via) == 0 && cachedTrip != nil {
