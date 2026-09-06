@@ -137,9 +137,55 @@ type Bob struct {
 	Time          *JSONTime `json:"time"`
 }
 
+func (b *Bob) Cache() error {
+	if db == nil {
+		return fmt.Errorf("Not connected to cache")
+	}
+	var t time.Time
+	if b.Time != nil {
+		t = b.Time.Time()
+	}
+	return db.Update(cache.BobnetTable, map[string]any{
+		"id":          b.Id,
+		"channel":     b.Channel,
+		"sender_name": b.ReplicantName,
+		"sender_code": b.ReplicantCode,
+		"star":        b.CurrentStar,
+		"message":     b.Message,
+		"time":        t,
+		"status":      b.Status,
+	})
+}
+
+func (b *Bob) Get() error {
+	if db == nil {
+		return fmt.Errorf("Not connected to cache")
+	}
+	if b.Id == 0 {
+		return fmt.Errorf("Can't load ID=0")
+	}
+	scan, err := db.Get(cache.BobnetTable, fmt.Sprintf("%d", b.Id))
+	if err != nil {
+		return err
+	}
+	var t time.Time
+	err = scan(&b.Id, &b.Channel, &b.ReplicantName, &b.ReplicantCode, &b.CurrentStar, &b.Message, &t, &b.Status)
+	b.Time = &JSONTime{ts: t}
+	return err
+}
+
 type Bobs struct {
 	Messages      []*Bob `json:"messages"`
 	NextCursor    int    `json:"next_cursor"`
 	Total         int    `json:"total"`
 	TotalMessages int    `json:"total_messages"`
+}
+
+func (bs *Bobs) Cache() error {
+	for _, b := range bs.Messages {
+		if err := b.Cache(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

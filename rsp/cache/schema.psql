@@ -212,3 +212,18 @@ CREATE TABLE IF NOT EXISTS objects(
   strength REAL DEFAULT 0,
   impact_time TIMESTAMPTZ
 );
+
+CREATE TABLE IF NOT EXISTS bobnet_messages (
+  id INTEGER PRIMARY KEY,
+  channel TEXT NOT NULL,
+  sender_name TEXT NOT NULL,
+  sender_code TEXT,
+  star TEXT,
+  message TEXT NOT NULL,
+  time TIMESTAMPTZ NOT NULL,
+  status TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_bobnet_channel ON bobnet_messages (channel);
+CREATE INDEX IF NOT EXISTS idx_bobnet_sender ON bobnet_messages (sender_name);
+CREATE INDEX IF NOT EXISTS idx_bobnet_time ON bobnet_messages (time);

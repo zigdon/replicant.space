@@ -47,6 +47,7 @@ const (
 	BlueprintFeaturesTable Tables = "blueprint_features"
 	BlueprintResTable      Tables = "blueprint_resources"
 	BlueprintsTable        Tables = "blueprints"
+	BobnetTable            Tables = "bobnet_messages"
 	DeviceLogsTable        Tables = "device_logs"
 	ETACacheTable          Tables = "eta_cache"
 	EventsStreamTable      Tables = "event_stream"
@@ -81,6 +82,8 @@ var cols = map[Tables][]string{
 		"type", "print_time", "attach_capacity", "cargo_capacity",
 		"stow_capacity", "short", "description", "features", "directives",
 		"ingredients"},
+	BobnetTable: {
+		"id", "channel", "sender_name", "sender_code", "star", "message", "time", "status"},
 	DeviceLogsTable: {
 		"id", "created", "device", "type", "message", "payload"},
 	ETACacheTable: {
@@ -111,6 +114,7 @@ var constraints = map[Tables]string{
 	BlueprintFeaturesTable: "blueprint_type, feature",
 	BlueprintResTable:      "blueprint_type, type",
 	BlueprintsTable:        "type",
+	BobnetTable:            "id",
 	DeviceLogsTable:        "id, device",
 	ETACacheTable:          "vessel, origin, destination",
 	EventsStreamTable:      "id",
