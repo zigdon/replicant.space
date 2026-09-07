@@ -12,3 +12,6 @@ const HomeDelta = "CAELZAROR-4-L4"
 const HomeDeltaStar = "CAELZAROR"
 
 var Homes = []string{Home, HomeAlpha, HomeBeta, HomeGamma, HomeDelta}
+
+// For most operations, don't look beyond 1k ly
+const MaxDist = 1000

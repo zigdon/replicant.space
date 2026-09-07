@@ -803,8 +803,31 @@ func readStream(cmd *cobra.Command, args []string) error {
 			log("Replicant %s replicated into %s", ev.NewReplicantName, ev.HostDeviceCode)
 			update(func(d *models.Device) {
 				change(&d.ReplicantCode, ev.NewReplicantCode)
-				change(&d.Type, "replicant_matrix")
 			}, ev.HostDeviceCode)
+			info, err := rest.RefreshDeviceInfo(ev.HostDeviceCode)
+			if err != nil {
+				log("Error getting %q: %v", ev.HostDeviceCode, err)
+				return nil
+			}
+			var erm *models.CodeAlias
+			if info.StowedDevices != nil {
+				for _, d := range info.StowedDevices.Devices {
+					if d.Type == "empty_replicant_matrix" {
+						if erm == nil {
+							erm = d.Code
+						} else {
+							return fmt.Errorf("Nore than one replicant matrix found in %q", d.Code)
+						}
+					}
+				}
+				if erm == nil {
+					return fmt.Errorf("Matrix not found in %q: %v", info.StowedDevices.Devices)
+				}
+			}
+			update(func(d *models.Device) {
+				change(&d.Type, "replicant_matrix")
+				change(&d.ReplicantCode, ev.NewReplicantCode)
+			}, erm)
 		case "system.object_detected":
 			ev, err := models.Parse[models.StreamSystemObjectDetected](payload)
 			if err != nil {

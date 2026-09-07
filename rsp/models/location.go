@@ -161,6 +161,9 @@ func (s *Star) UnmarshalJSON(data []byte) error {
 }
 
 func (s *Star) Fill() error {
+	if s == nil {
+		return nil
+	}
 	if s.DistanceFromSol == 0 {
 		s.DistanceFromSol = float32(math.Sqrt(
 			float64(s.Position.X*s.Position.X) +
@@ -245,6 +248,9 @@ func (b *Belt) String() string {
 }
 
 func (b *Belt) Fill() error {
+	if b == nil {
+		return nil
+	}
 	if b.Star == "" && b.Designation != "" {
 		b.Star = LocationID(b.Designation.Star())
 	}
@@ -442,8 +448,21 @@ func (l *Location) Fill() error {
 	if l.EntryPoint != "" {
 		l.Star.EntryPoint = l.EntryPoint
 	}
+	var errs []error
+	var fill []Fillable
+	fill = append(fill, l.Belt)
+	fill = append(fill, l.Star)
+	for _, d := range l.Devices {
+		fill = append(fill, d)
+	}
+	for _, f := range fill {
+		if f == nil {
+			continue
+		}
+		errs = append(errs, f.Fill())
+	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 func (l *Location) Cache() error {

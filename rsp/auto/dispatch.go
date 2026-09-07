@@ -60,13 +60,55 @@ func (pt *pickupTask) Empty() bool {
 	return true
 }
 
+type mapMapInt map[string]map[string]int
+
+func newMMI() mapMapInt {
+	return make(mapMapInt)
+}
+
+func (mmi mapMapInt) Add(loc, res string, qty int) int {
+	if _, ok := mmi[loc]; !ok {
+		mmi[loc] = make(map[string]int)
+	}
+	mmi[loc][res] += qty
+
+	return mmi[loc][res]
+}
+
+func (mmi mapMapInt) Set(loc, res string, qty int) int {
+	if _, ok := mmi[loc]; !ok {
+		mmi[loc] = make(map[string]int)
+	}
+	mmi[loc][res] = qty
+
+	return mmi[loc][res]
+}
+
+func (mmi mapMapInt) Get(loc string) map[string]int {
+	if _, ok := mmi[loc]; !ok {
+		return nil
+	}
+	ret := make(map[string]int)
+	maps.Copy(ret, mmi[loc])
+	return ret
+}
+
+func (mmi mapMapInt) Clone() mapMapInt {
+	ngrm := newMMI()
+	for k, v := range mmi {
+		ngrm[k] = make(map[string]int)
+		maps.Copy(ngrm[k], v)
+	}
+	return ngrm
+}
+
 type DispatchMachine struct {
 	dryRun bool
 	// location -> type -> qty
-	supply map[string]map[string]int
-	demand map[string]map[string]int
+	supply mapMapInt
+	demand mapMapInt
 	// ship -> type -> qty
-	manifest map[string]map[string]int
+	manifest mapMapInt
 
 	// planned pickup tasks
 	tasks []*pickupTask
@@ -85,9 +127,9 @@ type DispatchMachine struct {
 
 func (dm *DispatchMachine) Start(dev *models.Device, dryRun bool) error {
 	// Initialize vars
-	dm.supply = make(map[string]map[string]int)
-	dm.demand = make(map[string]map[string]int)
-	dm.manifest = make(map[string]map[string]int)
+	dm.supply = newMMI()
+	dm.demand = newMMI()
+	dm.manifest = newMMI()
 	dm.inRange = make(map[string]bool)
 	dm.dryRun = dryRun
 	dm.lastPrint = time.Now()
@@ -108,8 +150,6 @@ func (dm *DispatchMachine) UpdateState() error {
 		return fmt.Errorf("Error getting ftl network: %v", err)
 	}
 	clear(dm.inRange)
-	// The device location is not listed as a connection, add it manually
-	dm.inRange["MENKUNT"] = true
 	for _, c := range net {
 		dm.inRange[c] = true
 	}
@@ -117,19 +157,21 @@ func (dm *DispatchMachine) UpdateState() error {
 	// Clear the current intent and inventory
 	clear(dm.demand)
 	clear(dm.supply)
+	clear(dm.manifest)
+
 	// Load the current intent
-	rows, err := DB.Query(`
+	intents, err := DB.Query(`
 	    SELECT location, demand
 		FROM intent
 	`)
 	if err != nil {
 		return fmt.Errorf("Can't get intent: %v", err)
 	}
-	defer rows.Close()
-	for rows.Next() {
+	defer intents.Close()
+	for intents.Next() {
 		var loc string
 		var dem []byte
-		if err := rows.Scan(&loc, &dem); err != nil {
+		if err := intents.Scan(&loc, &dem); err != nil {
 			return fmt.Errorf("Can't scan intent: %v", err)
 		}
 		var demand map[string]int
@@ -139,18 +181,18 @@ func (dm *DispatchMachine) UpdateState() error {
 		dm.demand[loc] = demand
 	}
 	// Load the updated inventory
-	rows, err = DB.Query(`
+	invs, err := DB.Query(`
 	    SELECT designation, carbon, conductive, rares, silicates, structural, volatiles
 		FROM inventory
 	`)
 	if err != nil {
 		return fmt.Errorf("Can't get inventory: %v", err)
 	}
-	defer rows.Close()
-	for rows.Next() {
+	defer invs.Close()
+	for invs.Next() {
 		var loc string
 		var ca, co, ra, si, st, vo int
-		if err := rows.Scan(&loc, &ca, &co, &ra, &si, &st, &vo); err != nil {
+		if err := invs.Scan(&loc, &ca, &co, &ra, &si, &st, &vo); err != nil {
 			return err
 		}
 		supply := map[string]int{
@@ -163,20 +205,20 @@ func (dm *DispatchMachine) UpdateState() error {
 		}
 		dm.supply[loc] = supply
 	}
-	// Load deliveris in flight
-	rows, err = DB.Query(`
+	// Load deliveries in flight
+	deliveries, err := DB.Query(`
 	    SELECT origin, destination, ship, cargo, data
 		FROM deliveries JOIN json_devices on ship = code
 	`)
 	if err != nil {
 		return fmt.Errorf("Can't get deliveries: %v", err)
 	}
-	defer rows.Close()
+	defer deliveries.Close()
 	dm.tasks = dm.tasks[:0]
-	for rows.Next() {
+	for deliveries.Next() {
 		var from, to, ship string
 		var cData, data []byte
-		if err := rows.Scan(&from, &to, &ship, &cData, &data); err != nil {
+		if err := deliveries.Scan(&from, &to, &ship, &cData, &data); err != nil {
 			return err
 		}
 		var cargo map[string]int
@@ -217,8 +259,7 @@ func (dm *DispatchMachine) balanceBooks() map[string]map[string]int {
 	toDeliver := make(map[string]map[string]int)
 
 	var data [][]any
-	demand := make(map[string]map[string]int)
-	maps.Copy(demand, dm.demand)
+	demand := dm.demand.Clone()
 	upkeep, err := common.GetUpkeep()
 	if err != nil {
 		log("Error getting upkeep: %v", err)
@@ -229,21 +270,24 @@ func (dm *DispatchMachine) balanceBooks() map[string]map[string]int {
 				continue
 			}
 			for k, v := range vs {
-				demand[loc][k] += v
+				demand.Add(loc, k, v)
 			}
 		}
 	}
 
+	resList := func(r map[string]int) string {
+		var out []string
+		for k, v := range r {
+			out = append(out, fmt.Sprintf("%10s: %6d", k, v))
+		}
+		slices.Sort(out)
+		return strings.Join(out, "\n")
+	}
 	for loc, vs := range demand {
 		sent := dm.getSent(loc)
 		inv, ok := dm.supply[loc]
 		if !ok {
 			dm.supply[loc] = make(map[string]int)
-		}
-		if len(toDeliver[loc]) > 0 {
-			data = append(data, []any{
-				loc, vs, inv, sent, toDeliver[loc],
-			})
 		}
 		for res, qty := range vs {
 			if qty-sent[res]-inv[res] <= 0 {
@@ -253,6 +297,11 @@ func (dm *DispatchMachine) balanceBooks() map[string]map[string]int {
 				toDeliver[loc] = make(map[string]int)
 			}
 			toDeliver[loc][res] += qty - sent[res] - inv[res]
+		}
+		if len(toDeliver[loc]) > 0 {
+			data = append(data, []any{
+				loc, resList(vs), resList(inv), resList(sent), resList(toDeliver[loc]),
+			})
 		}
 	}
 	slices.SortFunc(data, func(a, b []any) int {
@@ -267,7 +316,7 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		return nil, fmt.Errorf("%s is not in FTL network", loc)
 	}
 	var tasks []*pickupTask
-	// find nearby stars that have the required materials
+	// find nearby stars that have the required materials (but reserve whatever demand they have set)
 	var fields []string
 	var wheres []string
 	var n = 4
@@ -276,6 +325,9 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 	for k, v := range missing {
 		if v <= 0 {
 			continue
+		}
+		if !constants.IsResource(k) {
+			return tasks, fmt.Errorf("Invalid resource %q @ %s: %v", k, loc, missing)
 		}
 		fields = append(fields, k)
 		total += v
@@ -317,6 +369,7 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		}
 	}()
 
+	newPickup := make(map[string]map[string]int)
 	for rows.Next() {
 		// Figure out how many resources in the system are accounted for
 		var qres []any
@@ -334,12 +387,20 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		good := false
 		res := make(map[string]int)
 		pending := dm.pendingPickup(sys)
+		allocated, ok := newPickup[sys]
+		if !ok {
+			allocated = make(map[string]int)
+		}
+		demand, ok := dm.demand[sys]
+		if !ok {
+			demand = make(map[string]int)
+		}
 		for n, f := range fields {
 			i, ok := qres[n+1].(*int)
 			if !ok {
 				return tasks, fmt.Errorf("Expected %s to be an *int, got %v (%T)", f, qres[n+1], qres[n+1])
 			}
-			res[f] = *i - pending[f]
+			res[f] = *i - pending[f] - allocated[f] - demand[f]
 			if res[f] <= 0 {
 				delete(res, f)
 				continue
@@ -379,7 +440,9 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 			if task.Empty() {
 				break
 			}
+			maps.Copy(allocated, task.resources)
 			tasks = append(tasks, task)
+			newPickup[sys] = allocated
 		}
 		if len(missing) == 0 {
 			return tasks, nil
@@ -412,7 +475,7 @@ func (dm *DispatchMachine) releaseLostCargo() error {
 		}
 		ca := models.NewCodeAlias(c)
 		if res, err := deviceCommand(ca, "deposit_resources", nil, dm.dryRun); err != nil {
-			log("Error droping inventory from %s: %v", ca.Alias(), err)
+			log("Error dropping inventory from %s: %v", ca.Alias(), err)
 		} else {
 			if dm.stats[l] == nil {
 				dm.stats[l] = new(totals)
@@ -440,7 +503,7 @@ func (dm *DispatchMachine) releaseLostCargo() error {
 
 func (dm *DispatchMachine) Process() (time.Time, error) {
 	dm.stats = make(map[string]*totals)
-	eta := time.Now()
+	var eta time.Time
 	if err := dm.UpdateState(); err != nil {
 		return eta, err
 	}
@@ -455,7 +518,8 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 		tasks, err := dm.findSys(models.LocationID(loc), missing)
 		if err != nil {
 			errs = append(errs, err)
-		} else {
+		}
+		if tasks != nil {
 			newTasks = append(newTasks, tasks...)
 		}
 	}
@@ -477,7 +541,7 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 	noShips := make(map[string]int)
 	for n, t := range dm.tasks {
 		log("[%d/%d] Processing delivery of %#v %s->%s",
-			n, len(dm.tasks), t.resources, t.pickup, t.dropoff)
+			n+1, len(dm.tasks), t.resources, t.pickup, t.dropoff)
 		if t.ship == nil {
 			if noShips[string(t.pickup)] > 0 {
 				continue
@@ -525,23 +589,12 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 		case t.dropoff:
 			if len(t.ship.Cargo) > 0 {
 				log("%s ready for drop-off at %s", t.ship, t.ship.Location)
-				res, err := deviceCommand(t.ship.Code, "deposit_resources", nil, dm.dryRun)
-				if err != nil {
-					errs = append(errs,
-						fmt.Errorf("%s can't deposit at %s: %v", t.ship.Code, t.pickup, err))
-					continue
-				}
-				if dm.stats[string(t.dropoff)] == nil {
-					dm.stats[string(t.dropoff)] = new(totals)
-				}
-				for _, v := range res.Deposited {
-					dm.stats[string(t.dropoff)].delivered += v
-				}
 			}
 			t.complete = true
 		case t.pickup:
 			log("%s ready for pick up at %s->%s", t.ship, t.ship.Location, t.dropoff)
-			res := t.resources
+			res := make(map[string]int)
+			maps.Copy(res, t.resources)
 			if len(t.ship.Cargo) > 0 {
 				log("%s already has cargo:", t.ship)
 				for _, c := range t.ship.Cargo {
@@ -568,7 +621,8 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 				if dm.stats[string(t.ship.Location)] == nil {
 					dm.stats[string(t.ship.Location)] = new(totals)
 				}
-				for _, v := range res.Collected {
+				for k, v := range res.Collected {
+					t.resources[k] -= int(v)
 					dm.stats[string(t.ship.Location)].collected += v
 				}
 			}
@@ -581,12 +635,6 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 		default:
 			if len(t.ship.Cargo) > 0 {
 				log("%s @ %s off course, dropping cargo: %#v", t.ship.Code, t.ship.Location, t)
-				_, err := deviceCommand(t.ship.Code, "deposit_resources", nil, dm.dryRun)
-				if err != nil {
-					errs = append(errs,
-						fmt.Errorf("%s can't deposit at %s: %v", t.ship.Code, t.ship.Location, err))
-					continue
-				}
 			}
 			t.complete = true
 		}
@@ -697,11 +745,11 @@ func (dm *DispatchMachine) getShip(loc models.LocationID) (*models.Device, error
 			stats["in manifest"]++
 			continue
 		}
-		ca := models.NewCodeAlias(code)
 		if dist > distLimit {
 			stats["too far"]++
-			continue
+			break
 		}
+		ca := models.NewCodeAlias(code)
 		log("Found %s @ %s, %.2f LY away", ca.Alias(), location, dist)
 		return dev.Data, nil
 	}

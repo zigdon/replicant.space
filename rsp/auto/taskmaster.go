@@ -3,10 +3,12 @@ package auto
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -29,7 +31,7 @@ type tmmTask interface {
 	Configure(map[string]any) error
 
 	Ready() bool
-	Process() error
+	Process() (time.Time, error)
 	Start() error
 	Finish() error
 }
@@ -61,10 +63,6 @@ func (tmm *TaskMasterMachine) UpdateState() error {
 			errs = append(errs, t.Finish())
 			continue
 		}
-
-		// Make progress
-		errs = append(errs, t.Process())
-
 		next = append(next, t)
 	}
 	tmm.tasks = next
@@ -75,7 +73,20 @@ func (tmm *TaskMasterMachine) Name() string {
 	return "Greg"
 }
 
-func (tmm *TaskMasterMachine) Process() (time.Time, error)  { return time.Time{}, nil }
+func (tmm *TaskMasterMachine) Process() (time.Time, error) {
+	var errs []error
+	var eta time.Time
+	for _, t := range tmm.tasks {
+		log("Processing task %q: %s", t.Title, t.Desc())
+
+		// Make progress
+		taskEta, err := t.Process()
+		errs = append(errs, err)
+		eta = later(eta, taskEta)
+	}
+
+	return eta, errors.Join(errs...)
+}
 func (tmm *TaskMasterMachine) SaveState(state string) error { return nil }
 func (tmm *TaskMasterMachine) Status() string               { return "" }
 
@@ -166,7 +177,7 @@ func (ts *tmmStage) Configure(conf map[string]any) error {
 
 func (ts *tmmStage) Ready() bool {
 	// Check if all the desired devices have been delivered
-	devs, err := rest.Devices(map[string]string{
+	devs, err := rest.Devices(map[string]any{
 		"location": string(ts.location),
 		"tag":      fmt.Sprintf("task:%d", ts.id),
 	})
@@ -191,19 +202,21 @@ func (ts *tmmStage) Ready() bool {
 	return true
 }
 
-func (ts *tmmStage) Process() error {
-	devs, err := rest.Devices(map[string]string{
-		"tag": fmt.Sprintf("task:%d", ts.id),
+func (ts *tmmStage) Process() (time.Time, error) {
+	tag := fmt.Sprintf("task:%d", ts.id)
+	var eta time.Time
+	devs, err := rest.Devices(map[string]any{
+		"tag": tag,
 	})
 	if err != nil {
-		return fmt.Errorf("Error getting device list: %v", err)
+		return eta, fmt.Errorf("Error getting device list: %v", err)
 	}
 
 	var errs []error
 	inProgress := make(map[string][]*models.CodeAlias)
 	found := make(map[string]int)
 	loaded := make(map[string]int)
-	toLoad := make(map[string][]*models.CodeAlias)
+	pickup := make(map[string][]*models.CodeAlias)
 	// Check for devices that were already identified and are in transit:
 	// Found -> Loaded -> Transit -> Arrived -> Detached
 	for _, d := range devs {
@@ -214,7 +227,7 @@ func (ts *tmmStage) Process() error {
 				_, err := deviceCommand(d.AttachedToDeviceCode, "detach", map[string]any{"target": d.Code}, ts.dryRun)
 				errs = append(errs, err)
 			}
-			log("%s (%s) waiting at %s", d.Code, d.Type, d.Location)
+			log("%s (%s) ready at %s", d.Code, d.Type, d.Location)
 			continue
 		}
 		if d.Location == "" {
@@ -228,7 +241,7 @@ func (ts *tmmStage) Process() error {
 			continue
 		}
 		log("%s (%s) is waiting to be loaded at %s", d.Code, d.Type, d.Location)
-		toLoad[string(d.Location)] = append(toLoad[string(d.Location)], d.Code)
+		pickup[string(d.Location)] = append(pickup[string(d.Location)], d.Code)
 	}
 
 	// Find or build missing
@@ -239,23 +252,188 @@ func (ts *tmmStage) Process() error {
 			missing[k] = delta
 		}
 	}
-	/*
-		if len(missing) > 0 {
-		  for k, v := range missing {
+	if len(missing) > 0 {
+		for k, v := range missing {
 			// Find untagged devices within range
-			// Tag them for transport
-		  }
+			// TODO: don't bother using a spare if it'll take longer to
+			// ship it than to print a new one
+			spares, err := rest.Devices(map[string]any{"device_type": k, "untagged": true})
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			for _, d := range spares {
+				if d.Location == "" {
+					continue
+				}
+				if dist, err := common.Distance(
+					d.Location.Star(), ts.location.Star()); err == nil && dist > constants.MaxDist {
+					log("%s is too far away from %s: %.2f ly", d.Code, ts.location, dist)
+				} else if err != nil {
+					log("Can't get distance to %s @ %s: %v", d.Code, d.Location, err)
+					continue
+				}
+				// Tag them for transport
+				if err := rest.UpdateTags(d.Code, rest.AddTag, []string{tag}); err != nil {
+					log("Error tagging %s: %v", d.Code, err)
+					continue
+				}
+				v--
+				pickup[string(d.Location)] = append(pickup[string(d.Location)], d.Code)
+				if v <= 0 {
+					break
+				}
+			}
 		}
-		if len(missing) > 0 {
-		  for k, v := range missing {
-			// Build mising devices
-		  }
+	}
+
+	if len(missing) > 0 {
+		home := common.ClosestHomes(ts.location)[0]
+		// Build mising devices
+		log("Still missing %v", missing)
+		for k, v := range missing {
+			cfg := map[string]any{
+				"tags": []string{tag},
+			}
+			if bp := common.GetBP(k); bp != nil && slices.Contains(bp.Features, "modular") {
+				cfg["flatpack"] = true
+			}
+			plan, err := common.Print(home, k, v, true, ts.dryRun, cfg)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			for range v {
+				pickup[home] = append(pickup[home], nil)
+			}
+			eta = later(eta, plan.ETA)
 		}
-	*/
+	}
 
 	// Find or build transports
-	// Ship
-	return nil
+	for loc, devs := range pickup {
+		var txs []*models.Device
+		need := len(devs)
+		add := func(loc string, devType string) error {
+			cfg := map[string]any{"device_type": devType}
+			if loc != "" {
+				cfg["location"] = loc
+			}
+			// First already tagged
+			cfg["tag"] = tag
+			ds, err := rest.Devices(cfg)
+			if err != nil {
+				return err
+			}
+			txs = append(txs, ds...)
+			// Then untagged
+			delete(cfg, "tag")
+			cfg["untagged"] = true
+			ds, err = rest.Devices(cfg)
+			if err != nil {
+				return err
+			}
+			txs = append(txs, ds...)
+			return nil
+		}
+		// First, local fleets, always good
+		errs = append(errs, add(loc, "mobile_fleet"))
+		// Then, smaller platforms, if they're big enough
+		if len(devs) <= 4 {
+			errs = append(errs, add(loc, "surge_platform"))
+		}
+		if len(devs) == 1 {
+			errs = append(errs, add(loc, "surge_plate"))
+		}
+
+		// If we found any local platforms, tag them
+		for _, tx := range txs {
+			// Untagged platforms must be empty
+			if len(tx.AttachedDevices) > 0 && len(tx.Tags) == 0 {
+				continue
+			}
+			// Full platforms are full
+			if len(tx.AttachedDevices) == tx.AttachCapacity {
+				continue
+			}
+			// Keep track of how many devices we can ship
+			need -= tx.AttachCapacity - len(tx.AttachedDevices)
+			// Add the tag
+			errs = append(errs, rest.UpdateTags(tx.Code, rest.AddTag, []string{tag}))
+		}
+
+		// If we need more slots, see if we can find platforms nearby (100ly)
+		if need > 0 {
+			// Check for platforms already inbound
+			inbound, err := rest.Devices(map[string]any{"location": "", "tag": tag})
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			for _, d := range inbound {
+				if string(d.Travel.Destination) == loc {
+					need -= d.AttachCapacity
+				}
+			}
+			if need <= 0 {
+				break
+			}
+
+			// Find nearby platforms
+			txs = txs[:0]
+			errs = append(errs, add("", "mobile_fleet"))
+			if need <= 4 {
+				errs = append(errs, add("", "surge_platform"))
+			}
+			if need == 1 {
+				errs = append(errs, add("", "surge_plate"))
+			}
+			for _, d := range txs {
+				if len(d.AttachedDevices) > 0 {
+					continue
+				}
+				if dist, err := common.Distance(d.Location.Star(), loc); err == nil && dist > 100 {
+					log("%s is too far away from %s: %.2f ly", d.Code, loc, dist)
+				} else if err != nil {
+					log("Can't get distance to %s @ %s: %v", d.Code, d.Location, err)
+					continue
+				}
+				errs = append(errs, rest.UpdateTags(d.Code, rest.AddTag, []string{tag}))
+				_, err := common.Travel(d.Code, loc, ts.dryRun)
+				errs = append(errs, err)
+				need -= d.AttachCapacity
+				if need <= 0 {
+					break
+				}
+			}
+		}
+
+		// If we still need more slots, print a transport
+		if need > 0 {
+			home := common.ClosestHomes(models.LocationID(loc))[0]
+			txType := "surge_platform"
+			if need > 4 {
+				txType = "mobile_fleet"
+			}
+			plan, err := common.Print(home, txType, 1, true, ts.dryRun, map[string]any{"tags": []string{tag}})
+			if err != nil {
+				errs = append(errs, err)
+			}
+			eta = later(eta, plan.ETA)
+		}
+	}
+
+	// Load and ship
+	// Now that we have a set of platforms available, load what we can, ship what's ready
+	/*
+		// Full platforms can ship
+		if len(tx.AttachedDevices) == tx.AttachCapacity {
+		  _, err := common.Travel(tx.Code, string(ts.location), ts.dryRun)
+		  errs = append(errs, err)
+		  continue
+		}
+	*/
+	return eta, errors.Join(errs...)
 }
 
 func (ts *tmmStage) ID() int       { return ts.id }
