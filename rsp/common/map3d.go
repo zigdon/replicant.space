@@ -835,10 +835,64 @@ type StarMapPoint struct {
 	HasLife     bool
 	IsRoute     bool
 	IsIsland    bool
+	HasMining   bool
+	MinedBelts  []*MinedBeltInfo
 	RouteStep   int
 	Devices     []*DeviceLocationInfo
 	NetworkNode *NetworkNode
 	Travelling  []*TravellingDevice
+}
+
+// MinedBeltInfo represents a belt that is actively being mined.
+type MinedBeltInfo struct {
+	Designation string            `json:"designation"`
+	Star        string            `json:"star"`
+	Density     string            `json:"density"`
+	Resources   map[string]string `json:"resources"`
+}
+
+// GetBeltDensityColor returns an RGB color corresponding to the belt density.
+func GetBeltDensityColor(density string) RGB {
+	switch strings.ToLower(strings.TrimSpace(density)) {
+	case "sparse", "poor", "low":
+		return RGB{R: 240, G: 190, B: 60} // Warm Gold / Light Bronze
+	case "moderate", "medium", "normal", "standard":
+		return RGB{R: 255, G: 130, B: 0} // Vibrant Amber-Orange
+	case "dense", "rich", "heavy", "high":
+		return RGB{R: 255, G: 60, B: 40} // Fiery Red-Orange / Rich Crimson
+	default:
+		return RGB{R: 255, G: 130, B: 0} // Default to amber-orange
+	}
+}
+
+func beltDensityRank(density string) int {
+	switch strings.ToLower(strings.TrimSpace(density)) {
+	case "dense", "rich", "heavy", "high":
+		return 3
+	case "moderate", "medium", "normal", "standard":
+		return 2
+	case "sparse", "poor", "low":
+		return 1
+	default:
+		return 2
+	}
+}
+
+// GetMaxBeltDensity returns the highest density string among a list of mined belts.
+func GetMaxBeltDensity(belts []*MinedBeltInfo) string {
+	if len(belts) == 0 {
+		return ""
+	}
+	bestRank := -1
+	bestDensity := ""
+	for _, b := range belts {
+		r := beltDensityRank(b.Density)
+		if r > bestRank || bestDensity == "" {
+			bestRank = r
+			bestDensity = b.Density
+		}
+	}
+	return bestDensity
 }
 
 // NeighbourInfo represents an immediate neighbouring star system and its distance.
@@ -858,12 +912,14 @@ type MapLayerOptions struct {
 	FilterNetworkOnly    bool
 	FilterTravelOnly     bool
 	FilterIslandOnly     bool
+	FilterMiningOnly     bool
 	ShowRegions          bool
 	ShowDevices          bool
 	ShowNetwork          bool
 	ShowTravel           bool
 	ShowIsland           bool
 	ShowNeighbours       bool
+	ShowMining           bool
 	ShowLabels           bool
 	ShowGrid             bool
 	ShowAxes             bool
@@ -885,6 +941,7 @@ type MapLayerOptions struct {
 	IslandHop            float32
 	IslandLimit          int
 	IslandInfo           *IslandInfo
+	MiningStars          map[string][]*MinedBeltInfo
 }
 
 func DefaultMapLayerOptions() *MapLayerOptions {
@@ -897,12 +954,14 @@ func DefaultMapLayerOptions() *MapLayerOptions {
 		FilterNetworkOnly:  false,
 		FilterTravelOnly:   false,
 		FilterIslandOnly:   false,
+		FilterMiningOnly:   false,
 		ShowRegions:        false,
 		ShowDevices:        false,
 		ShowNetwork:        false,
 		ShowTravel:         false,
 		ShowIsland:         false,
 		ShowNeighbours:     false,
+		ShowMining:         false,
 		NeighbourMaxDist:   15.0,
 		ShowLabels:         true,
 		ShowGrid:           true,
@@ -1052,6 +1111,12 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			netNode = opts.Network.Nodes[string(st.Designation)]
 		}
 
+		var minedBelts []*MinedBeltInfo
+		if opts.MiningStars != nil {
+			minedBelts = opts.MiningStars[string(st.Designation)]
+		}
+		hasMining := len(minedBelts) > 0
+
 		isIsland := opts.ShowIsland && opts.IslandStars != nil && opts.IslandStars[string(st.Designation)]
 
 		if opts.FilterExploredOnly && !st.Explored {
@@ -1076,6 +1141,9 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			continue
 		}
 		if opts.FilterIslandOnly && !isIsland {
+			continue
+		}
+		if opts.FilterMiningOnly && !hasMining {
 			continue
 		}
 		if st.Position == nil {
@@ -1121,6 +1189,10 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 		} else if opts.ShowNetwork && netNode != nil {
 			glyph = '◈'                         // Diamond glyph for active relay network node
 			starCol = RGB{R: 0, G: 229, B: 255} // Neon Cyan
+		} else if opts.ShowMining && hasMining {
+			glyph = '❖' // Crystal / ore cluster glyph for actively mined belt system
+			maxDensity := GetMaxBeltDensity(minedBelts)
+			starCol = GetBeltDensityColor(maxDensity)
 		} else if opts.ShowDevices && len(starDevs) > 0 {
 			glyph = '⬢'                         // Solid Hexagon for device host
 			starCol = RGB{R: 255, G: 215, B: 0} // Gold/Amber
@@ -1154,6 +1226,8 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			HasLife:     st.HasLife,
 			IsRoute:     isRoute,
 			IsIsland:    isIsland,
+			HasMining:   hasMining,
+			MinedBelts:  minedBelts,
 			RouteStep:   step,
 			Devices:     starDevs,
 			NetworkNode: netNode,
@@ -1235,7 +1309,7 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 				Rune:     mp.Glyph,
 				FgColor:  mp.Color,
 				HasColor: true,
-				IsBold:   mp.IsMyHub || mp.HasLife || mp.IsRoute || mp.IsIsland || (opts.ShowDevices && hasDevices) || inNet,
+				IsBold:   mp.IsMyHub || mp.HasLife || mp.IsRoute || mp.IsIsland || (opts.ShowDevices && hasDevices) || inNet || (opts.ShowMining && mp.HasMining),
 				DepthZ:   mp.CamPos.Z,
 				Star:     mp,
 			}
@@ -1268,11 +1342,12 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 			if opts.ShowNeighbours && opts.NeighbourDistances != nil {
 				dist, isNeighbour = opts.NeighbourDistances[string(mp.Star.Designation)]
 			}
-			// Show names for prominent stars (Hubs, Life, Route, Island, Device Hosts, Network Nodes, Neighbours, Selected, or closest stars)
+			// Show names for prominent stars (Hubs, Life, Route, Island, Mining, Device Hosts, Network Nodes, Neighbours, Selected, or closest stars)
 			isProminent := mp.IsMyHub || mp.HasLife || mp.IsRoute ||
 				(opts.ShowDevices && hasDevices) ||
 				inNet ||
 				mp.IsIsland ||
+				(opts.ShowMining && mp.HasMining) ||
 				isNeighbour ||
 				string(mp.Star.Designation) == opts.SelectedStar ||
 				string(mp.Star.Designation) == opts.HighlightStar ||
@@ -1291,6 +1366,9 @@ func prepareGalaxyGrid(cam *Camera3D, stars []*models.Star, opts *MapLayerOption
 				}
 				if inNet {
 					baseName = fmt.Sprintf("%s [Net#%d]", baseName, mp.NetworkNode.SubnetID)
+				}
+				if opts.ShowMining && mp.HasMining {
+					baseName = fmt.Sprintf("%s [%d mined]", baseName, len(mp.MinedBelts))
 				}
 
 				distStr := ""
@@ -1590,6 +1668,13 @@ func FormatMapLegend(opts *MapLayerOptions) string {
 	}
 	if opts != nil && (opts.ShowNeighbours || len(opts.Neighbours) > 0) {
 		parts = append(parts, "\x1b[1;37m╌\x1b[0m Neighbours")
+	}
+	if opts != nil && (opts.ShowMining || len(opts.MiningStars) > 0) {
+		sparseCol := GetBeltDensityColor("sparse")
+		modCol := GetBeltDensityColor("moderate")
+		denseCol := GetBeltDensityColor("dense")
+		parts = append(parts, fmt.Sprintf("%s❖\x1b[0m Mining (%sSparse\x1b[0m/%sMod\x1b[0m/%sDense\x1b[0m)",
+			modCol.ANSI(), sparseCol.ANSI(), modCol.ANSI(), denseCol.ANSI()))
 	}
 	base := "\x1b[90mLegend: \x1b[0m" + strings.Join(parts, "  ")
 	if opts != nil && opts.ShowRegions {

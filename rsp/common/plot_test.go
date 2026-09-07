@@ -58,7 +58,7 @@ func TestTripStepCandidate(t *testing.T) {
 }
 
 func TestNearestHub(t *testing.T) {
-	_, _, _, err := NearestHub("SOL")
+	_, _, err := NearestHub(false, "SOL")
 	if err == nil {
 		t.Errorf("NearestHub without DB expected error, got nil")
 	}

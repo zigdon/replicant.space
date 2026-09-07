@@ -61,6 +61,8 @@ func init() {
 	mapCmd.Flags().Float32("island_hop", 7.5, "Maximum hop distance for island inclusion, in ly")
 	mapCmd.Flags().Bool("island_only", false, "Filter map to only show stars in the island")
 	mapCmd.Flags().BoolP("distances", "D", false, "Overlay distances and links to immediate neighbours (<=15ly)")
+	mapCmd.Flags().BoolP("mining", "m", false, "Overlay systems with actively mined belts")
+	mapCmd.Flags().Bool("mining_only", false, "Filter map to only show stars with actively mined belts")
 	mapCmd.Flags().BoolP("travel", "t", false, "Overlay routes and estimated markers of travelling devices")
 	mapCmd.Flags().Bool("travel_only", false, "Filter map to only show stars with travelling devices")
 	mapCmd.Flags().StringSlice("travel_devices", nil, "Filter travelling devices by code or alias")
@@ -97,6 +99,8 @@ func init() {
 	plotMapCmd.Flags().Float32("island_hop", 7.5, "Maximum hop distance for island inclusion, in ly")
 	plotMapCmd.Flags().Bool("island_only", false, "Filter map to only show stars in the island")
 	plotMapCmd.Flags().BoolP("distances", "D", false, "Overlay distances and links to immediate neighbours (<=15ly)")
+	plotMapCmd.Flags().BoolP("mining", "M", false, "Overlay systems with actively mined belts")
+	plotMapCmd.Flags().Bool("mining_only", false, "Filter map to only show stars with actively mined belts")
 	plotCmd.AddCommand(travelMapCmd)
 }
 
@@ -177,6 +181,34 @@ func loadNetworkGraph(stars []*models.Star) *common.NetworkGraph {
 	}
 
 	return common.BuildNetworkGraph(netDevs, starLookup)
+}
+
+func loadMinedBelts() map[string][]*common.MinedBeltInfo {
+	if db == nil || db.DB == nil {
+		return nil
+	}
+	records, err := db.QueryMinedBelts()
+	if err != nil {
+		log("Error querying mined belts: %v", err)
+		return nil
+	}
+	mined := make(map[string][]*common.MinedBeltInfo)
+	for _, r := range records {
+		starName := strings.ToUpper(strings.TrimSpace(r.Star))
+		if starName == "" {
+			starName = strings.ToUpper(strings.TrimSpace(models.LocationID(r.Designation).Star()))
+		}
+		if starName == "" {
+			continue
+		}
+		mined[starName] = append(mined[starName], &common.MinedBeltInfo{
+			Designation: r.Designation,
+			Star:        starName,
+			Density:     r.Density,
+			Resources:   r.Resources,
+		})
+	}
+	return mined
 }
 
 func loadStarsFromDB(center common.Vec3, radius float32) ([]*models.Star, error) {
@@ -707,6 +739,28 @@ func runPlotMapCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	if getBool(cmd, "mining") || getBool(cmd, "mining_only") {
+		opts.ShowMining = true
+		opts.MiningStars = loadMinedBelts()
+		if getBool(cmd, "mining_only") {
+			opts.FilterMiningOnly = true
+			existing := make(map[string]bool)
+			for _, s := range stars {
+				if s != nil {
+					existing[string(s.Designation)] = true
+				}
+			}
+			for sName := range opts.MiningStars {
+				if sName != "" && !existing[sName] {
+					if st, err := models.NewStar(sName); err == nil && st != nil && st.Position != nil {
+						stars = append(stars, st)
+						existing[sName] = true
+					}
+				}
+			}
+		}
+	}
+
 	if staticMode {
 		cam := common.NewCamera3D(100, 35)
 		cam.Center = center
@@ -717,6 +771,29 @@ func runPlotMapCmd(cmd *cobra.Command, args []string) error {
 		fmt.Println(common.FormatMapLegend(opts))
 		fmt.Printf("\x1b[1;33mRoute:\x1b[0m %s -> %s (Total Distance: %.2fly, %d hops)\n",
 			src, dst, routeDist, len(trip.Legs))
+
+		if opts.ShowMining && len(opts.MiningStars) > 0 {
+			fmt.Printf("\n\x1b[38;2;255;140;0m=== ACTIVELY MINED SYSTEMS (%d systems) ===\x1b[0m\n", len(opts.MiningStars))
+			var minedStarNames []string
+			for s := range opts.MiningStars {
+				minedStarNames = append(minedStarNames, s)
+			}
+			slices.Sort(minedStarNames)
+			for _, s := range minedStarNames {
+				belts := opts.MiningStars[s]
+				var beltDescs []string
+				for _, b := range belts {
+					desc := b.Designation
+					if b.Density != "" {
+						desc += fmt.Sprintf(" (%s)", b.Density)
+					}
+					beltDescs = append(beltDescs, desc)
+				}
+				maxDensity := common.GetMaxBeltDensity(belts)
+				col := common.GetBeltDensityColor(maxDensity)
+				fmt.Printf("  %s❖ %-16s\x1b[0m (%d belts): %s\n", col.ANSI(), s, len(belts), strings.Join(beltDescs, ", "))
+			}
+		}
 
 		if opts.ShowNeighbours && len(opts.Neighbours) > 0 {
 			fmt.Printf("\n\x1b[1;36m=== IMMEDIATE NEIGHBOURS (%s, <= %.1fly, %d found) ===\x1b[0m\n",
@@ -847,6 +924,27 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 	opts.NeighbourMaxDist = pNeighbourDist
+	if getBool(cmd, "mining") || getBool(cmd, "mining_only") {
+		opts.ShowMining = true
+		opts.MiningStars = loadMinedBelts()
+		if getBool(cmd, "mining_only") {
+			opts.FilterMiningOnly = true
+			existing := make(map[string]bool)
+			for _, s := range stars {
+				if s != nil {
+					existing[string(s.Designation)] = true
+				}
+			}
+			for sName := range opts.MiningStars {
+				if sName != "" && !existing[sName] {
+					if st, err := models.NewStar(sName); err == nil && st != nil && st.Position != nil {
+						stars = append(stars, st)
+						existing[sName] = true
+					}
+				}
+			}
+		}
+	}
 	if getBool(cmd, "distances") {
 		opts.ShowNeighbours = true
 		var centerStarObj *models.Star
@@ -1000,6 +1098,30 @@ func runMapCmd(cmd *cobra.Command, args []string) error {
 					td.Alias, td.Type, td.Origin, td.Destination, td.ProgressPercent, eta, td.EstimatedPos.String())
 			}
 		}
+
+		if opts.ShowMining && len(opts.MiningStars) > 0 {
+			fmt.Printf("\n\x1b[38;2;255;140;0m=== ACTIVELY MINED SYSTEMS (%d systems) ===\x1b[0m\n", len(opts.MiningStars))
+			var minedStarNames []string
+			for s := range opts.MiningStars {
+				minedStarNames = append(minedStarNames, s)
+			}
+			slices.Sort(minedStarNames)
+			for _, s := range minedStarNames {
+				belts := opts.MiningStars[s]
+				var beltDescs []string
+				for _, b := range belts {
+					desc := b.Designation
+					if b.Density != "" {
+						desc += fmt.Sprintf(" (%s)", b.Density)
+					}
+					beltDescs = append(beltDescs, desc)
+				}
+				maxDensity := common.GetMaxBeltDensity(belts)
+				col := common.GetBeltDensityColor(maxDensity)
+				fmt.Printf("  %s❖ %-16s\x1b[0m (%d belts): %s\n", col.ANSI(), s, len(belts), strings.Join(beltDescs, ", "))
+			}
+		}
+
 		return nil
 	}
 
@@ -1103,6 +1225,25 @@ func searchMapTarget(query string, loadedStars []*models.Star) (*models.Star, st
 		return st, fmt.Sprintf("Found system %s (%s)", st.Designation, st.Name), nil
 	}
 
+	// 5b. Look up belt in database
+	if db != nil && db.DB != nil {
+		var starName string
+		row := db.DB.QueryRow(`
+			SELECT COALESCE(NULLIF(star, ''), split_part(designation, '-', 1)) FROM belts WHERE LOWER(designation) = $1 LIMIT 1`, qLower)
+		if err := row.Scan(&starName); err == nil {
+			starName = strings.ToUpper(strings.TrimSpace(starName))
+			if starName == "" {
+				starName = strings.ToUpper(strings.TrimSpace(models.LocationID(q).Star()))
+			}
+			if starName != "" {
+				st, err := models.NewStar(starName)
+				if err == nil && st != nil {
+					return st, fmt.Sprintf("Found belt %s in system %s", q, starName), nil
+				}
+			}
+		}
+	}
+
 	// 6. Substring match across loaded stars
 	for _, st := range loadedStars {
 		if st == nil {
@@ -1147,7 +1288,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		SetDynamicColors(true).
 		SetWrap(false)
 
-	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD/EC[-] Pan (X/Y/Z)  [yellow]/[-] Search  [yellow]Click[-] Select  [yellow]Tab[-] Target  [yellow]0-9/i[-] Filters  [yellow]n[-] Neighbours  [yellow]^L[-] Refresh  [yellow]r[-] Reset  [yellow]q[-] Quit")
+	help.SetText(" [yellow]Arrows/hjkl[-] Rotate  [yellow]+/-[-] Zoom  [yellow]WASD/EC[-] Pan (X/Y/Z)  [yellow]/[-] Search  [yellow]Click[-] Select  [yellow]Tab[-] Target  [yellow]0-9/i/m[-] Filters  [yellow]n[-] Neighbours  [yellow]^L[-] Refresh  [yellow]r[-] Reset  [yellow]q[-] Quit")
 
 	searchInput := tview.NewInputField().
 		SetLabel(" [yellow::b]Search (System / Device / Alias):[-::-] ").
@@ -1431,6 +1572,23 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 		}
 
+		if len(target.MinedBelts) > 0 {
+			sb.WriteString(fmt.Sprintf("\n[#ff8c00::b]=== ACTIVELY MINED BELTS (%d) ===[-::-]\n", len(target.MinedBelts)))
+			for _, b := range target.MinedBelts {
+				col := common.GetBeltDensityColor(b.Density)
+				sb.WriteString(fmt.Sprintf("• [yellow::b]%s[-] (density: [#%02x%02x%02x::b]%s[-::-])\n",
+					b.Designation, col.R, col.G, col.B, b.Density))
+				if len(b.Resources) > 0 {
+					var resList []string
+					for res, amt := range b.Resources {
+						resList = append(resList, fmt.Sprintf("%s: %s", res, amt))
+					}
+					slices.Sort(resList)
+					sb.WriteString(fmt.Sprintf("    Resources: [gray]%s[-]\n", strings.Join(resList, ", ")))
+				}
+			}
+		}
+
 		// Immediate Neighbours (<= 15ly)
 		neighbours := loadNeighboursForStar(st, pNeighbourDist, stars)
 		if len(neighbours) > 0 {
@@ -1611,6 +1769,11 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 		} else {
 			filterBadges = append(filterBadges, "[gray][n:Neighbours][-]")
 		}
+		if opts.ShowMining {
+			filterBadges = append(filterBadges, "[#ff8c00::b][m:Mining:ON][-::-]")
+		} else {
+			filterBadges = append(filterBadges, "[gray][m:Mining][-]")
+		}
 
 		var devSummary string
 		if opts.StarDevices != nil && len(opts.StarDevices) > 0 {
@@ -1647,9 +1810,18 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			neighbourSummary = fmt.Sprintf(" | Neighbours: [#78c8ff::b]%d (<=%.1fly)[-::-]", len(opts.Neighbours), opts.NeighbourMaxDist)
 		}
 
+		var miningSummary string
+		if opts.ShowMining && len(opts.MiningStars) > 0 {
+			var totalBelts int
+			for _, belts := range opts.MiningStars {
+				totalBelts += len(belts)
+			}
+			miningSummary = fmt.Sprintf(" | Mining: [#ff8c00::b]%d belts in %d sys[-::-]", totalBelts, len(opts.MiningStars))
+		}
+
 		var hudSb strings.Builder
-		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total%s%s%s%s%s\n",
-			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars), devSummary, netSummary, travelSummary, islandSummary, neighbourSummary))
+		hudSb.WriteString(fmt.Sprintf("[cyan::b]=== GALAXY 3D MAP ===[-::-]  Center: [yellow]%s[-]  Radius: [green]%.1fly[-]  Mode: [magenta]%s[-]  Stars: [white]%d visible[-] / %d total%s%s%s%s%s%s\n",
+			cam.Center.String(), cam.Radius, cam.Mode, len(currentMapped), len(stars), devSummary, netSummary, travelSummary, islandSummary, neighbourSummary, miningSummary))
 
 		if opts.SelectedTravelDevice != "" {
 			var selTD *common.TravellingDevice
@@ -1690,6 +1862,9 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 			if selectedPoint.IsIsland {
 				devInfoStr += " | [#ff6eb4::b]Island Member[-::-]"
+			}
+			if selectedPoint.HasMining {
+				devInfoStr += fmt.Sprintf(" | [#ff8c00::b]Mining: %d belts[-::-]", len(selectedPoint.MinedBelts))
 			}
 
 			hudSb.WriteString(fmt.Sprintf("[white::b]Target:[-] [yellow::b]%s[-] ([white]%s[-]) | Class: [cyan]%s[-] | Planets: [white]%d[-] | Life: %s | Hub: %s%s | Pos: %s\n",
@@ -2109,6 +2284,18 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			}
 			redraw()
 			return nil
+		case r == 'm' || r == 'M':
+			opts.ShowMining = !opts.ShowMining
+			if opts.ShowMining && len(opts.MiningStars) == 0 {
+				opts.MiningStars = loadMinedBelts()
+			}
+			if opts.ShowMining {
+				searchStatusMsg = fmt.Sprintf("[#ff8c00::b]✓ Mining overlay enabled (%d systems with active belt mining)[-::-]", len(opts.MiningStars))
+			} else {
+				searchStatusMsg = "[gray]Mining overlay disabled[-]"
+			}
+			redraw()
+			return nil
 
 		// Reset View
 		case r == 'r' || r == 'R':
@@ -2125,6 +2312,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.FilterNetworkOnly = false
 			opts.FilterTravelOnly = false
 			opts.FilterIslandOnly = false
+			opts.FilterMiningOnly = false
 			opts.ShowRegions = false
 			opts.ShowDevices = (len(opts.DeviceTypes) > 0)
 			opts.ShowNetwork = (opts.Network != nil && len(opts.Network.Nodes) > 0)
@@ -2136,6 +2324,7 @@ func launchInteractiveMap(center common.Vec3, radius float32, stars []*models.St
 			opts.Neighbours = nil
 			opts.NeighbourDistances = nil
 			opts.NeighbourMaxDist = pNeighbourDist
+			opts.ShowMining = false
 			opts.ShowGrid = true
 			opts.ShowLabels = true
 			opts.SelectedStar = initialTarget

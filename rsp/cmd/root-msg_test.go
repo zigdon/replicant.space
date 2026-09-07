@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/models"
 )
 

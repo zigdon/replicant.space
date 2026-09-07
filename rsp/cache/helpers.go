@@ -413,3 +413,48 @@ func (db *Cache) ChecksumHubs() (string, error) {
 	}
 	return base64.StdEncoding.EncodeToString(cksum.Sum(nil)), nil
 }
+
+type MinedBeltRecord struct {
+	Designation string
+	Star        string
+	Density     string
+	Mining      bool
+	Resources   map[string]string
+}
+
+func (db *Cache) QueryMinedBelts() ([]*MinedBeltRecord, error) {
+	if db == nil || db.DB == nil {
+		return nil, fmt.Errorf("database cache is not connected")
+	}
+
+	q := `
+		SELECT designation, COALESCE(NULLIF(star, ''), split_part(designation, '-', 1)), density, COALESCE(mining, false), COALESCE(resources, '{}'::jsonb)
+		FROM belts
+		WHERE mining = true
+		ORDER BY designation ASC`
+
+	rows, err := db.DB.Query(q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []*MinedBeltRecord
+	for rows.Next() {
+		r := new(MinedBeltRecord)
+		var res JSONB[map[string]string]
+		if err := rows.Scan(&r.Designation, &r.Star, &r.Density, &r.Mining, &res); err != nil {
+			return nil, err
+		}
+		r.Star = strings.ToUpper(strings.TrimSpace(r.Star))
+		if r.Star == "" {
+			parts := strings.Split(r.Designation, "-")
+			if len(parts) > 0 {
+				r.Star = strings.ToUpper(strings.TrimSpace(parts[0]))
+			}
+		}
+		r.Resources = res.Data
+		records = append(records, r)
+	}
+	return records, rows.Err()
+}

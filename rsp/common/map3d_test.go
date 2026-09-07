@@ -82,7 +82,7 @@ func TestRenderGalaxyMap(t *testing.T) {
 			Position:         models.NewPosition(0, 0, 0),
 			EstimatedPlanets: 8,
 			HasLife:          true,
-			HasMyHub:         true,
+			HasHub:           true,
 			Explored:         true,
 		},
 		{
@@ -295,7 +295,7 @@ func TestFormatMapHeaderAndLegend(t *testing.T) {
 			SpectralType:     "G2V",
 			EstimatedPlanets: 8,
 			HasLife:          true,
-			HasMyHub:         true,
+			HasHub:           true,
 			Position:         models.NewPosition(0, 0, 0),
 		},
 	}
@@ -848,6 +848,135 @@ func TestNeighboursOverlay(t *testing.T) {
 	tviewOut, tviewMapped := RenderGalaxyMapTview(cam, stars, opts)
 	if len(tviewOut) == 0 || len(tviewMapped) != 3 {
 		t.Errorf("RenderGalaxyMapTview with neighbours failed")
+	}
+}
+
+func TestMiningOverlay(t *testing.T) {
+	cam := NewCamera3D(80, 30)
+	cam.Center = NewVec3(0, 0, 0)
+	cam.Radius = 25.0
+
+	stars := []*models.Star{
+		{
+			Designation: "SOL",
+			Name:        "Sol",
+			Position:    models.NewPosition(0, 0, 0),
+		},
+		{
+			Designation: "ALPHA",
+			Name:        "Alpha Centauri",
+			Position:    models.NewPosition(4.3, 0, 0),
+		},
+		{
+			Designation: "BARNARD",
+			Name:        "Barnard's Star",
+			Position:    models.NewPosition(0, 5.9, 0),
+		},
+		{
+			Designation: "SIRIUS",
+			Name:        "Sirius",
+			Position:    models.NewPosition(0, -8.6, 0),
+		},
+	}
+
+	minedStars := map[string][]*MinedBeltInfo{
+		"SOL": {
+			{Designation: "SOL-B1", Star: "SOL", Density: "sparse"},
+		},
+		"ALPHA": {
+			{Designation: "ALPHA-B1", Star: "ALPHA", Density: "moderate"},
+		},
+		"BARNARD": {
+			{Designation: "BARNARD-B1", Star: "BARNARD", Density: "sparse"},
+			{Designation: "BARNARD-B2", Star: "BARNARD", Density: "dense"},
+		},
+	}
+
+	opts := DefaultMapLayerOptions()
+	opts.ShowMining = true
+	opts.MiningStars = minedStars
+
+	output, mapped := RenderGalaxyMap(cam, stars, opts)
+	if len(mapped) != 4 {
+		t.Fatalf("Expected 4 mapped stars, got %d", len(mapped))
+	}
+
+	for _, mp := range mapped {
+		switch string(mp.Star.Designation) {
+		case "SOL":
+			if !mp.HasMining {
+				t.Errorf("Expected SOL to have mining")
+			}
+			if mp.Glyph != '❖' {
+				t.Errorf("Expected SOL glyph '❖', got %c", mp.Glyph)
+			}
+			expectedCol := GetBeltDensityColor("sparse")
+			if mp.Color != expectedCol {
+				t.Errorf("Expected SOL color %v, got %v", expectedCol, mp.Color)
+			}
+		case "ALPHA":
+			if !mp.HasMining {
+				t.Errorf("Expected ALPHA to have mining")
+			}
+			if mp.Glyph != '❖' {
+				t.Errorf("Expected ALPHA glyph '❖', got %c", mp.Glyph)
+			}
+			expectedCol := GetBeltDensityColor("moderate")
+			if mp.Color != expectedCol {
+				t.Errorf("Expected ALPHA color %v, got %v", expectedCol, mp.Color)
+			}
+		case "BARNARD":
+			if !mp.HasMining {
+				t.Errorf("Expected BARNARD to have mining")
+			}
+			if mp.Glyph != '❖' {
+				t.Errorf("Expected BARNARD glyph '❖', got %c", mp.Glyph)
+			}
+			// Highest density between sparse and dense should be dense
+			expectedCol := GetBeltDensityColor("dense")
+			if mp.Color != expectedCol {
+				t.Errorf("Expected BARNARD to have dense color %v, got %v", expectedCol, mp.Color)
+			}
+		case "SIRIUS":
+			if mp.HasMining {
+				t.Errorf("SIRIUS should not have mining")
+			}
+			if mp.Glyph == '❖' {
+				t.Errorf("SIRIUS should not have mining glyph '❖'")
+			}
+		}
+	}
+
+	// Verify label contains [X mined]
+	plainOutput := StripANSI(output)
+	if !strings.Contains(plainOutput, "[1 mined]") || !strings.Contains(plainOutput, "[2 mined]") {
+		t.Errorf("Expected output to contain '[1 mined]' and '[2 mined]', got:\n%s", plainOutput)
+	}
+
+	// Verify legend contains Mining
+	leg := FormatMapLegend(opts)
+	if !strings.Contains(leg, "Mining") {
+		t.Errorf("FormatMapLegend should contain 'Mining', got: %s", leg)
+	}
+	if !strings.Contains(leg, "Sparse") || !strings.Contains(leg, "Dense") {
+		t.Errorf("FormatMapLegend should describe densities, got: %s", leg)
+	}
+
+	// Verify FilterMiningOnly
+	filterOpts := DefaultMapLayerOptions()
+	filterOpts.ShowMining = true
+	filterOpts.FilterMiningOnly = true
+	filterOpts.MiningStars = minedStars
+
+	_, mappedOnly := RenderGalaxyMap(cam, stars, filterOpts)
+	if len(mappedOnly) != 3 {
+		t.Errorf("FilterMiningOnly expected 3 stars, got %d", len(mappedOnly))
+	}
+
+	// Verify RenderGalaxyMapTview
+	tviewOut, tviewMapped := RenderGalaxyMapTview(cam, stars, opts)
+	if len(tviewOut) == 0 || len(tviewMapped) != 4 {
+		t.Errorf("RenderGalaxyMapTview with mining failed")
 	}
 }
 

@@ -225,6 +225,13 @@ func (b *Belt) String() string {
 	return fmt.Sprintf("%s (%s)", b.Designation, b.Density)
 }
 
+func (b *Belt) Fill() error {
+	if b.Star == "" && b.Designation != "" {
+		b.Star = LocationID(b.Designation.Star())
+	}
+	return nil
+}
+
 func (b *Belt) Cache() error {
 	if b == nil {
 		return nil

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/models"
 )
@@ -210,6 +211,30 @@ func TestNeighbourFlags(t *testing.T) {
 	}
 }
 
+func TestMapMiningFlags(t *testing.T) {
+	// Verify mapCmd mining flags
+	if mapCmd.Flags().Lookup("mining") == nil {
+		t.Errorf("mapCmd missing --mining flag")
+	}
+	if mapCmd.Flags().ShorthandLookup("m") == nil {
+		t.Errorf("mapCmd missing -m shorthand flag")
+	}
+	if mapCmd.Flags().Lookup("mining_only") == nil {
+		t.Errorf("mapCmd missing --mining_only flag")
+	}
+
+	// Verify plotMapCmd mining flags
+	if plotMapCmd.Flags().Lookup("mining") == nil {
+		t.Errorf("plotMapCmd missing --mining flag")
+	}
+	if plotMapCmd.Flags().ShorthandLookup("M") == nil {
+		t.Errorf("plotMapCmd missing -M shorthand flag")
+	}
+	if plotMapCmd.Flags().Lookup("mining_only") == nil {
+		t.Errorf("plotMapCmd missing --mining_only flag")
+	}
+}
+
 func TestLoadNeighboursForStar(t *testing.T) {
 	center := &models.Star{
 		Designation: "SOL",
@@ -349,6 +374,44 @@ func TestSelectionPersistenceInViewport(t *testing.T) {
 	}
 	if foundZoomIndex < 0 {
 		t.Errorf("Expected ALPHA to remain mapped after camera zoom")
+	}
+}
+
+func TestLoadMinedBeltsStarResolution(t *testing.T) {
+	records := []*cache.MinedBeltRecord{
+		{Designation: "ABUNA-BELT-1", Star: "", Density: "moderate"},
+		{Designation: "ACAMARAN-BELT-1", Star: "", Density: "dense"},
+		{Designation: "QUADANAL-BELT-1", Star: "QUADANAL", Density: "dense"},
+	}
+
+	mined := make(map[string][]*common.MinedBeltInfo)
+	for _, r := range records {
+		starName := strings.ToUpper(strings.TrimSpace(r.Star))
+		if starName == "" {
+			starName = strings.ToUpper(strings.TrimSpace(models.LocationID(r.Designation).Star()))
+		}
+		if starName == "" {
+			continue
+		}
+		mined[starName] = append(mined[starName], &common.MinedBeltInfo{
+			Designation: r.Designation,
+			Star:        starName,
+			Density:     r.Density,
+			Resources:   r.Resources,
+		})
+	}
+
+	if len(mined) != 3 {
+		t.Fatalf("Expected 3 distinct systems, got %d", len(mined))
+	}
+	if _, ok := mined["ABUNA"]; !ok {
+		t.Errorf("Expected ABUNA to be resolved from ABUNA-BELT-1")
+	}
+	if _, ok := mined["ACAMARAN"]; !ok {
+		t.Errorf("Expected ACAMARAN to be resolved from ACAMARAN-BELT-1")
+	}
+	if _, ok := mined["QUADANAL"]; !ok {
+		t.Errorf("Expected QUADANAL to be resolved")
 	}
 }
 
