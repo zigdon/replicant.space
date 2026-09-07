@@ -194,6 +194,32 @@ type Contribute struct {
 	YourTotalValue         int    `json:"your_total_value"`
 }
 
+type MegastructureReq struct {
+	Complete  bool `json:"complete"`
+	Current   int  `json:"current"`
+	Remaining int  `json:"remaining"`
+	Required  int  `json:"required"`
+}
+
+type Megastructure struct {
+	Contributors       int                         `json:"contributors"`
+	Deadline           *JSONTime                   `json:"deadline"`
+	Description        string                      `json:"description"`
+	Designation        string                      `json:"designation"`
+	Location           LocationID                  `json:"location"`
+	MegastructureType  string                      `json:"megastructure_type"`
+	ObjectType         string                      `json:"object_type"`
+	OrbitalDistanceAu  float32                     `json:"orbital_distance_au"`
+	ProgressPercentage float32                     `json:"progress_percentage"`
+	Requirements       map[string]MegastructureReq `json:"requirements"`
+	Stage              string                      `json:"stage"`
+	Star               LocationID                  `json:"star_designation"`
+	Status             string                      `json:"status"`
+	Title              string                      `json:"title"`
+	YourContributions  int                         `json:"your_contributions"`
+	YourTotalValue     int                         `json:"your_total_value"`
+}
+
 // Client notifications
 type Notification struct {
 	ID     int

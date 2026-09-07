@@ -84,7 +84,8 @@ var locationCmd = &cobra.Command{
 			printTable(headers, data)
 		}
 
-		if res.Type == "star" {
+		switch res.Type {
+		case "star":
 			s := res.Star
 			printTable([]string{
 				"Designation", "Name", "Entry Point", "Class", "Mining Bonus",
@@ -133,9 +134,7 @@ var locationCmd = &cobra.Command{
 			printTable([]string{
 				"Designation", "Name", "Type", "Life stage", "Moons", "Scanned", "Inventory",
 			}, data)
-		}
-
-		if res.Type == "planet" {
+		case "planet":
 			p := res.Planet
 			printTable([]string{
 				"Designation", "Name", "Habitable", "LifeStage", "Type", "Moons",
@@ -152,16 +151,12 @@ var locationCmd = &cobra.Command{
 			if len(data) > 0 {
 				printTable([]string{"Designation", "Type", "Name", "Scanned"}, data)
 			}
-		}
-
-		if res.Type == "moon" {
+		case "moon":
 			m := res.Moon
 			printTable([]string{
 				"Designation", "Name", "Type", "Parent",
 			}, [][]any{{m.Designation, m.Name, m.Type, m.ParentPlanet}})
-		}
-
-		if res.Type == "object" {
+		case "object":
 			var data [][]any
 			so := res.Object
 			data = append(data, []any{
@@ -173,6 +168,32 @@ var locationCmd = &cobra.Command{
 				"Designation", "Status", "Type", "Class", "Distance AU", "Impact Target",
 				"ETA", "Likelyhood", "Required Strength", "Active Plates", "Progress",
 				"Thrust/hr"}, data)
+		case "megastructure":
+			var data [][]any
+			m := res.Megastructure
+			data = append(data, []any{
+				m.Title, m.Location, m.Status, m.Deadline, p(m.ProgressPercentage),
+			})
+			printTable([]string{"Title", "Location", "Status", "Deadline", "Progress"}, data)
+			data = [][]any{
+				{"Stage", m.Stage},
+				{"Description", m.Description},
+				{"Your Contributions", m.YourContributions},
+				{"Your Total Value", m.YourTotalValue},
+			}
+			printTable([]string{"Type", "Details"}, data)
+			data = data[:0]
+			for k, v := range m.Requirements {
+				data = append(data, []any{
+					k, v.Complete, v.Current, v.Remaining, v.Required,
+				})
+			}
+			slices.SortFunc(data, func(a, b []any) int {
+				return cmp.Compare(a[0].(string), b[0].(string))
+			})
+			printTable([]string{"Type", "Complete", "Current", "Remaining", "Required"}, data)
+		default:
+			return fmt.Errorf("Unknown location type %q", res.Type)
 		}
 
 		data = [][]any{}

@@ -421,6 +421,7 @@ type Location struct {
 	Location            LocationID                      `json:"location"`
 	LocationEvent       *Event                          `json:"location_event"`
 	Locations           map[LocationID]*LocationSummary `json:"locations"`
+	Megastructure       *Megastructure                  `json:"megastructure"`
 	Moon                *Moon                           `json:"moon"`
 	Moons               []*Moon                         `json:"moons"`
 	MoonsScanned        int                             `json:"moons_scanned"`
