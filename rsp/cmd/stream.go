@@ -478,7 +478,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 				log("%s parse error: %v", env.Event, err)
 				return err
 			}
-			devs, err := rest.Devices(map[string]string{
+			devs, err := rest.Devices(map[string]any{
 				"location":    string(ev.ObjectDesignation),
 				"device_type": "propulsor",
 			})

@@ -235,7 +235,7 @@ func (es *eventState) shipRes(res map[string]int) error {
 	}
 
 	// Find free freighters at home
-	cfs, err := rest.Devices(map[string]string{
+	cfs, err := rest.Devices(map[string]any{
 		"location": string(es.home), "device_type": "cargo_freighter"})
 	if err != nil {
 		return fmt.Errorf("Error finding freighters: %v", err)
@@ -318,13 +318,13 @@ func (es *eventState) shipDev(devs []*models.CodeAlias) error {
 		log("Shipping devices: %v", devs)
 
 		// Find free platforms at home. Use smaller ones if we can.
-		mfs, err := rest.Devices(map[string]string{
+		mfs, err := rest.Devices(map[string]any{
 			"location": string(es.home), "device_type": "mobile_fleet"})
 		if err != nil {
 			return fmt.Errorf("Error finding fleets: %v", err)
 		}
 		if len(devs) <= 4 {
-			plats, err := rest.Devices(map[string]string{
+			plats, err := rest.Devices(map[string]any{
 				"location": string(es.home), "device_type": "surge_platform"})
 			if err != nil {
 				return fmt.Errorf("Error finding platforms: %v", err)
@@ -510,7 +510,7 @@ func (es *eventState) complete() error {
 	}
 
 	log("Checking for nearby containers that can be moved over")
-	devs, err = rest.Devices(map[string]string{"device_type": "matrix_container"})
+	devs, err = rest.Devices(map[string]any{"device_type": "matrix_container"})
 	if err != nil {
 		return fmt.Errorf("Can't get matrix containers: %v", err)
 	}
@@ -676,11 +676,11 @@ func (es *eventState) actuate() error {
 	if len(toPrint) > 0 {
 		// See if we have any spares at home
 		log("Checking for available spares...")
-		devs, err := rest.Devices(map[string]string{"location": string(es.home)})
+		devs, err := rest.Devices(map[string]any{"location": string(es.home)})
 		if err != nil {
 			errs = append(errs, err)
 		}
-		destDevs, err := rest.Devices(map[string]string{"location": string(es.destination)})
+		destDevs, err := rest.Devices(map[string]any{"location": string(es.destination)})
 		if err != nil {
 			errs = append(errs, err)
 		}

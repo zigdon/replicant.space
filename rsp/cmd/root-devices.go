@@ -21,7 +21,7 @@ var deviceListCmd = &cobra.Command{
 	ValidArgsFunction: completeDevicesFilters,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Args are filter pairs
-		filter := make(map[string]string)
+		filter := make(map[string]any)
 		postFilter := make(map[string]string)
 		for i := 0; i < len(args)-1; i += 2 {
 			a := args[i]
@@ -30,14 +30,18 @@ var deviceListCmd = &cobra.Command{
 			}
 			v := args[i+1]
 			switch a {
-			case "location":
-				filter["location"] = v
+			case "location", "tag":
+				filter[a] = v
 			case "type":
 				filter["device_type"] = v
 			case "owner":
 				filter["replicant_code"] = db.Dealias(v)
-			case "tag":
-				filter["tag"] = db.Dealias(v)
+			case "tags":
+				filter["tags"] = strings.Split(v, ",")
+			case "exclude_tags":
+				filter["exclude_tags"] = strings.Split(v, ",")
+			case "untagged":
+				filter["untagged"] = true
 			case "destination":
 				postFilter["destination"] = v
 			default:
@@ -51,7 +55,7 @@ var deviceListCmd = &cobra.Command{
 		}
 		if f, ok := filter["device_type"]; ok {
 			// Accept prefixes for types
-			if t := db.GetTypeForPrefix(f); t != "" {
+			if t := db.GetTypeForPrefix(f.(string)); t != "" {
 				filter["device_type"] = t
 			}
 		}

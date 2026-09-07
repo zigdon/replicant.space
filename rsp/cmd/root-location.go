@@ -192,6 +192,8 @@ var locationCmd = &cobra.Command{
 				return cmp.Compare(a[0].(string), b[0].(string))
 			})
 			printTable([]string{"Type", "Complete", "Current", "Remaining", "Required"}, data)
+		case "":
+			// NOP
 		default:
 			return fmt.Errorf("Unknown location type %q", res.Type)
 		}

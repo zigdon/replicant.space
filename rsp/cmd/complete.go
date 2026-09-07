@@ -161,8 +161,8 @@ func completeEventCriteria(cmd *cobra.Command, args []string, toComplete string)
 }
 
 func completeDevicesFilters(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	keywords := []string{"location", "type", "tag", "destination"}
-	res := []string{"--ignore_tags", "--merge=false"}
+	keywords := []string{"location", "type", "tag", "tags", "destination", "exclude_tags", "untagged"}
+	res := []string{"--ignore_tags", "--merge=false", "--nomerge"}
 
 	if len(args)%2 == 0 {
 		return append(res, keywords...), cobra.ShellCompDirectiveNoFileComp
@@ -179,7 +179,7 @@ func completeDevicesFilters(cmd *cobra.Command, args []string, toComplete string
 		for _, t := range types {
 			res = append(res, t.(string))
 		}
-	case "tag", "tags":
+	case "tag", "tags", "exclude_tags":
 		q := `
 		SELECT distinct JSONB_ARRAY_ELEMENTS_TEXT(data->'tags') AS tags
 		FROM json_devices

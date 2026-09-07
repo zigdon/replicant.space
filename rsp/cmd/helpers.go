@@ -220,7 +220,7 @@ func explode[T any](v T, loc models.LocationID) []string {
 			if loc == "" {
 				panic(fmt.Errorf("Can't get * from unknown location"))
 			}
-			devs, err := rest.RefreshDevices(map[string]string{
+			devs, err := rest.RefreshDevices(map[string]any{
 				"device_type": devType,
 				"location":    string(loc),
 			})

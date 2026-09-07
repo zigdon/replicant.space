@@ -158,7 +158,7 @@ func (rm *RelayMachine) UpdateState() error {
 	// Check the current location
 	if rm.dev.Location != "" {
 		star := rm.dev.Location.Star()
-		frs, err := rest.RefreshDevices(map[string]string{
+		frs, err := rest.RefreshDevices(map[string]any{
 			"device_type": "ftl_relay",
 			"location":    star,
 		})
@@ -340,14 +340,14 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			}
 			log("Relay deployed at %s", rm.dev.Location)
 			// Refresh the location, so newly in-network devices will notice
-			if _, err = rest.RefreshDevices(map[string]string{"location": rm.dev.Location.Star()}); err != nil {
+			if _, err = rest.RefreshDevices(map[string]any{"location": rm.dev.Location.Star()}); err != nil {
 				log("Error refreshing system: %v", err)
 			}
 			nextState = RelayMachine_Cleanup
 		}
 	case RelayMachine_DeployingStation:
 		// See if we already have a dsrs here, and we're just waiting for it to unful
-		devs, err := rest.Devices(map[string]string{
+		devs, err := rest.Devices(map[string]any{
 			"location":    string(rm.dev.Location),
 			"device_type": "deep_space_relay_station"})
 		if err != nil {
@@ -377,7 +377,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				}
 				log("Station deployed at %s", rm.dev.Location)
 				// Refresh the location, so newly in-network devices will notice
-				if _, err = rest.RefreshDevices(map[string]string{"location": rm.dev.Location.Star()}); err != nil {
+				if _, err = rest.RefreshDevices(map[string]any{"location": rm.dev.Location.Star()}); err != nil {
 					log("Error refreshing system: %v", err)
 				}
 				nextState = RelayMachine_Cleanup
@@ -418,7 +418,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				eta = res.Completes.Time()
 
 				// Refresh the location, to make sure we'll remember it's already here
-				if _, err = rest.RefreshDevices(map[string]string{"location": rm.dev.Location.Star()}); err != nil {
+				if _, err = rest.RefreshDevices(map[string]any{"location": rm.dev.Location.Star()}); err != nil {
 					log("Error refreshing system: %v", err)
 				}
 			}
@@ -428,7 +428,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 	case RelayMachine_Cleanup:
 		// Find spares in system
-		frs, err := rest.RefreshDevices(map[string]string{
+		frs, err := rest.RefreshDevices(map[string]any{
 			"location":    rm.dev.Location.Star(),
 			"device_type": "ftl_relay",
 		})
@@ -631,7 +631,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				}
 			}
 			var lost = true
-			devs, err := rest.Devices(map[string]string{"device_type": "ftl_relay"})
+			devs, err := rest.Devices(map[string]any{"device_type": "ftl_relay"})
 			if err != nil {
 				return eta, err
 			}
@@ -718,7 +718,7 @@ func (rm *RelayMachine) resupply() error {
 					return fmt.Errorf("Can't free slots on %s: %v", rm.supply.Code, err)
 				}
 			}
-			devs, err := rest.RefreshDevices(map[string]string{
+			devs, err := rest.RefreshDevices(map[string]any{
 				"location":    string(rm.supply.Location),
 				"device_type": "deep_space_relay_station",
 			})
@@ -745,7 +745,7 @@ func (rm *RelayMachine) resupply() error {
 		}
 
 		// Now pick up remaining FRs
-		devs, err := rest.RefreshDevices(map[string]string{
+		devs, err := rest.RefreshDevices(map[string]any{
 			"location":    string(rm.supply.Location),
 			"device_type": "ftl_relay",
 		})
@@ -849,11 +849,11 @@ func (rm *RelayMachine) getNextBeacons() ([]models.LocationID, error) {
 		inNet[c] = true
 	}
 	log("%d systems in network", len(inNet))
-	fbs, err := rest.Devices(map[string]string{"device_type": "ftl_beacon"})
+	fbs, err := rest.Devices(map[string]any{"device_type": "ftl_beacon"})
 	if err != nil {
 		return nil, fmt.Errorf("Can't get beacons: %v", err)
 	}
-	shs, err := rest.Devices(map[string]string{"device_type": "system_hub"})
+	shs, err := rest.Devices(map[string]any{"device_type": "system_hub"})
 	if err != nil {
 		return nil, fmt.Errorf("Can't get hubs: %v", err)
 	}

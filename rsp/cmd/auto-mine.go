@@ -189,12 +189,12 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	log("Searching for idle devices...")
 	for k := range missing {
 		log("... %s", k)
-		ds, err := rest.Devices(map[string]string{"device_type": k, "location": home})
+		ds, err := rest.Devices(map[string]any{"device_type": k, "location": home})
 		if err != nil {
 			return err
 		}
 		devs = append(devs, ds...)
-		ds, err = rest.Devices(map[string]string{"device_type": k, "location": loc.Location.Star()})
+		ds, err = rest.Devices(map[string]any{"device_type": k, "location": loc.Location.Star()})
 		if err != nil {
 			return err
 		}
@@ -388,7 +388,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 
 	// Find an available fleet carrier. If none available, send the nearest one home.
-	allMFs, err := rest.Devices(map[string]string{"device_type": "mobile_fleet"})
+	allMFs, err := rest.Devices(map[string]any{"device_type": "mobile_fleet"})
 	if err != nil {
 		return err
 	}

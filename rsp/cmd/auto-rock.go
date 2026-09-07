@@ -19,7 +19,7 @@ func autoRock(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	getLocs := func(t string) (map[string][]*models.CodeAlias, error) {
-		ps, err := rest.Devices(map[string]string{"device_type": t})
+		ps, err := rest.Devices(map[string]any{"device_type": t})
 		if err != nil {
 			return nil, err
 		}

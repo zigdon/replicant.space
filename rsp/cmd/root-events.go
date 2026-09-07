@@ -178,8 +178,8 @@ func printEventSummary(es []*models.Event) {
 		tag := fmt.Sprintf("event:%s", e.Designation)
 		txTag := fmt.Sprintf("tx:%s", e.Designation)
 		var from, transit, to int
-		devs, dErr := rest.Devices(map[string]string{"tag": tag})
-		tx, txErr := rest.Devices(map[string]string{"tag": txTag})
+		devs, dErr := rest.Devices(map[string]any{"tag": tag})
+		tx, txErr := rest.Devices(map[string]any{"tag": txTag})
 		if dErr != nil || txErr != nil {
 			log("Error getting devices for %q: %v, %v", tag, dErr, txErr)
 		} else {
@@ -231,19 +231,19 @@ func printEvent(e *models.Event, style lg.Style) {
 	var crit [][]any
 	var inv []*models.Device
 	for _, h := range common.ClosestHomes(e.Location) {
-		devs, err := rest.Devices(map[string]string{"location": h})
+		devs, err := rest.Devices(map[string]any{"location": h})
 		if err != nil {
 			log("Error getting home inventory: %v", err)
 		}
 		inv = append(inv, devs...)
 	}
 	tag := fmt.Sprintf("event:%s", strings.ToLower(e.Designation))
-	tagged, err := rest.Devices(map[string]string{"tag": tag})
+	tagged, err := rest.Devices(map[string]any{"tag": tag})
 	if err != nil {
 		log("Error getting tagged devices: %v", err)
 	}
 	txTag := fmt.Sprintf("tx:%s", strings.ToLower(e.Designation))
-	tx, err := rest.Devices(map[string]string{"tag": txTag})
+	tx, err := rest.Devices(map[string]any{"tag": txTag})
 	if err != nil {
 		log("Error getting tagged transports: %v", err)
 	}

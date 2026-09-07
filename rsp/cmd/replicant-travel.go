@@ -86,7 +86,7 @@ func getTeleportDests(loc string) ([]*models.Device, error) {
 			return nil, err
 		}
 		log("Searching for %s...", t)
-		cfg := map[string]string{
+		cfg := map[string]any{
 			"device_type": t,
 		}
 		if loc != "" {

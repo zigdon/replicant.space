@@ -45,7 +45,7 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 	loc := getString(cmd, "location")
 	refresh := getBool(cmd, "refresh")
 	printers, err := rest.CachedDevices(
-		map[string]string{"device_type": "autofactory"}, !refresh)
+		map[string]any{"device_type": "autofactory"}, !refresh)
 	if err != nil {
 		return err
 	}

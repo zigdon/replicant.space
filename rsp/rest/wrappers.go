@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/models"
 )
@@ -304,13 +305,14 @@ func ReplicantTeleport(id, target *models.CodeAlias) (*models.Teleport, error) {
 }
 
 // Devices
-func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, error) {
+func CachedDevices(filters map[string]any, useCache bool) ([]*models.Device, error) {
 	if !useCache {
 		log("**: Skipping cache")
 		return RefreshDevices(filters)
 	}
 
-	validCols := []string{"device_type", "location", "replicant_code", "tag"}
+	validCols := []string{
+		"device_type", "location", "replicant_code", "tag", "tags", "exclude_tags", "untagged"}
 	q := "SELECT code, data FROM json_devices"
 	var vals []any
 
@@ -323,15 +325,34 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 			}
 			switch k {
 			case "location":
+				s := v.(string)
 				limits = append(limits,
 					fmt.Sprintf("(%s = $%d OR %s LIKE $%d)", k, len(vals)+1, k, len(vals)+2))
-				vals = append(vals, v, v+"-%")
+				vals = append(vals, s, s+"-%")
 			case "tag":
+				s := v.(string)
 				limits = append(limits,
 					fmt.Sprintf(
-						"data @> jsonb_build_object('tags', jsonb_build_array($%d::text))",
+						"data->'tags' @> jsonb_build_array($%d::text)",
 						len(vals)+1))
-				vals = append(vals, strings.ToLower(v))
+				vals = append(vals, strings.ToLower(s))
+			case "tags":
+				s := v.([]string)
+				limits = append(limits,
+					fmt.Sprintf(
+						"data->'tags' ?& $%d::TEXT[]",
+						len(vals)+1))
+				log("tags=%v", s)
+				vals = append(vals, pq.Array(s))
+			case "exclude_tags":
+				s := v.([]string)
+				limits = append(limits,
+					fmt.Sprintf(
+						"NOT (data->'tags' ?| $%d::TEXT[])",
+						len(vals)+1))
+				vals = append(vals, pq.Array(s))
+			case "untagged":
+				limits = append(limits, "jsonb_array_length(data->'tags') = 0")
 			case "device_type":
 				limits = append(limits, fmt.Sprintf("type = $%d", len(vals)+1))
 				vals = append(vals, v)
@@ -388,15 +409,22 @@ func CachedDevices(filters map[string]string, useCache bool) ([]*models.Device, 
 	return RefreshDevices(filters)
 }
 
-func Devices(filters map[string]string) ([]*models.Device, error) {
+func Devices(filters map[string]any) ([]*models.Device, error) {
 	return CachedDevices(filters, true)
 }
 
-func RefreshDevices(filters map[string]string) ([]*models.Device, error) {
+func RefreshDevices(filters map[string]any) ([]*models.Device, error) {
 	url := "devices"
 	var params []string
 	for k, v := range filters {
-		params = append(params, fmt.Sprintf("%s=%s", k, v))
+		switch val := v.(type) {
+		case bool:
+			params = append(params, fmt.Sprintf("%s=%v", k, val))
+		case []string:
+			params = append(params, fmt.Sprintf("%s=%s", k, strings.Join(val, ",")))
+		default:
+			params = append(params, fmt.Sprintf("%s=%s", k, val))
+		}
 	}
 	params = append([]string{"limit=200", "cursor=%d"}, params...)
 	if len(params) > 0 {

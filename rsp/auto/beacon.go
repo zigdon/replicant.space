@@ -148,7 +148,7 @@ func (bm *BeaconMachine) UpdateState() error {
 
 	// Find beacons already deployed
 	hasBeacon := make(map[string]bool)
-	beacons, err := rest.Devices(map[string]string{
+	beacons, err := rest.Devices(map[string]any{
 		"location": dev.Location.Star(), "device_type": "ftl_beacon"})
 	if err != nil {
 		return err
@@ -347,7 +347,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 			if err != nil {
 				return eta, err
 			}
-			homeFBs, err := rest.Devices(map[string]string{
+			homeFBs, err := rest.Devices(map[string]any{
 				"location": resupplyBase, "device_type": "ftl_beacon"})
 			if err != nil {
 				return eta, err
@@ -382,7 +382,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		// Find all the deployed beacons
 		beacons := make(map[string]bool)
 		log("Finding all ftl_beacons...")
-		res, err := rest.Devices(map[string]string{
+		res, err := rest.Devices(map[string]any{
 			"device_type": "ftl_beacon",
 		})
 		if err != nil {
@@ -462,7 +462,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		log("Resupply platform in transit...")
 	case slices.Contains(constants.Homes, string(bm.supply.Location)):
 		slots := bm.supply.AttachCapacity - len(bm.supply.AttachedDevices)
-		devs, err := rest.RefreshDevices(map[string]string{
+		devs, err := rest.RefreshDevices(map[string]any{
 			"location":    string(bm.supply.Location),
 			"device_type": "ftl_beacon",
 		})

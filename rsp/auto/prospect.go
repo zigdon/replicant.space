@@ -108,7 +108,7 @@ func (pm *ProspectMachine) nextDest() (string, error) {
 	for {
 		log("Considering %s as the next site", next)
 		// Check if there's aleady an observatory there, or on the way.
-		obvs, err := rest.Devices(map[string]string{
+		obvs, err := rest.Devices(map[string]any{
 			"device_type": "parallax_array",
 		})
 		if err != nil {

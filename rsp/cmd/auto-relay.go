@@ -38,7 +38,7 @@ func autoFR(cmd *cobra.Command, args []string) error {
 	if starName == "" {
 		return fmt.Errorf("r-%d is not in a system: %s", rID, r.Location)
 	}
-	devs, err := rest.Devices(map[string]string{"location": starName})
+	devs, err := rest.Devices(map[string]any{"location": starName})
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func autoFB(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("No FTL Beacon found stowed in r-%d's ship", rID)
 	}
 	planet := models.LocationID(getString(cmd, "planet"))
-	devs, err := rest.Devices(map[string]string{"location": planet.Star()})
+	devs, err := rest.Devices(map[string]any{"location": planet.Star()})
 	if err != nil {
 		return err
 	}

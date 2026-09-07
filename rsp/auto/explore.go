@@ -262,7 +262,7 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		log("Devices deployed")
-		frs, err := rest.Devices(map[string]string{
+		frs, err := rest.Devices(map[string]any{
 			"location":    em.dev.Location.Star(),
 			"device_type": "ftl_relay",
 		})

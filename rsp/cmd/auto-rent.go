@@ -13,19 +13,19 @@ import (
 )
 
 func autoRent(cmd *cobra.Command, args []string) error {
-	hubs, err := rest.Devices(map[string]string{
+	hubs, err := rest.Devices(map[string]any{
 		"device_type": "system_hub",
 	})
 	if err != nil {
 		return err
 	}
-	mds, err := rest.Devices(map[string]string{
+	mds, err := rest.Devices(map[string]any{
 		"device_type": "maintenance_drone",
 	})
 	if err != nil {
 		return err
 	}
-	sbs, err := rest.Devices(map[string]string{
+	sbs, err := rest.Devices(map[string]any{
 		"device_type": "service_bot",
 	})
 	if err != nil {

@@ -170,7 +170,7 @@ func GetBP(bp string) *models.Blueprint {
 
 func GetFilteredDevices(devTypes, locations, statuses []string) ([]*models.CodeAlias, error) {
 	getDevsAt := func(location, devType string) ([]*models.Device, error) {
-		filter := make(map[string]string)
+		filter := make(map[string]any)
 		if location != "" {
 			filter["location"] = location
 		}

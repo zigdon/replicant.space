@@ -52,11 +52,11 @@ func autoFerry(cmd *cobra.Command, args []string) error {
 	}
 
 	// Skip locations that have autofactories and not system-hubs
-	afs, err := rest.Devices(map[string]string{"device_type": "autofactory"})
+	afs, err := rest.Devices(map[string]any{"device_type": "autofactory"})
 	if err != nil {
 		return err
 	}
-	shs, err := rest.Devices(map[string]string{"device_type": "system_hub"})
+	shs, err := rest.Devices(map[string]any{"device_type": "system_hub"})
 	if err != nil {
 		return err
 	}

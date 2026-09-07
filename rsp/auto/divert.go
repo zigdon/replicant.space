@@ -60,7 +60,7 @@ func (dm *DivertMachine) Start(d *models.Device, dryRun bool) error {
 		break
 	}
 	if dm.mtd == nil && dm.dev.Location != "" {
-		mtds, err := rest.RefreshDevices(map[string]string{"device_type": "maintenance_drone", "tag": fmt.Sprintf("support:%s", dm.dev.Code.Alias())})
+		mtds, err := rest.RefreshDevices(map[string]any{"device_type": "maintenance_drone", "tag": fmt.Sprintf("support:%s", dm.dev.Code.Alias())})
 		if err != nil {
 			return err
 		}
@@ -149,7 +149,7 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 		// If we're in dry run, we won't actually get the list of devices from
 		// the command, so lets construct it manually.
 		if dm.dryRun {
-			ps, err := rest.Devices(map[string]string{"device_type": "propulsor", "location": dm.dev.Location.Star()})
+			ps, err := rest.Devices(map[string]any{"device_type": "propulsor", "location": dm.dev.Location.Star()})
 			if err != nil {
 				return eta, err
 			}
@@ -201,7 +201,7 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 			log("Diversion in progress, need %.2f, no ETA yet", need)
 		}
 	case DivertMachine_Cleanup:
-		props, err := rest.Devices(map[string]string{"device_type": "propulsor", "location": string(dm.dev.Location)})
+		props, err := rest.Devices(map[string]any{"device_type": "propulsor", "location": string(dm.dev.Location)})
 		if err != nil {
 			return eta, err
 		}
@@ -245,7 +245,7 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		// Check where other fleets are heading, to avoid clustering
-		mfs, err := rest.RefreshDevices(map[string]string{"device_type": "mobile_fleet", "tag": "rocks"})
+		mfs, err := rest.RefreshDevices(map[string]any{"device_type": "mobile_fleet", "tag": "rocks"})
 		if err != nil {
 			return eta, err
 		}
