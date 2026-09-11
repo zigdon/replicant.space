@@ -137,6 +137,14 @@ var plotDistanceCmd = &cobra.Command{
 	RunE:              plotDistance,
 }
 
+var plotRegionsCmd = &cobra.Command{
+	Use:               "region",
+	Aliases:           []string{"regions"},
+	Short:             "Find the nearest regions to the specified stars",
+	ValidArgsFunction: completeStars,
+	RunE:              plotRegions,
+}
+
 var plotIslandCmd = &cobra.Command{
 	Use:   "island",
 	Short: "Identify clusters of stars that are isolated",
@@ -179,6 +187,7 @@ func init() {
 	plotCmd.AddCommand(nearestRelayCmd)
 	plotCmd.AddCommand(nearestHomeCmd)
 	plotCmd.AddCommand(plotDistanceCmd)
+	plotCmd.AddCommand(plotRegionsCmd)
 
 	plotCmd.AddCommand(neighboursCmd)
 	neighboursCmd.Flags().Float32P("radius", "r", 7.5, "Radius for search")
@@ -423,6 +432,70 @@ func plotBridge(cmd *cobra.Command, args []string) error {
 		log("No bridge options available. Nearest offshore star is %s, %.2f LY from %s",
 			offshore, dist, island)
 	}
+
+	return nil
+}
+
+func plotRegions(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("At least one system is required")
+	}
+	var regs []string
+	dists := make(map[string]map[string]float32)
+	for _, dest := range args {
+		rows, err := db.Query(`
+			SELECT region, MIN(
+			  position<->(
+				SELECT position FROM stars WHERE designation = $1
+			))
+			FROM stars
+			GROUP BY region
+			ORDER BY min`, models.LocationID(dest).Star())
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var r string
+			var d float32
+			if err := rows.Scan(&r, &d); err != nil {
+				return err
+			}
+			if r == "" {
+				r = "none"
+			}
+			if !slices.Contains(regs, r) {
+				regs = append(regs, r)
+			}
+			res, ok := dists[dest]
+			if !ok {
+				dists[dest] = make(map[string]float32)
+				res = dists[dest]
+			}
+			res[r] = d
+		}
+	}
+
+	slices.Sort(regs)
+	var data [][]any
+	for _, s := range args {
+		var ds []any
+		var min float32 = -1
+		var col int
+		for i, r := range regs {
+			if min == -1 || dists[s][r] < min {
+				min = dists[s][r]
+				col = i
+			}
+			ds = append(ds, dists[s][r])
+		}
+		l := []any{s, regs[col]}
+		l = append(l, ds...)
+		data = append(data, l)
+	}
+	headers := []string{"Star", "Region"}
+	headers = append(headers, regs...)
+	printTable(headers, data)
 
 	return nil
 }

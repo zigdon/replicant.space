@@ -2,7 +2,6 @@ package cache
 
 import (
 	"crypto/md5"
-	"database/sql"
 	"database/sql/driver"
 	"encoding/base64"
 	"encoding/json"
@@ -278,118 +277,83 @@ func (db *Cache) QueryAllStars(limit int) ([]*StarRecord, error) {
 	return stars, rows.Err()
 }
 
-type DeviceRecord struct {
-	Code     string
-	Type     string
-	Location string
-	Status   string
+// Opts allows modifying the device query - returning the limits and additional params
+type QueryDevicesOpts struct {
+	Limits []string
+	Params []any
 }
 
-func (db *Cache) QueryDevicesByTypes(types []string) ([]*DeviceRecord, error) {
+func QueryDevicesField(f string, t ...string) QueryDevicesOpts {
+	if len(t) == 1 {
+		return QueryDevicesOpts{[]string{fmt.Sprintf("%s = $%%d", f)}, []any{t[0]}}
+	}
+	return QueryDevicesOpts{
+		[]string{fmt.Sprintf("%s = ANY($%%d::TEXT[])", f)}, []any{pq.Array(t)},
+	}
+}
+
+func QueryDevicesStatus(t ...string) QueryDevicesOpts {
+	return QueryDevicesField("status", t...)
+}
+
+func QueryDevicesType(t ...string) QueryDevicesOpts {
+	return QueryDevicesField("type", t...)
+}
+
+func QueryDevicesLocation(t ...string) QueryDevicesOpts {
+	return QueryDevicesField("location", t...)
+}
+
+type QueryDevicesRes struct {
+	Code, Type, Location, Status string
+	Data                         []byte
+}
+
+func (db *Cache) QueryDevices(opts ...QueryDevicesOpts) ([]*QueryDevicesRes, error) {
 	if db == nil || db.DB == nil {
 		return nil, fmt.Errorf("database cache is not connected")
 	}
-
-	var filterTypes []string
-	matchAll := false
-	for _, t := range types {
-		trimmed := strings.ToLower(strings.TrimSpace(t))
-		if trimmed == "*" || trimmed == "all" {
-			matchAll = true
-			break
+	var limits []string
+	var params []any
+	for _, o := range opts {
+		limits = append(limits, o.Limits...)
+		params = append(params, o.Params...)
+	}
+	var n = 1
+	for i, l := range limits {
+		for strings.Contains(l, "%d") {
+			l = strings.Replace(l, "%d", fmt.Sprintf("%d", n), 1)
+			n++
 		}
-		if trimmed != "" {
-			filterTypes = append(filterTypes, trimmed)
-		}
+		limits[i] = l
 	}
-
-	var rows *sql.Rows
-	var err error
-
-	if matchAll || len(filterTypes) == 0 {
-		q := `
-			SELECT code, type, location, COALESCE(status, '')
-			FROM json_devices
-			WHERE location IS NOT NULL AND location != ''
-			ORDER BY type ASC, code ASC`
-		rows, err = db.DB.Query(q)
-	} else {
-		placeholders := make([]string, len(filterTypes))
-		vals := make([]any, len(filterTypes))
-		for i, t := range filterTypes {
-			placeholders[i] = fmt.Sprintf("$%d", i+1)
-			vals[i] = t
-		}
-		q := fmt.Sprintf(`
-			SELECT code, type, location, COALESCE(status, '')
-			FROM json_devices
-			WHERE LOWER(type) IN (%s) AND location IS NOT NULL AND location != ''
-			ORDER BY type ASC, code ASC`, strings.Join(placeholders, ", "))
-		rows, err = db.DB.Query(q, vals...)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var devs []*DeviceRecord
-	for rows.Next() {
-		d := new(DeviceRecord)
-		if err := rows.Scan(&d.Code, &d.Type, &d.Location, &d.Status); err != nil {
-			return nil, err
-		}
-		devs = append(devs, d)
-	}
-	return devs, rows.Err()
-}
-
-type NetworkDeviceRecord struct {
-	Code     string
-	Type     string
-	Location string
-	Status   string
-	RangeLy  float32
-}
-
-func (db *Cache) QueryRelayingNetworkDevices() ([]*NetworkDeviceRecord, error) {
-	if db == nil || db.DB == nil {
-		return nil, fmt.Errorf("database cache is not connected")
-	}
-
-	q := `
-		SELECT code, type, location, COALESCE(status, '')
+	log("limits=%v\nparams=%v", limits, params)
+	q := fmt.Sprintf(`
+		SELECT code, type, location, status, data
 		FROM json_devices
-		WHERE LOWER(type) IN ('ftl_relay', 'system_hub', 'deep_space_relay_station')
-		  AND LOWER(status) = 'relaying'
-		  AND location IS NOT NULL AND location != ''
-		ORDER BY location ASC, type ASC`
-
-	rows, err := db.DB.Query(q)
+		WHERE %s`, strings.Join(limits, " AND "))
+	rows, err := db.Query(q, params...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
-	var devs []*NetworkDeviceRecord
+	var res []*QueryDevicesRes
 	for rows.Next() {
-		d := new(NetworkDeviceRecord)
-		if err := rows.Scan(&d.Code, &d.Type, &d.Location, &d.Status); err != nil {
+		var c, t, l, s string
+		var d []byte
+		if err := rows.Scan(&c, &t, &l, &s, &d); err != nil {
 			return nil, err
 		}
-		switch strings.ToLower(d.Type) {
-		case "system_hub":
-			d.RangeLy = 15.0
-		case "deep_space_relay_station":
-			d.RangeLy = 10.0
-		case "ftl_relay":
-			d.RangeLy = 7.5
-		default:
-			d.RangeLy = 0.0
-		}
-		devs = append(devs, d)
+		res = append(res, &QueryDevicesRes{
+			Code:     c,
+			Type:     t,
+			Location: l,
+			Status:   s,
+			Data:     d,
+		})
 	}
-	return devs, rows.Err()
+
+	return res, nil
 }
 
 func (db *Cache) ChecksumHubs() (string, error) {

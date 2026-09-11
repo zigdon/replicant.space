@@ -10,6 +10,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
@@ -131,7 +132,7 @@ func loadDeviceLocations(deviceTypes []string) map[string][]*common.DeviceLocati
 	if db == nil || len(deviceTypes) == 0 {
 		return nil
 	}
-	devRecords, err := db.QueryDevicesByTypes(deviceTypes)
+	devRecords, err := db.QueryDevices(cache.QueryDevicesType(deviceTypes...))
 	if err != nil {
 		log("Error querying devices: %v", err)
 		return nil
@@ -153,7 +154,10 @@ func loadNetworkGraph(stars []*models.Star) *common.NetworkGraph {
 	if db == nil {
 		return nil
 	}
-	devs, err := db.QueryRelayingNetworkDevices()
+	devs, err := db.QueryDevices(
+		cache.QueryDevicesType(constants.RelayTypes...),
+		cache.QueryDevicesStatus("relaying"),
+	)
 	if err != nil {
 		log("Error querying network devices: %v", err)
 		return nil
@@ -176,7 +180,7 @@ func loadNetworkGraph(stars []*models.Star) *common.NetworkGraph {
 			Type:     d.Type,
 			Location: d.Location,
 			Status:   d.Status,
-			RangeLy:  d.RangeLy,
+			RangeLy:  constants.RelayRanges[d.Type],
 		})
 	}
 

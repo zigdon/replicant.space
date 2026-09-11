@@ -558,7 +558,7 @@ func DeviceLogs(id *models.CodeAlias, limit int) (*models.DeviceLogs, error) {
 	if db == nil || db.DB == nil {
 		return nil, fmt.Errorf("Not connected to cache")
 	}
-	rows, err := db.DB.Query(`
+	rows, err := db.Query(`
 	  SELECT created, type, message, payload
 	  FROM device_logs
 	  WHERE device = $1

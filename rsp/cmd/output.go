@@ -78,7 +78,7 @@ func longList(s []string, trunc, width int) string {
 }
 
 func list(s []string) string {
-	return longList(s, 30, -1)
+	return longList(s, 40, -1)
 }
 
 func lines(s []string) string {

@@ -124,10 +124,10 @@ CREATE TABLE IF NOT EXISTS json_devices(
   code TEXT PRIMARY KEY CHECK (code != ''),
   fetched_ts TIMESTAMPTZ NOT NULL,
   updated_ts TIMESTAMPTZ NOT NULL,
-  location TEXT,
-  type TEXT,
-  status TEXT,
-  data JSONB
+  location TEXT NOT NULL DEFAULT '',
+  type TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT '',
+  data JSONB NOT NULL
 );
 
 CREATE INDEX idx_devices_status ON json_devices (status);
@@ -163,7 +163,8 @@ CREATE TABLE IF NOT EXISTS tasks(
   completed TIMESTAMPTZ,
   type TEXT,
   title TEXT,
-  details JSONB
+  details JSONB,
+  state JSONB
 );
 
 CREATE TABLE IF NOT EXISTS intent(

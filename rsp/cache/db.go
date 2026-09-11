@@ -20,6 +20,12 @@ var schema string
 
 func log(tmpl string, args ...any) {
 	ts := time.Now().Format(time.Stamp)
+	for n, v := range args {
+		switch a := v.(type) {
+		case string:
+			args[n] = strings.Join(strings.Fields(a), " ")
+		}
+	}
 	for n, a := range args {
 		if b, ok := a.([]byte); ok {
 			s := string(b)

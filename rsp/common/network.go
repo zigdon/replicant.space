@@ -3,10 +3,12 @@ package common
 import (
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
+	"golang.org/x/sync/errgroup"
 )
 
 var _networkCache []string
@@ -27,40 +29,55 @@ func FullNetwork(ignoreRep *models.CodeAlias) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	var eg errgroup.Group
+	eg.SetLimit(10)
+	var mu sync.Mutex
 	for _, r := range acc.ReplicantList {
 		if r.CurrentLocation == "" || r.Code == ignoreRep {
 			continue
 		}
+		mu.Lock()
 		net[r.Location.Star()] = true
-		relay := db.QueryRow(`
-		SELECT code
-		FROM json_devices
-		WHERE type IN ('ftl_relay', 'deep_space_relay_station', 'system_hub')
-		  AND location = $1`, r.Location)
-		var dc string
-		if err := relay.Scan(&dc); err != nil {
-			if strings.Contains(err.Error(), "no rows in result set") {
-				continue
+		mu.Unlock()
+		eg.Go(func() error {
+			relay := db.QueryRow(`
+		  SELECT DISTINCT ON (code) code
+		  FROM json_devices
+		  WHERE type IN ('ftl_relay', 'deep_space_relay_station', 'system_hub')
+			AND status = 'relaying'
+			AND location = $1
+		  GROUP BY location, type, code`, r.Location)
+			var dc string
+			if err := relay.Scan(&dc); err != nil {
+				if strings.Contains(err.Error(), "no rows in result set") {
+					return nil
+				}
+				return err
 			}
-			return nil, err
-		}
-		ca := models.NewCodeAlias(dc)
-		Log("Found relay at %q: %s", r.Location, ca.Alias())
-		con, err := rest.DeviceNetwork(ca)
-		if err != nil {
-			return nil, err
-		}
-		var added int
-		for _, node := range con.Connections {
-			if net[node.Star] {
-				continue
+			ca := models.NewCodeAlias(dc)
+			// Log("Found relay at %q: %s", r.Location, ca.Alias())
+			con, err := rest.DeviceNetwork(ca)
+			if err != nil {
+				return err
 			}
-			net[node.Star] = true
-			added++
-		}
-		if added > 0 {
-			Log("Added %d new nodes", added)
-		}
+			var added int
+			mu.Lock()
+			defer mu.Unlock()
+			for _, node := range con.Connections {
+				if net[node.Star] {
+					continue
+				}
+				net[node.Star] = true
+				added++
+			}
+			// if added > 0 {
+			// 	Log("Added %d new nodes", added)
+			// }
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 	Log("Found %d systems in the network", len(net))
 	var res []string
@@ -71,5 +88,6 @@ func FullNetwork(ignoreRep *models.CodeAlias) ([]string, error) {
 
 	_networkCacheTS = time.Now()
 	_networkCache = res
+	_ignoreRep = ignoreRep
 	return res, err
 }
