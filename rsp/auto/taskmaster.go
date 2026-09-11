@@ -1,6 +1,7 @@
 package auto
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"slices"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
-	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -18,8 +18,8 @@ import (
 //  {
 //    location: desired destination
 //    composition: list of device/qty
-//    priority: int, higher is more important
-//    rate: int, how many devices to handle at a time, 0=unlimited
+//    priority: int, (TODO) higher is more important
+//    rate: int, (TODO) how many devices to handle at a time, 0=unlimited
 //  }
 
 // task interface - specific tasks will implement these
@@ -56,7 +56,7 @@ func (tmm *TaskMasterMachine) UpdateState() error {
 	var errs []error
 	var next []tmmTask
 	for _, t := range tmm.tasks {
-		log("Processing task %q: %s", t.Title, t.Desc())
+		log("Processing task %q: %s", t.Title(), t.Desc())
 		// Check completion
 		if t.Ready() {
 			log("...Ready")
@@ -77,12 +77,12 @@ func (tmm *TaskMasterMachine) Process() (time.Time, error) {
 	var errs []error
 	var eta time.Time
 	for _, t := range tmm.tasks {
-		log("Processing task %q: %s", t.Title, t.Desc())
+		log("Processing task %q: %s", t.Title(), t.Desc())
 
 		// Make progress
 		taskEta, err := t.Process()
 		errs = append(errs, err)
-		eta = later(eta, taskEta)
+		eta = sooner(eta, taskEta)
 	}
 
 	return eta, errors.Join(errs...)
@@ -92,7 +92,7 @@ func (tmm *TaskMasterMachine) Status() string               { return "" }
 
 func (tmm *TaskMasterMachine) loadTasks() error {
 	rows, err := DB.Query(`
-	SELECT id, added, started, type, title, detail
+	SELECT id, added, started, type, title, details
 	FROM tasks
 	WHERE completed IS NULL
   `)
@@ -103,10 +103,10 @@ func (tmm *TaskMasterMachine) loadTasks() error {
 	var tasks []tmmTask
 	for rows.Next() {
 		var id int
-		var added, started int64
+		var added, started time.Time
 		var kind, title string
-		var detail cache.JSONB[map[string]any]
-		if err := rows.Scan(&id, &added, &started, &kind, &title, &detail); err != nil {
+		var details cache.JSONB[map[string]any]
+		if err := rows.Scan(&id, &added, &started, &kind, &title, &details); err != nil {
 			return err
 		}
 		switch kind {
@@ -116,9 +116,9 @@ func (tmm *TaskMasterMachine) loadTasks() error {
 				title:  title,
 				dryRun: tmm.dryRun,
 			}
-			t.added = time.Unix(added, 0)
-			t.started = time.Unix(started, 0)
-			if err := t.Configure(detail.Data); err != nil {
+			t.added = added
+			t.started = started
+			if err := t.Configure(details.Data); err != nil {
 				return err
 			}
 
@@ -133,6 +133,8 @@ func (tmm *TaskMasterMachine) loadTasks() error {
 }
 
 //////////////////////// Specific tasks
+
+const stageSearchDist = 100
 
 type tmmStage struct {
 	id      int
@@ -154,21 +156,24 @@ func (ts *tmmStage) Configure(conf map[string]any) error {
 		return fmt.Errorf("Missing location: %v", conf)
 	}
 	if p, ok := conf["priority"]; ok {
-		ts.priority = p.(int)
+		ts.priority = int(p.(float64))
 	} else {
 		return fmt.Errorf("Missing priority: %v", conf)
 	}
 	if r, ok := conf["rate"]; ok {
-		ts.rate = r.(int)
+		ts.rate = int(r.(float64))
 	} else {
 		return fmt.Errorf("Missing rate: %v", conf)
 	}
 	if c, ok := conf["composition"]; ok {
-		m, ok := c.(map[string]int)
+		m, ok := c.(map[string]any)
 		if !ok {
-			return fmt.Errorf("Invalid composition: %v", c)
+			return fmt.Errorf("Invalid composition: %v (%T)", c, c)
 		}
-		ts.composition = m
+		ts.composition = make(map[string]int)
+		for k, v := range m {
+			ts.composition[k] = int(v.(float64))
+		}
 	} else {
 		return fmt.Errorf("Missing composition: %v", conf)
 	}
@@ -205,6 +210,7 @@ func (ts *tmmStage) Ready() bool {
 func (ts *tmmStage) Process() (time.Time, error) {
 	tag := fmt.Sprintf("task:%d", ts.id)
 	var eta time.Time
+	log("Task tag: %q", tag)
 	devs, err := rest.Devices(map[string]any{
 		"tag": tag,
 	})
@@ -263,24 +269,27 @@ func (ts *tmmStage) Process() (time.Time, error) {
 				continue
 			}
 			for _, d := range spares {
+				log("checking %s (%s)", d.Code, d.Type)
 				if d.Location == "" {
 					continue
 				}
 				if dist, err := common.Distance(
-					d.Location.Star(), ts.location.Star()); err == nil && dist > constants.MaxDist {
+					d.Location.Star(), ts.location.Star()); err == nil && dist > stageSearchDist {
 					log("%s is too far away from %s: %.2f ly", d.Code, ts.location, dist)
+					continue
 				} else if err != nil {
 					log("Can't get distance to %s @ %s: %v", d.Code, d.Location, err)
 					continue
 				}
 				// Tag them for transport
-				if err := rest.UpdateTags(d.Code, rest.AddTag, []string{tag}); err != nil {
+				if err := ts.setTag(d.Code); err != nil {
 					log("Error tagging %s: %v", d.Code, err)
 					continue
 				}
 				v--
 				pickup[string(d.Location)] = append(pickup[string(d.Location)], d.Code)
 				if v <= 0 {
+					delete(missing, k)
 					break
 				}
 			}
@@ -306,7 +315,7 @@ func (ts *tmmStage) Process() (time.Time, error) {
 			for range v {
 				pickup[home] = append(pickup[home], nil)
 			}
-			eta = later(eta, plan.ETA)
+			eta = sooner(eta, plan.ETA)
 		}
 	}
 
@@ -359,7 +368,7 @@ func (ts *tmmStage) Process() (time.Time, error) {
 			// Keep track of how many devices we can ship
 			need -= tx.AttachCapacity - len(tx.AttachedDevices)
 			// Add the tag
-			errs = append(errs, rest.UpdateTags(tx.Code, rest.AddTag, []string{tag}))
+			errs = append(errs, ts.setTag(tx.Code))
 		}
 
 		// If we need more slots, see if we can find platforms nearby (100ly)
@@ -398,7 +407,7 @@ func (ts *tmmStage) Process() (time.Time, error) {
 					log("Can't get distance to %s @ %s: %v", d.Code, d.Location, err)
 					continue
 				}
-				errs = append(errs, rest.UpdateTags(d.Code, rest.AddTag, []string{tag}))
+				errs = append(errs, ts.setTag(d.Code))
 				_, err := common.Travel(d.Code, loc, ts.dryRun)
 				errs = append(errs, err)
 				need -= d.AttachCapacity
@@ -419,20 +428,90 @@ func (ts *tmmStage) Process() (time.Time, error) {
 			if err != nil {
 				errs = append(errs, err)
 			}
-			eta = later(eta, plan.ETA)
+			eta = sooner(eta, plan.ETA)
 		}
 	}
 
 	// Load and ship
 	// Now that we have a set of platforms available, load what we can, ship what's ready
-	/*
-		// Full platforms can ship
-		if len(tx.AttachedDevices) == tx.AttachCapacity {
-		  _, err := common.Travel(tx.Code, string(ts.location), ts.dryRun)
-		  errs = append(errs, err)
-		  continue
+	txs, err := rest.Devices(map[string]any{"tag": tag})
+	if err != nil {
+		errs = append(errs, err)
+	}
+	var mopup []*models.Device
+	for _, tx := range txs {
+		if tx.Location == "" {
+			// In transit, skip for now
+			eta = sooner(eta, tx.Travel.Arrives.Time())
+			continue
 		}
-	*/
+
+		// If there are devices to pick up here, and there's room, do
+		space := tx.AttachCapacity - len(tx.AttachedDevices)
+		if space > 0 {
+			pickCount := len(pickup[string(tx.Location)])
+			pick := pickup[string(tx.Location)][:min(space, pickCount)]
+			_, err := deviceCommand(tx.Code, "attach", map[string]any{"targets": pick}, ts.dryRun)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			pickup[string(tx.Location)] = slices.Delete(pickup[string(tx.Location)], 0, len(pick))
+			space -= len(pick)
+		}
+
+		if len(pickup[string(tx.Location)]) == 0 {
+			delete(pickup, string(tx.Location))
+		}
+
+		// Full platforms can ship
+		if space == 0 {
+			_, err := common.Travel(tx.Code, string(ts.location), ts.dryRun)
+			errs = append(errs, err)
+			continue
+		}
+
+		// If there's nothing left to pick up here, add to a mopup list
+		mopup = append(mopup, tx)
+	}
+
+	// If there's nothing left to pick up, or nothing left to pick it up with, we're done.
+	if len(mopup) == 0 || len(pickup) == 0 {
+		return eta, errors.Join(errs...)
+	}
+
+	// Now that everything local was picked up, see what's left to collect
+	for loc, devs := range pickup {
+		// Find the nearest mopup ship
+		dists := make(map[models.LocationID]float32)
+		for _, m := range mopup {
+			if _, ok := dists[m.Location]; ok {
+				continue
+			}
+			d, err := common.Distance(loc, string(m.Location))
+			if err != nil {
+				errs = append(errs, err)
+				d = 999999
+			}
+			dists[m.Location] = d
+		}
+		slices.SortFunc(mopup, func(a, b *models.Device) int {
+			return cmp.Compare(dists[a.Location], dists[b.Location])
+		})
+		need := len(devs)
+		for _, tx := range mopup {
+			txEta, err := common.Travel(tx.Code, loc, ts.dryRun)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			eta = sooner(eta, txEta)
+			need -= tx.AttachCapacity - len(tx.AttachedDevices)
+			if need <= 0 {
+				break
+			}
+		}
+	}
 	return eta, errors.Join(errs...)
 }
 
@@ -442,3 +521,21 @@ func (ts *tmmStage) Title() string { return ts.title }
 func (ts *tmmStage) Desc() string  { return "TODO" }
 func (ts *tmmStage) Start() error  { return nil }
 func (ts *tmmStage) Finish() error { return nil }
+
+func (ts *tmmStage) setTag(id *models.CodeAlias) error {
+	tag := fmt.Sprintf("task:%d", ts.ID())
+	if ts.dryRun {
+		log("[DRYRUN] Would set tag %q on %s", tag, id)
+		return nil
+	}
+	return rest.UpdateTags(id, rest.AddTag, []string{tag})
+}
+
+func (ts *tmmStage) clearTag(id *models.CodeAlias) error {
+	tag := fmt.Sprintf("task:%d", ts.ID())
+	if ts.dryRun {
+		log("[DRYRUN] Would clear tag %q on %s", tag, id)
+		return nil
+	}
+	return rest.UpdateTags(id, rest.DelTag, []string{tag})
+}

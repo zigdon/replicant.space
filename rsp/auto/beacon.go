@@ -313,7 +313,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		delete(bm.missingFB, string(bm.dev.Location))
 	case BeaconStates_Empty:
 		if bm.dev.Location != bm.supply.Location {
-			relay, err := common.NearestRelay(bm.dev.Location.Star())
+			relay, err := common.NearestRelay(bm.dev.Location.Star(), bm.replicant)
 			if err != nil {
 				return eta, err
 			}
@@ -443,7 +443,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 	if devLoc == "" && bm.dev.Travel != nil {
 		devLoc = bm.dev.Travel.Destination
 	}
-	relayName, err := common.NearestRelay(devLoc.Star())
+	relayName, err := common.NearestRelay(devLoc.Star(), bm.replicant)
 	if err != nil {
 		return eta, err
 	}

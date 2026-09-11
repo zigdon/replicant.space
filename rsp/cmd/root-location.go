@@ -84,8 +84,7 @@ var locationCmd = &cobra.Command{
 			printTable(headers, data)
 		}
 
-		switch res.Type {
-		case "star":
+		if res.Star != nil {
 			s := res.Star
 			printTable([]string{
 				"Designation", "Name", "Entry Point", "Class", "Mining Bonus",
@@ -134,7 +133,8 @@ var locationCmd = &cobra.Command{
 			printTable([]string{
 				"Designation", "Name", "Type", "Life stage", "Moons", "Scanned", "Inventory",
 			}, data)
-		case "planet":
+		}
+		if res.Planet != nil {
 			p := res.Planet
 			printTable([]string{
 				"Designation", "Name", "Habitable", "LifeStage", "Type", "Moons",
@@ -151,12 +151,14 @@ var locationCmd = &cobra.Command{
 			if len(data) > 0 {
 				printTable([]string{"Designation", "Type", "Name", "Scanned"}, data)
 			}
-		case "moon":
+		}
+		if res.Moon != nil {
 			m := res.Moon
 			printTable([]string{
 				"Designation", "Name", "Type", "Parent",
 			}, [][]any{{m.Designation, m.Name, m.Type, m.ParentPlanet}})
-		case "object":
+		}
+		if res.Object != nil {
 			var data [][]any
 			so := res.Object
 			data = append(data, []any{
@@ -168,7 +170,8 @@ var locationCmd = &cobra.Command{
 				"Designation", "Status", "Type", "Class", "Distance AU", "Impact Target",
 				"ETA", "Likelyhood", "Required Strength", "Active Plates", "Progress",
 				"Thrust/hr"}, data)
-		case "megastructure":
+		}
+		if res.Megastructure != nil {
 			var data [][]any
 			m := res.Megastructure
 			data = append(data, []any{
@@ -192,10 +195,6 @@ var locationCmd = &cobra.Command{
 				return cmp.Compare(a[0].(string), b[0].(string))
 			})
 			printTable([]string{"Type", "Complete", "Current", "Remaining", "Required"}, data)
-		case "":
-			// NOP
-		default:
-			return fmt.Errorf("Unknown location type %q", res.Type)
 		}
 
 		data = [][]any{}

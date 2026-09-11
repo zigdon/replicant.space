@@ -11,10 +11,11 @@ import (
 
 var _networkCache []string
 var _networkCacheTS time.Time
+var _ignoreRep *models.CodeAlias
 
 // Get all the systems currently in range
-func FullNetwork() ([]string, error) {
-	if _networkCache != nil && time.Since(_networkCacheTS) < 10*time.Minute {
+func FullNetwork(ignoreRep *models.CodeAlias) ([]string, error) {
+	if _networkCache != nil && time.Since(_networkCacheTS) < 10*time.Minute && ignoreRep == _ignoreRep {
 		return _networkCache, nil
 	}
 
@@ -27,7 +28,7 @@ func FullNetwork() ([]string, error) {
 		return nil, err
 	}
 	for _, r := range acc.ReplicantList {
-		if r.CurrentLocation == "" {
+		if r.CurrentLocation == "" || r.Code == ignoreRep {
 			continue
 		}
 		net[r.Location.Star()] = true

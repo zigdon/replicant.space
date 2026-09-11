@@ -60,7 +60,7 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 	}
 	times := make(map[string]time.Duration)
 	var queue []pq
-	totalMissing := make(map[string]int)
+	totalMissing := make(map[models.LocationID]map[string]int)
 	for _, info := range printers {
 		if loc != "" && string(info.Location) != loc {
 			continue
@@ -73,17 +73,20 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 		}
 		if info.Status == "waiting_for_resources" {
 			missing := make(map[string]int)
+			if _, ok := totalMissing[info.Location]; !ok {
+				totalMissing[info.Location] = make(map[string]int)
+			}
 			for k, v := range info.WaitingFor.Resources {
 				if v.Have < v.Need {
 					missing[k] = v.Need - v.Have
 				}
-				totalMissing[k] += missing[k]
+				totalMissing[info.Location][k] += missing[k]
 			}
 			for k, v := range info.WaitingFor.Components {
 				if v.Have < v.Need {
 					missing[k] = v.Need - v.Have
 				}
-				totalMissing[k] += missing[k]
+				totalMissing[info.Location][k] += missing[k]
 			}
 			if len(info.PrintQueue) > 0 {
 				pending := info.PrintQueue[0]
@@ -114,6 +117,15 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 				eta:        info.Printing.Completes.Time(),
 			})
 			times[info.Code.Alias()] += info.Printing.Eta.Duration()
+			if tm, ok := totalMissing[info.Location]; ok {
+				if num, ok := tm[info.Printing.DeviceType]; ok && num > 0 {
+					if num > 1 {
+						totalMissing[info.Location][info.Printing.DeviceType]--
+					} else {
+						delete(totalMissing[info.Location], info.Printing.DeviceType)
+					}
+				}
+			}
 		}
 		for i, q := range info.PrintQueue {
 			if info.Status == "waiting_for_resources" && i == 0 {
@@ -128,6 +140,15 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 				pos:        i,
 				eta:        time.Now().Add(bp.PrintTime.Duration()).Add(times[info.Code.Alias()]),
 			})
+			if tm, ok := totalMissing[info.Location]; ok {
+				if num, ok := tm[q.Type]; ok && num > 0 {
+					if num > 1 {
+						totalMissing[info.Location][q.Type]--
+					} else {
+						delete(totalMissing[info.Location], q.Type)
+					}
+				}
+			}
 		}
 	}
 
@@ -150,10 +171,12 @@ func rootPrintList(cmd *cobra.Command, args []string) error {
 
 	if len(totalMissing) > 0 {
 		data = [][]any{}
-		for k, v := range totalMissing {
-			data = append(data, []any{k, v})
+		for l, tm := range totalMissing {
+			for k, v := range tm {
+				data = append(data, []any{l, k, v})
+			}
 		}
-		printTable([]string{"Missing", "Quantity"}, data)
+		printTable([]string{"Location", "Missing", "Quantity"}, data)
 	}
 
 	return nil

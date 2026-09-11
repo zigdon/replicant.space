@@ -704,18 +704,8 @@ func readStream(cmd *cobra.Command, args []string) error {
 				log("Error creating a new alias for %s (%s): %v",
 					ev.NewDeviceCode.String(), ev.DeviceType, err)
 			}
-			// Add an entry in the device table
-			d := new(models.Device)
-			d.Tags = []string{}
-			if err := db.Update(cache.JSONDevices, map[string]any{
-				"code":       ev.NewDeviceCode.String(),
-				"location":   env.Location,
-				"type":       ev.DeviceType,
-				"data":       cache.Encode(d),
-				"fetched_ts": time.Time{},
-				"updated_ts": time.Time{},
-			}); err != nil {
-				log("Error creating blank device entry for %s: %v", ev.NewDeviceCode, err)
+			if _, err = rest.RefreshDeviceInfo(ev.NewDeviceCode); err != nil {
+				log("Error fetching new device info for %s: %v", ev.NewDeviceCode, err)
 			}
 			log("%s finished printing %s at %s: %s (%s)",
 				env.DeviceCode, ev.DeviceType, env.Location, alias, ev.NewDeviceCode.String())

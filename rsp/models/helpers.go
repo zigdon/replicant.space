@@ -62,6 +62,14 @@ type LocalMsg interface {
 }
 
 func Parse[T any](data []byte) (*T, error) {
+	return parseSave[T](data, true)
+}
+
+func ParseOnly[T any](data []byte) (*T, error) {
+	return parseSave[T](data, false)
+}
+
+func parseSave[T any](data []byte, save bool) (*T, error) {
 	s := new(T)
 	var errs []error
 
@@ -71,7 +79,7 @@ func Parse[T any](data []byte) (*T, error) {
 	if f, ok := any(s).(Fillable); ok {
 		errs = append(errs, f.Fill())
 	}
-	if c, ok := any(s).(Cachable); ok {
+	if c, ok := any(s).(Cachable); ok && save {
 		errs = append(errs, c.Cache())
 	}
 	if n, ok := any(s).(LocalMsg); ok {

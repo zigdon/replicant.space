@@ -630,9 +630,9 @@ func Distance(src, dst string) (float32, error) {
 	return posA.Distance(posB), nil
 }
 
-func NearestRelay(dest string) (string, error) {
+func NearestRelay(dest string, ignore *models.CodeAlias) (string, error) {
 	// Get the home relay network
-	net, err := FullNetwork()
+	net, err := FullNetwork(ignore)
 	if err != nil {
 		return "", err
 	}

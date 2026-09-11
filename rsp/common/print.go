@@ -133,15 +133,16 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 	type batch struct {
 		name string
 		qty  int
+		wave int
 	}
 	var toPrint []batch
-	var simulate func(string, int) error
+	var simulate func(string, int, int) error
 	printCost := make(map[string]int)
-	simulate = func(name string, qty int) error {
+	simulate = func(name string, qty, wave int) error {
 		if qty <= 0 {
 			return nil
 		}
-		toPrint = append(toPrint, batch{name: name, qty: qty})
+		toPrint = append(toPrint, batch{name: name, qty: qty, wave: wave})
 		bp := GetBP(name)
 		if bp == nil {
 			return fmt.Errorf("Blueprint not available for %q", name)
@@ -163,7 +164,7 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 				missing -= inventory[c]
 			}
 			if missing > 0 {
-				if err := simulate(c, missing); err != nil {
+				if err := simulate(c, missing, wave+1); err != nil {
 					return err
 				}
 			}
@@ -171,11 +172,17 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 		}
 		return nil
 	}
-	if err := simulate(name, qty); err != nil {
+	if err := simulate(name, qty, 0); err != nil {
 		return pPlan, fmt.Errorf("Printing simulation failed: %v", err)
 	}
 	Log("Print queue:")
-	slices.Reverse(toPrint)
+	// Sort the print order by waves, so dependencies are printed before things that need them.
+	slices.SortFunc(toPrint, func(a, b batch) int {
+		return cmp.Or(
+			cmp.Compare(b.wave, a.wave),
+			cmp.Compare(a.name, b.name),
+		)
+	})
 	for _, p := range toPrint {
 		Log("  %d × %s", p.qty, p.name)
 	}

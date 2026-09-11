@@ -39,6 +39,12 @@ func init() {
 
 func log(tmpl string, args ...any) {
 	ts := time.Now().Format(time.Stamp)
+	for n, v := range args {
+		switch a := v.(type) {
+		case string:
+			args[n] = strings.Join(strings.Fields(a), " ")
+		}
+	}
 	line := fmt.Sprintf(ts+" "+tmpl+"\n", args...)
 	if debug {
 		fmt.Fprint(os.Stderr, line)

@@ -563,8 +563,9 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			// Make sure we have a path to the next location
 			var found bool
 			for _, n := range next {
-				// Start from the nearest edge of the relay network
-				edge, err := common.NearestRelay(n.Star())
+				// Start from the nearest edge of the relay network, ignoring
+				// the part of the network we're lighting up.
+				edge, err := common.NearestRelay(n.Star(), rm.replicant)
 				if err != nil {
 					log("Can't find nearest relay to %s: %v", rm.dest, err)
 					continue
@@ -592,7 +593,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 
 		// find the nearest relay to the destination
-		next, err := common.NearestRelay(rm.dest.Star())
+		next, err := common.NearestRelay(rm.dest.Star(), rm.replicant)
 		if err != nil {
 			return eta, fmt.Errorf("Can't find nearest relay to %s: %v", rm.dest, err)
 		}
@@ -840,7 +841,7 @@ func (rm *RelayMachine) getNext() ([]models.LocationID, error) {
 
 func (rm *RelayMachine) getNextBeacons() ([]models.LocationID, error) {
 	// find the closest system that has an ftl beacons but is not networked
-	net, err := common.FullNetwork()
+	net, err := common.FullNetwork(rm.replicant)
 	if err != nil {
 		return nil, fmt.Errorf("Can't get ftl network: %v", err)
 	}
@@ -905,7 +906,7 @@ func (rm *RelayMachine) getNextStranded() ([]models.LocationID, error) {
 
 	var res []models.LocationID
 	for _, n := range oors {
-		edge, err := common.NearestRelay(n.Star())
+		edge, err := common.NearestRelay(n.Star(), rm.replicant)
 		if err != nil {
 			log("Can't find nearest relay to %s: %v", rm.dest, err)
 			continue
@@ -945,7 +946,7 @@ func (rm *RelayMachine) getNextFollow(target string) (models.LocationID, error) 
 }
 
 func (rm *RelayMachine) findNetworkDist() (float32, error) {
-	edge, err := common.NearestRelay(string(rm.dev.Location))
+	edge, err := common.NearestRelay(string(rm.dev.Location), rm.replicant)
 	if err != nil {
 		return 0, fmt.Errorf("Can't find network edge from %q: %v", rm.dev.Location, err)
 	}

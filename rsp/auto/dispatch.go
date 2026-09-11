@@ -145,7 +145,7 @@ func (dm *DispatchMachine) Start(dev *models.Device, dryRun bool) error {
 
 func (dm *DispatchMachine) UpdateState() error {
 	// Refresh the current FTL network
-	net, err := common.FullNetwork()
+	net, err := common.FullNetwork(nil)
 	if err != nil {
 		return fmt.Errorf("Error getting ftl network: %v", err)
 	}
@@ -683,10 +683,7 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 
 	if time.Now().After(nextPrint) {
 		for k, v := range capGap {
-			if v < 10 {
-				continue
-			}
-			common.Print(k, "cargo_freighter", int(v/10), true, dm.dryRun, nil)
+			common.Print(k, "cargo_freighter", max(1, int(v/10)), true, dm.dryRun, nil)
 			dm.lastPrint = time.Now()
 		}
 	}

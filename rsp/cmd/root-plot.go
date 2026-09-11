@@ -281,7 +281,7 @@ func nearestRelay(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Missing required args: plot relay STAR")
 	}
 
-	star, err := common.NearestRelay(args[0])
+	star, err := common.NearestRelay(args[0], nil)
 	if err != nil {
 		return err
 	}
@@ -316,7 +316,7 @@ func plotBridge(cmd *cobra.Command, args []string) error {
 
 	// Load the relay network
 	network := make(map[string]bool)
-	net, err := common.FullNetwork()
+	net, err := common.FullNetwork(nil)
 	if err != nil {
 		return err
 	}
@@ -354,7 +354,7 @@ func plotBridge(cmd *cobra.Command, args []string) error {
 					start: s,
 					hops:  []string{s},
 				}
-				relay, err := common.NearestRelay(s)
+				relay, err := common.NearestRelay(s, nil)
 				if err != nil {
 					return fmt.Errorf("Error finding relay from %q: %v", s, err)
 				}

@@ -87,6 +87,9 @@ func autoState(cmd *cobra.Command, args []string) error {
 			} else if slices.Contains(d.Tags, "auto:follow") {
 				log("%s: follow -> %v", d.Code.Alias(), d.Tags)
 				sms[alias] = &auto.FollowMachine{}
+			} else if slices.Contains(d.Tags, "auto:taskmaster") {
+				log("%s: follow -> %v", d.Code.Alias(), d.Tags)
+				sms[alias] = &auto.TaskMasterMachine{}
 			} else {
 				errs = append(errs, fmt.Errorf("Unknown state machine for %q: %v", d.Code.Alias(), d.Tags))
 				continue

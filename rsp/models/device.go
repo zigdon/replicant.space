@@ -267,7 +267,7 @@ type Device struct {
 }
 
 func (d *Device) Alias() {
-	if db != nil && d.Code.Alias() == d.Code.String() {
+	if db != nil && d.Code != nil && d.Code.Alias() == d.Code.String() {
 		if a, err := db.Alias(d.Code.String(), d.Type); err == nil {
 			d.Code.alias = a
 		}
@@ -278,11 +278,11 @@ func (d *Device) Fetched() time.Time {
 	return d.fetchedAt.full
 }
 
-func (d *Device) SetFetched() {
+func (d *Device) SetFetched(ts time.Time) {
 	if d == nil {
 		return
 	}
-	d.fetchedAt.full = time.Now()
+	d.fetchedAt.full = ts
 	d.Cache()
 }
 
@@ -328,6 +328,10 @@ func (d *Device) GetPosition() *Position {
 
 func (d *Device) Cache() error {
 	d.fetchedAt.update = time.Now()
+	if d.Code.String() == "" {
+		fmt.Println("*** Skipping caching device without a code")
+		return nil
+	}
 	return db.Update(cache.JSONDevices, map[string]any{
 		"code":       d.Code.String(),
 		"fetched_ts": d.Fetched(),
@@ -359,7 +363,7 @@ func (d *Device) Get() error {
 		return err
 	}
 
-	pd, err := Parse[Device](data)
+	pd, err := ParseOnly[Device](data)
 	pd.fetchedAt = d.fetchedAt
 	*d = *pd
 	return err

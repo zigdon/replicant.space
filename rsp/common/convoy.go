@@ -156,6 +156,13 @@ func (tc *TravelCoordinator) Ship() error {
 				}
 			}
 
+			// If the AFC is too far, our code will refuse to ship it
+			if dist, err := Distance(string(afc.Location), to); err != nil || dist > 1000 {
+				Log("AFC too far from %q (%.2f ly), shipping manually", to, dist)
+				errs = append(errs, manual(passengers, to))
+				continue
+			}
+
 			// If there are 5 or fewer devices to ship, just ship them normally, done.
 			if len(passengers) <= 5 {
 				errs = append(errs, manual(passengers, to))
@@ -195,7 +202,7 @@ func (tc *TravelCoordinator) Ship() error {
 					continue
 				}
 				// Send travel command to the afc
-				Log("Launching convoy %s->%s? %s", from, to, ids)
+				Log("Launching convoy %s->%s: %s", from, to, ids)
 				if string(afc.Location) != to {
 					if _, err := Travel(afc.Code, to, tc.dryRun); err != nil {
 						errs = append(errs, fmt.Errorf("Failed to send AFC to %q: %v", to, err))

@@ -327,7 +327,7 @@ func CachedDevices(filters map[string]any, useCache bool) ([]*models.Device, err
 			case "location":
 				s := v.(string)
 				limits = append(limits,
-					fmt.Sprintf("(%s = $%d OR %s LIKE $%d)", k, len(vals)+1, k, len(vals)+2))
+					fmt.Sprintf("(%s = $%d OR %s ILIKE $%d)", k, len(vals)+1, k, len(vals)+2))
 				vals = append(vals, s, s+"-%")
 			case "tag":
 				s := v.(string)
@@ -337,20 +337,50 @@ func CachedDevices(filters map[string]any, useCache bool) ([]*models.Device, err
 						len(vals)+1))
 				vals = append(vals, strings.ToLower(s))
 			case "tags":
-				s := v.([]string)
-				limits = append(limits,
-					fmt.Sprintf(
-						"data->'tags' ?& $%d::TEXT[]",
-						len(vals)+1))
-				log("tags=%v", s)
-				vals = append(vals, pq.Array(s))
+				ss := v.([]string)
+				if slices.ContainsFunc(ss, func(s string) bool {
+					return strings.Contains(s, "*")
+				}) {
+					limits = append(limits,
+						fmt.Sprintf(`EXISTS (
+						  SELECT 1
+						  FROM jsonb_array_elements_text(data->'tags') AS tag
+						  WHERE tag ILIKE ANY($%d::TEXT[])
+					  )`, len(vals)+1))
+					for n, s := range ss {
+						ss[n] = strings.ReplaceAll(s, "*", "%")
+					}
+					vals = append(vals, pq.Array(ss))
+				} else {
+					limits = append(limits,
+						fmt.Sprintf(
+							"data->'tags' ?& $%d::TEXT[]",
+							len(vals)+1))
+					log("tags=%v", ss)
+					vals = append(vals, pq.Array(ss))
+				}
 			case "exclude_tags":
-				s := v.([]string)
-				limits = append(limits,
-					fmt.Sprintf(
-						"NOT (data->'tags' ?| $%d::TEXT[])",
-						len(vals)+1))
-				vals = append(vals, pq.Array(s))
+				ss := v.([]string)
+				if slices.ContainsFunc(ss, func(s string) bool {
+					return strings.Contains(s, "*")
+				}) {
+					limits = append(limits,
+						fmt.Sprintf(`NOT EXISTS (
+						  SELECT 1
+						  FROM jsonb_array_elements_text(data->'tags') AS tag
+						  WHERE tag ILIKE ANY($%d::TEXT[])
+					  )`, len(vals)+1))
+					for n, s := range ss {
+						ss[n] = strings.ReplaceAll(s, "*", "%")
+					}
+					vals = append(vals, pq.Array(ss))
+				} else {
+					limits = append(limits,
+						fmt.Sprintf(
+							"NOT (data->'tags' ?| $%d::TEXT[])",
+							len(vals)+1))
+					vals = append(vals, pq.Array(ss))
+				}
 			case "untagged":
 				limits = append(limits, "jsonb_array_length(data->'tags') = 0")
 			case "device_type":
@@ -383,15 +413,16 @@ func CachedDevices(filters map[string]any, useCache bool) ([]*models.Device, err
 			valid = false
 			break
 		}
-		d, err := models.Parse[models.Device](data)
+		d, err := models.ParseOnly[models.Device](data)
 		if err != nil {
 			log("**: Error parsing %q: %v", code, err)
 			valid = false
 			break
 		}
+		d.SetFetched(time.Now())
 		devs = append(devs, d)
 		if time.Since(d.Updated()) > cacheTimeout {
-			log("**: Cache for %s too old: %s (%s)", d.Code.Alias(), d.Fetched(), time.Since(d.Fetched()))
+			log("**: Cache for %s too old: %s (%s)", d.Code.Alias(), d.Updated(), time.Since(d.Updated()))
 			valid = false
 			break
 		}
@@ -563,7 +594,7 @@ func RefreshDeviceInfo(id *models.CodeAlias) (*models.Device, error) {
 		return nil, err
 	}
 	dev, err := models.Parse[models.Device](res)
-	dev.SetFetched()
+	dev.SetFetched(time.Now())
 	return dev, err
 }
 
