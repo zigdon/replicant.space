@@ -34,11 +34,16 @@ type voxelKey struct {
 	X, Y, Z int
 }
 
-// SpatialStarGrid provides fast O(1) 3D spatial lookups for candidate neighbors.
+// SpatialStarGrid provides fast O(1) 3D spatial lookups for candidate neighbors,
+// with lazy voxel paging to transparently load unexplored sectors from the database.
 type SpatialStarGrid struct {
 	CellSize float32
 	grid     map[voxelKey][]*StarSpatialNode
 	stars    map[string]*StarSpatialNode
+	loaded   map[voxelKey]bool
+	db       *cache.Cache
+	banned   []string
+	debugFn  func(tmpl string, args ...any)
 }
 
 func NewSpatialStarGrid(cellSize float32) *SpatialStarGrid {
@@ -49,7 +54,61 @@ func NewSpatialStarGrid(cellSize float32) *SpatialStarGrid {
 		CellSize: cellSize,
 		grid:     make(map[voxelKey][]*StarSpatialNode),
 		stars:    make(map[string]*StarSpatialNode),
+		loaded:   make(map[voxelKey]bool),
 	}
+}
+
+func (sg *SpatialStarGrid) SetLoader(db *cache.Cache, banned []string, debugFn func(tmpl string, args ...any)) {
+	sg.db = db
+	sg.banned = banned
+	sg.debugFn = debugFn
+}
+
+func (sg *SpatialStarGrid) MarkBoxLoaded(minK, maxK voxelKey) {
+	for x := minK.X; x <= maxK.X; x++ {
+		for y := minK.Y; y <= maxK.Y; y++ {
+			for z := minK.Z; z <= maxK.Z; z++ {
+				sg.loaded[voxelKey{X: x, Y: y, Z: z}] = true
+			}
+		}
+	}
+}
+
+func (sg *SpatialStarGrid) loadVoxel(k voxelKey) error {
+	if sg.loaded[k] || sg.db == nil || sg.db.DB == nil {
+		sg.loaded[k] = true
+		return nil
+	}
+	sg.loaded[k] = true
+
+	minX := float32(k.X) * sg.CellSize
+	maxX := float32(k.X+1) * sg.CellSize
+	minY := float32(k.Y) * sg.CellSize
+	maxY := float32(k.Y+1) * sg.CellSize
+	minZ := float32(k.Z) * sg.CellSize
+	maxZ := float32(k.Z+1) * sg.CellSize
+
+	records, err := sg.db.QueryStarsInBox(minX, minY, minZ, maxX, maxY, maxZ, 0)
+	if err != nil {
+		return err
+	}
+	var inserted int
+	for _, r := range records {
+		if slices.Contains(sg.banned, r.Designation) {
+			if sg.debugFn != nil {
+				sg.debugFn("Avoiding banned star %q", r.Designation)
+			}
+			continue
+		}
+		pos := models.ParseCube(r.Position)
+		sg.Insert(r.Designation, pos)
+		inserted++
+	}
+	if sg.debugFn != nil && inserted > 0 {
+		sg.debugFn("Lazy-loaded voxel [%d,%d,%d]: %d stars (index total: %d)",
+			k.X, k.Y, k.Z, inserted, sg.Count())
+	}
+	return nil
 }
 
 func (sg *SpatialStarGrid) keyFor(pos *models.Position) voxelKey {
@@ -93,6 +152,23 @@ func (sg *SpatialStarGrid) FindNeighbors(pos *models.Position, minRadius, maxRad
 	}
 	cellRadius := int(math.Ceil(float64(maxRadius / sg.CellSize)))
 	baseKey := sg.keyFor(pos)
+
+	if sg.db != nil && sg.db.DB != nil {
+		for dx := -cellRadius; dx <= cellRadius; dx++ {
+			for dy := -cellRadius; dy <= cellRadius; dy++ {
+				for dz := -cellRadius; dz <= cellRadius; dz++ {
+					k := voxelKey{
+						X: baseKey.X + dx,
+						Y: baseKey.Y + dy,
+						Z: baseKey.Z + dz,
+					}
+					if !sg.loaded[k] {
+						_ = sg.loadVoxel(k)
+					}
+				}
+			}
+		}
+	}
 
 	minR2 := minRadius * minRadius
 	maxR2 := maxRadius * maxRadius
@@ -264,18 +340,34 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 		maxHop = 15.0
 	}
 
-	// Pre-fetch sector stars into spatial grid
+	// Pre-fetch sector stars into spatial grid snapped to voxel boundaries
 	padding := float32(15.0)
-	minX := float32(math.Min(float64(sPos.X), float64(dPos.X))) - padding
-	maxX := float32(math.Max(float64(sPos.X), float64(dPos.X))) + padding
-	minY := float32(math.Min(float64(sPos.Y), float64(dPos.Y))) - padding
-	maxY := float32(math.Max(float64(sPos.Y), float64(dPos.Y))) + padding
-	minZ := float32(math.Min(float64(sPos.Z), float64(dPos.Z))) - padding
-	maxZ := float32(math.Max(float64(sPos.Z), float64(dPos.Z))) + padding
+	minPos := models.NewPosition(
+		float32(math.Min(float64(sPos.X), float64(dPos.X)))-padding,
+		float32(math.Min(float64(sPos.Y), float64(dPos.Y)))-padding,
+		float32(math.Min(float64(sPos.Z), float64(dPos.Z)))-padding,
+	)
+	maxPos := models.NewPosition(
+		float32(math.Max(float64(sPos.X), float64(dPos.X)))+padding,
+		float32(math.Max(float64(sPos.Y), float64(dPos.Y)))+padding,
+		float32(math.Max(float64(sPos.Z), float64(dPos.Z)))+padding,
+	)
 
 	sg := NewSpatialStarGrid(maxHop)
+	sg.SetLoader(db, cfg.Banned, debug)
+
+	minVoxel := sg.keyFor(minPos)
+	maxVoxel := sg.keyFor(maxPos)
+
+	boxMinX := float32(minVoxel.X) * sg.CellSize
+	boxMaxX := float32(maxVoxel.X+1) * sg.CellSize
+	boxMinY := float32(minVoxel.Y) * sg.CellSize
+	boxMaxY := float32(maxVoxel.Y+1) * sg.CellSize
+	boxMinZ := float32(minVoxel.Z) * sg.CellSize
+	boxMaxZ := float32(maxVoxel.Z+1) * sg.CellSize
+
 	if db != nil && db.DB != nil {
-		records, err := db.QueryStarsInBox(minX, minY, minZ, maxX, maxY, maxZ, 0)
+		records, err := db.QueryStarsInBox(boxMinX, boxMinY, boxMinZ, boxMaxX, boxMaxY, boxMaxZ, 0)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to query corridor stars: %v", err)
 		}
@@ -287,6 +379,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 			pos := models.ParseCube(r.Position)
 			sg.Insert(r.Designation, pos)
 		}
+		sg.MarkBoxLoaded(minVoxel, maxVoxel)
 	}
 	sg.Insert(src, sPos)
 	sg.Insert(dst, dPos)

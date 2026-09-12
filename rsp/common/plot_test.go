@@ -76,7 +76,7 @@ func TestGetPartialJourney(t *testing.T) {
 }
 
 func TestNearestRelay(t *testing.T) {
-	_, err := NearestRelay("SOL")
+	_, err := NearestRelay("SOL", nil)
 	if err == nil {
 		t.Errorf("NearestRelay without REST API expected error, got nil")
 	}
@@ -434,5 +434,40 @@ func TestHierarchicalHopPenalties(t *testing.T) {
 	path := runSearch(7.5, true, true)
 	if len(path) != 3 || path[0] != "START" || path[1] != "MID" || path[2] != "END" {
 		t.Errorf("Hierarchical penalty failed: expected standard hop path [START, MID, END], got %v", path)
+	}
+}
+
+func TestLazyVoxelPaging(t *testing.T) {
+	sg := NewSpatialStarGrid(10.0)
+
+	// Insert stars
+	sg.Insert("A", models.NewPosition(0, 0, 0))
+	sg.Insert("B", models.NewPosition(5, 0, 0))
+
+	// Before marking, loaded should be empty
+	if len(sg.loaded) != 0 {
+		t.Errorf("Expected 0 loaded voxels initially, got %d", len(sg.loaded))
+	}
+
+	// Mark box loaded for (0,0,0) to (1,1,1)
+	minK := voxelKey{0, 0, 0}
+	maxK := voxelKey{1, 1, 1}
+	sg.MarkBoxLoaded(minK, maxK)
+
+	// Total 2x2x2 = 8 voxels should be marked loaded
+	if len(sg.loaded) != 8 {
+		t.Errorf("Expected 8 loaded voxels after MarkBoxLoaded, got %d", len(sg.loaded))
+	}
+	if !sg.loaded[voxelKey{0, 0, 0}] || !sg.loaded[voxelKey{1, 1, 1}] {
+		t.Errorf("Expected boundary voxels to be marked loaded")
+	}
+	if sg.loaded[voxelKey{2, 0, 0}] {
+		t.Errorf("Expected voxel outside box to not be marked loaded")
+	}
+
+	// FindNeighbors with nil db should work without errors and not crash
+	nbrs := sg.FindNeighbors(models.NewPosition(0, 0, 0), 0, 7.5)
+	if len(nbrs) != 1 || nbrs[0].Designation != "B" {
+		t.Fatalf("Expected neighbor 'B', got %v", nbrs)
 	}
 }
