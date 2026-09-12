@@ -173,6 +173,12 @@ var plotBridgeCmd = &cobra.Command{
 	RunE:  plotBridge,
 }
 
+var plotSpareHubCmd = &cobra.Command{
+	Use:   "spares",
+	Short: "Identify hubs that can be removed",
+	RunE:  plotSpareHubs,
+}
+
 func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
@@ -188,6 +194,7 @@ func init() {
 	plotCmd.AddCommand(nearestHomeCmd)
 	plotCmd.AddCommand(plotDistanceCmd)
 	plotCmd.AddCommand(plotRegionsCmd)
+	plotCmd.AddCommand(plotSpareHubCmd)
 
 	plotCmd.AddCommand(neighboursCmd)
 	neighboursCmd.Flags().Float32P("radius", "r", 7.5, "Radius for search")
@@ -496,6 +503,187 @@ func plotRegions(cmd *cobra.Command, args []string) error {
 	headers := []string{"Star", "Region"}
 	headers = append(headers, regs...)
 	printTable(headers, data)
+
+	return nil
+}
+
+func plotSpareHubs(cmd *cobra.Command, args []string) error {
+	net, err := common.FullNetwork(nil)
+	if err != nil {
+		return err
+	}
+
+	type rec struct {
+		code        *models.CodeAlias
+		location    models.LocationID
+		inNet       bool
+		spare       bool
+		inHubRange  []string
+		inDsrsRange []string
+		inFrRange   []string
+		missingFR   []string
+		missingDSRS []string
+		lost        []string
+		src         models.LocationID
+	}
+
+	// Get all the relay devices
+	var res []rec
+	relays, err := db.QueryDevices(
+		cache.QueryDevicesType("ftl_relay", "deep_space_relay_station", "system_hub"),
+		cache.QueryDevicesStatus("relaying"),
+	)
+	if err != nil {
+		return err
+	}
+	relayRange := make(map[string]float32)
+	var hubs []*cache.QueryDevicesRes
+	for _, r := range relays {
+		switch r.Type {
+		case "ftl_relay":
+			relayRange[models.LocationID(r.Location).Star()] = 7.5
+		case "deep_space_relay_station":
+			relayRange[models.LocationID(r.Location).Star()] = 10
+		case "system_hub":
+			relayRange[models.LocationID(r.Location).Star()] = 15
+			hubs = append(hubs, r)
+		default:
+			return fmt.Errorf("Unknown relay: %v", r)
+		}
+	}
+
+	var eg errgroup.Group
+	eg.SetLimit(10)
+	var mu sync.Mutex
+	for _, h := range hubs {
+		if len(args) > 0 && !slices.ContainsFunc(args, func(a string) bool {
+			return a == models.LocationID(h.Location).Star()
+		}) {
+			continue
+		}
+		eg.Go(func() error {
+			dev, err := models.ParseOnly[models.Device](h.Data)
+			if err != nil {
+				return err
+			}
+			log("HUB %s @ %s", dev.Code, dev.Location)
+			r := rec{
+				code:     dev.Code,
+				location: dev.Location,
+				inNet:    slices.Contains(net, models.LocationID(h.Location).Star()),
+			}
+			star, err := models.NewStar(dev.Location.Star())
+			if err != nil {
+				return err
+			}
+			inRange, err := db.QueryStarsInRadius(star.Position.X, star.Position.Y, star.Position.Z, 7.5, 0)
+			if err != nil {
+				return err
+			}
+			for _, s := range inRange {
+				r.inFrRange = append(r.inFrRange, s.Designation)
+			}
+			inRange, err = db.QueryStarsInRadius(star.Position.X, star.Position.Y, star.Position.Z, 10, 0)
+			if err != nil {
+				return err
+			}
+			for _, s := range inRange {
+				if slices.Contains(r.inFrRange, s.Designation) {
+					continue
+				}
+				r.inDsrsRange = append(r.inDsrsRange, s.Designation)
+			}
+			inRange, err = db.QueryStarsInRadius(star.Position.X, star.Position.Y, star.Position.Z, 15, 0)
+			if err != nil {
+				return err
+			}
+			for _, s := range inRange {
+				if slices.Contains(r.inFrRange, s.Designation) {
+					continue
+				}
+				if slices.Contains(r.inDsrsRange, s.Designation) {
+					continue
+				}
+				r.inHubRange = append(r.inHubRange, s.Designation)
+			}
+
+			r.spare = true
+			for _, t := range r.inHubRange {
+				if _, ok := relayRange[t]; !ok {
+					continue
+				}
+				home := common.ClosestHomes(models.LocationID(t))[0]
+				r.src = models.LocationID(home)
+				path, err := common.PlotTrip(home, t, &common.PlotCfg{
+					Hop:        7.5,
+					UseStation: true,
+					Partial:    false,
+					Banned:     []string{dev.Location.Star()},
+				})
+				if err != nil {
+					log("Can't find alternate path to %s", t)
+					r.spare = false
+					r.lost = append(r.lost, t)
+					continue
+				}
+				slices.Reverse(path.Legs)
+				for _, l := range path.Legs {
+					if _, ok := relayRange[l.To]; ok {
+						break
+					}
+					if l.FromPosition.Distance(l.ToPosition) > 7.5 {
+						if !slices.Contains(r.missingDSRS, l.To) {
+							r.missingDSRS = append(r.missingDSRS, l.To)
+						}
+					} else {
+						if !slices.Contains(r.missingFR, l.To) {
+							r.missingFR = append(r.missingFR, l.To)
+						}
+					}
+				}
+			}
+
+			slices.Sort(r.lost)
+			slices.Sort(r.missingFR)
+			slices.Sort(r.missingDSRS)
+			slices.Sort(r.inFrRange)
+			slices.Sort(r.inDsrsRange)
+			slices.Sort(r.inHubRange)
+			mu.Lock()
+			defer mu.Unlock()
+			res = append(res, r)
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	var final [][]any
+	for _, r := range res {
+		var data [][]any
+		line := []any{
+			r.code.Alias(), r.location.Star(), r.inNet, len(r.inFrRange), len(r.inDsrsRange), len(r.inHubRange), r.spare,
+		}
+		data = append(data, line)
+		printTable([]string{"Alias", "Star", "In network", "FR range", "DSRS range", "Hub range", "Spare"}, data)
+		data = data[:0]
+		if len(r.lost) > 0 {
+			data = append(data, []any{"Lost connection", wrap(strings.Join(r.lost, ", "), 70)})
+		}
+		if len(r.missingFR) > 0 {
+			data = append(data, []any{"FTL Relay\n" + r.src.Star(), wrap(strings.Join(r.missingFR, ", "), 70)})
+		}
+		if len(r.missingDSRS) > 0 {
+			data = append(data, []any{"DSRS\n" + r.src.Star(), wrap(strings.Join(r.missingDSRS, ", "), 70)})
+		}
+		line = append(line, len(r.lost), len(r.missingFR), len(r.missingDSRS))
+		final = append(final, line)
+		if len(data) > 0 {
+			printTable([]string{"Missing relays", "Systems"}, data)
+		}
+	}
+	printTable([]string{"Alias", "Star", "In network", "FR range", "DSRS range", "Hub range", "Spare", "Lost", "New FR", "New DSRS"}, final)
 
 	return nil
 }

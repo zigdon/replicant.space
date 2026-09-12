@@ -13,6 +13,7 @@ import (
 
 func autoFR(cmd *cobra.Command, args []string) error {
 	// Simple version:
+	// - scan the system
 	// - check we have an FR
 	// - check if there's a working FR in the system
 	// - If not, move to the L4 point
@@ -23,6 +24,9 @@ func autoFR(cmd *cobra.Command, args []string) error {
 	r, err := rest.Replicant(models.NewCodeAlias(fmt.Sprintf("r-%d", rID)))
 	if err != nil {
 		return err
+	}
+	if _, err := rest.ReplicantScan(r.Code); err != nil {
+		return fmt.Errorf("Error scanning system: %v", err)
 	}
 	var fr *models.Device
 	if !slices.ContainsFunc(r.StowedDevices, func(d *models.Device) bool {

@@ -30,7 +30,7 @@ func FullNetwork(ignoreRep *models.CodeAlias) ([]string, error) {
 		return nil, err
 	}
 	var eg errgroup.Group
-	eg.SetLimit(10)
+	eg.SetLimit(5)
 	var mu sync.Mutex
 	for _, r := range acc.ReplicantList {
 		if r.CurrentLocation == "" || r.Code == ignoreRep {
@@ -41,12 +41,12 @@ func FullNetwork(ignoreRep *models.CodeAlias) ([]string, error) {
 		mu.Unlock()
 		eg.Go(func() error {
 			relay := db.QueryRow(`
-		  SELECT DISTINCT ON (code) code
-		  FROM json_devices
-		  WHERE type IN ('ftl_relay', 'deep_space_relay_station', 'system_hub')
-			AND status = 'relaying'
-			AND location = $1
-		  GROUP BY location, type, code`, r.Location)
+				SELECT DISTINCT ON (code) code
+				FROM json_devices
+				WHERE type IN ('ftl_relay', 'deep_space_relay_station', 'system_hub')
+				  AND status = 'relaying'
+				  AND location = $1
+				GROUP BY location, type, code`, r.Location)
 			var dc string
 			if err := relay.Scan(&dc); err != nil {
 				if strings.Contains(err.Error(), "no rows in result set") {

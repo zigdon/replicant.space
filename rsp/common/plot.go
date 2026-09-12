@@ -21,6 +21,7 @@ type PlotCfg struct {
 	UseHub      bool
 	Recalculate bool
 	Partial     bool
+	Banned      []string
 }
 
 // StarSpatialNode represents a star within the in-memory 3D spatial index.
@@ -279,6 +280,10 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 			return nil, fmt.Errorf("Failed to query corridor stars: %v", err)
 		}
 		for _, r := range records {
+			if slices.Contains(cfg.Banned, r.Designation) {
+				debug("Avoiding banned star %q", r.Designation)
+				continue
+			}
 			pos := models.ParseCube(r.Position)
 			sg.Insert(r.Designation, pos)
 		}
