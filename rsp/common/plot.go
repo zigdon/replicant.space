@@ -256,6 +256,9 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 	if cfg == nil {
 		cfg = &PlotCfg{Hop: 7.5, Partial: true}
 	}
+	if cfg.Hop == 0 {
+		cfg.Hop = 7.5
+	}
 	starSrc, err := models.NewStar(src)
 	if err != nil {
 		return nil, err
@@ -308,7 +311,7 @@ func PlotTrip(src, dst string, cfg *PlotCfg) (*models.Journey, error) {
 		UseHub:     cfg.UseHub,
 	}
 	if err := j.Get(); !cfg.Recalculate && err == nil {
-		Log("Loading cached route from %s:", j.Calculated.Format(time.Stamp))
+		Log("Loading cached route #%d from %s:", j.ID, j.Calculated.Format(time.Stamp))
 		return j, nil
 	}
 	// If we don't have a route, and we're not explicitly recalculating, see if

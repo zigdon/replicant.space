@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
@@ -632,24 +633,26 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				}
 			}
 			var lost = true
-			devs, err := rest.Devices(map[string]any{"device_type": "ftl_relay"})
+			// Find FRs that are already available on the route
+			devs, err := DB.QueryDevices(
+				cache.QueryDevicesType("ftl_relay", "deep_space_relay_station"),
+				cache.QueryDevicesStatus("relaying"),
+			)
 			if err != nil {
 				return eta, err
 			}
 			hasFR := make(map[string]bool)
 			for _, d := range devs {
-				if d.Status != "relaying" {
-					continue
-				}
-				hasFR[d.Location.Star()] = true
+				hasFR[models.LocationID(d.Location).Star()] = true
 			}
+			// Find the next hop on the route from where we are
 			earlier := true
 			for _, l := range route.Legs {
 				if earlier && l.From != rm.dev.Location.Star() {
 					continue
 				}
 				earlier = false
-				// See if there's already an FR there
+				// We found where we are, start checking where we're going (so .To rather than .From)
 				if hasFR[l.To] {
 					continue
 				}
@@ -834,9 +837,53 @@ func (rm *RelayMachine) getNext() ([]models.LocationID, error) {
 		return rm.getNextBeacons()
 	case "oor":
 		return rm.getNextStranded()
+	case "route":
+		return rm.getNextRoute()
 	default:
 		return nil, fmt.Errorf("Unknown fill mode %q", fill)
 	}
+}
+
+func (rm *RelayMachine) getNextRoute() ([]models.LocationID, error) {
+	// Route a path between two systems, filter out the systems that already have relays
+	route := getTags(rm.dev)["route"]
+	from, to, ok := strings.Cut(strings.ToUpper(route), "-")
+	if !ok {
+		return nil, fmt.Errorf("Invalid route tag %q: expecting route:<from>-<to>", route)
+	}
+	path, err := common.PlotTrip(from, to, &common.PlotCfg{
+		UseStation: true,
+		Partial:    true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	systems := []string{from}
+	for _, p := range path.Legs {
+		systems = append(systems, p.To)
+	}
+	// Get the relay devices already deployed
+	done, err := DB.QueryDevices(
+		cache.QueryDevicesType("ftl_relay", "deep_space_relay_station"),
+		cache.QueryDevicesLocation(systems...),
+		cache.QueryDevicesStatus("relaying"),
+	)
+	if err != nil {
+		return nil, err
+	}
+	var res []models.LocationID
+	var complete int
+	for _, s := range systems {
+		if slices.ContainsFunc(done, func(d *cache.QueryDevicesRes) bool {
+			return models.LocationID(d.Location).Star() == s
+		}) {
+			complete++
+			continue
+		}
+		res = append(res, models.LocationID(s))
+	}
+	log("%d systems in route, %d/%d done", len(systems), complete, len(systems))
+	return res, nil
 }
 
 func (rm *RelayMachine) getNextBeacons() ([]models.LocationID, error) {

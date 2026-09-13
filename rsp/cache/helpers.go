@@ -292,16 +292,52 @@ func QueryDevicesField(f string, t ...string) QueryDevicesOpts {
 	}
 }
 
-func QueryDevicesStatus(t ...string) QueryDevicesOpts {
-	return QueryDevicesField("status", t...)
+func QueryDevicesStatus(s ...string) QueryDevicesOpts {
+	return QueryDevicesField("status", s...)
 }
 
 func QueryDevicesType(t ...string) QueryDevicesOpts {
 	return QueryDevicesField("type", t...)
 }
 
-func QueryDevicesLocation(t ...string) QueryDevicesOpts {
-	return QueryDevicesField("location", t...)
+func QueryDevicesLocation(l ...string) QueryDevicesOpts {
+	var specific []string
+	var wildcards []string
+	for _, loc := range l {
+		if strings.Contains(loc, "-") {
+			specific = append(specific, loc)
+			continue
+		}
+		wildcards = append(wildcards, loc+"-%")
+	}
+	if len(wildcards) > 0 {
+		return QueryDevicesOpts{
+			[]string{
+				"(location = ANY($%d::TEXT[])) OR (location ILIKE ANY($%d::TEXT[]))",
+			}, []any{
+				pq.Array(specific), pq.Array(wildcards),
+			},
+		}
+	} else {
+		return QueryDevicesField("location", l...)
+	}
+}
+
+func QueryDevicesTags(t ...string) QueryDevicesOpts {
+	switch {
+	case len(t) == 0:
+		return QueryDevicesOpts{
+			[]string{"jsonb_array_length(data->'tags') = 0"}, []any{},
+		}
+	case len(t) == 1:
+		return QueryDevicesOpts{
+			[]string{"data->'tags' @> $%d"}, []any{t[0]},
+		}
+	default:
+		return QueryDevicesOpts{
+			[]string{"data->'tags' ?& $%d::TEXT[]"}, []any{pq.Array(t)},
+		}
+	}
 }
 
 type QueryDevicesRes struct {

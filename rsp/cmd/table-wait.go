@@ -263,7 +263,6 @@ func waitPending(cmd *cobra.Command, args []string) error {
 			models.SortDevices(devs)
 			var r int
 			for _, d := range devs {
-				time.Sleep(time.Second)
 				if slices.Contains(logDevices, d.Type) {
 					_, err := rest.DeviceLogs(d.Code, 0)
 					if err != nil {
@@ -325,7 +324,7 @@ func waitPending(cmd *cobra.Command, args []string) error {
 				}
 			}
 			app.Draw()
-			time.Until(lastUpdate.Add(15 * time.Second))
+			time.Until(lastUpdate.Add(30 * time.Second))
 		}
 	}()
 	inputCapture := func(ev *tcell.EventKey) *tcell.EventKey {

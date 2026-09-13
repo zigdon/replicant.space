@@ -446,6 +446,7 @@ func Devices(filters map[string]any) ([]*models.Device, error) {
 
 func RefreshDevices(filters map[string]any) ([]*models.Device, error) {
 	url := "devices"
+	slow := filters == nil
 	var params []string
 	for k, v := range filters {
 		switch val := v.(type) {
@@ -463,7 +464,9 @@ func RefreshDevices(filters map[string]any) ([]*models.Device, error) {
 	}
 	cur := 0
 	var devs []*models.Device
+	var tick time.Time
 	for {
+		tick = time.Now()
 		resp, err := Get(url, cur)
 		if err != nil {
 			return nil, err
@@ -478,6 +481,9 @@ func RefreshDevices(filters map[string]any) ([]*models.Device, error) {
 			break
 		}
 		cur = ds.NextCursor
+		if slow && tick.Add(time.Second).Before(time.Now()) {
+			time.Sleep(time.Until(tick.Add(time.Second)))
+		}
 	}
 
 	seen := make(map[string]bool)

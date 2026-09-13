@@ -669,9 +669,23 @@ func (dm *DispatchMachine) Process() (time.Time, error) {
 
 	// If we're really missing a bunch of capacity in an area, queue up some
 	capGap := make(map[string]int)
+	spares, err := DB.QueryDevices(
+		cache.QueryDevicesType("cargo_freighter"),
+		cache.QueryDevicesStatus("idle"),
+		cache.QueryDevicesLocation(constants.Homes...),
+	)
+	for _, s := range spares {
+		capGap[s.Location]--
+	}
+	errs = append(errs, err)
 	for k, v := range noShips {
 		base := common.ClosestHomes(models.LocationID(k))[0]
 		capGap[base] += v
+	}
+	for k, v := range capGap {
+		if v <= 0 {
+			delete(capGap, k)
+		}
 	}
 	nextPrint := dm.lastPrint.Add(30 * time.Minute)
 	if len(capGap) > 0 {

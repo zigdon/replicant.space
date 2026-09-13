@@ -321,7 +321,7 @@ func printDeviceList(devs []*models.Device, reference *models.Position, merge bo
 			dest,
 			eta,
 			d.StowedInDeviceCode.Alias() + d.AttachedToDeviceCode.Alias(),
-			list(d.Tags),
+			longList(d.Tags, 50, -1),
 			d.OwnerReplicant,
 			list(cargo),
 			key,

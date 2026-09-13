@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS eta_cache(
 );
 
 CREATE TABLE IF NOT EXISTS cached_journey_steps(
-  journey_id INTEGER REFERENCES cached_routes(id),
+  journey_id INTEGER REFERENCES cached_routes(id) ON DELETE CASCADE,
   src TEXT NOT NULL,
   dest TEXT NOT NULL,
   step SMALLINT NOT NULL,

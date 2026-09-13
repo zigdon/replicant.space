@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -38,8 +39,15 @@ func Execute() {
 		defer db.DB.Close()
 	}
 
-	// if the first arg looks like a device alias, assume "device -d"
+	// Allow aliasing regional homes as 'home', 'home-[abcd]', 'sys', 'sys-[abcd]'
 	args := os.Args
+	for n, a := range args {
+		if v, ok := constants.LocationAliases[a]; ok {
+			args[n] = v
+		}
+	}
+
+	// if the first arg looks like a device alias, assume "device -d"
 	if len(args) > 1 && db != nil {
 		if db.Dealias(args[1]) != args[1] {
 			args = slices.Insert(args, 1, "device", "-d")

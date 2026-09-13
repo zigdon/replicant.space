@@ -749,6 +749,13 @@ func readStream(cmd *cobra.Command, args []string) error {
 					log("Consumed inventory at %s: %v", env.Location, bp.Resources)
 				}
 			}
+		case "prospect.completed":
+			ev, err := models.Parse[models.StreamProspectCompleted](payload)
+			if err != nil {
+				log("%s parse error: %v", env.Event, err)
+				return err
+			}
+			log("Prospect finished at %s, %d new stars found: %v", ev.Origin, ev.StarsGenerated, ev.Stars)
 		case "relay.activated":
 			_, err := models.Parse[models.StreamRelayActivated](payload)
 			if err != nil {

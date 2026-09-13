@@ -13,5 +13,18 @@ const HomeDeltaStar = "CAELZAROR"
 
 var Homes = []string{Home, HomeAlpha, HomeBeta, HomeGamma, HomeDelta}
 
+var LocationAliases = map[string]string{
+	"home":   Home,
+	"sys":    HomeStar,
+	"home-a": HomeAlpha,
+	"sys-a":  HomeAlphaStar,
+	"home-b": HomeBeta,
+	"sys-b":  HomeBetaStar,
+	"home-c": HomeGamma,
+	"sys-c":  HomeGammaStar,
+	"home-d": HomeDelta,
+	"sys-d":  HomeDeltaStar,
+}
+
 // For most operations, don't look beyond 1k ly
 const MaxDist = 1000
