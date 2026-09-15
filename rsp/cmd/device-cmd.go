@@ -105,6 +105,9 @@ func init() {
 			name: "controller", desc: "Controlled to assign after print",
 			jsonKey: "controller",
 		}, {
+			name: "flatpack", desc: "Print a modular device packed for travel",
+			jsonKey: "flatpack", boolFlag: true,
+		}, {
 			name: "on_complete", short: 'o', mapFlag: true,
 			desc:    "Commands to queue when print is done",
 			jsonKey: "oncomplete",

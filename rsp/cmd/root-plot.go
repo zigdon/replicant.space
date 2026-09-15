@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -130,6 +131,13 @@ var neighboursCmd = &cobra.Command{
 	RunE:              neighbourStars,
 }
 
+var networksCmd = &cobra.Command{
+	Use:               "networks",
+	Short:             "List the nearby FTL networks",
+	ValidArgsFunction: completeStars,
+	RunE:              neighbourNetworks,
+}
+
 var plotDistanceCmd = &cobra.Command{
 	Use:               "distance",
 	Short:             "Measure the distance between two points",
@@ -192,6 +200,7 @@ func init() {
 	plotCmd.AddCommand(nearestHubCmd)
 	plotCmd.AddCommand(nearestRelayCmd)
 	plotCmd.AddCommand(nearestHomeCmd)
+	plotCmd.AddCommand(networksCmd)
 	plotCmd.AddCommand(plotDistanceCmd)
 	plotCmd.AddCommand(plotRegionsCmd)
 	plotCmd.AddCommand(plotSpareHubCmd)
@@ -685,5 +694,25 @@ func plotSpareHubs(cmd *cobra.Command, args []string) error {
 	}
 	printTable([]string{"Alias", "Star", "In network", "FR range", "DSRS range", "Hub range", "Spare", "Lost", "New FR", "New DSRS"}, final)
 
+	return nil
+}
+
+func neighbourNetworks(cmd *cobra.Command, args []string) error {
+	loc, err := models.NewStar(args[0])
+	if err != nil {
+		return err
+	}
+	nets, err := common.IdentifyNetworkBridge(loc.Designation)
+	if err != nil {
+		return err
+	}
+	var data [][]any
+	for n, d := range nets {
+		data = append(data, []any{n, d})
+	}
+	slices.SortFunc(data, func(a, b []any) int {
+		return cmp.Compare(a[1].(float32), b[1].(float32))
+	})
+	printTable([]string{"Network", "Distance"}, data)
 	return nil
 }

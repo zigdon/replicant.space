@@ -329,8 +329,11 @@ func (d *Device) GetPosition() *Position {
 func (d *Device) Cache() error {
 	d.fetchedAt.update = time.Now()
 	if d.Code.String() == "" {
-		fmt.Println("*** Skipping caching device without a code")
+		log("*** Skipping caching device without a code")
 		return nil
+	}
+	if d.Type == "system_hub" && d.UpkeepRequirements == nil {
+		log("****\n\n%s has no upkeep requirements\n\n****\n", d.Code.Alias())
 	}
 	return db.Update(cache.JSONDevices, map[string]any{
 		"code":       d.Code.String(),

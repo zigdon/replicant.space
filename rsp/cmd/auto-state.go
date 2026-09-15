@@ -160,10 +160,10 @@ func autoState(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("No more events in the queue")
 		}
 		// Wait just a little longer
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
 
 		log("===================================")
-		log("%s: Processing machine", ev.Name)
+		log("%s: %s", ev.Name, ev.Desc)
 		if err := ev.Callback(); err != nil {
 			log("Processing error: %v", err)
 		}

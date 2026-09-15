@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS stars (
   has_life BOOLEAN,
   position CUBE NOT NULL,
   has_hub BOOLEAN,
-  region TEXT NOT NULL
+  region TEXT NOT NULL,
+  found_planets SMALLINT
 );
 
 CREATE INDEX idx_stars_position ON stars USING GIST (position);

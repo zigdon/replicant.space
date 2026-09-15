@@ -130,7 +130,7 @@ func (s *Scan) Fill() error {
 
 func (s *Scan) Cache() error {
 	s.Star.EntryPoint = s.EntryPoint
-	s.Star.EstimatedPlanets = len(s.Planets)
+	s.Star.FoundPlanets = len(s.Planets)
 	s.Star.Explored = true
 	var errs []error
 	errs = append(errs, s.Star.Cache())

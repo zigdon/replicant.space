@@ -28,7 +28,7 @@ import (
 // - On landing, stow/attach as needed, ship to destination
 // - On landing, unload/detach as needed, update table
 
-const distLimit = 200
+const distLimit = 500
 
 type totals struct {
 	collected float32
@@ -468,14 +468,20 @@ func (dm *DispatchMachine) releaseLostCargo() error {
 	}
 	defer rows.Close()
 	lost := make(map[string][]string)
+	oor := make(map[string]bool)
 	for rows.Next() {
 		var c, l string
 		if err := rows.Scan(&c, &l); err != nil {
 			return err
 		}
 		ca := models.NewCodeAlias(c)
+		lost[l] = append(lost[l], ca.Alias())
+		if oor[l] {
+			continue
+		}
 		if res, err := deviceCommand(ca, "deposit_resources", nil, dm.dryRun); err != nil {
 			log("Error dropping inventory from %s: %v", ca.Alias(), err)
+			oor[l] = true
 		} else {
 			if dm.stats[l] == nil {
 				dm.stats[l] = new(totals)
@@ -484,7 +490,6 @@ func (dm *DispatchMachine) releaseLostCargo() error {
 				dm.stats[l].delivered += v
 			}
 		}
-		lost[l] = append(lost[l], ca.Alias())
 	}
 	if len(lost) > 0 {
 		var data [][]any

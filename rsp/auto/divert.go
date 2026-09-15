@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zigdon/rsp/common"
+	"github.com/zigdon/rsp/constants"
 	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
@@ -277,7 +278,7 @@ func (dm *DivertMachine) Process() (time.Time, error) {
 				if err != nil {
 					return nil, err
 				}
-				if dist > 500 {
+				if dist > constants.MaxDist {
 					log("Ignoring %s, %.2f is too far)", r.Description, dist)
 					continue
 				}

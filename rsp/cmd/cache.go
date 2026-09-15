@@ -7,12 +7,14 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/spf13/cobra"
 	"github.com/zigdon/rsp/cache"
 	"github.com/zigdon/rsp/common"
 	"github.com/zigdon/rsp/constants"
+	"github.com/zigdon/rsp/models"
 	"github.com/zigdon/rsp/rest"
 )
 
@@ -121,6 +123,7 @@ func init() {
 	aliasCmd.AddCommand(aliasListCmd)
 
 	cacheCmd.AddCommand(intentCmd)
+	cacheCmd.AddCommand(intentDeliveriesCmd)
 	intentCmd.AddCommand(intentListCmd)
 	intentListCmd.Flags().StringP("location", "l", "", "Filter by location")
 	intentListCmd.Flags().BoolP("inventory", "i", false, "Show existing inventory columns")
@@ -267,6 +270,53 @@ var intentListCmd = &cobra.Command{
 		slices.SortFunc(data, func(a, b []any) int {
 			return cmp.Compare(a[0].(string), b[0].(string))
 		})
+		printTable(headers, data)
+		return nil
+	},
+}
+
+var intentDeliveriesCmd = &cobra.Command{
+	Use:     "deliveries",
+	Aliases: []string{"delivery"},
+	Short:   "Show deliveries currently in progress",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		rows, err := db.Query(`
+		SELECT origin, destination, ship, cargo, data
+		FROM deliveries
+		JOIN json_devices ON ship = code
+		ORDER BY id`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		var data [][]any
+		for rows.Next() {
+			var o, d, ca string
+			var cargo cache.JSONB[map[string]int]
+			var shipData cache.JSONB[models.Device]
+			if err := rows.Scan(&o, &d, &ca, &cargo, &shipData); err != nil {
+				return err
+			}
+			var arrives time.Time
+			if shipData.Data.Travel != nil {
+				arrives = shipData.Data.Travel.Arrives.Time()
+			}
+			line := []any{o, d, models.NewCodeAlias(ca), arrives}
+			var tot int
+			for _, r := range constants.Resources {
+				if v, ok := cargo.Data[r]; ok {
+					line = append(line, v)
+					tot += v
+				} else {
+					line = append(line, "")
+				}
+			}
+			line = append(line, tot)
+			data = append(data, line)
+		}
+		headers := []string{"From", "To", "Ship", "Arrives"}
+		headers = append(headers, constants.Resources...)
+		headers = append(headers, "Total")
 		printTable(headers, data)
 		return nil
 	},

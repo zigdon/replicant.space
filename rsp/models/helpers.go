@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,6 +17,30 @@ import (
 )
 
 var db *cache.Cache
+
+func log(tmpl string, args ...any) {
+	ts := time.Now().Format(time.Stamp)
+	for n, v := range args {
+		switch a := v.(type) {
+		case string:
+			args[n] = strings.Join(strings.Fields(a), " ")
+		}
+	}
+	for n, a := range args {
+		if b, ok := a.([]byte); ok {
+			s := string(b)
+			if len(s) > 10000 {
+				args[n] = fmt.Sprintf("[%d]byte: %s...", len(b), s[:10000])
+			} else {
+				args[n] = fmt.Sprintf("[%d]byte: %s", len(b), s)
+			}
+		}
+	}
+	line := fmt.Sprintf(ts+" "+tmpl+"\n", args...)
+	if os.Getenv("DEBUG_MODELS") != "" {
+		fmt.Fprint(os.Stderr, line)
+	}
+}
 
 type Fillable interface {
 	Fill() error
@@ -256,7 +281,7 @@ func (a *CodeAlias) Num() int {
 	_, id, _ := strings.Cut(a.alias, "-")
 	n, err := strconv.Atoi(id)
 	if err != nil {
-		fmt.Printf("Failed to get number of %q: %v\n", a.alias, err)
+		log("Failed to get number of %q: %v\n", a.alias, err)
 		return 0
 	}
 	return n

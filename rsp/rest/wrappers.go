@@ -486,15 +486,24 @@ func RefreshDevices(filters map[string]any) ([]*models.Device, error) {
 		}
 	}
 
-	seen := make(map[string]bool)
 	if len(filters) == 0 {
 		log("Got full device list (%d), cleaning up cache", len(devs))
 		if db != nil {
-			deleted, err := db.ExpireCache(seen)
+			deleted, err := db.ExpireCache()
+			var total int
+			var types []string
+			for k, v := range deleted {
+				types = append(types, k)
+				total += v
+			}
+			slices.Sort(types)
 			if err != nil {
 				log("Error removing stale devices: %v", err)
 			} else {
-				log("Removed entries for %d devices", deleted)
+				log("Removed entries for %d devices", total)
+				for _, t := range types {
+					log("  %30s: %d", t, deleted[t])
+				}
 			}
 		}
 	}

@@ -14,7 +14,6 @@ const HomeDeltaStar = "CAELZAROR"
 var Homes = []string{Home, HomeAlpha, HomeBeta, HomeGamma, HomeDelta}
 
 var LocationAliases = map[string]string{
-	"home":   Home,
 	"sys":    HomeStar,
 	"home-a": HomeAlpha,
 	"sys-a":  HomeAlphaStar,

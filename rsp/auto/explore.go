@@ -176,6 +176,9 @@ func (em *ExploreMachine) UpdateState() error {
 	if err != nil {
 		return err
 	}
+	if loc.MoonsTotal == 0 && loc.PlanetsTotal == 0 {
+		loc.SystemScanned = true
+	}
 	var explored = loc.SystemScanned &&
 		(loc.MoonsScanned == loc.MoonsTotal) &&
 		(loc.PlanetsScanned == loc.PlanetsTotal)
@@ -198,7 +201,7 @@ func (em *ExploreMachine) UpdateState() error {
 	switch {
 	case dev.Location == "":
 		em.state = ExploreState_Transit
-	case !explored && stowed:
+	case !explored && stowed || oldState == ExploreState_Transit:
 		em.state = ExploreState_Incoming
 	case !explored:
 		em.state = ExploreState_Scanning
@@ -278,6 +281,12 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 		eta = time.Now()
 	case ExploreState_Scanning:
 		em.status = "scanning"
+		if em.sb.StowedInDeviceCode != nil || em.asc.StowedInDeviceCode != nil {
+			log("launching drones")
+			if _, err := typedDeviceCommand[models.AssembleResp](em.asc.Code, "launch", nil, em.dryRun); err != nil {
+				log("Error launching drones: %v", err)
+			}
+		}
 		log("Scan in progress:")
 		if err := getLogs(); err != nil {
 			return eta, err
@@ -320,7 +329,7 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 		var next *models.Star
 		for _, s := range stars.Stars {
 			// TODO: check our cache so we'll go backfill stars we only skimmed earlier
-			if s.Explored {
+			if s.Explored || s.EstimatedPlanets == 0 {
 				continue
 			}
 			next = s
@@ -329,7 +338,7 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 		if next == nil {
 			return eta, fmt.Errorf("Can't find next star!")
 		}
-		log("Next star: %s, %.2f ly away", next.Designation.Star(), next.DistanceFromReplicant)
+		log("Next star: %s, %.2f ly away, %d planets", next.Designation.Star(), next.DistanceFromReplicant, next.EstimatedPlanets)
 		eta, err = common.Travel(em.dev.Code, next.Designation.Star(), em.dryRun)
 		if err != nil {
 			return eta, err

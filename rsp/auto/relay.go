@@ -50,6 +50,8 @@ const (
 	RelayMachine_Leaving          = "leaving"
 )
 
+var relayPlotCfg = &common.PlotCfg{Partial: true, UseStation: true}
+
 type RelayMachine struct {
 	dryRun    bool
 	dev       *models.Device
@@ -92,6 +94,8 @@ func (rm *RelayMachine) Start(d *models.Device, dryRun bool) error {
 	}
 
 	if regions := getTags(rm.dev)["regions"]; regions != "" {
+		rm.regions = strings.Split(regions, ":")
+	} else if regions := getTags(rm.dev)["region"]; regions != "" {
 		rm.regions = strings.Split(regions, ":")
 	} else {
 		rm.regions = []string{"solzone", "alpha", "beta", "gamma"}
@@ -148,46 +152,53 @@ func (rm *RelayMachine) UpdateState() error {
 
 	// State flags
 	var sysFRs []*models.Device // FRs in system
-	var sysFRRelaying bool      // FRs operational
+	var sysRelayed bool         // FRs operational
 	inL4 := strings.Contains(string(rm.dev.Location), "L4")
 
 	// Check FR inventory
 	frInv := slices.ContainsFunc(rm.dev.StowedDevices.Devices, func(d *models.DevicePointer) bool {
 		return d.Type == "ftl_relay"
 	})
+	dsrsInv := slices.ContainsFunc(rm.dev.StowedDevices.Devices, func(d *models.DevicePointer) bool {
+		return d.Type == "deep_space_relay_station"
+	})
+
+	// Check the distance from the nearest relay
+	wantStation, err := rm.needStation(rm.dev.Location)
+	if err != nil {
+		return fmt.Errorf("Can't determine is a station is useful: %v", err)
+	}
 
 	// Check the current location
 	if rm.dev.Location != "" {
+		relayType := "ftl_relay"
+		if wantStation {
+			relayType = "deep_space_relay_station"
+		}
 		star := rm.dev.Location.Star()
-		frs, err := rest.RefreshDevices(map[string]any{
-			"device_type": "ftl_relay",
+		relays, err := rest.RefreshDevices(map[string]any{
+			"device_type": relayType,
 			"location":    star,
 		})
 		if err != nil {
-			return fmt.Errorf("Can't get ftl relays at %q: %v", star, err)
+			return fmt.Errorf("Can't get %q at %q: %v", relayType, star, err)
 		}
-		for _, fr := range frs {
+		for _, fr := range relays {
 			if fr.AttachedToDeviceCode != nil {
 				continue
 			}
 			sysFRs = append(sysFRs, fr)
 			if fr.Status == "relaying" {
-				sysFRRelaying = true
+				sysRelayed = true
 			}
 		}
 	}
 	sysHasSpareFR := len(sysFRs) > 1
 
-	// Check the distance from the nearest relay
-	dist, err := rm.findNetworkDist()
-	if err != nil {
-		return fmt.Errorf("Can't find distance from network: %v", err)
-	}
-
-	log("State: %s@%s, %s@%s; Dest: %q (%v), System FRs: %d, relaying: %v",
+	log("State: %s@%s, %s@%s; Dest: %q (%v), System FRs: %d, relaying: %v, wantStation: %v",
 		rm.dev.Code.Alias(), rm.dev.Location,
 		rm.supply.Code.Alias(), rm.supply.Location,
-		rm.dest, rm.regions, len(sysFRs), sysFRRelaying)
+		rm.dest, rm.regions, len(sysFRs), sysRelayed, wantStation)
 
 	oldState := rm.state
 	switch {
@@ -204,7 +215,7 @@ func (rm *RelayMachine) UpdateState() error {
 	case rm.state == "" && status != "idle":
 		log("Blank state, moving")
 		rm.state = RelayMachine_Transit
-	case sysFRRelaying && sysHasSpareFR:
+	case sysRelayed && sysHasSpareFR:
 		log("System relayed, cleanup available")
 		rm.state = RelayMachine_Cleanup
 		rm.status = "collecting spare relays"
@@ -212,26 +223,26 @@ func (rm *RelayMachine) UpdateState() error {
 		log("Not in L4")
 		rm.state = RelayMachine_Incoming
 		rm.status = "repositioning"
-	case !frInv:
+	case (wantStation && !dsrsInv) || (!wantStation && !frInv):
 		log("Out of inventory")
 		rm.state = RelayMachine_Empty
 		rm.status = "resupplying"
-	case sysFRRelaying && !sysHasSpareFR:
+	case sysRelayed && !sysHasSpareFR:
 		log("System relayed, no cleanup")
 		rm.state = RelayMachine_Leaving
 		rm.status = "departing"
-	case inL4 && !sysFRRelaying && dist <= 7.5:
+	case inL4 && !sysRelayed && !wantStation:
 		log("At L4, ready to deploy relay")
 		rm.state = RelayMachine_DeployingRelay
 		rm.status = "deploying relay"
-	case inL4 && !sysFRRelaying && dist <= 10 && rm.dev.AttachCapacity > 0:
+	case inL4 && !sysRelayed && wantStation && rm.dev.AttachCapacity > 0:
 		log("At L4, ready to deploy station")
 		rm.state = RelayMachine_DeployingStation
 		rm.status = "deploying dsrs"
 	default:
 		return fmt.Errorf(
-			"Unknown state (%s): state: %q, FRs: ship %v, sys %d (relaying: %v, edge dist: %.2fly)",
-			rm.dev.Code.Alias(), rm.state, frInv, len(sysFRs), sysFRRelaying, dist)
+			"Unknown state (%s): state: %q, FRs: ship %v, sys %d (relaying: %v, wantStation: %v)",
+			rm.dev.Code.Alias(), rm.state, frInv, len(sysFRs), sysRelayed, wantStation)
 	}
 	log("Update state: %s -> %s", oldState, rm.state)
 	return nil
@@ -292,16 +303,14 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			}
 		} else {
 			log("at %s entry point: %s", rm.dev.Location.Star(), scan.EntryPoint)
-			dist, err := rm.findNetworkDist()
+			ws, err := rm.needStation(rm.dev.Location)
 			if err != nil {
 				return eta, err
 			}
-			if dist <= 7.5 {
+			if !ws {
 				nextState = RelayMachine_DeployingRelay
-			} else if dist <= 10 && rm.dev.AttachCapacity > 0 {
+			} else if ws && rm.dev.AttachCapacity > 0 {
 				nextState = RelayMachine_DeployingStation
-			} else {
-				return eta, fmt.Errorf("Too far from network to deploy: %.2fly", dist)
 			}
 		}
 	case RelayMachine_DeployingRelay:
@@ -354,39 +363,47 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		if err != nil {
 			return eta, err
 		}
+		var found bool
 		if len(devs) > 0 {
 			// We already are in the process of deploying one.
-			dsrs := devs[0]
-			// Check if it's compacted
-			switch dsrs.Status {
-			case "compacted":
-				res, err := deviceCommand(dsrs.Code, "unfurl", nil, rm.dryRun)
-				if err != nil {
-					return eta, err
+			for _, dsrs := range devs {
+				// Check that it's not attached
+				if dsrs.AttachedToDeviceCode != nil {
+					continue
 				}
-				eta = res.Completes.Time()
-			case "idle":
-				// Activate
-				_, err = deviceCommand(dsrs.Code, "activate", nil, rm.dryRun)
-				if err != nil {
-					return eta, err
+				found = true
+				// Check if it's compacted
+				switch dsrs.Status {
+				case "compacted":
+					res, err := deviceCommand(dsrs.Code, "unfurl", nil, rm.dryRun)
+					if err != nil {
+						return eta, err
+					}
+					eta = res.Completes.Time()
+				case "inactive":
+					// Activate
+					_, err = deviceCommand(dsrs.Code, "activate", nil, rm.dryRun)
+					if err != nil {
+						return eta, err
+					}
+					// Tag
+					err = rest.UpdateTags(dsrs.Code, rest.AddTag, []string{"infrastructure"})
+					if err != nil {
+						return eta, fmt.Errorf("Can't update tags on %q: %v", dsrs.Code.Alias(), err)
+					}
+					log("Station deployed at %s", rm.dev.Location)
+					// Refresh the location, so newly in-network devices will notice
+					if _, err = rest.RefreshDevices(map[string]any{"location": rm.dev.Location.Star()}); err != nil {
+						log("Error refreshing system: %v", err)
+					}
+					nextState = RelayMachine_Cleanup
+				default:
+					log("Found %s is %s, nothing to do", dsrs.Code, dsrs.Status)
+					nextState = RelayMachine_Cleanup
 				}
-				// Tag
-				err = rest.UpdateTags(dsrs.Code, rest.AddTag, []string{"infrastructure"})
-				if err != nil {
-					return eta, fmt.Errorf("Can't update tags on %q: %v", dsrs.Code.Alias(), err)
-				}
-				log("Station deployed at %s", rm.dev.Location)
-				// Refresh the location, so newly in-network devices will notice
-				if _, err = rest.RefreshDevices(map[string]any{"location": rm.dev.Location.Star()}); err != nil {
-					log("Error refreshing system: %v", err)
-				}
-				nextState = RelayMachine_Cleanup
-			default:
-				log("Found %s is %s, nothing to do", dsrs.Code, dsrs.Status)
-				nextState = RelayMachine_Cleanup
 			}
-		} else if rm.dev.AttachCapacity > 0 {
+		}
+		if !found && rm.dev.AttachCapacity > 0 {
 			// None deployed, find a dsrs
 			var dsrs *models.CodeAlias
 			for _, d := range rm.dev.AttachedDevices {
@@ -423,7 +440,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 					log("Error refreshing system: %v", err)
 				}
 			}
-		} else {
+		} else if !found {
 			log("%s can't deploy DSRS", rm.dev.Code)
 			nextState = RelayMachine_Cleanup
 		}
@@ -500,8 +517,8 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				if err != nil {
 					return eta, err
 				}
-				_, err = deviceCommand(d.Code, "attach",
-					map[string]any{"target": rm.dev.Code}, rm.dryRun)
+				_, err = deviceCommand(rm.dev.Code, "attach",
+					map[string]any{"target": d.Code}, rm.dryRun)
 				if err != nil {
 					return eta, err
 				}
@@ -524,7 +541,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		} else {
 			log("Queued %d ftl_relays: ETA %s (%s)", frCount, pPlan.ETA, time.Until(pPlan.ETA))
 		}
-		pPlan, err = common.Print(resupplyHome, "deep_space_relay_station", rm.dev.AttachCapacity, true, rm.dryRun, map[string]any{"compacted": true})
+		pPlan, err = common.Print(resupplyHome, "deep_space_relay_station", rm.dev.AttachCapacity, true, rm.dryRun, map[string]any{"flatpack": true})
 		if err != nil {
 			log("Error printing DSRS: %v", err)
 		} else {
@@ -573,7 +590,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 				}
 				log("Next destination: %s (%.2f LY away):", n, dists[n.Star()])
 				if edge != n.Star() {
-					path, err := common.PlotTrip(edge, n.Star(), nil)
+					path, err := common.PlotTrip(edge, n.Star(), relayPlotCfg)
 					if err != nil {
 						log("Can't plot path %s->%s: %v", edge, n.Star(), err)
 						continue
@@ -623,14 +640,9 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			log("Already %.2f LY away, venturing out to %s", curDist, rm.dest.Star())
 
 			// plot the next hop
-			route, err := common.PlotTrip(string(rm.dev.Location), rm.dest.Star(), nil)
+			route, err := common.PlotTrip(string(rm.dev.Location), rm.dest.Star(), relayPlotCfg)
 			if err != nil {
-				route, err = common.PlotTrip(
-					string(rm.dev.Location), rm.dest.Star(),
-					&common.PlotCfg{Partial: true, UseStation: true})
-				if err != nil {
-					return eta, err
-				}
+				return eta, err
 			}
 			var lost = true
 			// Find FRs that are already available on the route
@@ -851,10 +863,7 @@ func (rm *RelayMachine) getNextRoute() ([]models.LocationID, error) {
 	if !ok {
 		return nil, fmt.Errorf("Invalid route tag %q: expecting route:<from>-<to>", route)
 	}
-	path, err := common.PlotTrip(from, to, &common.PlotCfg{
-		UseStation: true,
-		Partial:    true,
-	})
+	path, err := common.PlotTrip(from, to, relayPlotCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -875,7 +884,15 @@ func (rm *RelayMachine) getNextRoute() ([]models.LocationID, error) {
 	var complete int
 	for _, s := range systems {
 		if slices.ContainsFunc(done, func(d *cache.QueryDevicesRes) bool {
-			return models.LocationID(d.Location).Star() == s
+			ws, err := rm.needStation(models.LocationID(s))
+			if err != nil {
+				return false
+			}
+			if ws {
+				return models.LocationID(d.Location).Star() == s && (d.Type == "deep_space_relay_station" || d.Type == "system_hub")
+			} else {
+				return models.LocationID(d.Location).Star() == s
+			}
 		}) {
 			complete++
 			continue
@@ -928,7 +945,7 @@ func (rm *RelayMachine) getNextStranded() ([]models.LocationID, error) {
 	  SELECT DISTINCT(location)
 	  FROM json_devices JOIN stars ON location = designation
 	  WHERE status = 'out_of_range'
-		AND region = ANY($1)
+		AND (region = ANY($1) OR region = '')
 		AND location NOT IN (
 		  SELECT split_part(data->'travel'->>'destination', '-', 1)
 		  FROM json_devices
@@ -992,14 +1009,28 @@ func (rm *RelayMachine) getNextFollow(target string) (models.LocationID, error) 
 	}
 }
 
-func (rm *RelayMachine) findNetworkDist() (float32, error) {
-	edge, err := common.NearestRelay(string(rm.dev.Location), rm.replicant)
-	if err != nil {
-		return 0, fmt.Errorf("Can't find network edge from %q: %v", rm.dev.Location, err)
+// Determine if using a DSRS would connect more networks than just a regular FR
+var _relayNeedsStation = make(map[models.LocationID]bool)
+
+func (rm *RelayMachine) needStation(loc models.LocationID) (bool, error) {
+	if rns, ok := _relayNeedsStation[loc]; ok {
+		return rns, nil
 	}
-	dist, err := common.Distance(edge, string(rm.dev.Location))
+	nets, err := common.IdentifyNetworkBridge(loc)
 	if err != nil {
-		return 0, fmt.Errorf("Can't find distance to network edge %q: %v", edge, err)
+		return false, err
 	}
-	return dist, nil
+	for net, d := range nets {
+		// Ignore systems that are not in any network
+		if !strings.Contains(net, "-") {
+			continue
+		}
+		log("  [%s] net %q at %.2f ly", loc.Star(), net, d)
+		if d > 7.5 && d <= 10 {
+			_relayNeedsStation[loc] = true
+			return true, nil
+		}
+	}
+	_relayNeedsStation[loc] = false
+	return false, nil
 }

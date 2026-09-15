@@ -731,6 +731,90 @@ func Distance(src, dst string) (float32, error) {
 	return posA.Distance(posB), nil
 }
 
+func IdentifyNetworkBridge(loc models.LocationID) (map[string]float32, error) {
+	// get all the systems in range
+	// check each for relays
+	// group by the "oldest" member of the network
+	// return the nearest star for each network
+	star, err := models.NewStar(loc.Star())
+	if err != nil {
+		return nil, err
+	}
+	pos := star.Position
+	near, err := db.QueryStarsInRadius(pos.X, pos.Y, pos.Z, 15, 0)
+	if err != nil {
+		return nil, err
+	}
+	devNet := make(map[string]string)
+	getNID := func(ca *models.CodeAlias) (string, error) {
+		if n, ok := devNet[ca.Alias()]; ok {
+			return n, nil
+		}
+		net, err := rest.DeviceNetwork(ca)
+		if err != nil {
+			return "", fmt.Errorf("Can't get network for %q: %v", ca.Alias(), err)
+		}
+		var id *models.CodeAlias
+		var nid string
+		for _, c := range net.Connections {
+			if id == nil || (c.DeviceCode.Type() == id.Type() && c.DeviceCode.Num() < id.Num()) || (c.DeviceCode.Type() == "fr" && id.Type() != "fr") {
+				id = c.DeviceCode
+				nid = fmt.Sprintf("%s (%s)", c.Star, id.Alias())
+			}
+		}
+		for _, c := range net.Connections {
+			devNet[c.DeviceCode.Alias()] = nid
+		}
+		return nid, nil
+	}
+	nets := make(map[string][]string)
+	for _, s := range near {
+		if s.Designation == loc.Star() {
+			continue
+		}
+		// Log("Checking relays at %q (%.2f ly)", s.Designation, s.Distance)
+		frs, err := db.QueryDevices(
+			cache.QueryDevicesStatus("relaying"),
+			cache.QueryDevicesLocation(s.Designation),
+		)
+		if err != nil {
+			return nil, err
+		}
+		for _, fr := range frs {
+			ca := models.NewCodeAlias(fr.Code)
+			nid, err := getNID(ca)
+			if err != nil {
+				return nil, err
+			}
+			// Log("... %s: %s", ca, nid)
+			if l, ok := nets[nid]; !ok || !slices.Contains(l, s.Designation) {
+				nets[nid] = append(nets[nid], s.Designation)
+			}
+		}
+	}
+	res := make(map[string]float32)
+	for _, s := range near {
+		if s.Designation == loc.Star() {
+			continue
+		}
+		net := s.Designation
+		for nid, stars := range nets {
+			if slices.Contains(stars, s.Designation) {
+				net = nid
+				break
+			}
+		}
+		if _, ok := res[net]; !ok {
+			res[net] = s.Distance
+			continue
+		}
+		if s.Distance < res[net] {
+			res[net] = s.Distance
+		}
+	}
+	return res, nil
+}
+
 func NearestRelay(dest string, ignore *models.CodeAlias) (string, error) {
 	// Get the home relay network
 	net, err := FullNetwork(ignore)

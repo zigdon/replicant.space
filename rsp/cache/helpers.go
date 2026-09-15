@@ -139,15 +139,27 @@ func (db *Cache) FindNearestOwnedHub(x, y, z float32) (string, float32, error) {
 	return dsg, dist, err
 }
 
-func (db *Cache) ExpireCache(keep map[string]bool) (int64, error) {
-	res, err := db.DB.Exec(`
+func (db *Cache) ExpireCache() (map[string]int, error) {
+	rows, err := db.DB.Query(`
 		DELETE from json_devices
-		WHERE updated_ts < NOW() - INTERVAL '5 minutes';
+		WHERE updated_ts < NOW() - INTERVAL '30 minutes'
+		RETURNING type;
 	`)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return res.RowsAffected()
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, err
+		}
+		counts[t]++
+	}
+
+	return counts, nil
 }
 
 func (db *Cache) DeviceLogCursor(devID string) int {
@@ -186,7 +198,7 @@ func (db *Cache) QueryStarsInRadius(x, y, z, radius float32, limit int) ([]*Star
 		q += fmt.Sprintf(" LIMIT %d", limit)
 	}
 
-	rows, err := db.DB.Query(q, Position{x, y, z}, radius)
+	rows, err := db.Query(q, Position{x, y, z}, radius)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +325,7 @@ func QueryDevicesLocation(l ...string) QueryDevicesOpts {
 	if len(wildcards) > 0 {
 		return QueryDevicesOpts{
 			[]string{
-				"(location = ANY($%d::TEXT[])) OR (location ILIKE ANY($%d::TEXT[]))",
+				"(location = ANY($%d::TEXT[]) OR location ILIKE ANY($%d::TEXT[]))",
 			}, []any{
 				pq.Array(specific), pq.Array(wildcards),
 			},

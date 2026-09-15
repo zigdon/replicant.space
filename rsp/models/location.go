@@ -124,6 +124,7 @@ type Star struct {
 	EstimatedPlanets      int            `json:"estimated_planets"`
 	EstimatedTravelTime   *JSONTimeDelta `json:"estimated_travel_time"`
 	Explored              bool           `json:"explored"`
+	FoundPlanets          int
 	HabitableZone         struct {
 		InnerAu float32 `json:"inner_au"`
 		OuterAu float32 `json:"outer_au"`
@@ -170,6 +171,14 @@ func (s *Star) Fill() error {
 				float64(s.Position.Y*s.Position.Y) +
 				float64(s.Position.Z*s.Position.Z)))
 	}
+
+	// See if we recorded the actual number of planets in the system
+	row := db.QueryRow("SELECT found_planets FROM stars WHERE designation = $1", s.Designation)
+	if row.Err() == nil {
+		if err := row.Scan(&s.FoundPlanets); err == nil {
+			s.EstimatedPlanets = s.FoundPlanets
+		}
+	}
 	return nil
 }
 
@@ -195,6 +204,7 @@ func (s *Star) Cache() error {
 		"position":      s.Position.AsCube(),
 		"spectral_type": s.SpectralType,
 		"region":        s.Region,
+		"found_planets": s.FoundPlanets,
 	})
 }
 
@@ -231,6 +241,14 @@ type Census struct {
 	Total             int       `json:"total"`
 	TotalPages        int       `json:"total_pages"`
 	TotalStars        int       `json:"total_stars"`
+}
+
+func (c *Census) Fill() error {
+	var errs []error
+	for _, s := range c.Stars {
+		errs = append(errs, s.Fill())
+	}
+	return errors.Join(errs...)
 }
 
 type Belt struct {
