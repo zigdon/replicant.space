@@ -324,7 +324,7 @@ func waitPending(cmd *cobra.Command, args []string) error {
 				}
 			}
 			app.Draw()
-			time.Until(lastUpdate.Add(30 * time.Second))
+			time.Sleep(time.Until(lastUpdate.Add(30 * time.Second)))
 		}
 	}()
 	inputCapture := func(ev *tcell.EventKey) *tcell.EventKey {

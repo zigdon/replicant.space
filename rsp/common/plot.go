@@ -573,6 +573,7 @@ func TripStepCandidate(start string, src, dst *models.Position, min_radius, max_
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	var res []*models.JourneyLeg
 	var errs []error

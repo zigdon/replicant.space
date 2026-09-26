@@ -159,7 +159,7 @@ func (rm *RelayMachine) UpdateState() error {
 	frInv := slices.ContainsFunc(rm.dev.StowedDevices.Devices, func(d *models.DevicePointer) bool {
 		return d.Type == "ftl_relay"
 	})
-	dsrsInv := slices.ContainsFunc(rm.dev.StowedDevices.Devices, func(d *models.DevicePointer) bool {
+	dsrsInv := slices.ContainsFunc(rm.dev.AttachedDevices, func(d *models.Device) bool {
 		return d.Type == "deep_space_relay_station"
 	})
 
@@ -209,6 +209,10 @@ func (rm *RelayMachine) UpdateState() error {
 	case slices.Contains(constants.Homes, string(rm.dev.Location)):
 		log("Leaving home")
 		rm.state = RelayMachine_Leaving
+	case (wantStation && !dsrsInv) || (!wantStation && !frInv):
+		log("Out of inventory")
+		rm.state = RelayMachine_Empty
+		rm.status = "resupplying"
 	case rm.state == "" && status == "idle":
 		log("Blank state, stationary")
 		rm.state = RelayMachine_Incoming
@@ -223,10 +227,6 @@ func (rm *RelayMachine) UpdateState() error {
 		log("Not in L4")
 		rm.state = RelayMachine_Incoming
 		rm.status = "repositioning"
-	case (wantStation && !dsrsInv) || (!wantStation && !frInv):
-		log("Out of inventory")
-		rm.state = RelayMachine_Empty
-		rm.status = "resupplying"
 	case sysRelayed && !sysHasSpareFR:
 		log("System relayed, no cleanup")
 		rm.state = RelayMachine_Leaving
@@ -534,18 +534,38 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		if err != nil {
 			return eta, err
 		}
-		frCount := rm.supply.AttachCapacity - rm.dev.AttachCapacity
-		pPlan, err := common.Print(resupplyHome, "ftl_relay", frCount, true, rm.dryRun, nil)
+		frFound, err := DB.QueryDevices(
+			cache.QueryDevicesLocation(resupplyHome),
+			cache.QueryDevicesType("ftl_relay"),
+		)
 		if err != nil {
-			log("Error printing relays: %v", err)
-		} else {
-			log("Queued %d ftl_relays: ETA %s (%s)", frCount, pPlan.ETA, time.Until(pPlan.ETA))
+			log("Can't get FR at %q: %v", resupplyHome, err)
 		}
-		pPlan, err = common.Print(resupplyHome, "deep_space_relay_station", rm.dev.AttachCapacity, true, rm.dryRun, map[string]any{"flatpack": true})
+
+		frCount := rm.supply.AttachCapacity - rm.dev.AttachCapacity
+		var pPlan *common.PrintPlan
+		if frCount > len(frFound) {
+			pPlan, err := common.Print(resupplyHome, "ftl_relay", frCount, true, rm.dryRun, nil)
+			if err != nil {
+				log("Error printing relays: %v", err)
+			} else {
+				log("Queued %d ftl_relays: ETA %s (%s)", frCount, pPlan.ETA, time.Until(pPlan.ETA))
+			}
+		}
+
+		dsrsFound, err := DB.QueryDevices(
+			cache.QueryDevicesLocation(resupplyHome),
+			cache.QueryDevicesType("deep_space_relay_station"),
+		)
 		if err != nil {
-			log("Error printing DSRS: %v", err)
-		} else {
-			log("Queued %d DSRS: ETA %s (%s)", rm.dev.AttachCapacity, pPlan.ETA, time.Until(pPlan.ETA))
+			log("Can't get DSRS at %q: %v", resupplyHome, err)
+		} else if len(dsrsFound) < rm.dev.AttachCapacity {
+			pPlan, err = common.Print(resupplyHome, "deep_space_relay_station", rm.dev.AttachCapacity, true, rm.dryRun, map[string]any{"flatpack": true})
+			if err != nil {
+				log("Error printing DSRS: %v", err)
+			} else {
+				log("Queued %d DSRS: ETA %s (%s)", rm.dev.AttachCapacity, pPlan.ETA, time.Until(pPlan.ETA))
+			}
 		}
 
 		nextState = RelayMachine_Leaving

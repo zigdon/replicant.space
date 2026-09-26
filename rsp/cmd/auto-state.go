@@ -111,6 +111,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 			}
 			log("Disabling %q, 'auto' tag removed", a)
 			delete(sms, a)
+			delete(devs, a)
 			eq.Remove(a)
 		}
 		return errors.Join(errs...)
@@ -124,6 +125,7 @@ func autoState(cmd *cobra.Command, args []string) error {
 					log("Error removing the 'auto' tag: %v", err)
 				}
 				delete(sms, d.Alias())
+				delete(devs, d.Alias())
 				return nil
 			}
 			log("%s error: %v", d.Alias(), err)

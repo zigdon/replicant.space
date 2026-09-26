@@ -445,6 +445,7 @@ func Devices(filters map[string]any) ([]*models.Device, error) {
 }
 
 func RefreshDevices(filters map[string]any) ([]*models.Device, error) {
+	ts := time.Now()
 	url := "devices"
 	slow := filters == nil
 	var params []string
@@ -487,7 +488,7 @@ func RefreshDevices(filters map[string]any) ([]*models.Device, error) {
 	}
 
 	if len(filters) == 0 {
-		log("Got full device list (%d), cleaning up cache", len(devs))
+		log("Got full device list (%d) in %s, cleaning up cache", len(devs), time.Since(ts))
 		if db != nil {
 			deleted, err := db.ExpireCache()
 			var total int

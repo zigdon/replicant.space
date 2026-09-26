@@ -44,6 +44,8 @@ type replicantTask struct {
 
 var tasks []replicantTask
 
+var prints map[models.LocationID]int
+
 type eventState struct {
 	event       *models.Event
 	tag         string
@@ -364,6 +366,9 @@ func (es *eventState) shipDev(devs []*models.CodeAlias) error {
 		if len(devs) > 0 {
 			errs = append(errs,
 				fmt.Errorf("Not enough platforms available at %s: %d (%v) remain", es.home, len(devs), devs))
+			if len(devs) > prints[es.home] {
+				prints[es.home] = len(devs)
+			}
 		}
 	}
 
@@ -933,6 +938,8 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 	}
 	events := res.Events
 
+	prints = make(map[models.LocationID]int)
+
 	afc := models.NewCodeAlias(getString(cmd, "afc"))
 
 	tc := common.NewTravelCoordinator(afc, dryRun)
@@ -998,6 +1005,30 @@ func autoEvent(cmd *cobra.Command, args []string) error {
 		})
 	}
 	errs = append(errs, tc.Ship())
+
+	for loc, n := range prints {
+		if n <= 0 {
+			continue
+		}
+		var dt string
+		if n <= 4 {
+			dt = "surge_platform"
+		} else {
+			dt = "mobile_fleet"
+		}
+
+		if found, _ := common.CheckQueue(string(loc), "", dt, 1); found >= 1 {
+			log("Already printing %s at %s", dt, loc)
+		} else {
+			log("Printing %s at %s", dt, loc)
+			plan, err := common.Print(string(loc), dt, 1, false, dryRun, nil)
+			if err != nil {
+				log("Error printing: %v", err)
+			} else {
+				data = append(data, []any{"Printing", "", loc, dt, plan.ETA})
+			}
+		}
+	}
 
 	log("All done.")
 	if err := errors.Join(errs...); err != nil {

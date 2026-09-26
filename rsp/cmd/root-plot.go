@@ -249,6 +249,7 @@ func neighbourStars(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	var data [][]any
 	var errs []error
