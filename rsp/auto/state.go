@@ -52,23 +52,11 @@ func getTags(dev *models.Device) map[string]string {
 }
 
 func later(a, b time.Time) time.Time {
-	if a.After(b) {
-		return a
-	}
-	return b
+	return common.Later(a, b)
 }
 
 func sooner(a, b time.Time) time.Time {
-	if a.IsZero() {
-		return b
-	}
-	if b.IsZero() {
-		return a
-	}
-	if a.Before(b) {
-		return a
-	}
-	return b
+	return common.Sooner(a, b)
 }
 
 func log(tmpl string, args ...any) {

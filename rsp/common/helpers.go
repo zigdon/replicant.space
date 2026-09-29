@@ -292,3 +292,23 @@ func GetPrintQueueETA(dev *models.Device) time.Duration {
 
 	return res
 }
+
+func Later(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	}
+	return b
+}
+
+func Sooner(a, b time.Time) time.Time {
+	if a.IsZero() {
+		return b
+	}
+	if b.IsZero() {
+		return a
+	}
+	if a.Before(b) {
+		return a
+	}
+	return b
+}
