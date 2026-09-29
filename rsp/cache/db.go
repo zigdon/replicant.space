@@ -174,6 +174,32 @@ func Connect(appName string) (*Cache, error) {
 	return db, rows.Err()
 }
 
+type Connection struct {
+	Application, State, Query string
+	Start                     time.Time
+}
+
+func (db *Cache) Connections() ([]Connection, error) {
+	rows, err := db.Query(`
+		SELECT application_name, COALESCE(state, ''), COALESCE(query, ''), COALESCE(query_start, '1970-01-01')
+		FROm pg_stat_activity`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []Connection
+	for rows.Next() {
+		var c Connection
+		if err := rows.Scan(&c.Application, &c.State, &c.Query, &c.Start); err != nil {
+			return nil, err
+		}
+		res = append(res, c)
+	}
+
+	return res, nil
+}
+
 func (db *Cache) UpdateSchema() error {
 	_, err := db.DB.Exec(schema)
 	return err

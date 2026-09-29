@@ -122,6 +122,8 @@ func init() {
 	aliasCmd.AddCommand(aliasRenameCmd)
 	aliasCmd.AddCommand(aliasListCmd)
 
+	cacheCmd.AddCommand(monitorCmd)
+
 	cacheCmd.AddCommand(intentCmd)
 	cacheCmd.AddCommand(intentDeliveriesCmd)
 	intentCmd.AddCommand(intentListCmd)
@@ -508,4 +510,46 @@ func parseResourceArgs(demand *map[string]int, r string) error {
 
 	(*demand)[strings.ToLower(strings.TrimSpace(k))] = qty
 	return nil
+}
+
+var monitorCmd = &cobra.Command{
+	Use:   "monitor",
+	Short: "Monitor ongoing connections",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		delay := 5 * time.Second
+		for {
+			conns, err := db.Connections()
+			if err != nil {
+				return err
+			}
+			slices.SortFunc(conns, func(a, b cache.Connection) int {
+				return cmp.Compare(a.Start.Unix(), b.Start.Unix())
+			})
+			var data [][]any
+			states := make(map[string]int)
+			for _, c := range conns {
+				states[c.State]++
+				if c.Query == "" {
+					continue
+				}
+				data = append(data, []any{
+					c.Application, c.State, c.Query, c.Start,
+				})
+			}
+			var sd [][]any
+			for k, v := range states {
+				sd = append(sd, []any{k, v})
+			}
+			slices.SortFunc(sd, func(a, b []any) int {
+				return cmp.Compare(a[0].(string), b[0].(string))
+			})
+
+			// Clear screen
+			fmt.Print("\033[H\033[2J")
+
+			printTable([]string{"State", "Count"}, sd)
+			printTable([]string{"Name", "State", "Query", "Start"}, data)
+			time.Sleep(delay)
+		}
+	},
 }
