@@ -140,7 +140,10 @@ func init() {
 		}}, "",
 	)
 	mkDeviceCommand[models.CommandResp](
-		"scan", "Initiate a scan of the current location", "system_scan", nil, "",
+		"scan", "Initiate a scan of the current location", "scan", nil, "",
+	)
+	mkDeviceCommand[models.CommandResp](
+		"sys_scan", "Initiate a scan of the current system", "system_scan", nil, "",
 	)
 	mkDeviceCommand[models.CommandResp](
 		"search", "Initiate a search", "search", nil, "",

@@ -12,7 +12,7 @@ Centers:
 
 ----------------------------------------------------------------------
 TODO:
-- plot to identify islands
+- Upgrade mining fleets to use rigs, return the old drones for upgrades
 
 ----------------------------------------------------------------------
 

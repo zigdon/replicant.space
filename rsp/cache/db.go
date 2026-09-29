@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"database/sql"
@@ -138,7 +139,8 @@ var constraints = map[Tables]string{
 }
 
 type Cache struct {
-	DB *sql.DB
+	DB         *sql.DB
+	aliasCache sync.Map
 }
 
 func Connect(appName string) (*Cache, error) {
@@ -150,7 +152,9 @@ func Connect(appName string) (*Cache, error) {
 		fmt.Sprintf("host=%s dbname=%s connect_timeout=5 sslmode=prefer application_name=%s",
 			cfg.DBHost, cfg.DBName, appName))
 
-	db := &Cache{pdb}
+	db := &Cache{
+		DB: pdb,
+	}
 
 	// Preload aliases
 	rows, err := db.DB.Query(`SELECT type, prefix FROM alias_types`)
