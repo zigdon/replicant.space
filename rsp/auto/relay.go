@@ -254,6 +254,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		return eta, err
 	}
 	nextState := rm.state
+	var nextDest string
 	log("State: %s", rm.state)
 	switch rm.state {
 	case RelayMachine_Done:
@@ -489,7 +490,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 	case RelayMachine_Empty:
 		if rm.dev.Location != rm.supply.Location {
 			log("Waiting for resupply at %q", rm.dev.Location)
-			return eta, rm.resupply()
+			return eta, rm.resupply("")
 		}
 		if len(rm.supply.AttachedDevices) == 0 {
 			return eta, fmt.Errorf("Resupply vessage %q unexpectedly empty at %q",
@@ -650,11 +651,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 		log("Nearest relay to %s is %s (%.2f LY away)", rm.dest.Star(), next, relayDist)
 		if next != rm.dev.Location.Star() && relayDist < curDist {
-			eta, err = common.Travel(rm.dev.Code, next, rm.dryRun)
-			if err != nil {
-				return eta, err
-			}
-			rm.dev.Location = models.LocationID(next)
+			nextDest = next
 			nextState = RelayMachine_Transit
 		} else {
 			log("Already %.2f LY away, venturing out to %s", curDist, rm.dest.Star())
@@ -689,11 +686,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 					continue
 				}
 				lost = false
-				eta, err = common.Travel(rm.dev.Code, l.To, rm.dryRun)
-				if err != nil {
-					return eta, err
-				}
-				rm.dev.Location = models.LocationID(l.To)
+				nextDest = l.To
 				nextState = RelayMachine_Transit
 				break
 			}
@@ -706,7 +699,7 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		return eta, fmt.Errorf("Unknown state: %q", rm.state)
 	}
 
-	if err := rm.resupply(); err != nil {
+	if err := rm.resupply(nextDest); err != nil {
 		return eta, err
 	}
 
@@ -715,13 +708,24 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		rm.state = nextState
 	}
 
+	if nextDest != "" {
+		eta, err := common.Travel(rm.dev.Code, nextDest, rm.dryRun)
+		if err != nil {
+			return eta, err
+		}
+		rm.dev.Location = models.LocationID(nextDest)
+	}
+
 	return eta, nil
 }
 
-func (rm *RelayMachine) resupply() error {
-	dest := rm.dev.Location
+func (rm *RelayMachine) resupply(dest string) error {
+	if dest == "" {
+		dest = string(rm.dev.Location)
+	}
+
 	if dest == "" && rm.dev.Travel != nil {
-		dest = rm.dev.Travel.Destination
+		dest = string(rm.dev.Travel.Destination)
 	}
 
 	// Handle supply vessal
@@ -816,7 +820,7 @@ func (rm *RelayMachine) resupply() error {
 		}
 		if len(rm.supply.AttachedDevices) > 0 && dest != "" {
 			log("Shipping out to %q to deliver FRs", dest)
-			eta, err := common.Travel(rm.supply.Code, string(dest), rm.dryRun)
+			eta, err := common.Travel(rm.supply.Code, dest, rm.dryRun)
 			if err != nil {
 				return err
 			}
@@ -824,12 +828,12 @@ func (rm *RelayMachine) resupply() error {
 		} else {
 			log("Supply ship waiting for new relays -- consider printing some")
 		}
-	case rm.supply.Location == rm.dev.Location:
-		log("Waiting for resupply at %q", rm.dev.Location)
+	case string(rm.supply.Location) == dest:
+		log("Waiting for resupply at %q", dest)
 	default:
 		if dest != "" {
 			log("Following %s to %q", rm.dev.Code.Alias(), dest)
-			eta, err := common.Travel(rm.supply.Code, string(dest), rm.dryRun)
+			eta, err := common.Travel(rm.supply.Code, dest, rm.dryRun)
 			if err != nil {
 				return err
 			}
@@ -963,8 +967,8 @@ func (rm *RelayMachine) getNextStranded() ([]models.LocationID, error) {
 	// that doesn't already have an auto:relay devices heading there
 	rows, err := DB.Query(`
 	  SELECT DISTINCT(location)
-	  FROM json_devices JOIN stars ON location = designation
-	  WHERE status = 'out_of_range'
+	  FROM json_devices JOIN stars ON split_part(location, '-', 1) = designation
+	  WHERE data @> '{"in_control_range": false}'
 		AND (region = ANY($1) OR region = '')
 		AND location NOT IN (
 		  SELECT split_part(data->'travel'->>'destination', '-', 1)
