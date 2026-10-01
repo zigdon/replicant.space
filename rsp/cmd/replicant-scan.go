@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
@@ -133,7 +134,7 @@ func replicantScan(cmd *cobra.Command, args []string) error {
 	if len(scan.SystemObjects) > 0 {
 		log("System objects")
 		var data [][]any
-		var odata [][]any
+		reqs := new(bytes.Buffer)
 		for _, so := range scan.SystemObjects {
 			data = append(data, []any{
 				lines([]string{string(so.Designation), string(so.Location)}),
@@ -143,18 +144,23 @@ func replicantScan(cmd *cobra.Command, args []string) error {
 				so.ActivePlates, p(so.ProgressPct),
 				so.CurrentThrustPerHour, wrap(so.Description, 40),
 			})
+			var odata [][]any
 			for ot, ro := range so.Requirements {
 				odata = append(odata, []any{
 					ot, ro.Complete, ro.Current, ro.Remaining, ro.Required,
 				})
+			}
+			if len(odata) > 0 && so.Status != "completed" {
+				fmt.Fprintf(reqs, "%s:\n", string(so.Designation))
+				printTablef(reqs, []string{
+					"Type", "Complete", "Current", "Remaining", "Required"}, odata)
 			}
 		}
 		printTable([]string{
 			"Designation", "Status", "Type", "Class", "Distance AU",
 			"Impact Target", "ETA", "Likelyhood", "Required Strength",
 			"Active Plates", "Progress", "Thrust/hr", "Description"}, data)
-		printTable([]string{
-			"Type", "Complete", "Current", "Remaining", "Required"}, odata)
+		fmt.Println(reqs)
 	}
 
 	if err := scan.Cache(); err != nil {

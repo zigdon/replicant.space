@@ -147,6 +147,11 @@ CREATE TABLE IF NOT EXISTS event_stream(
   data JSONB
 );
 
+create INDEX idx_event_stream_location ON event_stream(location);
+create INDEX idx_event_stream_category ON event_stream(category);
+create INDEX idx_event_stream_event ON event_stream(event);
+create INDEX idx_event_stream_code ON event_stream(code);
+
 CREATE TABLE IF NOT EXISTS device_logs(
   id INTEGER,
   created TIMESTAMPTZ,

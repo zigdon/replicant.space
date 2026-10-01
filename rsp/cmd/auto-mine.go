@@ -51,10 +51,15 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 	log("Destination system: %s (%s), %.2f LY from home", star, density, dist)
 
+	mrCount := map[string]int{
+		"sparse":   0,
+		"moderate": 1,
+		"dense":    5,
+	}
 	mdCount := map[string]int{
 		"sparse":   3,
-		"moderate": 6,
-		"dense":    10,
+		"moderate": 5,
+		"dense":    0,
 	}
 	sdCount := map[string]int{
 		"sparse":   2,
@@ -63,10 +68,11 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	}
 	md, mok := mdCount[density]
 	sd, sok := sdCount[density]
-	if !mok || !sok {
+	mr, rok := mrCount[density]
+	if !mok || !sok || !rok {
 		return fmt.Errorf("Unknown density %q, can't figure out composition", density)
 	}
-	log("Density: %s (%d mining, %d survey)", density, md, sd)
+	log("Density: %s (%d mining drones, %d mining rigs, %d survey)", density, md, mr, sd)
 
 	// Define the desired fleet shape
 	missing := map[string]int{
@@ -75,6 +81,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		"service_bot":           1,
 		"mining_drone":          md,
 		"belt_surveyor":         sd,
+		"mining_rig":            mr,
 	}
 
 	skip := getStringSlice(cmd, "skip")
@@ -280,6 +287,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 					if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
 						cfg["controller"] = c.String()
 					}
+				} else if devType == "mining_rig" {
+					if c, ok := amis["ami_mining_controller"]; ok {
+						cfg["controller"] = c.String()
+					}
 				} else if devType == "belt_surveyor" {
 					if c, ok := amis["ami_survey_controller"]; ok {
 						cfg["controller"] = c.String()
@@ -332,8 +343,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		n.Save()
 	}
 
-	if _, err := db.DB.Exec("UPDATE belts SET mining=true WHERE designation=$1", locName); err != nil {
-		log("Error updating the belts table: %v", err)
+	if !dryRun {
+		if _, err := db.DB.Exec("UPDATE belts SET mining=true WHERE designation=$1", locName); err != nil {
+			log("Error updating the belts table: %v", err)
+		}
 	}
 	if len(data) > 0 {
 		log("Waiting for missing devices:")
@@ -586,7 +599,10 @@ func autoMine(cmd *cobra.Command, args []string) error {
 		errs = append(errs, err)
 	}
 	var mds []*models.CodeAlias
-	for _, d := range fleet["mining_drone"] {
+	var miners []*models.Device
+	miners = append(miners, fleet["mining_drone"]...)
+	miners = append(miners, fleet["mining_rig"]...)
+	for _, d := range miners {
 		if d.ControllerDeviceCode == nil {
 			mds = append(mds, d.Code)
 			continue

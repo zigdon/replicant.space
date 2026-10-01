@@ -43,6 +43,7 @@ var deviceListCmd = &cobra.Command{
 			case "untagged":
 				filter["untagged"] = true
 			case "destination":
+				filter["destination"] = v
 				postFilter["destination"] = v
 			default:
 				return fmt.Errorf("Unknown filter %s", a)

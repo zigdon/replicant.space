@@ -312,7 +312,7 @@ func CachedDevices(filters map[string]any, useCache bool) ([]*models.Device, err
 	}
 
 	validCols := []string{
-		"device_type", "location", "replicant_code", "tag", "tags", "exclude_tags", "untagged"}
+		"device_type", "location", "replicant_code", "tag", "tags", "exclude_tags", "untagged", "destination"}
 	q := "SELECT code, data FROM json_devices"
 	var vals []any
 
@@ -324,6 +324,11 @@ func CachedDevices(filters map[string]any, useCache bool) ([]*models.Device, err
 				return nil, fmt.Errorf("Invalid filter %q, must be one of %v", k, validCols)
 			}
 			switch k {
+			case "destination":
+				s := v.(string)
+				limits = append(limits,
+					fmt.Sprintf("data->'travel'->>'destination' = $%d OR data->'travel'->>'destination' ilike $%d", len(vals)+1, len(vals)+2))
+				vals = append(vals, s, s+"-%")
 			case "location":
 				s := v.(string)
 				limits = append(limits,
@@ -450,6 +455,10 @@ func RefreshDevices(filters map[string]any) ([]*models.Device, error) {
 	slow := filters == nil
 	var params []string
 	for k, v := range filters {
+		// destination is not supported by the api
+		if k == "destination" {
+			continue
+		}
 		switch val := v.(type) {
 		case bool:
 			params = append(params, fmt.Sprintf("%s=%v", k, val))
