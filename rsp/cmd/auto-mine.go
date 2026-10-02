@@ -272,7 +272,11 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	data = [][]any{}
 	var done time.Time
 	if noPrint := getBool(cmd, "no_print"); !noPrint {
+		var printSet []common.PrintSetEntry
 		for devType, qty := range missing {
+			if qty == 0 {
+				continue
+			}
 			cfg := map[string]any{
 				"tags": []string{tag},
 			}
@@ -289,13 +293,16 @@ func autoMine(cmd *cobra.Command, args []string) error {
 					cfg["controller"] = c.String()
 				}
 			}
-			pPlan, err := common.Print(home, devType, qty, false, dryRun, cfg)
+			printSet = append(printSet, common.PrintSetEntry{Name: devType, Qty: qty, Config: cfg})
+		}
+		if len(printSet) > 0 {
+			pPlan, err := common.PrintSet(home, printSet, false, dryRun)
 			if err != nil {
 				return err
 			}
 			for factory, plan := range pPlan.Printers {
 				data = append(data, []any{
-					factory, devType, len(plan.Queued), plan.ETA,
+					factory, list(plan.Queued), len(plan.Queued), plan.ETA,
 				})
 				done = common.Later(done, plan.ETA)
 			}

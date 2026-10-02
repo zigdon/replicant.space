@@ -2,6 +2,7 @@ package common
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"slices"
@@ -16,8 +17,15 @@ type PrintPlanRec struct {
 	ETA    time.Time
 }
 
+type PrintSetEntry struct {
+	Name   string
+	Qty    int
+	Config map[string]any
+}
+
 type PrintPlan struct {
 	Location string
+	Set      []PrintSetEntry
 	Qty      int
 	Device   string
 	ETA      time.Time
@@ -76,17 +84,24 @@ func CheckQueue(where, tag, devType string, qty int) (int, time.Time) {
 }
 
 func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[string]any) (*PrintPlan, error) {
-	if cfg == nil {
-		cfg = make(map[string]any)
-	}
-	bp := GetBP(name)
+	plan, err := PrintSet(where, []PrintSetEntry{{Name: name, Qty: qty, Config: cfg}}, useInventory, dryRun)
+	plan.Device = name
+	plan.Qty = qty
+
+	return plan, err
+}
+
+func PrintSet(where string, set []PrintSetEntry, useInventory, dryRun bool) (*PrintPlan, error) {
 	Log("***********************")
-	Log("Printing %d of %s at %s %v", qty, name, where, cfg)
-	Log("Print time, per copy: %s", bp.PrintTime.Duration())
+	Log("Printing set at %s:", where)
+	bps := make(map[string]*models.Blueprint)
+	for _, s := range set {
+		bps[s.Name] = GetBP(s.Name)
+		Log("  - %d x %s %v (%s per copy)", s.Qty, s.Name, s.Config, bps[s.Name].PrintTime)
+	}
 	pPlan := &PrintPlan{
 		Location: where,
-		Qty:      qty,
-		Device:   name,
+		Set:      set,
 		Printers: make(map[*models.CodeAlias]*PrintPlanRec),
 	}
 
@@ -120,29 +135,45 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 		}
 	}
 
+	var lines []string
+	totals := make(map[string]int)
+	for _, s := range set {
+		for k, v := range bps[s.Name].Resources {
+			if !slices.Contains(lines, k) {
+				lines = append(lines, k)
+			}
+			totals[k] += v * s.Qty
+		}
+		for k, v := range bps[s.Name].Components {
+			bps[k] = GetBP(k)
+			if !slices.Contains(lines, k) {
+				lines = append(lines, k)
+			}
+			totals[k] += v * s.Qty
+		}
+	}
+
 	var data [][]any
-	for k, v := range bp.Resources {
-		data = append(data, []any{k, v, v * qty, inventory[k], ""})
+	for _, l := range lines {
+		data = append(data, []any{l, totals[l], inventory[l], pending[l]})
 	}
-	for k, v := range bp.Components {
-		data = append(data, []any{k, v, v * qty, inventory[k], pending[k]})
-	}
-	PrintTable([]string{"Ingredient", "Per copy", "Total needed", "Available", "Queued"}, data)
+	PrintTable([]string{"Ingredient", "Needed", "Available", "Queued"}, data)
 
 	// Simulate printing, so we can figure out what we actually need
 	type batch struct {
 		name string
 		qty  int
 		wave int
+		cfg  map[string]any
 	}
 	var toPrint []batch
-	var simulate func(string, int, int) error
+	var simulate func(string, int, int, map[string]any) error
 	printCost := make(map[string]int)
-	simulate = func(name string, qty, wave int) error {
+	simulate = func(name string, qty, wave int, cfg map[string]any) error {
 		if qty <= 0 {
 			return nil
 		}
-		toPrint = append(toPrint, batch{name: name, qty: qty, wave: wave})
+		toPrint = append(toPrint, batch{name: name, qty: qty, wave: wave, cfg: cfg})
 		bp := GetBP(name)
 		if bp == nil {
 			return fmt.Errorf("Blueprint not available for %q", name)
@@ -164,7 +195,7 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 				missing -= inventory[c]
 			}
 			if missing > 0 {
-				if err := simulate(c, missing, wave+1); err != nil {
+				if err := simulate(c, missing, wave+1, map[string]any{"device_type": c}); err != nil {
 					return err
 				}
 			}
@@ -172,7 +203,15 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 		}
 		return nil
 	}
-	if err := simulate(name, qty, 0); err != nil {
+	var errs []error
+	for _, s := range set {
+		if s.Config == nil {
+			s.Config = make(map[string]any)
+		}
+		s.Config["device_type"] = s.Name
+		errs = append(errs, simulate(s.Name, s.Qty, 0, s.Config))
+	}
+	if err := errors.Join(errs...); err != nil {
 		return pPlan, fmt.Errorf("Printing simulation failed: %v", err)
 	}
 	Log("Print queue:")
@@ -197,6 +236,7 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 		delay   time.Duration
 		eta     time.Duration
 		toQueue []string
+		cfgs    []map[string]any
 		avail   int
 	}
 	plan := make(map[string]*rec)
@@ -230,6 +270,9 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 			}
 			// Add the next print
 			pl.toQueue = append(pl.toQueue, next.name)
+			cfg := next.cfg
+			cfg["device_type"] = bps[next.name].DeviceType
+			pl.cfgs = append(pl.cfgs, next.cfg)
 			pl.eta = pl.eta + GetBP(next.name).PrintTime.Duration()
 			plan[p.Alias()] = pl
 			found = true
@@ -243,12 +286,13 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 				toPrint = toPrint[1:]
 			}
 		} else {
-			Log("Ran out of print slots, %d copies remaining", qty)
-			break
+			Log("Could not find print slots for:")
+			for _, tp := range toPrint {
+				Log("  %d x %s", tp.qty, tp.name)
+			}
+			return pPlan, fmt.Errorf("Ran out of print slots")
 		}
 	}
-
-	cfg["device_type"] = bp.DeviceType
 
 	slices.SortFunc(printers, func(a, b *models.CodeAlias) int {
 		return cmp.Compare(a.Num(), b.Num())
@@ -270,23 +314,17 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 		data = append(data, []any{
 			p, CountList(pl.toQueue), pl.delay, pl.eta,
 		})
-		for _, tq := range pl.toQueue {
+		for n, tq := range pl.toQueue {
 			if tq == "" {
 				continue
 			}
 			if dryRun {
-				Log("would print %q on %q", tq, p.Alias())
+				Log("would print %q on %q %v", tq, p.Alias(), pl.cfgs[n])
 				continue
 			}
-			if tq == name {
-				_, err = rest.DeviceCommand[models.CommandResp](p, "enqueue_print", cfg)
-			} else {
-				_, err = rest.DeviceCommand[models.CommandResp](p, "enqueue_print", map[string]any{
-					"device_type": tq,
-				})
-			}
+			_, err = rest.DeviceCommand[models.CommandResp](p, "enqueue_print", pl.cfgs[n])
 			if err != nil {
-				return pPlan, fmt.Errorf("Failed to queue %q at %s: %v", cfg["device_type"], p, err)
+				return pPlan, fmt.Errorf("Failed to queue %q at %s: %v", pl.cfgs[n]["device_type"], p, err)
 			}
 		}
 	}
