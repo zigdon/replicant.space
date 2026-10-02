@@ -269,54 +269,36 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	printTable([]string{"Device", "Target", "Found", "Repurposed", "Missing", "Extra", "Members"}, data)
 
 	// Enqueue a build
-	extra := make(map[string]time.Duration)
 	data = [][]any{}
 	var done time.Time
-	if noPrint := getBool(cmd, "no_print"); !dryRun && !noPrint {
+	if noPrint := getBool(cmd, "no_print"); !noPrint {
 		for devType, qty := range missing {
-			for qty > 0 {
-				factory, err := common.FindPrinter(printers, extra)
-				if err != nil {
-					return fmt.Errorf("No available factory found to queue %s: %v", devType, err)
+			cfg := map[string]any{
+				"tags": []string{tag},
+			}
+			if t, ok := strings.CutSuffix(devType, "_drone"); ok {
+				if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
+					cfg["controller"] = c.String()
 				}
-				cfg := map[string]any{
-					"device_type": devType,
-					"tags":        []string{tag},
+			} else if devType == "mining_rig" {
+				if c, ok := amis["ami_mining_controller"]; ok {
+					cfg["controller"] = c.String()
 				}
-				if t, ok := strings.CutSuffix(devType, "_drone"); ok {
-					if c, ok := amis[fmt.Sprintf("ami_%s_controller", t)]; ok {
-						cfg["controller"] = c.String()
-					}
-				} else if devType == "mining_rig" {
-					if c, ok := amis["ami_mining_controller"]; ok {
-						cfg["controller"] = c.String()
-					}
-				} else if devType == "belt_surveyor" {
-					if c, ok := amis["ami_survey_controller"]; ok {
-						cfg["controller"] = c.String()
-					}
-				}
-				log("Printing %q at %q...", devType, factory.Alias())
-				if !dryRun {
-					res, err := rest.DeviceCommand[models.CommandResp](factory, "enqueue_print", cfg)
-					if err != nil {
-						return err
-					}
-					data = append(data, []any{
-						factory, devType, res.Status, res.QueueLength + 1,
-					})
-				}
-				extra[factory.String()] += common.GetBP(devType).PrintTime.Duration()
-				qty -= 1
-				if fi, err := getInfo(factory); err == nil {
-					eta := common.GetPrintQueueETA(fi)
-					qt := time.Now().Add(eta).Add(extra[factory.String()])
-					if qt.After(done) {
-						done = qt
-					}
+			} else if devType == "belt_surveyor" {
+				if c, ok := amis["ami_survey_controller"]; ok {
+					cfg["controller"] = c.String()
 				}
 			}
-
+			pPlan, err := common.Print(home, devType, qty, false, dryRun, cfg)
+			if err != nil {
+				return err
+			}
+			for factory, plan := range pPlan.Printers {
+				data = append(data, []any{
+					factory, devType, len(plan.Queued), plan.ETA,
+				})
+				done = common.Later(done, plan.ETA)
+			}
 		}
 	} else if len(missing) > 0 {
 		var skip []string
@@ -351,7 +333,7 @@ func autoMine(cmd *cobra.Command, args []string) error {
 	if len(data) > 0 {
 		log("Waiting for missing devices:")
 		printTable([]string{
-			"Factory", "Type", "Status", "Queue Posititon",
+			"Factory", "Type", "Count", "ETA",
 		}, data)
 		return nil
 	}
