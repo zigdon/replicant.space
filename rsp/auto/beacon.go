@@ -228,6 +228,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		return eta, err
 	}
 	nextState := bm.state
+	var nextDest string
 	log("State: %s", bm.state)
 	switch bm.state {
 	case BeaconStates_Transit:
@@ -273,11 +274,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 				dests = append(dests, string(k))
 			}
 			slices.Sort(dests)
-			var err error
-			eta, err = common.Travel(bm.dev.Code, dests[0], bm.dryRun)
-			if err != nil {
-				return eta, err
-			}
+			nextDest = dests[0]
 			nextState = BeaconStates_Incoming
 		} else {
 			log("Done with %s", bm.dev.Location.Star())
@@ -317,10 +314,11 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 			if err != nil {
 				return eta, err
 			}
-			log("Heading to %s to wait for resupply", relay)
-			eta, err = common.Travel(bm.dev.Code, relay, bm.dryRun)
-			if err != nil {
-				return eta, err
+			if relay != bm.dev.Location.Star() {
+				log("Heading to %s to wait for resupply", relay)
+				nextDest = relay
+			} else {
+				log("Waiting for resupply at %s", bm.dev.Location)
 			}
 		} else {
 			if len(bm.supply.AttachedDevices) == 0 {
@@ -429,10 +427,7 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 		} else {
 			log("Next stop, %s, %.2f LY away", next, dist)
 		}
-		eta, err = common.Travel(bm.dev.Code, next, bm.dryRun)
-		if err != nil {
-			return eta, err
-		}
+		nextDest = next
 	default:
 		return eta, fmt.Errorf("Unknown state: %q", bm.state)
 	}
@@ -514,6 +509,14 @@ func (bm *BeaconMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 		log("Supply ship in transit: %s (%s)", eta, time.Until(eta))
+	}
+
+	if nextDest != "" {
+		var err error
+		eta, err = common.Travel(bm.dev.Code, nextDest, bm.dryRun)
+		if err != nil {
+			return eta, err
+		}
 	}
 
 	if nextState != bm.state {

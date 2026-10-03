@@ -24,20 +24,22 @@ type TripLeg struct {
 }
 
 type Trip struct {
-	Arrives         *JSONTime      `json:"arrives_at"`
-	Departed        *JSONTime      `json:"departed_at"`
-	Destination     LocationID     `json:"destination"`
-	DestinationName string         `json:"destination_name"`
-	DistanceLy      float32        `json:"distance_ly"`
-	Error           string         `json:"error"`
-	Eta             *JSONTimeDelta `json:"eta_seconds"`
-	Origin          LocationID     `json:"origin"`
-	OriginName      string         `json:"origin_name"`
-	ProgressPercent float32        `json:"progress_percent"`
-	Route           []*TripLeg     `json:"route"`
-	Status          string         `json:"status"`
-	TotalTime       *JSONTimeDelta `json:"total_time_seconds"`
-	Type            string         `json:"type"`
+	Arrives              *JSONTime      `json:"arrives_at"`
+	Departed             *JSONTime      `json:"departed_at"`
+	Destination          LocationID     `json:"destination"`
+	DestinationName      string         `json:"destination_name"`
+	DistanceLy           float32        `json:"distance_ly"`
+	Error                string         `json:"error"`
+	Eta                  *JSONTimeDelta `json:"eta_seconds"`
+	FinalDestination     LocationID     `json:"final_destination"`
+	FinalDestinationName string         `json:"final_destination_name"`
+	Origin               LocationID     `json:"origin"`
+	OriginName           string         `json:"origin_name"`
+	ProgressPercent      float32        `json:"progress_percent"`
+	Route                []*TripLeg     `json:"route"`
+	Status               string         `json:"status"`
+	TotalTime            *JSONTimeDelta `json:"total_time_seconds"`
+	Type                 string         `json:"type"`
 
 	Device *CodeAlias
 }

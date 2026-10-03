@@ -98,8 +98,8 @@ func (dm *DivertMachine) UpdateState() error {
 	})
 	inTransit := dev.Location == ""
 	var activeSite bool
+	loc, err := rest.Location(string(dev.Location))
 	if !inTransit {
-		loc, err := rest.Location(string(dev.Location))
 		if err != nil {
 			return err
 		}
@@ -111,14 +111,23 @@ func (dm *DivertMachine) UpdateState() error {
 	switch {
 	case inTransit:
 		dm.state = DivertMachine_Transit
+		dest := "unknown"
+		if dev.Travel != nil {
+			dest = string(dev.Travel.FinalDestination)
+		}
+		dm.status = fmt.Sprintf("Transiting to %s", dest)
 	case hasDevices && activeSite:
 		dm.state = DivertMachine_Incoming
+		dm.status = fmt.Sprintf("Arrived at %s", dev.Location)
 	case activeSite:
 		dm.state = DivertMachine_Working
+		dm.status = fmt.Sprintf("Diverting at %s: %.2f%%", dev.Location, loc.Object.ProgressPct)
 	case !hasMtd:
 		dm.state = DivertMachine_Cleanup
+		dm.status = fmt.Sprintf("Packing up at %s", dev.Location)
 	case hasMtd:
 		dm.state = DivertMachine_Leaving
+		dm.status = fmt.Sprintf("Leaving %s", dev.Location)
 	default:
 		return fmt.Errorf("Unknown state")
 	}

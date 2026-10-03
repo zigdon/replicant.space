@@ -205,10 +205,15 @@ func (em *ExploreMachine) UpdateState() error {
 		em.state = ExploreState_Incoming
 	case !explored:
 		em.state = ExploreState_Scanning
+		em.status = fmt.Sprintf(
+			"scanning %s (%d/%d p, %d/%d m)",
+			dev.Location.Star(), loc.PlanetsScanned, loc.PlanetsTotal, loc.MoonsScanned, loc.MoonsTotal)
 	case !stowed:
 		em.state = ExploreState_Cleanup
+		em.status = fmt.Sprintf("cleaning up at %s", dev.Location.Star())
 	case stowed && explored:
 		em.state = ExploreState_Leaving
+		em.status = fmt.Sprintf("leaving %s", dev.Location.Star())
 	default:
 		return fmt.Errorf("Unknown state!")
 	}
@@ -280,7 +285,6 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 		nextState = ExploreState_Scanning
 		eta = time.Now()
 	case ExploreState_Scanning:
-		em.status = "scanning"
 		if em.sb.StowedInDeviceCode != nil || em.asc.StowedInDeviceCode != nil {
 			log("launching drones")
 			if _, err := typedDeviceCommand[models.AssembleResp](em.asc.Code, "launch", nil, em.dryRun); err != nil {
@@ -292,7 +296,6 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 			return eta, err
 		}
 	case ExploreState_Cleanup:
-		em.status = "cleaning up"
 		log("Scan complete:")
 		if err := getLogs(); err != nil {
 			return eta, err
@@ -320,7 +323,6 @@ func (em *ExploreMachine) Process() (time.Time, error) {
 		}
 		log("Recalled all the devices")
 	case ExploreState_Leaving:
-		em.status = "leaving"
 		// TODO: add a task to install a beacon on planets with life
 		stars, err := rest.ReplicantCensus(em.dev.ReplicantCode, 50, 0)
 		if err != nil {

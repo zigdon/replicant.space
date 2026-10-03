@@ -283,43 +283,96 @@ var intentDeliveriesCmd = &cobra.Command{
 	Short:   "Show deliveries currently in progress",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		rows, err := db.Query(`
-		SELECT origin, destination, ship, cargo, data
-		FROM deliveries
-		JOIN json_devices ON ship = code
-		ORDER BY id`)
+			SELECT origin, destination, ship, cargo, data, location
+			FROM deliveries
+			JOIN json_devices ON ship = code
+			ORDER BY id`)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		var data [][]any
+		totals := make(map[string]map[string]int)
+		ships := make(map[string]int)
+
+		var dests []string
+		var totalShips int
+		var totalUtil float32
 		for rows.Next() {
-			var o, d, ca string
+			totalShips++
+			var o, d, ca, l string
 			var cargo cache.JSONB[map[string]int]
 			var shipData cache.JSONB[models.Device]
-			if err := rows.Scan(&o, &d, &ca, &cargo, &shipData); err != nil {
+			if err := rows.Scan(&o, &d, &ca, &cargo, &shipData, &l); err != nil {
 				return err
 			}
-			var arrives time.Time
-			if shipData.Data.Travel != nil {
-				arrives = shipData.Data.Travel.Arrives.Time()
+			ships[d]++
+			if !slices.Contains(dests, d) {
+				dests = append(dests, d)
 			}
-			line := []any{o, d, models.NewCodeAlias(ca), arrives}
+			var stage string
+			var arrives time.Duration
+			switch {
+			case l == o:
+				stage = "^^"
+			case l == d:
+				stage = "vv"
+			case shipData.Data.Travel == nil:
+				stage = "??"
+			case strings.HasPrefix(o, shipData.Data.Travel.FinalDestination.Star()+"-"):
+				stage = "<<"
+			case strings.HasPrefix(d, shipData.Data.Travel.FinalDestination.Star()+"-"):
+				stage = ">>"
+			default:
+				stage = shipData.Data.Travel.FinalDestination.Star()
+			}
+			if shipData.Data.Travel != nil {
+				arrives = time.Until(shipData.Data.Travel.Arrives.Time())
+			}
+			line := []any{o, stage, d, models.NewCodeAlias(ca), arrives}
 			var tot int
 			for _, r := range constants.Resources {
+				if _, ok := totals[d]; !ok {
+					totals[d] = make(map[string]int)
+				}
 				if v, ok := cargo.Data[r]; ok {
 					line = append(line, v)
 					tot += v
+					totals[d][r] += v
+					totals[d]["_total"] += v
 				} else {
 					line = append(line, "")
 				}
 			}
-			line = append(line, tot)
+			util := 100 * float32(tot) / 500
+			totalUtil += util
+			line = append(line, tot, util)
 			data = append(data, line)
 		}
-		headers := []string{"From", "To", "Ship", "Arrives"}
+		slices.Sort(dests)
+		slices.SortFunc(data, func(a, b []any) int {
+			return cmp.Or(
+				cmp.Compare(a[2].(string), b[2].(string)),
+				cmp.Compare(a[0].(string), b[0].(string)),
+			)
+		})
+		headers := []string{"From", "Stage", "To", "Ship", "Arrives"}
 		headers = append(headers, constants.Resources...)
+		headers = append(headers, "Total", "Utilization")
+		printTable(headers, data)
+		data = data[:0]
+		for _, d := range dests {
+			l := []any{d, ships[d]}
+			for _, r := range constants.Resources {
+				l = append(l, totals[d][r])
+			}
+			l = append(l, totals[d]["_total"])
+			data = append(data, l)
+		}
+		headers = append([]string{"Destination", "Count"}, constants.Resources...)
 		headers = append(headers, "Total")
 		printTable(headers, data)
+		fmt.Printf("Total ships: %d, average utilization: %.2f%%\n", totalShips, totalUtil/float32(totalShips))
 		return nil
 	},
 }

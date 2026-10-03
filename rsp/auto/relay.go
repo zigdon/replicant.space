@@ -492,9 +492,14 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 			log("Waiting for resupply at %q", rm.dev.Location)
 			return eta, rm.resupply("")
 		}
+		resupplyHome := common.ClosestHomes(rm.supply.Location)[0]
 		if len(rm.supply.AttachedDevices) == 0 {
-			return eta, fmt.Errorf("Resupply vessage %q unexpectedly empty at %q",
-				rm.supply.Code.Alias(), rm.dev.Location)
+			log("Sending %q to %q to pick up supplies", rm.supply.Code, resupplyHome)
+			eta, err := common.Travel(rm.supply.Code, resupplyHome, rm.dryRun)
+			if err != nil {
+				return eta, err
+			}
+			return eta, fmt.Errorf("Waiting for %q to resupply", rm.supply.Code.Alias())
 		}
 		stowCap := rm.dev.StowCapacity - len(rm.dev.StowedDevices.Devices)
 		atCap := rm.dev.AttachCapacity - len(rm.dev.AttachedDevices)
@@ -530,7 +535,6 @@ func (rm *RelayMachine) Process() (time.Time, error) {
 		}
 		log("Picked up %d FRs, %d DSRSs, shipping resupply back home", stowed, attached)
 		var err error
-		resupplyHome := common.ClosestHomes(rm.supply.Location)[0]
 		eta, err = common.Travel(rm.supply.Code, resupplyHome, rm.dryRun)
 		if err != nil {
 			return eta, err

@@ -130,7 +130,7 @@ func (fm *FollowMachine) Process() (time.Time, error) {
 		}
 	case FollowState_Idle:
 		log("%s idle at %s", fm.target.Code.Alias(), fm.dev.Location.Star())
-		eta = time.Now().Add(time.Minute)
+		eta = time.Now().Add(5 * time.Minute)
 	case FollowState_Waiting:
 		if fm.target.Travel != nil && fm.target.Travel.Arrives != nil {
 			targetArrival := fm.target.Travel.Arrives.Time()
@@ -138,7 +138,7 @@ func (fm *FollowMachine) Process() (time.Time, error) {
 				fm.dev, fm.dev.Location, fm.target, fm.dest, time.Until(targetArrival))
 			eta = targetArrival.Add(5 * time.Second)
 		} else {
-			eta = time.Now().Add(time.Minute)
+			eta = time.Now().Add(5 * time.Minute)
 		}
 	case FollowState_Departing:
 		destSys := fm.dest.Star()

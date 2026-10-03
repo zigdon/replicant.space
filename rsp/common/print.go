@@ -92,6 +92,17 @@ func Print(where, name string, qty int, useInventory, dryRun bool, cfg map[strin
 }
 
 func PrintSet(where string, set []PrintSetEntry, useInventory, dryRun bool) (*PrintPlan, error) {
+	empty := true
+	for _, s := range set {
+		if s.Qty > 0 {
+			empty = false
+			break
+		}
+	}
+	if empty {
+		Log("Nothing to print")
+		return nil, nil
+	}
 	Log("***********************")
 	Log("Printing set at %s:", where)
 	bps := make(map[string]*models.Blueprint)

@@ -972,12 +972,13 @@ func readStream(cmd *cobra.Command, args []string) error {
 			allDevs := append(ev.AttachedDevices, env.DeviceCode)
 			update(func(d *models.Device) {
 				change(&d.Travel, &models.Trip{
-					Arrives:     ev.ArrivesAt,
-					Destination: ev.Destination,
-					Origin:      ev.Origin,
-					TotalTime:   ev.TravelTime,
-					Type:        ev.TravelType,
-					Route:       legs,
+					Arrives:          ev.ArrivesAt,
+					Destination:      ev.Destination,
+					FinalDestination: ev.Destination,
+					Origin:           ev.Origin,
+					TotalTime:        ev.TravelTime,
+					Type:             ev.TravelType,
+					Route:            legs,
 				})
 				change(&d.Location, "")
 				if ev.TravelType == "surge" {

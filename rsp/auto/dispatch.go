@@ -43,6 +43,27 @@ type pickupTask struct {
 	complete  bool
 }
 
+func (pt *pickupTask) Stage() string {
+	if pt.complete {
+		return "x"
+	}
+	if pt.ship == nil {
+		return "_"
+	}
+	s := pt.ship
+	switch {
+	case s.Location.Star() == pt.pickup.Star():
+		return "^^"
+	case s.Location.Star() == pt.dropoff.Star():
+		return "vv"
+	case s.Travel != nil && s.Travel.FinalDestination.Star() == pt.pickup.Star():
+		return "<<"
+	case s.Travel != nil && s.Travel.FinalDestination.Star() == pt.dropoff.Star():
+		return ">>"
+	}
+	return "??"
+}
+
 func (pt *pickupTask) String() string {
 	var ship string
 	if pt.ship != nil {
@@ -217,24 +238,17 @@ func (dm *DispatchMachine) UpdateState() error {
 	dm.tasks = dm.tasks[:0]
 	for deliveries.Next() {
 		var from, to, ship string
-		var cData, data []byte
-		if err := deliveries.Scan(&from, &to, &ship, &cData, &data); err != nil {
+		var cargo cache.JSONB[map[string]int]
+		var device cache.JSONB[*models.Device]
+		if err := deliveries.Scan(&from, &to, &ship, &cargo, &device); err != nil {
 			return err
 		}
-		var cargo map[string]int
-		if err := json.Unmarshal(cData, &cargo); err != nil {
-			return err
-		}
-		var device *models.Device
-		if err := json.Unmarshal(data, &device); err != nil {
-			return err
-		}
-		dm.manifest[ship] = cargo
+		dm.manifest[ship] = cargo.Data
 		dm.tasks = append(dm.tasks, &pickupTask{
 			pickup:    models.LocationID(from),
 			dropoff:   models.LocationID(to),
-			ship:      device,
-			resources: cargo,
+			ship:      device.Data,
+			resources: cargo.Data,
 		})
 	}
 
@@ -319,7 +333,6 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 	// find nearby stars that have the required materials (but reserve whatever demand they have set)
 	var fields []string
 	var wheres []string
-	var n = 4
 	var total int
 	var vals []any
 	for k, v := range missing {
@@ -331,13 +344,8 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 		}
 		fields = append(fields, k)
 		total += v
-		if v > 500 {
-			wheres = append(wheres, fmt.Sprintf("%s >= 500", k))
-		} else {
-			wheres = append(wheres, fmt.Sprintf("%s >= $%d", k, n))
-			vals = append(vals, v)
-			n++
-		}
+		// Always find at least 500, so we have enough to fill an entire freighter
+		wheres = append(wheres, fmt.Sprintf("%s >= 500", k))
 	}
 	if total == 0 {
 		return tasks, fmt.Errorf("Nothing is missing at %s", loc)
@@ -440,7 +448,20 @@ func (dm *DispatchMachine) findSys(loc models.LocationID, missing map[string]int
 			if task.Empty() {
 				break
 			}
-			maps.Copy(allocated, task.resources)
+
+			// If there's space left, fill more of whatever we were collecting
+			if space > 0 {
+				for r := range task.resources {
+					extra := min(space, res[r])
+					task.resources[r] += extra
+					res[r] -= extra
+					space -= extra
+				}
+			}
+
+			for r, v := range task.resources {
+				allocated[r] += v
+			}
 			tasks = append(tasks, task)
 			newPickup[sys] = allocated
 		}
@@ -724,7 +745,12 @@ func (dm *DispatchMachine) SaveState(state string) error {
 }
 
 func (dm *DispatchMachine) Status() string {
-	return fmt.Sprintf("%d deliveries in flight", len(dm.tasks))
+	s := make(map[string]int)
+	for _, t := range dm.tasks {
+		s[t.Stage()]++
+	}
+	return fmt.Sprintf("%d in flight (%d->%d/%d/%d/%d->%d)", len(dm.tasks),
+		s["_"], s["<<"], s["^^"], s[">>"], s["vv"], s["x"])
 }
 
 func (dm *DispatchMachine) Name() string {
