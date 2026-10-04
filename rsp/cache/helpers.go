@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -212,6 +213,79 @@ func (db *Cache) QueryStarsInRadius(x, y, z, radius float32, limit int) ([]*Star
 			&s.SpectralType, &s.Explored, &s.HasLife,
 			&s.Position, &s.HasHub,
 			&s.Region, &s.Distance,
+		); err != nil {
+			return nil, err
+		}
+		stars = append(stars, s)
+	}
+	return stars, rows.Err()
+}
+
+type VectorStarRecord struct {
+	Designation string
+	Position    Position
+	Distance    float32
+	Deviation   float32
+}
+
+func (db *Cache) QueryStarsAlongVector(origin, vector *Position, maxDevDeg, maxDist, minDist float32, limit int) ([]*VectorStarRecord, error) {
+	if db == nil || db.DB == nil {
+		return nil, fmt.Errorf("database cache is not connected")
+	}
+	if origin == nil || vector == nil {
+		return nil, fmt.Errorf("origin and vector cannot be nil")
+	}
+
+	cosThreshold := float64(math.Cos(float64(maxDevDeg) * math.Pi / 180.0))
+	if minDist <= 0.001 {
+		minDist = 0.001
+	}
+
+	q := `
+		SELECT designation, position,
+		       (position <-> $1::cube)::float AS dist,
+		       (acos(least(1.0::double precision, greatest(-1.0::double precision,
+		           (
+		               ((position->1)::float - $2) * $3 +
+		               ((position->2)::float - $4) * $5 +
+		               ((position->3)::float - $6) * $7
+		           ) / (position <-> $1::cube)
+		       ))) * 180.0 / pi())::float AS deviation_deg
+		FROM stars
+		WHERE (position <-> $1::cube) > $8
+		  AND (
+		      ((position->1)::float - $2) * $3 +
+		      ((position->2)::float - $4) * $5 +
+		      ((position->3)::float - $6) * $7
+		  ) >= (position <-> $1::cube) * $9`
+
+	params := []any{*origin, origin.X, vector.X, origin.Y, vector.Y, origin.Z, vector.Z, minDist, cosThreshold}
+	paramIdx := 10
+
+	if maxDist > 0 {
+		q += fmt.Sprintf(" AND (position <-> $1::cube) <= $%d", paramIdx)
+		params = append(params, maxDist)
+		paramIdx++
+	}
+
+	q += " ORDER BY dist ASC"
+
+	if limit > 0 {
+		q += fmt.Sprintf(" LIMIT $%d", paramIdx)
+		params = append(params, limit)
+	}
+
+	rows, err := db.Query(q, params...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stars []*VectorStarRecord
+	for rows.Next() {
+		s := new(VectorStarRecord)
+		if err := rows.Scan(
+			&s.Designation, &s.Position, &s.Distance, &s.Deviation,
 		); err != nil {
 			return nil, err
 		}

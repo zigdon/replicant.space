@@ -144,13 +144,32 @@ type Cache struct {
 }
 
 func Connect(appName string) (*Cache, error) {
-	cfg, err := cfg.ReadCfg()
+	c, err := cfg.ReadCfg()
 	if err != nil {
 		return nil, err
 	}
-	pdb, err := sql.Open("postgres",
-		fmt.Sprintf("host=%s dbname=%s connect_timeout=5 sslmode=prefer application_name=%s",
-			cfg.DBHost, cfg.DBName, appName))
+	return connectWithCfg(appName, c)
+}
+
+func ConnectTest(appName string) (*Cache, error) {
+	c, err := cfg.ReadTestCfg()
+	if err != nil {
+		return nil, err
+	}
+	return connectWithCfg(appName, c)
+}
+
+func connectWithCfg(appName string, c *cfg.Config) (*Cache, error) {
+	appName = strings.ReplaceAll(appName, " ", "_")
+	connStr := fmt.Sprintf("host=%s dbname=%s connect_timeout=5 sslmode=prefer application_name=%s",
+		c.DBHost, c.DBName, appName)
+	if c.Username != "" {
+		connStr += fmt.Sprintf(" user=%s", c.Username)
+	}
+	pdb, err := sql.Open("postgres", connStr)
+	if err != nil {
+		return nil, err
+	}
 
 	db := &Cache{
 		DB: pdb,

@@ -922,3 +922,21 @@ func RelayIsland(loc string, hop float32, limit int) ([]string, error) {
 	}
 	return res, nil
 }
+
+// ParseVector parses and normalizes a 3D vector string (e.g. "0.97,0.10,-0.20").
+func ParseVector(vecStr string) (*models.Position, error) {
+	clean := strings.Trim(vecStr, "()[]{} ")
+	clean = strings.ReplaceAll(clean, ",", " ")
+	clean = strings.ReplaceAll(clean, ":", " ")
+	var vx, vy, vz float32
+	n, sErr := fmt.Sscanf(clean, "%f %f %f", &vx, &vy, &vz)
+	if sErr != nil || n != 3 {
+		return nil, fmt.Errorf("unable to parse vector %q: expected x,y,z", vecStr)
+	}
+	m := float32(math.Sqrt(float64(vx*vx + vy*vy + vz*vz)))
+	if m == 0 {
+		return nil, fmt.Errorf("vector cannot be zero (0,0,0)")
+	}
+	return models.NewPosition(vx/m, vy/m, vz/m), nil
+}
+

@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	cfgFile = ".config.yaml"
+	cfgFile     = ".config.yaml"
+	testCfgFile = "testconfig.yaml"
 )
 
 type Config struct {
@@ -19,9 +20,23 @@ type Config struct {
 }
 
 func ReadCfg() (*Config, error) {
-	data, err := os.ReadFile(cfgFile)
+	return ReadCfgFile(cfgFile)
+}
+
+func ReadTestCfg() (*Config, error) {
+	paths := []string{testCfgFile, "../" + testCfgFile, "../../" + testCfgFile}
+	for _, p := range paths {
+		if c, err := ReadCfgFile(p); err == nil {
+			return c, nil
+		}
+	}
+	return ReadCfgFile(testCfgFile)
+}
+
+func ReadCfgFile(file string) (*Config, error) {
+	data, err := os.ReadFile(file)
 	if err != nil {
-		return nil, fmt.Errorf("can't read cfg %q: %v", cfgFile, err)
+		return nil, fmt.Errorf("can't read cfg %q: %v", file, err)
 	}
 	var cfg *Config
 	err = yaml.Unmarshal(data, &cfg)

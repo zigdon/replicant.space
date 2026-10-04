@@ -187,6 +187,13 @@ var plotSpareHubCmd = &cobra.Command{
 	RunE:  plotSpareHubs,
 }
 
+var plotVectorCmd = &cobra.Command{
+	Use:               "vector <origin> <x,y,z>",
+	Short:             "Find stars in a direction from an origin",
+	ValidArgsFunction: completeStars,
+	RunE:              plotVector,
+}
+
 func init() {
 	rootCmd.AddCommand(plotCmd)
 	plotCmd.Flags().Float32P("max_hop", "m", 7.5, "Maximum allow hop, in ly")
@@ -204,6 +211,12 @@ func init() {
 	plotCmd.AddCommand(plotDistanceCmd)
 	plotCmd.AddCommand(plotRegionsCmd)
 	plotCmd.AddCommand(plotSpareHubCmd)
+
+	plotCmd.AddCommand(plotVectorCmd)
+	plotVectorCmd.Flags().Float32P("deviation", "d", 5.0, "Maximum deviation from vector, in degrees")
+	plotVectorCmd.Flags().IntP("limit", "l", 0, "Max stars to return (0 for all)")
+	plotVectorCmd.Flags().Float32P("max_distance", "m", 0, "Max distance from origin, in ly")
+	plotVectorCmd.Flags().Float32("min_distance", 0, "Min distance from origin, in ly")
 
 	plotCmd.AddCommand(neighboursCmd)
 	neighboursCmd.Flags().Float32P("radius", "r", 7.5, "Radius for search")
@@ -715,5 +728,89 @@ func neighbourNetworks(cmd *cobra.Command, args []string) error {
 		return cmp.Compare(a[1].(float32), b[1].(float32))
 	})
 	printTable([]string{"Network", "Distance"}, data)
+	return nil
+}
+
+func plotVector(cmd *cobra.Command, args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("Missing required args: plot vector <origin> <x,y,z>")
+	}
+
+	origArg := strings.TrimSpace(args[0])
+	var originName string
+	var originPos *models.Position
+
+	star, err := models.NewStar(strings.ToUpper(origArg))
+	if err == nil && star != nil && star.Position != nil {
+		originName = star.Designation.Star()
+		originPos = star.Position
+	} else {
+		star, err = models.NewStar(origArg)
+		if err == nil && star != nil && star.Position != nil {
+			originName = star.Designation.Star()
+			originPos = star.Position
+		} else {
+			pos, errPos := models.ParsePosition(origArg)
+			if errPos == nil && pos != nil {
+				originName = pos.String()
+				originPos = pos
+			} else {
+				return fmt.Errorf("Unknown origin star or coordinates %q", origArg)
+			}
+		}
+	}
+
+	vecStr := strings.Join(args[1:], " ")
+	vec, err := common.ParseVector(vecStr)
+	if err != nil {
+		return err
+	}
+
+	maxDev := getFloat32(cmd, "deviation")
+	if maxDev <= 0 {
+		return fmt.Errorf("deviation must be greater than 0")
+	}
+	if maxDev > 180 {
+		return fmt.Errorf("deviation cannot exceed 180 degrees")
+	}
+	limit := getInt(cmd, "limit")
+	maxDist := getFloat32(cmd, "max_distance")
+	minDist := getFloat32(cmd, "min_distance")
+
+	origCube := originPos.AsCube()
+	vecCube := vec.AsCube()
+	records, err := db.QueryStarsAlongVector(
+		&origCube, &vecCube,
+		maxDev, maxDist, minDist,
+		limit,
+	)
+	if err != nil {
+		return fmt.Errorf("Error querying stars along vector: %v", err)
+	}
+
+	if len(records) == 0 {
+		log("No stars found from %s along vector [%.2f, %.2f, %.2f] within %.2f° deviation",
+			originName, vec.X, vec.Y, vec.Z, maxDev)
+		return nil
+	}
+
+	var data [][]any
+	for _, r := range records {
+		pos := models.ParseCube(r.Position)
+		var devStr string
+		if r.Deviation < 0.01 && r.Deviation > 0 {
+			devStr = fmt.Sprintf("%.3f°", r.Deviation)
+		} else {
+			devStr = fmt.Sprintf("%.2f°", r.Deviation)
+		}
+		data = append(data, []any{
+			r.Designation,
+			pos.String(),
+			r.Distance,
+			devStr,
+		})
+	}
+
+	printTable([]string{"Designation", "Position", "Distance", "Deviation"}, data)
 	return nil
 }

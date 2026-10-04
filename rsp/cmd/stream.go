@@ -818,7 +818,7 @@ func readStream(cmd *cobra.Command, args []string) error {
 					}
 				}
 				if erm == nil {
-					return fmt.Errorf("Matrix not found in %q: %v", info.StowedDevices.Devices)
+					return fmt.Errorf("Matrix not found in %q: %v", ev.HostDeviceCode, info.StowedDevices.Devices)
 				}
 			}
 			update(func(d *models.Device) {
